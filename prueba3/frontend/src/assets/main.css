@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  @apply bg-club-cream text-slate-800;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'Oswald', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* Barra de scroll discreta */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #0B3D2E33; border-radius: 8px; }
+
+/* Foco visible accesible en toda la app */
+:focus-visible {
+  outline: 2px solid #C9A24B;
+  outline-offset: 2px;
+}
+
+/* Festivos nacionales en DatePicker (panel teleportado al body) */
+.p-datepicker-panel.datepicker-club-panel .p-datepicker-time-picker {
+  display: none !important;
+}
+.p-datepicker-panel .dp-festivo-es,
+.p-datepicker-panel span.dp-festivo-es,
+.p-datepicker-panel .p-datepicker-day.dp-festivo-es,
+.p-datepicker-panel .p-datepicker-day .dp-festivo-es {
+  background-color: #f97316 !important;
+  background: #f97316 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+}
+.p-datepicker-panel td.dp-festivo-es-cell .p-datepicker-day:not(.p-datepicker-day-selected) {
+  background-color: #f97316 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+.p-datepicker-panel .dp-panel-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+.p-datepicker-panel .dp-hora-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.p-datepicker-panel .dp-actions-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}

@@ -1,0 +1,16 @@
+<svg width="160" height="180" viewBox="0 0 160 180" xmlns="http://www.w3.org/2000/svg">
+  <!-- Escudo PLACEHOLDER. Sustituir por el escudo oficial del
+       Atlético Palma del Río en public/escudo.png y actualizar
+       las referencias en index.html y Login.vue -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#155B41"/>
+      <stop offset="100%" stop-color="#0B3D2E"/>
+    </linearGradient>
+  </defs>
+  <path d="M80 4 L152 28 V90 C152 132 122 162 80 176 C38 162 8 132 8 90 V28 Z"
+        fill="url(#g)" stroke="#C9A24B" stroke-width="4"/>
+  <circle cx="80" cy="76" r="34" fill="none" stroke="#F5F1E8" stroke-width="3"/>
+  <path d="M80 46 L92 68 H68 Z" fill="#F5F1E8"/>
+  <text x="80" y="130" text-anchor="middle" fill="#F5F1E8" font-family="Oswald, sans-serif" font-size="14" font-weight="600">A.P.R.</text>
+</svg>

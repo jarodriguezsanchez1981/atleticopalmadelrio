@@ -1,0 +1,24 @@
+const SECCIONES = [
+  { clave: 'calendario', nombre: 'Calendario', icono: 'pi pi-calendar', orden: 10 },
+  { clave: 'entrenamientos', nombre: 'Entrenamientos', icono: 'pi pi-stopwatch', orden: 20 },
+  { clave: 'partidos', nombre: 'Partidos', icono: 'pi pi-flag', orden: 30 },
+  { clave: 'temporadas', nombre: 'Temporadas', icono: 'pi pi-clock', orden: 40 },
+  { clave: 'lugares', nombre: 'Lugares', icono: 'pi pi-map-marker', orden: 50 },
+  { clave: 'categorias', nombre: 'Categorías', icono: 'pi pi-sitemap', orden: 60 },
+  { clave: 'jugadores', nombre: 'Jugadores', icono: 'pi pi-users', orden: 70 },
+  { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80 },
+  { clave: 'roles', nombre: 'Roles', icono: 'pi pi-key', orden: 90 },
+  { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-shield', orden: 100 }
+];
+
+async function ensureSecciones(Seccion) {
+  for (const s of SECCIONES) {
+    await Seccion.findOrCreate({
+      where: { clave: s.clave },
+      defaults: s
+    });
+  }
+  return Seccion.findAll({ order: [['orden', 'ASC']] });
+}
+
+module.exports = { SECCIONES, ensureSecciones };
