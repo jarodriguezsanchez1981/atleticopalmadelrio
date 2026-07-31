@@ -54,11 +54,11 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, fecha, id_lugar, equipo_rival, resultado, incidencias } = req.body;
+    const { id_categoria, fecha, id_lugar, equipo_rival, ubicacion, resultado, incidencias } = req.body;
     if (!id_categoria || !fecha || !id_lugar || !equipo_rival) {
       return res.status(400).json({ message: 'Categoría, fecha, lugar y equipo rival son obligatorios.' });
     }
-    const partido = await Partido.create({ id_categoria, fecha, id_lugar, equipo_rival, resultado, incidencias });
+    const partido = await Partido.create({ id_categoria, fecha, id_lugar, equipo_rival, ubicacion, resultado, incidencias });
     const creado = await Partido.findByPk(partido.id, { include: includesBase });
     res.status(201).json(creado);
   } catch (err) { next(err); }
@@ -68,11 +68,12 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_categoria, fecha, id_lugar, equipo_rival, resultado, incidencias } = req.body;
+    const { id_categoria, fecha, id_lugar, equipo_rival, ubicacion, resultado, incidencias } = req.body;
     if (id_categoria !== undefined) partido.id_categoria = id_categoria;
     if (fecha !== undefined) partido.fecha = fecha;
     if (id_lugar !== undefined) partido.id_lugar = id_lugar;
     if (equipo_rival !== undefined) partido.equipo_rival = equipo_rival;
+    if (ubicacion !== undefined) partido.ubicacion = ubicacion;
     if (resultado !== undefined) partido.resultado = resultado;
     if (incidencias !== undefined) partido.incidencias = incidencias;
     await partido.save();

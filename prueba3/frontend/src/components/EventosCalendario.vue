@@ -52,9 +52,9 @@ function etiquetaEvento(e) {
 
   if (e.tipo === 'partido') {
     const rival = e.equipo_rival || '—';
-    return `${hora} - ${categoria} - ${rival} - ${lugar}`;
+    return `${categoria} - ${rival} - ${lugar}`;
   }
-  return `${hora} - ${categoria} - ${lugar}`;
+  return `${categoria} - ${lugar}`;
 }
 
 async function fetchEventos(fetchInfo, successCallback, failureCallback) {

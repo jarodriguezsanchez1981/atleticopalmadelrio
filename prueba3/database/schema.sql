@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS partidos (
   fecha         DATETIME NOT NULL,
   id_lugar      INT NOT NULL,
   equipo_rival  VARCHAR(150) NOT NULL,
+  ubicacion     ENUM('local', 'visitante') NOT NULL DEFAULT 'local',
   resultado     VARCHAR(20)  NULL,
   incidencias   TEXT,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

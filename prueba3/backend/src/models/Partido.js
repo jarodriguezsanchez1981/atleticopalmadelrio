@@ -7,6 +7,7 @@ const Partido = sequelize.define('Partido', {
   fecha: { type: DataTypes.DATE, allowNull: false },
   id_lugar: { type: DataTypes.INTEGER, allowNull: false },
   equipo_rival: { type: DataTypes.STRING(150), allowNull: false },
+  ubicacion: { type: DataTypes.ENUM('local', 'visitante'), allowNull: false, defaultValue: 'local' },
   resultado: { type: DataTypes.STRING(20), allowNull: true },
   incidencias: { type: DataTypes.TEXT, allowNull: true }
 }, {

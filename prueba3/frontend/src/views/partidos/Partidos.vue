@@ -87,11 +87,21 @@ const columns = computed(() => [
   { field: 'fecha', header: 'Fecha y hora', type: 'date', required: true },
   { field: 'id_lugar', header: 'Lugar', type: 'select', options: opcionesLugar.value, required: true },
   { field: 'equipo_rival', header: 'Equipo rival', type: 'text', required: true },
+  {
+    field: 'ubicacion',
+    header: 'Ubicación',
+    type: 'select',
+    options: [
+      { label: 'Local', value: 'local' },
+      { label: 'Visitante', value: 'visitante' }
+    ],
+    required: true
+  },
   { field: 'resultado', header: 'Resultado', type: 'text' },
   { field: 'incidencias', header: 'Incidencias', type: 'textarea' }
 ]);
 
-const emptyItem = { id_categoria: null, fecha: null, id_lugar: null, equipo_rival: '', resultado: '', incidencias: '' };
+const emptyItem = { id_categoria: null, fecha: null, id_lugar: null, equipo_rival: '', ubicacion: 'local', resultado: '', incidencias: '' };
 
 function nombreCategoria(idCategoria) {
   return categorias.value.find(c => c.id === idCategoria)?.nombre || '—';
@@ -147,6 +157,9 @@ function formatearFecha(fecha) {
       </template>
       <template #cell-id_lugar="{ data }">
         {{ data.lugar?.nombre || nombreLugar(data.id_lugar) }}
+      </template>
+      <template #cell-ubicacion="{ data }">
+        {{ data.ubicacion === 'visitante' ? 'Visitante' : 'Local' }}
       </template>
       <template #cell-fecha="{ data }">
         {{ formatearFecha(data.fecha) }}

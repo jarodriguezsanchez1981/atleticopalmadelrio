@@ -76,7 +76,7 @@ prueba3/
 - `categorias` (id, nombre, temporada)
 - `jugadores` (id, nombre, apellidos, dni, id_categoria)
 - `entrenamientos` (id, id_categoria, fecha, lugar, incidencias)
-- `partidos` (id, id_categoria, fecha, lugar, equipo_rival, resultado, incidencias)
+- `partidos` (id, id_categoria, fecha, lugar, equipo_rival, ubicacion, resultado, incidencias)
 
 > `equipo_rival` y `resultado` se añaden a partidos para poder filtrar por rival.
 
