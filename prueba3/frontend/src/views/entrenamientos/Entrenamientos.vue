@@ -3,16 +3,10 @@ import { ref, onMounted, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import EventosCalendario from '../../components/EventosCalendario.vue';
 import { entrenamientosService, categoriasService, lugaresService } from '../../services';
-import Select from 'primevue/select';
-import Button from 'primevue/button';
 
 const categorias = ref([]);
 const lugares = ref([]);
-const tabla = ref();
 const calendario = ref();
-
-const filtroCategoria = ref(null);
-const filtroLugar = ref(null);
 
 onMounted(async () => {
   const [cats, lugs] = await Promise.all([
@@ -24,31 +18,12 @@ onMounted(async () => {
 });
 
 const opcionesCategoria = computed(() =>
-  categorias.value.map(c => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
+  categorias.value.map(c => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesLugar = computed(() =>
-  lugares.value.map(l => ({ label: l.nombre, value: l.id }))
+  lugares.value.map(l => ({ label: l.nombre, value: l.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
-
-const servicioFiltrado = {
-  ...entrenamientosService,
-  listar: () => entrenamientosService.listar({
-    id_categoria: filtroCategoria.value || undefined,
-    id_lugar: filtroLugar.value || undefined
-  })
-};
-
-function aplicarFiltros() {
-  tabla.value?.cargar();
-  calendario.value?.refrescar();
-}
-
-function limpiarFiltros() {
-  filtroCategoria.value = null;
-  filtroLugar.value = null;
-  aplicarFiltros();
-}
 
 function onTablaChanged() {
   calendario.value?.refrescar();
@@ -79,27 +54,10 @@ function formatearFecha(fecha) {
 
 <template>
   <div>
-    <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-end gap-3">
-      <div class="flex flex-col gap-1.5">
-        <label class="text-xs font-medium text-slate-500">Categoría</label>
-        <Select v-model="filtroCategoria" :options="opcionesCategoria" optionLabel="label" optionValue="value"
-                showClear placeholder="Todas" class="w-56" />
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label class="text-xs font-medium text-slate-500">Lugar</label>
-        <Select v-model="filtroLugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
-                showClear placeholder="Todos" class="w-56" />
-      </div>
-      <Button label="Filtrar" icon="pi pi-filter" @click="aplicarFiltros"
-              class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
-      <Button label="Limpiar" icon="pi pi-times" text @click="limpiarFiltros" />
-    </div>
-
     <CrudDataTable
-      ref="tabla"
       title="Entrenamientos"
       :columns="columns"
-      :service="servicioFiltrado"
+      :service="entrenamientosService"
       :emptyItem="emptyItem"
       @changed="onTablaChanged"
     >
@@ -117,7 +75,6 @@ function formatearFecha(fecha) {
     <EventosCalendario
       ref="calendario"
       tipo="entrenamiento"
-      :id-categoria="filtroCategoria"
       title="Calendario de entrenamientos"
       subtitle="Todos los entrenamientos registrados. Solo lectura."
     />

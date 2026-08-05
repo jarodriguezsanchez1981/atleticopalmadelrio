@@ -1,38 +1,49 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { categoriasService, entrenadoresService, temporadasService } from '../../services';
+import { categoriasService, entrenadoresService, temporadasService, delegadosService } from '../../services';
 
 const entrenadores = ref([]);
 const temporadas = ref([]);
+const delegados = ref([]);
 
 onMounted(async () => {
-  const [ents, temps] = await Promise.all([
+  const [ents, temps, dels] = await Promise.all([
     entrenadoresService.listar(),
-    temporadasService.listar()
+    temporadasService.listar(),
+    delegadosService.listar()
   ]);
   entrenadores.value = ents;
   temporadas.value = temps;
+  delegados.value = dels;
 });
 
 const opcionesTemporada = computed(() =>
-  temporadas.value.map(t => ({ label: t.nombre, value: t.id }))
+  temporadas.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesEntrenador = computed(() =>
   entrenadores.value.map(e => ({
     label: `${e.nombre} ${e.apellidos}`,
     value: e.id
-  }))
+  })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
+const opcionesDelegado = computed(() =>
+  delegados.value.map(d => ({
+    label: `${d.nombre} ${d.apellidos}`,
+    value: d.id
+  })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const columns = computed(() => [
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
-  { field: 'id_entrenador', header: 'Entrenador', type: 'select', options: opcionesEntrenador.value, required: false }
+  { field: 'id_entrenador', header: 'Entrenador', type: 'select', options: opcionesEntrenador.value, required: false },
+  { field: 'id_delegado', header: 'Delegado', type: 'select', options: opcionesDelegado.value, required: false }
 ]);
 
-const emptyItem = { nombre: '', id_temporada: null, id_entrenador: null };
+const emptyItem = { nombre: '', id_temporada: null, id_entrenador: null, id_delegado: null };
 
 function nombreTemporada(id) {
   return temporadas.value.find(t => t.id === id)?.nombre || '—';
@@ -41,6 +52,11 @@ function nombreTemporada(id) {
 function nombreEntrenador(id) {
   const e = entrenadores.value.find(x => x.id === id);
   return e ? `${e.nombre} ${e.apellidos}` : '—';
+}
+
+function nombreDelegado(id) {
+  const d = delegados.value.find(x => x.id === id);
+  return d ? `${d.nombre} ${d.apellidos}` : '—';
 }
 </script>
 
@@ -56,6 +72,9 @@ function nombreEntrenador(id) {
     </template>
     <template #cell-id_entrenador="{ data }">
       {{ data.entrenador ? `${data.entrenador.nombre} ${data.entrenador.apellidos}` : nombreEntrenador(data.id_entrenador) }}
+    </template>
+    <template #cell-id_delegado="{ data }">
+      {{ data.delegado ? `${data.delegado.nombre} ${data.delegado.apellidos}` : nombreDelegado(data.id_delegado) }}
     </template>
   </CrudDataTable>
 </template>

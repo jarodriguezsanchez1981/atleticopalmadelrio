@@ -242,7 +242,6 @@ defineExpose({ refrescar });
           </p>
           <p v-if="eventoSeleccionado.equipo_rival">
             <i class="pi pi-flag mr-2"></i>Rival: {{ eventoSeleccionado.equipo_rival }}
-            <span v-if="eventoSeleccionado.resultado"> · Resultado: {{ eventoSeleccionado.resultado }}</span>
           </p>
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}

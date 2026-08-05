@@ -1,10 +1,11 @@
 const sequelize = require('../config/db');
 
-const Rol = require('./Rol');
 const Usuario = require('./Usuario');
 const Seccion = require('./Seccion');
 const Temporada = require('./Temporada');
 const Lugar = require('./Lugar');
+const Titulo = require('./Titulo');
+const Delegado = require('./Delegado');
 const Categoria = require('./Categoria');
 const Jugador = require('./Jugador');
 const Entrenador = require('./Entrenador');
@@ -12,9 +13,6 @@ const Entrenamiento = require('./Entrenamiento');
 const Partido = require('./Partido');
 
 // ---- Asociaciones ----
-Rol.hasMany(Usuario, { foreignKey: 'id_rol' });
-Usuario.belongsTo(Rol, { foreignKey: 'id_rol', as: 'rol' });
-
 Usuario.belongsToMany(Seccion, {
   through: 'usuario_secciones',
   foreignKey: 'id_usuario',
@@ -39,14 +37,26 @@ Jugador.belongsTo(Temporada, { foreignKey: 'id_temporada', as: 'temporada' });
 Temporada.hasMany(Entrenador, { foreignKey: 'id_temporada' });
 Entrenador.belongsTo(Temporada, { foreignKey: 'id_temporada', as: 'temporada' });
 
-Categoria.hasMany(Jugador, { foreignKey: 'id_categoria' });
-Jugador.belongsTo(Categoria, { foreignKey: 'id_categoria', as: 'categoria' });
+Titulo.hasMany(Entrenador, { foreignKey: 'id_titulo' });
+Entrenador.belongsTo(Titulo, { foreignKey: 'id_titulo', as: 'titulo' });
 
-Categoria.hasMany(Entrenador, { foreignKey: 'id_categoria', as: 'entrenadores' });
-Entrenador.belongsTo(Categoria, { foreignKey: 'id_categoria', as: 'categoria' });
+Temporada.hasMany(Delegado, { foreignKey: 'id_temporada' });
+Delegado.belongsTo(Temporada, { foreignKey: 'id_temporada', as: 'temporada' });
+
+Categoria.belongsToMany(Jugador, { through: 'jugador_categorias', foreignKey: 'id_categoria', otherKey: 'id_jugador', as: 'jugadores', timestamps: false });
+Jugador.belongsToMany(Categoria, { through: 'jugador_categorias', foreignKey: 'id_jugador', otherKey: 'id_categoria', as: 'categorias', timestamps: false });
+
+Categoria.belongsToMany(Entrenador, { through: 'entrenador_categorias', foreignKey: 'id_categoria', otherKey: 'id_entrenador', as: 'entrenadores', timestamps: false });
+Entrenador.belongsToMany(Categoria, { through: 'entrenador_categorias', foreignKey: 'id_entrenador', otherKey: 'id_categoria', as: 'categorias', timestamps: false });
 
 Categoria.belongsTo(Entrenador, { foreignKey: 'id_entrenador', as: 'entrenador' });
 Entrenador.hasMany(Categoria, { foreignKey: 'id_entrenador', as: 'categoriasResponsable' });
+
+Categoria.belongsTo(Delegado, { foreignKey: 'id_delegado', as: 'delegado' });
+Delegado.hasMany(Categoria, { foreignKey: 'id_delegado', as: 'categoriasDelegado' });
+
+Categoria.hasMany(Delegado, { foreignKey: 'id_categoria' });
+Delegado.belongsTo(Categoria, { foreignKey: 'id_categoria', as: 'categoria' });
 
 Categoria.hasMany(Entrenamiento, { foreignKey: 'id_categoria' });
 Entrenamiento.belongsTo(Categoria, { foreignKey: 'id_categoria', as: 'categoria' });
@@ -62,11 +72,12 @@ Partido.belongsTo(Lugar, { foreignKey: 'id_lugar', as: 'lugar' });
 
 module.exports = {
   sequelize,
-  Rol,
   Usuario,
   Seccion,
   Temporada,
   Lugar,
+  Titulo,
+  Delegado,
   Categoria,
   Jugador,
   Entrenador,

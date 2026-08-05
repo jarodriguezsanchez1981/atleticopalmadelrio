@@ -46,6 +46,8 @@ const datePickerRefs = {};
 const dateDrafts = reactive({});
 const timeDrafts = reactive({});
 
+const MAX_FOTO_SIZE = 5 * 1024 * 1024;
+
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -226,6 +228,24 @@ const datePickerPt = {
   panel: { class: 'datepicker-club-panel' }
 };
 
+function onFotoInput(field, event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast.add({ severity: 'error', summary: 'Formato no válido', detail: 'Selecciona un archivo de imagen.', life: 4000 });
+    event.target.value = '';
+    return;
+  }
+  if (file.size > MAX_FOTO_SIZE) {
+    toast.add({ severity: 'error', summary: 'Archivo demasiado grande', detail: 'La foto debe pesar 5 MB como máximo.', life: 4000 });
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => { form[field] = e.target.result; };
+  reader.readAsDataURL(file);
+}
+
 function prepareFormData(item) {
   const data = { ...props.emptyItem, ...item };
   for (const col of props.columns) {
@@ -233,7 +253,11 @@ function prepareFormData(item) {
       data[col.field] = toDateValue(data[col.field]);
     }
     if (col.type === 'multiselect') {
-      if ((!data[col.field] || !data[col.field].length) && data.secciones?.length) {
+      if (Array.isArray(data[col.field]) && data[col.field].length && typeof data[col.field][0] === 'object') {
+        data[col.field] = data[col.field].map((o) => o.id);
+      } else if ((!data[col.field] || !data[col.field].length) && col.relation && Array.isArray(data[col.relation])) {
+        data[col.field] = data[col.relation].map((o) => o.id);
+      } else if ((!data[col.field] || !data[col.field].length) && data.secciones?.length) {
         data[col.field] = data.secciones.map((s) => s.id);
       }
       if (!Array.isArray(data[col.field])) data[col.field] = [];
@@ -245,7 +269,7 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'lugar', 'temporada', 'entrenador', 'rol', 'secciones', 'created_at', 'updated_at'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'delegado', 'titulo', 'titulos', 'secciones', 'created_at', 'updated_at'].forEach((k) => {
     delete payload[k];
   });
   for (const col of props.columns) {
@@ -302,7 +326,6 @@ function valorDetalle(col, data) {
   if (col.field === 'id_entrenador' && data.entrenador) {
     return `${data.entrenador.nombre} ${data.entrenador.apellidos || ''}`.trim();
   }
-  if (col.field === 'id_rol' && data.rol) return data.rol.nombre;
 
   const raw = data[col.field];
   if (raw == null || raw === '') return '—';
@@ -420,7 +443,11 @@ onMounted(cargar);
     >
       <Column v-for="col in columns" :key="col.field" :field="col.field" :header="col.header" sortable>
         <template #body="{ data }">
-          <slot :name="`cell-${col.field}`" :data="data">{{ data[col.field] }}</slot>
+          <slot :name="`cell-${col.field}`" :data="data">
+            <img v-if="col.type === 'image' && data[col.field]" :src="data[col.field]" alt="Foto" class="ar-foto-mini" />
+            <span v-else-if="col.type === 'image'">—</span>
+            <template v-else>{{ data[col.field] }}</template>
+          </slot>
         </template>
       </Column>
 
@@ -531,6 +558,17 @@ onMounted(cargar);
             </template>
           </DatePicker>
 
+          <div v-else-if="col.type === 'image'" class="flex flex-wrap items-center gap-3">
+            <img v-if="form[col.field]" :src="form[col.field]" alt="Foto" class="ar-foto-mini border border-slate-200" />
+            <label class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
+              <i class="pi pi-upload"></i>
+              {{ form[col.field] ? 'Cambiar foto' : 'Subir foto' }}
+              <input type="file" accept="image/*" class="hidden" @change="onFotoInput(col.field, $event)" />
+            </label>
+            <Button v-if="form[col.field]" type="button" label="Quitar" icon="pi pi-times" text severity="danger"
+                    @click="form[col.field] = null" />
+          </div>
+
           <Select v-else-if="col.type === 'select'" :id="col.field" v-model="form[col.field]"
                   :options="col.options" optionLabel="label" optionValue="value" class="w-full"
                   placeholder="Selecciona una opción" showClear />
@@ -577,7 +615,8 @@ onMounted(cargar);
           </div>
           <div class="text-sm text-slate-800 flex-1 min-w-0 break-words">
             <slot :name="`detail-${col.field}`" :data="detalle">
-              {{ valorDetalle(col, detalle) }}
+              <img v-if="col.type === 'image' && detalle[col.field]" :src="detalle[col.field]" alt="Foto" class="ar-foto-detalle rounded-lg" />
+              <template v-else>{{ valorDetalle(col, detalle) }}</template>
             </slot>
           </div>
         </div>
@@ -594,6 +633,20 @@ onMounted(cargar);
 </template>
 
 <style>
+/* Foto */
+.ar-foto-mini {
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+
+.ar-foto-detalle {
+  max-width: 12rem;
+  max-height: 12rem;
+  object-fit: cover;
+}
+
 /* Panel teleportado al body */
 .p-datepicker-panel.datepicker-club-panel .p-datepicker-time-picker {
   display: none !important;

@@ -3,11 +3,12 @@ const SECCIONES = [
   { clave: 'entrenamientos', nombre: 'Entrenamientos', icono: 'pi pi-stopwatch', orden: 20 },
   { clave: 'partidos', nombre: 'Partidos', icono: 'pi pi-flag', orden: 30 },
   { clave: 'temporadas', nombre: 'Temporadas', icono: 'pi pi-clock', orden: 40 },
+  { clave: 'titulos', nombre: 'Títulos', icono: 'pi pi-graduation-cap', orden: 45 },
   { clave: 'lugares', nombre: 'Lugares', icono: 'pi pi-map-marker', orden: 50 },
+  { clave: 'delegados', nombre: 'Delegados', icono: 'pi pi-user-plus', orden: 55 },
   { clave: 'categorias', nombre: 'Categorías', icono: 'pi pi-sitemap', orden: 60 },
   { clave: 'jugadores', nombre: 'Jugadores', icono: 'pi pi-users', orden: 70 },
   { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80 },
-  { clave: 'roles', nombre: 'Roles', icono: 'pi pi-key', orden: 90 },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-shield', orden: 100 }
 ];
 

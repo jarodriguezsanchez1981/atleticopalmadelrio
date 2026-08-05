@@ -14,7 +14,7 @@ function authenticate(req, res, next) {
   }
 
   try {
-    req.user = verifyToken(token); // { id, usuario, rol }
+    req.user = verifyToken(token); // { id, usuario, secciones }
     return next();
   } catch (err) {
     return res.status(401).json({ message: 'Token inválido o caducado.' });

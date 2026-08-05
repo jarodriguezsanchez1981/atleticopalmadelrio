@@ -14,7 +14,7 @@
  * deban poder descifrarse para mostrarse a un usuario autorizado.
  */
 const crypto = require('crypto');
-require('dotenv').config();
+require('../config/env');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // recomendado para GCM

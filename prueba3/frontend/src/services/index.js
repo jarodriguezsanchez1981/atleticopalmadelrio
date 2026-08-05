@@ -16,10 +16,11 @@ export function crudService(resource) {
 }
 
 export const usuariosService = crudService('usuarios');
-export const rolesService = crudService('roles');
 export const seccionesService = crudService('secciones');
 export const temporadasService = crudService('temporadas');
 export const lugaresService = crudService('lugares');
+export const titulosService = crudService('titulos');
+export const delegadosService = crudService('delegados');
 export const categoriasService = crudService('categorias');
 export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');

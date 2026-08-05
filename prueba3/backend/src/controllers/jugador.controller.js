@@ -1,42 +1,64 @@
 const { Jugador, Categoria, Temporada } = require('../models');
 
-const includes = [
-  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_temporada'] },
-  { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
+const includeCategorias = {
+  model: Categoria,
+  as: 'categorias',
+  attributes: ['id', 'nombre', 'id_temporada'],
+  through: { attributes: [] }
+};
+
+const includeJugador = [
+  { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
+  includeCategorias
 ];
+
+function normalizeCategoriasIds(body) {
+  if (Array.isArray(body.ids_categorias)) return body.ids_categorias.map(Number).filter(Boolean);
+  if (Array.isArray(body.categorias)) {
+    return body.categorias.map((c) => (typeof c === 'object' ? Number(c.id) : Number(c))).filter(Boolean);
+  }
+  return null;
+}
+
+function serializeJugador(jugador) {
+  const json = jugador.toJSON ? jugador.toJSON() : jugador;
+  json.ids_categorias = (json.categorias || []).map((c) => c.id);
+  return json;
+}
 
 async function listar(req, res, next) {
   try {
-    const { id_categoria, id_temporada } = req.query;
+    const { id_temporada } = req.query;
     const where = {};
-    if (id_categoria) where.id_categoria = id_categoria;
     if (id_temporada) where.id_temporada = id_temporada;
     const jugadores = await Jugador.findAll({
       where: Object.keys(where).length ? where : undefined,
-      include: includes,
+      include: includeJugador,
       order: [['apellidos', 'ASC']]
     });
-    res.json(jugadores);
+    res.json(jugadores.map(serializeJugador));
   } catch (err) { next(err); }
 }
 
 async function obtener(req, res, next) {
   try {
-    const jugador = await Jugador.findByPk(req.params.id, { include: includes });
+    const jugador = await Jugador.findByPk(req.params.id, { include: includeJugador });
     if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado.' });
-    res.json(jugador);
+    res.json(serializeJugador(jugador));
   } catch (err) { next(err); }
 }
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, dni, id_categoria, id_temporada } = req.body;
-    if (!nombre || !apellidos || !dni || !id_categoria || !id_temporada) {
-      return res.status(400).json({ message: 'Nombre, apellidos, DNI, categoría y temporada son obligatorios.' });
+    const { nombre, apellidos, dni, foto, id_temporada } = req.body;
+    const idsCategorias = normalizeCategoriasIds(req.body) || [];
+    if (!nombre || !apellidos || !dni || !id_temporada) {
+      return res.status(400).json({ message: 'Nombre, apellidos, DNI y temporada son obligatorios.' });
     }
-    const jugador = await Jugador.create({ nombre, apellidos, dni, id_categoria, id_temporada });
-    const creado = await Jugador.findByPk(jugador.id, { include: includes });
-    res.status(201).json(creado);
+    const jugador = await Jugador.create({ nombre, apellidos, dni, foto: foto || null, id_temporada });
+    if (idsCategorias.length) await jugador.setCategorias(idsCategorias);
+    const completo = await Jugador.findByPk(jugador.id, { include: includeJugador });
+    res.status(201).json(serializeJugador(completo));
   } catch (err) { next(err); }
 }
 
@@ -44,15 +66,17 @@ async function actualizar(req, res, next) {
   try {
     const jugador = await Jugador.findByPk(req.params.id);
     if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado.' });
-    const { nombre, apellidos, dni, id_categoria, id_temporada } = req.body;
+    const { nombre, apellidos, dni, foto, id_temporada } = req.body;
+    const idsCategorias = normalizeCategoriasIds(req.body);
     if (nombre !== undefined) jugador.nombre = nombre;
     if (apellidos !== undefined) jugador.apellidos = apellidos;
     if (dni !== undefined) jugador.dni = dni;
-    if (id_categoria !== undefined) jugador.id_categoria = id_categoria;
+    if (foto !== undefined) jugador.foto = foto || null;
     if (id_temporada !== undefined) jugador.id_temporada = id_temporada;
     await jugador.save();
-    const actualizado = await Jugador.findByPk(jugador.id, { include: includes });
-    res.json(actualizado);
+    if (idsCategorias) await jugador.setCategorias(idsCategorias);
+    const actualizado = await Jugador.findByPk(jugador.id, { include: includeJugador });
+    res.json(serializeJugador(actualizado));
   } catch (err) { next(err); }
 }
 

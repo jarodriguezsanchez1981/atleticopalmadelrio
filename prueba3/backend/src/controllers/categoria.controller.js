@@ -1,4 +1,4 @@
-const { Categoria, Entrenador, Temporada } = require('../models');
+const { Categoria, Entrenador, Delegado, Temporada } = require('../models');
 
 const includes = [
   {
@@ -9,6 +9,12 @@ const includes = [
   {
     model: Entrenador,
     as: 'entrenador',
+    attributes: ['id', 'nombre', 'apellidos', 'dni'],
+    required: false
+  },
+  {
+    model: Delegado,
+    as: 'delegado',
     attributes: ['id', 'nombre', 'apellidos', 'dni'],
     required: false
   }
@@ -37,7 +43,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, id_temporada, id_entrenador } = req.body;
+    const { nombre, id_temporada, id_entrenador, id_delegado } = req.body;
     if (!nombre || !id_temporada) {
       return res.status(400).json({ message: 'Nombre y temporada son obligatorios.' });
     }
@@ -47,10 +53,15 @@ async function crear(req, res, next) {
       const existe = await Entrenador.findByPk(id_entrenador);
       if (!existe) return res.status(400).json({ message: 'El entrenador indicado no existe.' });
     }
+    if (id_delegado) {
+      const existe = await Delegado.findByPk(id_delegado);
+      if (!existe) return res.status(400).json({ message: 'El delegado indicado no existe.' });
+    }
     const categoria = await Categoria.create({
       nombre,
       id_temporada,
-      id_entrenador: id_entrenador || null
+      id_entrenador: id_entrenador || null,
+      id_delegado: id_delegado || null
     });
     const creada = await Categoria.findByPk(categoria.id, { include: includes });
     res.status(201).json(creada);
@@ -61,7 +72,7 @@ async function actualizar(req, res, next) {
   try {
     const categoria = await Categoria.findByPk(req.params.id);
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    const { nombre, id_temporada, id_entrenador } = req.body;
+    const { nombre, id_temporada, id_entrenador, id_delegado } = req.body;
     if (nombre !== undefined) categoria.nombre = nombre;
     if (id_temporada !== undefined) {
       const temporada = await Temporada.findByPk(id_temporada);
@@ -74,6 +85,13 @@ async function actualizar(req, res, next) {
         if (!existe) return res.status(400).json({ message: 'El entrenador indicado no existe.' });
       }
       categoria.id_entrenador = id_entrenador || null;
+    }
+    if (id_delegado !== undefined) {
+      if (id_delegado) {
+        const existe = await Delegado.findByPk(id_delegado);
+        if (!existe) return res.status(400).json({ message: 'El delegado indicado no existe.' });
+      }
+      categoria.id_delegado = id_delegado || null;
     }
     await categoria.save();
     const actualizada = await Categoria.findByPk(categoria.id, { include: includes });

@@ -1,20 +1,18 @@
-const { Usuario, Rol, Seccion } = require('../models');
+const { Usuario, Seccion } = require('../models');
 const { verifyPassword } = require('../utils/password.utils');
 const { signToken } = require('../utils/jwt.utils');
 
 const includeAuth = [
-  { model: Rol, as: 'rol' },
   { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: [] } }
 ];
 
 function userPayload(user) {
-  const secciones = (user.secciones || []).map((s) => s.clave);
+  const secciones = Array.from(new Set((user.secciones || []).map((s) => s.clave)));
   return {
     id: user.id,
     usuario: user.usuario,
     nombre: user.nombre,
     apellidos: user.apellidos,
-    rol: user.rol.nombre,
     secciones
   };
 }
@@ -40,15 +38,16 @@ async function login(req, res, next) {
     const passwordOk = await verifyPassword(password, user.password);
     if (!passwordOk) return credencialesInvalidas();
 
+    const payload = userPayload(user);
     const token = signToken({
       id: user.id,
       usuario: user.usuario,
-      rol: user.rol.nombre
+      secciones: payload.secciones
     });
 
     return res.json({
       token,
-      user: userPayload(user)
+      user: payload
     });
   } catch (err) {
     return next(err);

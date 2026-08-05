@@ -6,11 +6,12 @@ const SECCION_ORDER = [
   'entrenamientos',
   'partidos',
   'temporadas',
+  'titulos',
   'lugares',
+  'delegados',
   'categorias',
   'jugadores',
   'entrenadores',
-  'roles',
   'administracion'
 ];
 
@@ -23,14 +24,10 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAuthenticated: (state) => !!state.token,
-    rol: (state) => state.user?.rol || null,
-    esAdministrador: (state) => state.user?.rol === 'administrador',
     secciones: (state) => state.user?.secciones || [],
     nombreCompleto: (state) => (state.user ? `${state.user.nombre} ${state.user.apellidos}` : ''),
     primeraSeccion: (state) => {
       const set = new Set(state.user?.secciones || []);
-      // admin sin secciones aún: acceso total de fallback
-      if (state.user?.rol === 'administrador' && set.size === 0) return 'administracion';
       return SECCION_ORDER.find((s) => set.has(s)) || 'calendario';
     }
   },
@@ -39,8 +36,6 @@ export const useAuthStore = defineStore('auth', {
     puedeVer(clave) {
       if (!this.user) return false;
       const secs = this.user.secciones || [];
-      // Compatibilidad: admin antiguo sin secciones asignadas ve todo
-      if (this.user.rol === 'administrador' && secs.length === 0) return true;
       return secs.includes(clave);
     },
 

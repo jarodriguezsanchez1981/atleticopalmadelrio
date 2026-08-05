@@ -5,8 +5,8 @@ const authorize = require('../middlewares/role.middleware');
 
 const router = Router();
 
-// Sección "Administración" -> solo el rol administrador puede acceder
-router.use(authenticate, authorize('administrador'));
+// Sección "Administración" -> solo quien tenga esa sección asignada
+router.use(authenticate, authorize('administracion'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);

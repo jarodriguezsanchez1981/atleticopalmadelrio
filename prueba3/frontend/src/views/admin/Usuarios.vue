@@ -1,34 +1,23 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { usuariosService, rolesService, seccionesService } from '../../services';
+import { usuariosService, seccionesService } from '../../services';
 import Message from 'primevue/message';
 
-const roles = ref([]);
 const secciones = ref([]);
 
 onMounted(async () => {
-  const [r, s] = await Promise.all([
-    rolesService.listar(),
-    seccionesService.listar()
-  ]);
-  roles.value = r;
-  secciones.value = s;
+  secciones.value = await seccionesService.listar();
 });
 
-const opcionesRol = computed(() =>
-  roles.value.map(r => ({ label: r.nombre.charAt(0).toUpperCase() + r.nombre.slice(1), value: r.id }))
-);
-
 const opcionesSeccion = computed(() =>
-  secciones.value.map(s => ({ label: s.nombre, value: s.id }))
+  secciones.value.map(s => ({ label: s.nombre, value: s.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const columns = computed(() => [
   { field: 'usuario', header: 'Usuario', type: 'text', required: true },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'id_rol', header: 'Rol', type: 'select', options: opcionesRol.value, required: true },
   { field: 'ids_secciones', header: 'Secciones visibles', type: 'multiselect', options: opcionesSeccion.value, required: true },
   { field: 'password', header: 'Contraseña', type: 'password' }
 ]);
@@ -37,14 +26,9 @@ const emptyItem = {
   usuario: '',
   nombre: '',
   apellidos: '',
-  id_rol: null,
   ids_secciones: [],
   password: ''
 };
-
-function nombreRol(idRol) {
-  return roles.value.find(r => r.id === idRol)?.nombre || '—';
-}
 
 function nombresSecciones(data) {
   if (data.secciones?.length) return data.secciones.map(s => s.nombre).join(', ');
@@ -60,7 +44,7 @@ function nombresSecciones(data) {
       Administración
     </h1>
     <p class="text-sm text-slate-500 mb-4">
-      Gestión de usuarios de la intranet. Al crear o editar, indica el rol y las secciones que podrá ver.
+      Gestión de usuarios de la intranet. Al crear o editar, indica las secciones que podrá ver.
     </p>
 
     <Message severity="info" :closable="false" class="mb-4">
@@ -75,9 +59,6 @@ function nombresSecciones(data) {
       :service="usuariosService"
       :emptyItem="emptyItem"
     >
-      <template #cell-id_rol="{ data }">
-        <span class="capitalize">{{ data.rol?.nombre || nombreRol(data.id_rol) }}</span>
-      </template>
       <template #cell-ids_secciones="{ data }">
         <span class="text-sm">{{ nombresSecciones(data) }}</span>
       </template>

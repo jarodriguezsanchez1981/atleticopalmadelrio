@@ -14,11 +14,12 @@ const ALL_NAV = [
   { label: 'Entrenamientos', icon: 'pi pi-stopwatch', to: '/entrenamientos', seccion: 'entrenamientos' },
   { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
   { label: 'Temporadas', icon: 'pi pi-clock', to: '/temporadas', seccion: 'temporadas' },
+  { label: 'Títulos', icon: 'pi pi-graduation-cap', to: '/titulos', seccion: 'titulos' },
   { label: 'Lugares', icon: 'pi pi-map-marker', to: '/lugares', seccion: 'lugares' },
+  { label: 'Delegados', icon: 'pi pi-user-plus', to: '/delegados', seccion: 'delegados' },
   { label: 'Categorías', icon: 'pi pi-sitemap', to: '/categorias', seccion: 'categorias' },
   { label: 'Jugadores', icon: 'pi pi-users', to: '/jugadores', seccion: 'jugadores' },
   { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
-  { label: 'Roles', icon: 'pi pi-key', to: '/roles', seccion: 'roles' },
   { label: 'Administración', icon: 'pi pi-shield', to: '/administracion', seccion: 'administracion' }
 ];
 
@@ -39,11 +40,6 @@ const userMenuItems = [
 const tituloPagina = computed(() => {
   const activo = navItems.value.find((i) => i.to === route.path);
   return activo?.label || 'Intranet';
-});
-
-const rolLabel = computed(() => {
-  const map = { administrador: 'Administrador', coordinador: 'Coordinador', entrenador: 'Entrenador' };
-  return map[auth.rol] || auth.rol;
 });
 </script>
 
@@ -85,7 +81,6 @@ const rolLabel = computed(() => {
         <button class="flex items-center gap-3" @click="menu.toggle($event)">
           <div class="text-right leading-tight hidden sm:block">
             <p class="text-sm font-medium text-slate-700">{{ auth.nombreCompleto }}</p>
-            <p class="text-xs text-slate-400">{{ rolLabel }}</p>
           </div>
           <Avatar :label="auth.user?.nombre?.[0] || 'U'" shape="circle" class="!bg-club-green !text-club-cream" />
         </button>

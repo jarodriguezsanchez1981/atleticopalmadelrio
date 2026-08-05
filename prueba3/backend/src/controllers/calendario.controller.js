@@ -14,7 +14,7 @@ async function eventos(req, res, next) {
     if (hasta) whereFecha[Op.lte] = new Date(hasta);
 
     const whereBase = {};
-    if (Object.keys(whereFecha).length) whereBase.fecha = whereFecha;
+    if (desde || hasta) whereBase.fecha = whereFecha;
     if (id_categoria) whereBase.id_categoria = id_categoria;
 
     const includes = [
@@ -58,7 +58,6 @@ async function eventos(req, res, next) {
       lugar: p.lugar?.nombre ?? null,
       id_lugar: p.id_lugar,
       equipo_rival: p.equipo_rival,
-      resultado: p.resultado,
       incidencias: p.incidencias,
       categoria: p.categoria
     }));

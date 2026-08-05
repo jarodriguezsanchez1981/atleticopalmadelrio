@@ -41,10 +41,22 @@ const routes = [
         meta: { seccion: 'temporadas' }
       },
       {
+        path: 'titulos',
+        name: 'titulos',
+        component: () => import('../views/titulos/Titulos.vue'),
+        meta: { seccion: 'titulos' }
+      },
+      {
         path: 'lugares',
         name: 'lugares',
         component: () => import('../views/lugares/Lugares.vue'),
         meta: { seccion: 'lugares' }
+      },
+      {
+        path: 'delegados',
+        name: 'delegados',
+        component: () => import('../views/delegados/Delegados.vue'),
+        meta: { seccion: 'delegados' }
       },
       {
         path: 'categorias',
@@ -63,12 +75,6 @@ const routes = [
         name: 'entrenadores',
         component: () => import('../views/entrenadores/Entrenadores.vue'),
         meta: { seccion: 'entrenadores' }
-      },
-      {
-        path: 'roles',
-        name: 'roles',
-        component: () => import('../views/admin/Roles.vue'),
-        meta: { seccion: 'roles' }
       },
       {
         path: 'administracion',

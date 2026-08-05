@@ -2,9 +2,10 @@ const { Router } = require('express');
 
 const authRoutes = require('./auth.routes');
 const usuarioRoutes = require('./usuario.routes');
-const rolRoutes = require('./rol.routes');
 const temporadaRoutes = require('./temporada.routes');
 const lugarRoutes = require('./lugar.routes');
+const tituloRoutes = require('./titulo.routes');
+const delegadoRoutes = require('./delegado.routes');
 const seccionRoutes = require('./seccion.routes');
 const categoriaRoutes = require('./categoria.routes');
 const jugadorRoutes = require('./jugador.routes');
@@ -17,9 +18,10 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
-router.use('/roles', rolRoutes);
 router.use('/temporadas', temporadaRoutes);
 router.use('/lugares', lugarRoutes);
+router.use('/titulos', tituloRoutes);
+router.use('/delegados', delegadoRoutes);
 router.use('/secciones', seccionRoutes);
 router.use('/categorias', categoriaRoutes);
 router.use('/jugadores', jugadorRoutes);

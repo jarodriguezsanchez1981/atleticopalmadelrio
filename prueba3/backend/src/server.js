@@ -1,5 +1,5 @@
 const app = require('./app');
-const { sequelize, Usuario, Rol, Seccion } = require('./models');
+const { sequelize, Usuario, Seccion } = require('./models');
 const { hashPassword, isPasswordValid } = require('./utils/password.utils');
 const { ensureSecciones } = require('./utils/secciones.seed');
 
@@ -32,12 +32,6 @@ async function seedAdminIfNeeded() {
     return;
   }
 
-  const rolAdmin = await Rol.findOne({ where: { nombre: 'administrador' } });
-  if (!rolAdmin) {
-    console.warn('⚠️  No existe el rol administrador; ejecuta database/init.sql.');
-    return;
-  }
-
   let user = await Usuario.findOne({ where: { usuario } });
   if (!user) {
     const hash = await hashPassword(password);
@@ -46,7 +40,6 @@ async function seedAdminIfNeeded() {
       password: hash,
       nombre: 'Administrador',
       apellidos: 'Sistema',
-      id_rol: rolAdmin.id,
       activo: true
     });
     console.log(`✅ Usuario administrador "${usuario}" creado (password: ${password}).`);
@@ -54,7 +47,7 @@ async function seedAdminIfNeeded() {
     console.log(`ℹ️  Usuario admin "${usuario}" ya existe.`);
   }
 
-  // Admin siempre tiene todas las secciones
+  // Admin siempre tiene todas las secciones (incluida "Administración")
   const secciones = await Seccion.findAll();
   if (secciones.length) {
     await user.setSecciones(secciones.map((s) => s.id));

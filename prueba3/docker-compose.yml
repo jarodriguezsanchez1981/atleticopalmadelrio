@@ -53,12 +53,31 @@ services:
     networks:
       - apr_net
 
+  test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    container_name: apr_backend_test
+    restart: "no"
+    command: npm test
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-atletico_palma_intranet}
+      DB_USER: ${DB_USER:-apr_user}
+      DB_PASSWORD: ${DB_PASSWORD:-apr_pass}
+    networks:
+      - apr_net
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: /api
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: apr_frontend
     restart: unless-stopped
     depends_on:

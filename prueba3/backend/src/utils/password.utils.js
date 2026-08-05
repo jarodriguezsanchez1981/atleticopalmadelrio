@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-require('dotenv').config();
+require('../config/env');
 
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
 

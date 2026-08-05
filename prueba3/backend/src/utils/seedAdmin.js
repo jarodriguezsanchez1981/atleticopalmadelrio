@@ -4,8 +4,8 @@
  * a partir de las variables de entorno SEED_ADMIN_USER / SEED_ADMIN_PASSWORD,
  * o de los valores por defecto de abajo si no se definen.
  */
-require('dotenv').config();
-const { sequelize, Usuario, Rol } = require('../models');
+require('../config/env');
+const { sequelize, Usuario, Seccion } = require('../models');
 const { hashPassword, isPasswordValid } = require('./password.utils');
 
 async function run() {
@@ -18,9 +18,6 @@ async function run() {
 
   await sequelize.authenticate();
 
-  const rolAdmin = await Rol.findOne({ where: { nombre: 'administrador' } });
-  if (!rolAdmin) throw new Error('No existe el rol "administrador". Ejecuta antes database/schema.sql.');
-
   const hash = await hashPassword(password);
 
   const [user, created] = await Usuario.findOrCreate({
@@ -30,10 +27,15 @@ async function run() {
       password: hash,
       nombre: 'Administrador',
       apellidos: 'Sistema',
-      id_rol: rolAdmin.id,
       activo: true
     }
   });
+
+  // Admin siempre tiene todas las secciones (incluida "Administración")
+  const secciones = await Seccion.findAll();
+  if (secciones.length) {
+    await user.setSecciones(secciones.map((s) => s.id));
+  }
 
   if (!created) {
     user.password = hash;

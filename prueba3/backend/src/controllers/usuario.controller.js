@@ -1,8 +1,7 @@
-const { Usuario, Rol, Seccion } = require('../models');
+const { Usuario, Seccion } = require('../models');
 const { isPasswordValid, hashPassword } = require('../utils/password.utils');
 
 const includeUsuario = [
-  { model: Rol, as: 'rol', attributes: ['id', 'nombre'] },
   { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: [] } }
 ];
 
@@ -41,10 +40,10 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { usuario, password, nombre, apellidos, id_rol } = req.body;
+    const { usuario, password, nombre, apellidos } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body) || [];
 
-    if (!usuario || !password || !nombre || !apellidos || !id_rol) {
+    if (!usuario || !password || !nombre || !apellidos) {
       return res.status(400).json({ message: 'Todos los campos son obligatorios.' });
     }
     if (!idsSecciones.length) {
@@ -57,7 +56,7 @@ async function crear(req, res, next) {
     }
 
     const hash = await hashPassword(password);
-    const nuevo = await Usuario.create({ usuario, password: hash, nombre, apellidos, id_rol });
+    const nuevo = await Usuario.create({ usuario, password: hash, nombre, apellidos });
     await nuevo.setSecciones(idsSecciones);
 
     const completo = await Usuario.findByPk(nuevo.id, { include: includeUsuario });
@@ -70,7 +69,7 @@ async function actualizar(req, res, next) {
     const usuario = await Usuario.scope('withPassword').findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado.' });
 
-    const { nombre, apellidos, id_rol, activo, password } = req.body;
+    const { nombre, apellidos, activo, password } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body);
 
     if (password) {
@@ -84,7 +83,6 @@ async function actualizar(req, res, next) {
 
     if (nombre !== undefined) usuario.nombre = nombre;
     if (apellidos !== undefined) usuario.apellidos = apellidos;
-    if (id_rol !== undefined) usuario.id_rol = id_rol;
     if (activo !== undefined) usuario.activo = activo;
 
     await usuario.save();

@@ -5,7 +5,7 @@ const authorize = require('../middlewares/role.middleware');
 
 const router = Router();
 
-router.use(authenticate, authorize('administrador'));
+router.use(authenticate, authorize('administracion'));
 router.get('/', ctrl.listar);
 
 module.exports = router;
