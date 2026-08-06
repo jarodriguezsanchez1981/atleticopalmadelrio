@@ -9,7 +9,7 @@ async function listar(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const lugar = await Lugar.findByPk(req.params.id);
+    const lugar = await Lugar.findOne({ where: { id: req.params.id } });
     if (!lugar) return res.status(404).json({ message: 'Lugar no encontrado.' });
     res.json(lugar);
   } catch (err) { next(err); }
@@ -26,7 +26,7 @@ async function crear(req, res, next) {
 
 async function actualizar(req, res, next) {
   try {
-    const lugar = await Lugar.findByPk(req.params.id);
+    const lugar = await Lugar.findOne({ where: { id: req.params.id } });
     if (!lugar) return res.status(404).json({ message: 'Lugar no encontrado.' });
     const { nombre } = req.body;
     if (nombre !== undefined) lugar.nombre = nombre;

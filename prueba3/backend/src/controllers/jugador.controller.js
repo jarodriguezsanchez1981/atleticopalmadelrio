@@ -42,7 +42,7 @@ async function listar(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const jugador = await Jugador.findByPk(req.params.id, { include: includeJugador });
+    const jugador = await Jugador.findOne({ where: { id: req.params.id }, include: includeJugador });
     if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado.' });
     res.json(serializeJugador(jugador));
   } catch (err) { next(err); }
@@ -57,14 +57,14 @@ async function crear(req, res, next) {
     }
     const jugador = await Jugador.create({ nombre, apellidos, dni, foto: foto || null, id_temporada });
     if (idsCategorias.length) await jugador.setCategorias(idsCategorias);
-    const completo = await Jugador.findByPk(jugador.id, { include: includeJugador });
+    const completo = await Jugador.findOne({ where: { id: jugador.id }, include: includeJugador });
     res.status(201).json(serializeJugador(completo));
   } catch (err) { next(err); }
 }
 
 async function actualizar(req, res, next) {
   try {
-    const jugador = await Jugador.findByPk(req.params.id);
+    const jugador = await Jugador.findOne({ where: { id: req.params.id } });
     if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado.' });
     const { nombre, apellidos, dni, foto, id_temporada } = req.body;
     const idsCategorias = normalizeCategoriasIds(req.body);
@@ -75,7 +75,7 @@ async function actualizar(req, res, next) {
     if (id_temporada !== undefined) jugador.id_temporada = id_temporada;
     await jugador.save();
     if (idsCategorias) await jugador.setCategorias(idsCategorias);
-    const actualizado = await Jugador.findByPk(jugador.id, { include: includeJugador });
+    const actualizado = await Jugador.findOne({ where: { id: jugador.id }, include: includeJugador });
     res.json(serializeJugador(actualizado));
   } catch (err) { next(err); }
 }

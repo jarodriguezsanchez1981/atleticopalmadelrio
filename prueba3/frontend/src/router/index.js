@@ -65,6 +65,12 @@ const routes = [
         meta: { seccion: 'categorias' }
       },
       {
+        path: 'equipos',
+        name: 'equipos',
+        component: () => import('../views/equipos/Equipos.vue'),
+        meta: { seccion: 'equipos' }
+      },
+      {
         path: 'jugadores',
         name: 'jugadores',
         component: () => import('../views/jugadores/Jugadores.vue'),

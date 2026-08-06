@@ -7,9 +7,16 @@ const includeCategorias = {
   through: { attributes: [] }
 };
 
+const includeTitulos = {
+  model: Titulo,
+  as: 'titulos',
+  attributes: ['id', 'nombre'],
+  through: { attributes: [] }
+};
+
 const includeEntrenador = [
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
-  { model: Titulo, as: 'titulo', attributes: ['id', 'nombre'] },
+  includeTitulos,
   includeCategorias
 ];
 
@@ -21,9 +28,18 @@ function normalizeCategoriasIds(body) {
   return null;
 }
 
+function normalizeTitulosIds(body) {
+  if (Array.isArray(body.ids_titulos)) return body.ids_titulos.map(Number).filter(Boolean);
+  if (Array.isArray(body.titulos)) {
+    return body.titulos.map((t) => (typeof t === 'object' ? Number(t.id) : Number(t))).filter(Boolean);
+  }
+  return null;
+}
+
 function serializeEntrenador(entrenador) {
   const json = entrenador.toJSON ? entrenador.toJSON() : entrenador;
   json.ids_categorias = (json.categorias || []).map((c) => c.id);
+  json.ids_titulos = (json.titulos || []).map((t) => t.id);
   return json;
 }
 
@@ -43,7 +59,7 @@ async function listar(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const entrenador = await Entrenador.findByPk(req.params.id, { include: includeEntrenador });
+    const entrenador = await Entrenador.findOne({ where: { id: req.params.id }, include: includeEntrenador });
     if (!entrenador) return res.status(404).json({ message: 'Entrenador no encontrado.' });
     res.json(serializeEntrenador(entrenador));
   } catch (err) { next(err); }
@@ -51,35 +67,38 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, dni, foto, id_titulo, id_temporada } = req.body;
+    const { nombre, apellidos, dni, foto, id_temporada } = req.body;
     const idsCategorias = normalizeCategoriasIds(req.body) || [];
+    const idsTitulos = normalizeTitulosIds(req.body) || [];
     if (!nombre || !apellidos || !dni || !id_temporada) {
       return res.status(400).json({ message: 'Nombre, apellidos, DNI y temporada son obligatorios.' });
     }
     const entrenador = await Entrenador.create({
-      nombre, apellidos, dni, foto: foto || null, id_titulo: id_titulo || null, id_temporada
+      nombre, apellidos, dni, foto: foto || null, id_temporada
     });
     if (idsCategorias.length) await entrenador.setCategorias(idsCategorias);
-    const completo = await Entrenador.findByPk(entrenador.id, { include: includeEntrenador });
+    if (idsTitulos.length) await entrenador.setTitulos(idsTitulos);
+    const completo = await Entrenador.findOne({ where: { id: entrenador.id }, include: includeEntrenador });
     res.status(201).json(serializeEntrenador(completo));
   } catch (err) { next(err); }
 }
 
 async function actualizar(req, res, next) {
   try {
-    const entrenador = await Entrenador.findByPk(req.params.id);
+    const entrenador = await Entrenador.findOne({ where: { id: req.params.id } });
     if (!entrenador) return res.status(404).json({ message: 'Entrenador no encontrado.' });
-    const { nombre, apellidos, dni, foto, id_titulo, id_temporada } = req.body;
+    const { nombre, apellidos, dni, foto, id_temporada } = req.body;
     const idsCategorias = normalizeCategoriasIds(req.body);
+    const idsTitulos = normalizeTitulosIds(req.body);
     if (nombre !== undefined) entrenador.nombre = nombre;
     if (apellidos !== undefined) entrenador.apellidos = apellidos;
     if (dni !== undefined) entrenador.dni = dni;
     if (foto !== undefined) entrenador.foto = foto || null;
-    if (id_titulo !== undefined) entrenador.id_titulo = id_titulo || null;
     if (id_temporada !== undefined) entrenador.id_temporada = id_temporada;
     await entrenador.save();
     if (idsCategorias) await entrenador.setCategorias(idsCategorias);
-    const actualizado = await Entrenador.findByPk(entrenador.id, { include: includeEntrenador });
+    if (idsTitulos) await entrenador.setTitulos(idsTitulos);
+    const actualizado = await Entrenador.findOne({ where: { id: entrenador.id }, include: includeEntrenador });
     res.json(serializeEntrenador(actualizado));
   } catch (err) { next(err); }
 }

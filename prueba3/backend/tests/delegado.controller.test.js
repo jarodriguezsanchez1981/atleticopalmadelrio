@@ -7,7 +7,7 @@ import * as ctrl from '../src/controllers/delegado.controller.js';
 describe('Sección Delegados · delegado.controller', () => {
   beforeEach(() => {
     Delegado.findAll.mockReset();
-    Delegado.findByPk.mockReset();
+    Delegado.findOne.mockReset();
     Delegado.create.mockReset();
     Delegado.destroy.mockReset();
   });
@@ -43,17 +43,17 @@ describe('Sección Delegados · delegado.controller', () => {
 
   it('obtener devuelve el delegado por id', async () => {
     const delegado = { id: 3, nombre: 'Luis' };
-    Delegado.findByPk.mockResolvedValue(delegado);
+    Delegado.findOne.mockResolvedValue(delegado);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
 
     await promesa;
 
-    expect(Delegado.findByPk).toHaveBeenCalledWith('3', expect.objectContaining({ include: expect.any(Array) }));
+    expect(Delegado.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { id: '3' }, include: expect.any(Array) }));
     expect(res._json).toEqual(delegado);
   });
 
   it('obtener devuelve 404 si no existe', async () => {
-    Delegado.findByPk.mockResolvedValue(null);
+    Delegado.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '99' } });
 
     await promesa;
@@ -76,7 +76,7 @@ describe('Sección Delegados · delegado.controller', () => {
     const creado = { id: 5, nombre: 'Ana', apellidos: 'López', dni: '12345678A', id_temporada: 1 };
     const completo = { id: 5, ...creado, categoria: null, temporada: { id: 1 } };
     Delegado.create.mockResolvedValue(creado);
-    Delegado.findByPk.mockResolvedValue(completo);
+    Delegado.findOne.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       body: { nombre: 'Ana', apellidos: 'López', dni: '12345678A', id_temporada: 1 }
     });
@@ -91,7 +91,7 @@ describe('Sección Delegados · delegado.controller', () => {
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
-    Delegado.findByPk.mockResolvedValue(null);
+    Delegado.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'X' } });
 
     await promesa;
@@ -102,7 +102,7 @@ describe('Sección Delegados · delegado.controller', () => {
   it('actualizar guarda los cambios y devuelve el registro actualizado', async () => {
     const delegado = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue() };
     const actualizado = { id: 1, nombre: 'Nuevo', categoria: null, temporada: null };
-    Delegado.findByPk.mockResolvedValueOnce(delegado).mockResolvedValueOnce(actualizado);
+    Delegado.findOne.mockResolvedValueOnce(delegado).mockResolvedValueOnce(actualizado);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'Nuevo' } });
 
     await promesa;

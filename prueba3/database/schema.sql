@@ -8,11 +8,13 @@ CREATE DATABASE IF NOT EXISTS atletico_palma_intranet
 USE atletico_palma_intranet;
 
 CREATE TABLE IF NOT EXISTS secciones (
-  id     INT AUTO_INCREMENT PRIMARY KEY,
+  id     INT AUTO_INCREMENT,
   clave  VARCHAR(50)  NOT NULL UNIQUE,
   nombre VARCHAR(100) NOT NULL,
   icono  VARCHAR(50)  NULL,
-  orden  INT NOT NULL DEFAULT 0
+  orden  INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (id, nombre),
+  UNIQUE KEY uq_secciones_nombre (nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
@@ -24,6 +26,7 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('lugares', 'Lugares', 'pi pi-map-marker', 50),
   ('delegados', 'Delegados', 'pi pi-user-plus', 55),
   ('categorias', 'Categorías', 'pi pi-sitemap', 60),
+  ('equipos', 'Equipos', 'pi pi-trophy', 65),
   ('jugadores', 'Jugadores', 'pi pi-users', 70),
   ('entrenadores', 'Entrenadores', 'pi pi-id-card', 80),
   ('administracion', 'Administración', 'pi pi-shield', 100);
@@ -48,28 +51,31 @@ CREATE TABLE IF NOT EXISTS usuario_secciones (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS temporadas (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
+  id            INT AUTO_INCREMENT,
   nombre        VARCHAR(20) NOT NULL UNIQUE,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS lugares (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
+  id            INT AUTO_INCREMENT,
   nombre        VARCHAR(150) NOT NULL UNIQUE,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS titulo (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
+  id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL UNIQUE,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS delegados (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
+  id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
   apellidos     VARCHAR(150) NOT NULL,
   dni           VARCHAR(15)  NOT NULL UNIQUE,
@@ -78,24 +84,36 @@ CREATE TABLE IF NOT EXISTS delegados (
   id_categoria  INT NULL,
   id_temporada  INT NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre, apellidos, dni)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS categorias (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
+  id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
   id_temporada  INT NOT NULL,
   id_entrenador INT NULL,
   id_delegado   INT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre),
   UNIQUE KEY uq_categoria_temporada (nombre, id_temporada),
   CONSTRAINT fk_categorias_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id),
-  CONSTRAINT fk_categorias_delegado FOREIGN KEY (id_delegado) REFERENCES delegados(id) ON DELETE SET NULL
+  CONSTRAINT fk_categorias_delegado FOREIGN KEY (id_delegado) REFERENCES delegados(id) ON DELETE SET NULL,
+  UNIQUE KEY uq_categorias_nombre (nombre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS equipos (
+  id            INT AUTO_INCREMENT,
+  nombre        VARCHAR(100) NOT NULL,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre),
+  UNIQUE KEY uq_equipos_nombre (nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS jugadores (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
+  id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
   apellidos     VARCHAR(150) NOT NULL,
   dni           VARCHAR(15)  NOT NULL UNIQUE,
@@ -103,6 +121,7 @@ CREATE TABLE IF NOT EXISTS jugadores (
   id_temporada  INT NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre, apellidos, dni),
   CONSTRAINT fk_jugadores_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -115,7 +134,7 @@ CREATE TABLE IF NOT EXISTS jugador_categorias (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS entrenadores (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
+  id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
   apellidos     VARCHAR(150) NOT NULL,
   dni           VARCHAR(15)  NOT NULL UNIQUE,
@@ -123,6 +142,7 @@ CREATE TABLE IF NOT EXISTS entrenadores (
   id_temporada  INT NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id, nombre, apellidos, dni),
   CONSTRAINT fk_entrenadores_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -26,6 +26,7 @@ export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
 export const entrenamientosService = crudService('entrenamientos');
 export const partidosService = crudService('partidos');
+export const equiposService = crudService('equipos');
 
 export const authService = {
   login: (usuario, password) => api.post('/auth/login', { usuario, password }).then(r => r.data),

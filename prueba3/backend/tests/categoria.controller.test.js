@@ -7,12 +7,12 @@ import * as ctrl from '../src/controllers/categoria.controller.js';
 describe('Sección Categorías · categoria.controller', () => {
   beforeEach(() => {
     Categoria.findAll.mockReset();
-    Categoria.findByPk.mockReset();
+    Categoria.findOne.mockReset();
     Categoria.create.mockReset();
     Categoria.destroy.mockReset();
-    Temporada.findByPk.mockReset();
-    Entrenador.findByPk.mockReset();
-    Delegado.findByPk.mockReset();
+    Temporada.findOne.mockReset();
+    Entrenador.findOne.mockReset();
+    Delegado.findOne.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -46,17 +46,17 @@ describe('Sección Categorías · categoria.controller', () => {
 
   it('obtener devuelve la categoría por id', async () => {
     const categoria = { id: 3, nombre: 'Infantil' };
-    Categoria.findByPk.mockResolvedValue(categoria);
+    Categoria.findOne.mockResolvedValue(categoria);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
 
     await promesa;
 
-    expect(Categoria.findByPk).toHaveBeenCalledWith('3', expect.objectContaining({ include: expect.any(Array) }));
+    expect(Categoria.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { id: '3' }, include: expect.any(Array) }));
     expect(res._json).toEqual(categoria);
   });
 
   it('obtener devuelve 404 si no existe', async () => {
-    Categoria.findByPk.mockResolvedValue(null);
+    Categoria.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '99' } });
 
     await promesa;
@@ -76,7 +76,7 @@ describe('Sección Categorías · categoria.controller', () => {
   });
 
   it('crear valida que la temporada exista', async () => {
-    Temporada.findByPk.mockResolvedValue(null);
+    Temporada.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín', id_temporada: 99 } });
 
     await promesa;
@@ -86,8 +86,8 @@ describe('Sección Categorías · categoria.controller', () => {
   });
 
   it('crear valida que el entrenador exista', async () => {
-    Temporada.findByPk.mockResolvedValue({ id: 1 });
-    Entrenador.findByPk.mockResolvedValue(null);
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Entrenador.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.crear, {
       body: { nombre: 'Alevín', id_temporada: 1, id_entrenador: 99 }
     });
@@ -99,8 +99,8 @@ describe('Sección Categorías · categoria.controller', () => {
   });
 
   it('crear valida que el delegado exista', async () => {
-    Temporada.findByPk.mockResolvedValue({ id: 1 });
-    Delegado.findByPk.mockResolvedValue(null);
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Delegado.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.crear, {
       body: { nombre: 'Alevín', id_temporada: 1, id_delegado: 99 }
     });
@@ -114,9 +114,9 @@ describe('Sección Categorías · categoria.controller', () => {
   it('crear crea la categoría y devuelve 201', async () => {
     const creada = { id: 5, nombre: 'Alevín', id_temporada: 1 };
     const completo = { id: 5, nombre: 'Alevín', temporada: { id: 1 } };
-    Temporada.findByPk.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
     Categoria.create.mockResolvedValue(creada);
-    Categoria.findByPk.mockResolvedValue(completo);
+    Categoria.findOne.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín', id_temporada: 1 } });
 
     await promesa;
@@ -129,7 +129,7 @@ describe('Sección Categorías · categoria.controller', () => {
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
-    Categoria.findByPk.mockResolvedValue(null);
+    Categoria.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'X' } });
 
     await promesa;
@@ -139,8 +139,8 @@ describe('Sección Categorías · categoria.controller', () => {
 
   it('actualizar valida que la temporada exista al cambiarla', async () => {
     const categoria = { id: 1, nombre: 'Alevín', save: vi.fn() };
-    Categoria.findByPk.mockResolvedValue(categoria);
-    Temporada.findByPk.mockResolvedValue(null);
+    Categoria.findOne.mockResolvedValue(categoria);
+    Temporada.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { id_temporada: 99 } });
 
     await promesa;
@@ -152,7 +152,7 @@ describe('Sección Categorías · categoria.controller', () => {
   it('actualizar guarda los cambios', async () => {
     const categoria = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue() };
     const actualizada = { id: 1, nombre: 'Nuevo', temporada: null };
-    Categoria.findByPk.mockResolvedValueOnce(categoria).mockResolvedValueOnce(actualizada);
+    Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce(actualizada);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'Nuevo' } });
 
     await promesa;

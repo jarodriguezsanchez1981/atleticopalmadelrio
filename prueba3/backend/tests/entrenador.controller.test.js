@@ -7,7 +7,7 @@ import * as ctrl from '../src/controllers/entrenador.controller.js';
 describe('Sección Entrenadores · entrenador.controller', () => {
   beforeEach(() => {
     Entrenador.findAll.mockReset();
-    Entrenador.findByPk.mockReset();
+    Entrenador.findOne.mockReset();
     Entrenador.create.mockReset();
     Entrenador.destroy.mockReset();
   });
@@ -24,7 +24,7 @@ describe('Sección Entrenadores · entrenador.controller', () => {
 
     await promesa;
 
-    expect(res._json).toEqual([{ id: 1, nombre: 'Carlos', categorias: [{ id: 2 }], ids_categorias: [2] }]);
+    expect(res._json).toEqual([{ id: 1, nombre: 'Carlos', categorias: [{ id: 2 }], ids_categorias: [2], ids_titulos: [] }]);
   });
 
   it('listar filtra por temporada', async () => {
@@ -39,7 +39,7 @@ describe('Sección Entrenadores · entrenador.controller', () => {
   });
 
   it('obtener devuelve 404 si no existe', async () => {
-    Entrenador.findByPk.mockResolvedValue(null);
+    Entrenador.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '99' } });
 
     await promesa;
@@ -50,7 +50,7 @@ describe('Sección Entrenadores · entrenador.controller', () => {
 
   it('obtener devuelve el entrenador serializado', async () => {
     const entrenador = { id: 3, nombre: 'Ana', categorias: [{ id: 4 }] };
-    Entrenador.findByPk.mockResolvedValue(entrenador);
+    Entrenador.findOne.mockResolvedValue(entrenador);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
 
     await promesa;
@@ -68,27 +68,29 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     expect(Entrenador.create).not.toHaveBeenCalled();
   });
 
-  it('crear crea el entrenador, asigna categorías y devuelve 201', async () => {
-    const creado = { id: 5, setCategorias: vi.fn().mockResolvedValue() };
-    const completo = { id: 5, nombre: 'Carlos', categorias: [{ id: 2 }] };
+  it('crear crea el entrenador, asigna categorías y títulos y devuelve 201', async () => {
+    const creado = { id: 5, setCategorias: vi.fn().mockResolvedValue(), setTitulos: vi.fn().mockResolvedValue() };
+    const completo = { id: 5, nombre: 'Carlos', categorias: [{ id: 2 }], titulos: [{ id: 1 }] };
     Entrenador.create.mockResolvedValue(creado);
-    Entrenador.findByPk.mockResolvedValue(completo);
+    Entrenador.findOne.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678A', id_temporada: 1, ids_categorias: ['2'] }
+      body: { nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678A', id_temporada: 1, ids_categorias: ['2'], ids_titulos: ['1'] }
     });
 
     await promesa;
 
     expect(Entrenador.create).toHaveBeenCalledWith({
-      nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678A', foto: null, id_titulo: null, id_temporada: 1
+      nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678A', foto: null, id_temporada: 1
     });
     expect(creado.setCategorias).toHaveBeenCalledWith([2]);
+    expect(creado.setTitulos).toHaveBeenCalledWith([1]);
     expect(res._status).toBe(201);
     expect(res._json.ids_categorias).toEqual([2]);
+    expect(res._json.ids_titulos).toEqual([1]);
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
-    Entrenador.findByPk.mockResolvedValue(null);
+    Entrenador.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'X' } });
 
     await promesa;
@@ -96,12 +98,12 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     expect(res._status).toBe(404);
   });
 
-  it('actualizar guarda los cambios y asigna categorías', async () => {
-    const entrenador = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue(), setCategorias: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, nombre: 'Nuevo', categorias: [] };
-    Entrenador.findByPk.mockResolvedValueOnce(entrenador).mockResolvedValueOnce(actualizado);
+  it('actualizar guarda los cambios y asigna categorías y títulos', async () => {
+    const entrenador = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue(), setCategorias: vi.fn().mockResolvedValue(), setTitulos: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, nombre: 'Nuevo', categorias: [], titulos: [] };
+    Entrenador.findOne.mockResolvedValueOnce(entrenador).mockResolvedValueOnce(actualizado);
     const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { nombre: 'Nuevo', categorias: [{ id: 2 }] }
+      params: { id: '1' }, body: { nombre: 'Nuevo', categorias: [{ id: 2 }], titulos: [{ id: 1 }] }
     });
 
     await promesa;
@@ -109,7 +111,8 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     expect(entrenador.nombre).toBe('Nuevo');
     expect(entrenador.save).toHaveBeenCalled();
     expect(entrenador.setCategorias).toHaveBeenCalledWith([2]);
-    expect(res._json).toEqual({ id: 1, nombre: 'Nuevo', categorias: [], ids_categorias: [] });
+    expect(entrenador.setTitulos).toHaveBeenCalledWith([1]);
+    expect(res._json).toEqual({ id: 1, nombre: 'Nuevo', categorias: [], titulos: [], ids_categorias: [], ids_titulos: [] });
   });
 
   it('eliminar elimina y responde 204', async () => {

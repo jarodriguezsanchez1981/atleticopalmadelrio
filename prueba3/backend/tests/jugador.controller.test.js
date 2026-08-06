@@ -7,7 +7,7 @@ import * as ctrl from '../src/controllers/jugador.controller.js';
 describe('Sección Jugadores · jugador.controller', () => {
   beforeEach(() => {
     Jugador.findAll.mockReset();
-    Jugador.findByPk.mockReset();
+    Jugador.findOne.mockReset();
     Jugador.create.mockReset();
     Jugador.destroy.mockReset();
   });
@@ -39,7 +39,7 @@ describe('Sección Jugadores · jugador.controller', () => {
   });
 
   it('obtener devuelve 404 si no existe', async () => {
-    Jugador.findByPk.mockResolvedValue(null);
+    Jugador.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '99' } });
 
     await promesa;
@@ -50,7 +50,7 @@ describe('Sección Jugadores · jugador.controller', () => {
 
   it('obtener devuelve el jugador serializado', async () => {
     const jugador = { id: 3, nombre: 'Ana', categorias: [{ id: 4 }, { id: 5 }] };
-    Jugador.findByPk.mockResolvedValue(jugador);
+    Jugador.findOne.mockResolvedValue(jugador);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
 
     await promesa;
@@ -72,7 +72,7 @@ describe('Sección Jugadores · jugador.controller', () => {
     const creado = { id: 5, setCategorias: vi.fn().mockResolvedValue() };
     const completo = { id: 5, nombre: 'Luis', categorias: [{ id: 2 }] };
     Jugador.create.mockResolvedValue(creado);
-    Jugador.findByPk.mockResolvedValue(completo);
+    Jugador.findOne.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       body: { nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678A', id_temporada: 1, ids_categorias: ['2', '3'] }
     });
@@ -88,7 +88,7 @@ describe('Sección Jugadores · jugador.controller', () => {
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
-    Jugador.findByPk.mockResolvedValue(null);
+    Jugador.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'X' } });
 
     await promesa;
@@ -99,7 +99,7 @@ describe('Sección Jugadores · jugador.controller', () => {
   it('actualizar guarda los cambios y asigna categorías', async () => {
     const jugador = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue(), setCategorias: vi.fn().mockResolvedValue() };
     const actualizado = { id: 1, nombre: 'Nuevo', categorias: [] };
-    Jugador.findByPk.mockResolvedValueOnce(jugador).mockResolvedValueOnce(actualizado);
+    Jugador.findOne.mockResolvedValueOnce(jugador).mockResolvedValueOnce(actualizado);
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' }, body: { nombre: 'Nuevo', categorias: [{ id: 2 }] }
     });

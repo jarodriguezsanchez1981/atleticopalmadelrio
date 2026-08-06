@@ -22,7 +22,7 @@ async function listar(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const delegado = await Delegado.findByPk(req.params.id, { include: includes });
+    const delegado = await Delegado.findOne({ where: { id: req.params.id }, include: includes });
     if (!delegado) return res.status(404).json({ message: 'Delegado no encontrado.' });
     res.json(delegado);
   } catch (err) { next(err); }
@@ -35,14 +35,14 @@ async function crear(req, res, next) {
       return res.status(400).json({ message: 'Nombre, apellidos, DNI y temporada son obligatorios.' });
     }
     const delegado = await Delegado.create({ nombre, apellidos, dni, foto: foto || null, tipo: tipo || 'campo', id_categoria: id_categoria || null, id_temporada });
-    const creado = await Delegado.findByPk(delegado.id, { include: includes });
+    const creado = await Delegado.findOne({ where: { id: delegado.id }, include: includes });
     res.status(201).json(creado);
   } catch (err) { next(err); }
 }
 
 async function actualizar(req, res, next) {
   try {
-    const delegado = await Delegado.findByPk(req.params.id);
+    const delegado = await Delegado.findOne({ where: { id: req.params.id } });
     if (!delegado) return res.status(404).json({ message: 'Delegado no encontrado.' });
     const { nombre, apellidos, dni, foto, tipo, id_categoria, id_temporada } = req.body;
     if (nombre !== undefined) delegado.nombre = nombre;
@@ -53,7 +53,7 @@ async function actualizar(req, res, next) {
     if (id_categoria !== undefined) delegado.id_categoria = id_categoria || null;
     if (id_temporada !== undefined) delegado.id_temporada = id_temporada;
     await delegado.save();
-    const actualizado = await Delegado.findByPk(delegado.id, { include: includes });
+    const actualizado = await Delegado.findOne({ where: { id: delegado.id }, include: includes });
     res.json(actualizado);
   } catch (err) { next(err); }
 }

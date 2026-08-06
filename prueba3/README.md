@@ -37,7 +37,7 @@ prueba3/
 ├── backend/                     # Express + Sequelize + JWT + bcrypt
 │   ├── Dockerfile
 │   └── src/
-│       ├── models/              # usuarios, secciones, categorias, jugadores...
+│       ├── models/              # usuarios, secciones, categorias, equipos, jugadores...
 │       ├── controllers/ routes/ middlewares/
 │       └── utils/               # bcrypt, AES-256-GCM, JWT, seedAdmin
 └── frontend/                    # Vue 3 + Pinia + PrimeVue + FullCalendar
@@ -46,7 +46,7 @@ prueba3/
         ├── auth/Login.vue
         ├── admin/Usuarios.vue   # solo administrador
         ├── calendario/          # solo lectura (mes/semana/año)
-        ├── entrenamientos/ partidos/ categorias/ jugadores/
+        ├── entrenamientos/ partidos/ categorias/ equipos/ jugadores/
 ```
 
 ## Secciones y permisos
@@ -58,6 +58,7 @@ prueba3/
 | Entrenamientos | Sí   | Todos                          |
 | Partidos       | Sí   | Todos (+ filtros temporada/categoría/rival) |
 | Categorías     | Sí   | Todos                          |
+| Equipos        | Sí   | Todos                          |
 | Jugadores      | Sí   | Todos                          |
 
 **Permisos:** el acceso se gestiona por secciones asignadas a cada usuario. Un usuario con la sección `administración` es administrador.
@@ -76,6 +77,7 @@ prueba3/
 - `delegados` (id, nombre, apellidos, dni, foto, tipo, id_categoria, id_temporada)
 - `entrenadores` (id, nombre, apellidos, dni, foto, id_temporada) + `entrenador_categorias` + `entrenador_titulos`
 - `categorias` (id, nombre, temporada, id_entrenador, id_delegado)
+- `equipos` (id, nombre, id_categoria)
 - `jugadores` (id, nombre, apellidos, dni, foto, id_temporada) + `jugador_categorias`
 - `secciones` (id, clave, nombre, icono, orden) + `usuario_secciones`
 - `entrenamientos` (id, id_categoria, fecha, lugar, incidencias)

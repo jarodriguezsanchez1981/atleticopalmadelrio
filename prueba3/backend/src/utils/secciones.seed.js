@@ -7,6 +7,7 @@ const SECCIONES = [
   { clave: 'lugares', nombre: 'Lugares', icono: 'pi pi-map-marker', orden: 50 },
   { clave: 'delegados', nombre: 'Delegados', icono: 'pi pi-user-plus', orden: 55 },
   { clave: 'categorias', nombre: 'Categorías', icono: 'pi pi-sitemap', orden: 60 },
+  { clave: 'equipos', nombre: 'Equipos', icono: 'pi pi-trophy', orden: 65 },
   { clave: 'jugadores', nombre: 'Jugadores', icono: 'pi pi-users', orden: 70 },
   { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80 },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-shield', orden: 100 }

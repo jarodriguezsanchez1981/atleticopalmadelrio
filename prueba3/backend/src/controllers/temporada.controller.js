@@ -9,7 +9,7 @@ async function listar(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const temporada = await Temporada.findByPk(req.params.id);
+    const temporada = await Temporada.findOne({ where: { id: req.params.id } });
     if (!temporada) return res.status(404).json({ message: 'Temporada no encontrada.' });
     res.json(temporada);
   } catch (err) { next(err); }
@@ -26,7 +26,7 @@ async function crear(req, res, next) {
 
 async function actualizar(req, res, next) {
   try {
-    const temporada = await Temporada.findByPk(req.params.id);
+    const temporada = await Temporada.findOne({ where: { id: req.params.id } });
     if (!temporada) return res.status(404).json({ message: 'Temporada no encontrada.' });
     const { nombre } = req.body;
     if (nombre !== undefined) temporada.nombre = nombre;

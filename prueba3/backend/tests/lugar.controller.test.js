@@ -7,7 +7,7 @@ import * as ctrl from '../src/controllers/lugar.controller.js';
 describe('Sección Lugares · lugar.controller', () => {
   beforeEach(() => {
     Lugar.findAll.mockReset();
-    Lugar.findByPk.mockReset();
+    Lugar.findOne.mockReset();
     Lugar.create.mockReset();
     Lugar.destroy.mockReset();
   });
@@ -30,17 +30,17 @@ describe('Sección Lugares · lugar.controller', () => {
 
   it('obtener devuelve el lugar por id', async () => {
     const lugar = { id: 3, nombre: 'Anexo' };
-    Lugar.findByPk.mockResolvedValue(lugar);
+    Lugar.findOne.mockResolvedValue(lugar);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
 
     await promesa;
 
-    expect(Lugar.findByPk).toHaveBeenCalledWith('3');
+    expect(Lugar.findOne).toHaveBeenCalledWith({ where: { id: '3' } });
     expect(res._json).toEqual(lugar);
   });
 
   it('obtener devuelve 404 si no existe', async () => {
-    Lugar.findByPk.mockResolvedValue(null);
+    Lugar.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '99' } });
 
     await promesa;
@@ -72,7 +72,7 @@ describe('Sección Lugares · lugar.controller', () => {
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
-    Lugar.findByPk.mockResolvedValue(null);
+    Lugar.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'X' } });
 
     await promesa;
@@ -82,7 +82,7 @@ describe('Sección Lugares · lugar.controller', () => {
 
   it('actualizar guarda los cambios', async () => {
     const lugar = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue() };
-    Lugar.findByPk.mockResolvedValue(lugar);
+    Lugar.findOne.mockResolvedValue(lugar);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'Nuevo' } });
 
     await promesa;

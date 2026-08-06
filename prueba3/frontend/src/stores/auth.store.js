@@ -10,6 +10,7 @@ const SECCION_ORDER = [
   'lugares',
   'delegados',
   'categorias',
+  'equipos',
   'jugadores',
   'entrenadores',
   'administracion'
