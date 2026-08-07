@@ -18,7 +18,7 @@ const columns = computed(() => [
   { field: 'usuario', header: 'Usuario', type: 'text', required: true },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'ids_secciones', header: 'Secciones visibles', type: 'multiselect', options: opcionesSeccion.value, required: true },
+  { field: 'ids_secciones', header: 'Secciones visibles', type: 'multiselect', options: opcionesSeccion.value },
   { field: 'password', header: 'Contraseña', type: 'password' }
 ]);
 
@@ -50,7 +50,7 @@ function nombresSecciones(data) {
     <Message severity="info" :closable="false" class="mb-4">
       La contraseña debe tener mínimo 8 caracteres y combinar mayúsculas, minúsculas, números y símbolos.
       Al editar un usuario, deja el campo contraseña vacío si no quieres cambiarla.
-      Selecciona al menos una sección visible.
+      Un usuario nuevo puede quedar sin secciones visibles; se las asignas después desde esta pantalla.
     </Message>
 
     <CrudDataTable

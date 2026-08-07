@@ -51,7 +51,7 @@ function etiquetaEvento(e) {
   const lugar = e.lugar || '—';
 
   if (e.tipo === 'partido') {
-    const rival = e.equipo_rival || '—';
+    const rival = e.equipo?.nombre || '—';
     return `${categoria} - ${rival} - ${lugar}`;
   }
   return `${categoria} - ${lugar}`;
@@ -240,8 +240,8 @@ defineExpose({ refrescar });
             {{ eventoSeleccionado.categoria.nombre }}
             ({{ eventoSeleccionado.categoria.temporada?.nombre || '' }})
           </p>
-          <p v-if="eventoSeleccionado.equipo_rival">
-            <i class="pi pi-flag mr-2"></i>Rival: {{ eventoSeleccionado.equipo_rival }}
+          <p v-if="eventoSeleccionado.equipo">
+            <i class="pi pi-flag mr-2"></i>Rival: {{ eventoSeleccionado.equipo.nombre }}
           </p>
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}

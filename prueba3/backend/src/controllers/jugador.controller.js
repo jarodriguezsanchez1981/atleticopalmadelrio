@@ -1,4 +1,4 @@
-const { Jugador, Categoria, Temporada } = require('../models');
+const { Jugador, Categoria, Temporada, Partido, Equipo, Lugar, Incidencia, PartidoJugador, Entrenamiento, EntrenamientoJugador } = require('../models');
 
 const includeCategorias = {
   model: Categoria,
@@ -10,6 +10,35 @@ const includeCategorias = {
 const includeJugador = [
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
   includeCategorias
+];
+
+const includeDetalle = [
+  ...includeJugador,
+  {
+    model: PartidoJugador,
+    as: 'convocatorias',
+    include: [{
+      model: Partido,
+      as: 'partido',
+      include: [
+        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] },
+        { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
+        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre'] }
+      ]
+    }]
+  },
+  {
+    model: EntrenamientoJugador,
+    as: 'asistencias',
+    include: [{
+      model: Entrenamiento,
+      as: 'entrenamiento',
+      include: [
+        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] },
+        { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
+      ]
+    }]
+  }
 ];
 
 function normalizeCategoriasIds(body) {
@@ -42,7 +71,7 @@ async function listar(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const jugador = await Jugador.findOne({ where: { id: req.params.id }, include: includeJugador });
+    const jugador = await Jugador.findOne({ where: { id: req.params.id }, include: includeDetalle });
     if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado.' });
     res.json(serializeJugador(jugador));
   } catch (err) { next(err); }

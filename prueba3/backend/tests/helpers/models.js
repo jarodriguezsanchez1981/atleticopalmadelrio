@@ -12,12 +12,14 @@ export function createModelMock() {
     findByPk: vi.fn(),
     findOne: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
     destroy: vi.fn(),
     save: vi.fn(),
     scope: vi.fn(),
     setSecciones: vi.fn(),
     setCategorias: vi.fn(),
-    setTitulos: vi.fn()
+    setTitulos: vi.fn(),
+    bulkCreate: vi.fn()
   };
   model.scope.mockReturnValue(model);
   return model;
@@ -40,7 +42,11 @@ export function createModelsMock() {
     Entrenador: createModelMock(),
     Entrenamiento: createModelMock(),
     Partido: createModelMock(),
-    Equipo: createModelMock()
+    Equipo: createModelMock(),
+    Incidencia: createModelMock(),
+    Resultado: createModelMock(),
+    PartidoJugador: createModelMock(),
+    EntrenamientoJugador: createModelMock()
   };
 }
 
@@ -63,6 +69,10 @@ export const Entrenador = models.Entrenador;
 export const Entrenamiento = models.Entrenamiento;
 export const Partido = models.Partido;
 export const Equipo = models.Equipo;
+export const Incidencia = models.Incidencia;
+export const Resultado = models.Resultado;
+export const PartidoJugador = models.PartidoJugador;
+export const EntrenamientoJugador = models.EntrenamientoJugador;
 
 /**
  * Mocks de las utilidades de password y JWT que cargan los controladores

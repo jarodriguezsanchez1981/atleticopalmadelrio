@@ -194,8 +194,8 @@ function formatearFecha(fecha) {
             {{ eventoSeleccionado.categoria.nombre }}
             ({{ eventoSeleccionado.categoria.temporada?.nombre || '' }})
           </p>
-          <p v-if="eventoSeleccionado.equipo_rival">
-            <i class="pi pi-flag mr-2"></i>Rival: {{ eventoSeleccionado.equipo_rival }}
+          <p v-if="eventoSeleccionado.equipo">
+            <i class="pi pi-flag mr-2"></i>Rival: {{ eventoSeleccionado.equipo.nombre }}
           </p>
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}

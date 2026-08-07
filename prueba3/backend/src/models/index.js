@@ -12,6 +12,10 @@ const Entrenador = require('./Entrenador');
 const Entrenamiento = require('./Entrenamiento');
 const Partido = require('./Partido');
 const Equipo = require('./Equipo');
+const Incidencia = require('./Incidencia');
+const Resultado = require('./Resultado');
+const PartidoJugador = require('./PartidoJugador');
+const EntrenamientoJugador = require('./EntrenamientoJugador');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -34,19 +38,19 @@ Seccion.belongsToMany(Usuario, {
 });
 
 Temporada.hasMany(Categoria, { foreignKey: 'id_temporada', sourceKey: 'id' });
-Categoria.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada' });
+Categoria.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Temporada.hasMany(Jugador, { foreignKey: 'id_temporada', sourceKey: 'id' });
-Jugador.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada' });
+Jugador.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Temporada.hasMany(Entrenador, { foreignKey: 'id_temporada', sourceKey: 'id' });
-Entrenador.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada' });
+Entrenador.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Titulo.belongsToMany(Entrenador, { through: 'entrenador_titulos', foreignKey: 'id_titulo', otherKey: 'id_entrenador', as: 'entrenadores', timestamps: false });
 Entrenador.belongsToMany(Titulo, { through: 'entrenador_titulos', foreignKey: 'id_entrenador', otherKey: 'id_titulo', targetKey: 'id', as: 'titulos', timestamps: false });
 
 Temporada.hasMany(Delegado, { foreignKey: 'id_temporada', sourceKey: 'id' });
-Delegado.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada' });
+Delegado.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Categoria.belongsToMany(Jugador, { through: 'jugador_categorias', foreignKey: 'id_categoria', sourceKey: 'id', otherKey: 'id_jugador', as: 'jugadores', timestamps: false });
 Jugador.belongsToMany(Categoria, { through: 'jugador_categorias', foreignKey: 'id_jugador', otherKey: 'id_categoria', targetKey: 'id', as: 'categorias', timestamps: false });
@@ -54,26 +58,64 @@ Jugador.belongsToMany(Categoria, { through: 'jugador_categorias', foreignKey: 'i
 Categoria.belongsToMany(Entrenador, { through: 'entrenador_categorias', foreignKey: 'id_categoria', sourceKey: 'id', otherKey: 'id_entrenador', as: 'entrenadores', timestamps: false });
 Entrenador.belongsToMany(Categoria, { through: 'entrenador_categorias', foreignKey: 'id_entrenador', otherKey: 'id_categoria', targetKey: 'id', as: 'categorias', timestamps: false });
 
-Categoria.belongsTo(Entrenador, { foreignKey: 'id_entrenador', targetKey: 'id', as: 'entrenador' });
+Categoria.belongsTo(Entrenador, { foreignKey: 'id_entrenador', targetKey: 'id', as: 'entrenador', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 Entrenador.hasMany(Categoria, { foreignKey: 'id_entrenador', sourceKey: 'id', as: 'categoriasResponsable' });
 
-Categoria.belongsTo(Delegado, { foreignKey: 'id_delegado', targetKey: 'id', as: 'delegado' });
+Categoria.belongsTo(Delegado, { foreignKey: 'id_delegado', targetKey: 'id', as: 'delegado', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 Delegado.hasMany(Categoria, { foreignKey: 'id_delegado', sourceKey: 'id', as: 'categoriasDelegado' });
 
 Categoria.hasMany(Delegado, { foreignKey: 'id_categoria', sourceKey: 'id' });
-Delegado.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria' });
+Delegado.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
 Categoria.hasMany(Entrenamiento, { foreignKey: 'id_categoria', sourceKey: 'id' });
-Entrenamiento.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria' });
+Entrenamiento.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Categoria.hasMany(Partido, { foreignKey: 'id_categoria', sourceKey: 'id' });
-Partido.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria' });
-
+Partido.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 Lugar.hasMany(Entrenamiento, { foreignKey: 'id_lugar', sourceKey: 'id' });
-Entrenamiento.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'lugar' });
+Entrenamiento.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'lugar', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Lugar.hasMany(Partido, { foreignKey: 'id_lugar', sourceKey: 'id' });
-Partido.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'lugar' });
+Partido.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'lugar', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Equipo.hasMany(Partido, { foreignKey: 'id_equipo', sourceKey: 'id' });
+Partido.belongsTo(Equipo, { foreignKey: 'id_equipo', targetKey: 'id', as: 'equipo', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Partido.hasMany(Resultado, { foreignKey: 'id_partido', sourceKey: 'id', onDelete: 'CASCADE' });
+Resultado.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
+
+Partido.hasMany(PartidoJugador, { foreignKey: 'id_partido', sourceKey: 'id', onDelete: 'CASCADE', as: 'convocados' });
+PartidoJugador.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
+
+Jugador.hasMany(PartidoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', onDelete: 'CASCADE', as: 'convocatorias' });
+PartidoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
+
+Entrenamiento.hasMany(EntrenamientoJugador, { foreignKey: 'id_entrenamiento', sourceKey: 'id', onDelete: 'CASCADE', as: 'asistencias' });
+EntrenamientoJugador.belongsTo(Entrenamiento, { foreignKey: 'id_entrenamiento', targetKey: 'id', as: 'entrenamiento' });
+
+Jugador.hasMany(EntrenamientoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', onDelete: 'CASCADE', as: 'asistencias' });
+EntrenamientoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
+
+Categoria.hasMany(Incidencia, { foreignKey: 'id_categoria', sourceKey: 'id' });
+Incidencia.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Usuario.hasMany(Entrenamiento, { foreignKey: 'id_usuario', sourceKey: 'id' });
+Entrenamiento.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Usuario.hasMany(Partido, { foreignKey: 'id_usuario', sourceKey: 'id' });
+Partido.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Usuario.hasMany(Incidencia, { foreignKey: 'id_usuario', sourceKey: 'id' });
+Incidencia.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Jugador.hasMany(Incidencia, { foreignKey: 'id_jugador', sourceKey: 'id' });
+Incidencia.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+
+Entrenador.hasMany(Incidencia, { foreignKey: 'id_entrenador', sourceKey: 'id' });
+Incidencia.belongsTo(Entrenador, { foreignKey: 'id_entrenador', targetKey: 'id', as: 'entrenador', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+
+Delegado.hasMany(Incidencia, { foreignKey: 'id_delegado', sourceKey: 'id' });
+Incidencia.belongsTo(Delegado, { foreignKey: 'id_delegado', targetKey: 'id', as: 'delegado', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
 module.exports = {
   sequelize,
@@ -88,5 +130,9 @@ module.exports = {
   Entrenador,
   Entrenamiento,
   Partido,
-  Equipo
+  Equipo,
+  Incidencia,
+  Resultado,
+  PartidoJugador,
+  EntrenamientoJugador
 };

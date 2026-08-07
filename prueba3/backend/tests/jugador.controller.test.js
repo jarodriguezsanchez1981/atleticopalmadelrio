@@ -58,6 +58,24 @@ describe('Sección Jugadores · jugador.controller', () => {
     expect(res._json.ids_categorias).toEqual([4, 5]);
   });
 
+  it('obtener incluye convocatorias y asistencias del jugador', async () => {
+    const jugador = {
+      id: 3, nombre: 'Ana', categorias: [],
+      convocatorias: [{ id: 1, partido: { fecha: '2026-01-01' } }],
+      asistencias: [{ id: 2, entrenamiento: { fecha: '2026-02-01' }, asistencia: true }]
+    };
+    Jugador.findOne.mockResolvedValue(jugador);
+    const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
+
+    await promesa;
+
+    const llamada = Jugador.findOne.mock.calls[0][0];
+    const alias = llamada.include.map((i) => i.as);
+    expect(alias).toEqual(expect.arrayContaining(['convocatorias', 'asistencias']));
+    expect(res._json.convocatorias).toHaveLength(1);
+    expect(res._json.asistencias).toHaveLength(1);
+  });
+
   it('crear valida campos obligatorios', async () => {
     const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Luis' } });
 

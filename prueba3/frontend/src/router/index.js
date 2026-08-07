@@ -35,6 +35,12 @@ const routes = [
         meta: { seccion: 'partidos' }
       },
       {
+        path: 'resultados',
+        name: 'resultados',
+        component: () => import('../views/resultados/Resultados.vue'),
+        meta: { seccion: 'resultados' }
+      },
+      {
         path: 'temporadas',
         name: 'temporadas',
         component: () => import('../views/temporadas/Temporadas.vue'),
@@ -69,6 +75,12 @@ const routes = [
         name: 'equipos',
         component: () => import('../views/equipos/Equipos.vue'),
         meta: { seccion: 'equipos' }
+      },
+      {
+        path: 'incidencias',
+        name: 'incidencias',
+        component: () => import('../views/incidencias/Incidencias.vue'),
+        meta: { seccion: 'incidencias' }
       },
       {
         path: 'jugadores',

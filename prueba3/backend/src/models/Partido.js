@@ -6,7 +6,8 @@ const Partido = sequelize.define('Partido', {
   id_categoria: { type: DataTypes.INTEGER, allowNull: false },
   fecha: { type: DataTypes.DATE, allowNull: false },
   id_lugar: { type: DataTypes.INTEGER, allowNull: false },
-  equipo_rival: { type: DataTypes.STRING(150), allowNull: false },
+  id_equipo: { type: DataTypes.INTEGER, allowNull: false },
+  id_usuario: { type: DataTypes.INTEGER, allowNull: true },
   incidencias: { type: DataTypes.TEXT, allowNull: true }
 }, {
   tableName: 'partidos'

@@ -10,6 +10,7 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     Entrenador.findOne.mockReset();
     Entrenador.create.mockReset();
     Entrenador.destroy.mockReset();
+    Categoria.update.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -84,6 +85,10 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     });
     expect(creado.setCategorias).toHaveBeenCalledWith([2]);
     expect(creado.setTitulos).toHaveBeenCalledWith([1]);
+    expect(Categoria.update).toHaveBeenCalledWith(
+      { id_entrenador: 5 },
+      { where: { id: [2] } }
+    );
     expect(res._status).toBe(201);
     expect(res._json.ids_categorias).toEqual([2]);
     expect(res._json.ids_titulos).toEqual([1]);
@@ -112,6 +117,10 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     expect(entrenador.save).toHaveBeenCalled();
     expect(entrenador.setCategorias).toHaveBeenCalledWith([2]);
     expect(entrenador.setTitulos).toHaveBeenCalledWith([1]);
+    expect(Categoria.update).toHaveBeenCalledWith(
+      { id_entrenador: 1 },
+      { where: { id: [2] } }
+    );
     expect(res._json).toEqual({ id: 1, nombre: 'Nuevo', categorias: [], titulos: [], ids_categorias: [], ids_titulos: [] });
   });
 

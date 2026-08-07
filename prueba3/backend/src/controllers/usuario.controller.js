@@ -46,9 +46,6 @@ async function crear(req, res, next) {
     if (!usuario || !password || !nombre || !apellidos) {
       return res.status(400).json({ message: 'Todos los campos son obligatorios.' });
     }
-    if (!idsSecciones.length) {
-      return res.status(400).json({ message: 'Debes seleccionar al menos una sección visible.' });
-    }
     if (!isPasswordValid(password)) {
       return res.status(400).json({
         message: 'La contraseña debe tener mínimo 8 caracteres e incluir mayúsculas, minúsculas, números y caracteres especiales.'
@@ -87,10 +84,7 @@ async function actualizar(req, res, next) {
 
     await usuario.save();
 
-    if (idsSecciones) {
-      if (!idsSecciones.length) {
-        return res.status(400).json({ message: 'Debes seleccionar al menos una sección visible.' });
-      }
+    if (idsSecciones !== null && idsSecciones !== undefined) {
       await usuario.setSecciones(idsSecciones);
     }
 

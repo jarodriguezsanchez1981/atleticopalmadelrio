@@ -4,7 +4,7 @@
  * columns: [{ field, header, type: 'text'|'textarea'|'date'|'select'|'multiselect'|'password',
  *             options?: [{label,value}], required?: bool }]
  */
-import { ref, reactive, onMounted, nextTick } from 'vue';
+import { ref, reactive, onMounted, nextTick, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
@@ -246,6 +246,13 @@ function onFotoInput(field, event) {
   reader.readAsDataURL(file);
 }
 
+function resolveOptions(col) {
+  if (typeof col.options === 'function') {
+    return col.options(form) || [];
+  }
+  return col.options || [];
+}
+
 function prepareFormData(item) {
   const data = { ...props.emptyItem, ...item };
   for (const col of props.columns) {
@@ -269,7 +276,7 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'delegado', 'titulo', 'titulos', 'secciones', 'created_at', 'updated_at'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'delegado', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'convocados', 'asistencias'].forEach((k) => {
     delete payload[k];
   });
   for (const col of props.columns) {
@@ -295,6 +302,20 @@ async function cargar() {
   }
 }
 
+watch(
+  () => ({ ...form }),
+  () => {
+    for (const col of props.columns) {
+      if (typeof col.options !== 'function') continue;
+      const actual = form[col.field];
+      if (actual == null || actual === '') continue;
+      const opts = resolveOptions(col);
+      if (!opts.some((o) => o.value === actual)) form[col.field] = null;
+    }
+  },
+  { deep: true }
+);
+
 function abrirNuevo() {
   Object.keys(form).forEach((k) => delete form[k]);
   Object.assign(form, prepareFormData(props.emptyItem));
@@ -309,9 +330,16 @@ function abrirEdicion(item) {
   dialogVisible.value = true;
 }
 
-function abrirDetalle(item) {
+async function abrirDetalle(item) {
   detalle.value = item;
   detalleVisible.value = true;
+  if (typeof props.service.obtener === 'function') {
+    try {
+      detalle.value = await props.service.obtener(item.id);
+    } catch {
+      /* mantiene el item de la fila */
+    }
+  }
 }
 
 function valorDetalle(col, data) {
@@ -491,7 +519,13 @@ onMounted(cargar);
             {{ col.header }} <span v-if="col.required" class="text-club-garnet">*</span>
           </label>
 
-          <InputText v-if="col.type === 'text'" :id="col.field" v-model="form[col.field]" class="w-full" />
+          <InputText v-if="col.type === 'text' && !col.readonly" :id="col.field" v-model="form[col.field]" class="w-full" />
+
+          <div v-else-if="col.type === 'text' && col.readonly" class="text-sm text-slate-800 py-2">
+            {{ form[col.field] && typeof form[col.field] === 'object'
+               ? `${form[col.field].nombre || ''} ${form[col.field].apellidos || ''}`.trim() || form[col.field].usuario || '—'
+               : (form[col.field] || '—') }}
+          </div>
 
           <Password v-else-if="col.type === 'password'" :id="col.field" v-model="form[col.field]"
                     :feedback="false" toggleMask inputClass="w-full" class="w-full"
@@ -570,19 +604,19 @@ onMounted(cargar);
           </div>
 
           <Select v-else-if="col.type === 'select'" :id="col.field" v-model="form[col.field]"
-                  :options="col.options" optionLabel="label" optionValue="value" class="w-full"
+                  :options="resolveOptions(col)" optionLabel="label" optionValue="value" class="w-full"
                   placeholder="Selecciona una opción" showClear />
 
-          <MultiSelect
+<MultiSelect
             v-else-if="col.type === 'multiselect'"
             :id="col.field"
             v-model="form[col.field]"
-            :options="col.options"
+            :options="resolveOptions(col)"
             optionLabel="label"
             optionValue="value"
             display="chip"
             filter
-            placeholder="Selecciona secciones"
+            placeholder="Selecciona jugadores"
             class="w-full"
           />
         </div>
@@ -620,6 +654,8 @@ onMounted(cargar);
             </slot>
           </div>
         </div>
+
+        <slot name="detail-extra" :data="detalle" />
 
         <div class="flex justify-end gap-2 pt-3">
           <Button v-if="canEdit" label="Editar" icon="pi pi-pencil" text

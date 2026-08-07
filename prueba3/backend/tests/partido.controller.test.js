@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Categoria, Temporada, Lugar } from './helpers/models.js';
+import { Partido, PartidoJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -11,6 +11,8 @@ describe('Sección Partidos · partido.controller', () => {
     Partido.findByPk.mockReset();
     Partido.create.mockReset();
     Partido.destroy.mockReset();
+    PartidoJugador.destroy.mockReset();
+    PartidoJugador.bulkCreate.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -19,7 +21,7 @@ describe('Sección Partidos · partido.controller', () => {
   }
 
   it('listar devuelve los partidos sin filtros', async () => {
-    const partidos = [{ id: 1, equipo_rival: 'CD Rival' }];
+    const partidos = [{ id: 1, id_equipo: 5 }];
     Partido.findAll.mockResolvedValue(partidos);
     const { promesa, res } = llamar(ctrl.listar);
 
@@ -28,13 +30,13 @@ describe('Sección Partidos · partido.controller', () => {
     expect(Partido.findAll).toHaveBeenCalledWith(
       expect.objectContaining({ order: [['fecha', 'ASC']], include: expect.any(Array) })
     );
-    expect(res._json).toEqual(partidos);
+    expect(res._json[0]).toEqual({ id: 1, id_equipo: 5, ids_jugadores: [] });
   });
 
-  it('listar filtra por categoría, lugar y equipo rival', async () => {
+  it('listar filtra por categoría, lugar y equipo', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa, res } = llamar(ctrl.listar, {
-      query: { id_categoria: '2', id_lugar: '3', equipo_rival: 'rival' }
+      query: { id_categoria: '2', id_lugar: '3', id_equipo: '5' }
     });
 
     await promesa;
@@ -44,7 +46,7 @@ describe('Sección Partidos · partido.controller', () => {
         where: {
           id_categoria: '2',
           id_lugar: '3',
-          equipo_rival: { [Op.like]: '%rival%' }
+          id_equipo: '5'
         }
       })
     );
@@ -75,14 +77,14 @@ describe('Sección Partidos · partido.controller', () => {
   });
 
   it('obtener devuelve el partido por id', async () => {
-    const partido = { id: 3, equipo_rival: 'Rival' };
+    const partido = { id: 3, id_equipo: 5 };
     Partido.findByPk.mockResolvedValue(partido);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
 
     await promesa;
 
     expect(Partido.findByPk).toHaveBeenCalledWith('3', expect.objectContaining({ include: expect.any(Array) }));
-    expect(res._json).toEqual(partido);
+    expect(res._json).toEqual({ id: 3, id_equipo: 5, ids_jugadores: [] });
   });
 
   it('crear valida campos obligatorios', async () => {
@@ -91,26 +93,59 @@ describe('Sección Partidos · partido.controller', () => {
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Categoría, fecha, lugar y equipo rival son obligatorios.');
+    expect(res._json.message).toBe('Categoría, fecha, lugar y equipo son obligatorios.');
     expect(Partido.create).not.toHaveBeenCalled();
   });
 
   it('crear crea el partido y devuelve 201', async () => {
-    const creado = { id: 5, equipo_rival: 'Rival' };
-    const completo = { id: 5, equipo_rival: 'Rival', categoria: null, lugar: null };
+    const creado = { id: 5, id_equipo: 6 };
+    const completo = { id: 5, id_equipo: 6, categoria: null, lugar: null, equipo: null };
     Partido.create.mockResolvedValue(creado);
     Partido.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, equipo_rival: 'Rival' }
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo: 6 }
     });
 
     await promesa;
 
     expect(Partido.create).toHaveBeenCalledWith({
-      id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, equipo_rival: 'Rival', incidencias: undefined
+      id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo: 6, id_usuario: 7, incidencias: undefined
     });
     expect(res._status).toBe(201);
-    expect(res._json).toEqual(completo);
+    expect(res._json).toEqual({ id: 5, id_equipo: 6, categoria: null, lugar: null, equipo: null, ids_jugadores: [] });
+  });
+
+  it('crear guarda los convocados', async () => {
+    const creado = { id: 9, id_equipo: 6 };
+    const completo = { id: 9, id_equipo: 6, categoria: null, lugar: null, equipo: null, convocados: [] };
+    Partido.create.mockResolvedValue(creado);
+    Partido.findByPk.mockResolvedValue(completo);
+    const { promesa } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo: 6, ids_jugadores: [3, 4] }
+    });
+
+    await promesa;
+
+    expect(PartidoJugador.destroy).toHaveBeenCalledWith({ where: { id_partido: 9 } });
+    expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
+      { id_partido: 9, id_jugador: 3 },
+      { id_partido: 9, id_jugador: 4 }
+    ]);
+  });
+
+  it('listar expone ids_jugadores desde los convocados', async () => {
+    const partido = {
+      id: 1, id_equipo: 5,
+      convocados: [{ id_jugador: 3 }, { id_jugador: 4 }]
+    };
+    Partido.findAll.mockResolvedValue([partido]);
+    const { promesa, res } = llamar(ctrl.listar);
+
+    await promesa;
+
+    expect(res._json[0].ids_jugadores).toEqual([3, 4]);
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -123,16 +158,34 @@ describe('Sección Partidos · partido.controller', () => {
   });
 
   it('actualizar guarda los cambios', async () => {
-    const partido = { id: 1, equipo_rival: 'Viejo', save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, equipo_rival: 'Nuevo', categoria: null, lugar: null };
+    const partido = { id: 1, id_equipo: 5, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, id_equipo: 6, categoria: null, lugar: null, equipo: null };
     Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
-    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { equipo_rival: 'Nuevo' } });
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { id_equipo: 6 } });
 
     await promesa;
 
-    expect(partido.equipo_rival).toBe('Nuevo');
+    expect(partido.id_equipo).toBe(6);
     expect(partido.save).toHaveBeenCalled();
-    expect(res._json).toEqual(actualizado);
+    expect(res._json).toEqual({ id: 1, id_equipo: 6, categoria: null, lugar: null, equipo: null, ids_jugadores: [] });
+  });
+
+  it('actualizar reemplaza los convocados si vienen en el body', async () => {
+    const partido = { id: 1, id_equipo: 5, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, id_equipo: 5, categoria: null, lugar: null, equipo: null, convocados: [] };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { ids_jugadores: [7, 8] }
+    });
+
+    await promesa;
+
+    expect(PartidoJugador.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
+    expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
+      { id_partido: 1, id_jugador: 7 },
+      { id_partido: 1, id_jugador: 8 }
+    ]);
   });
 
   it('eliminar elimina y responde 204', async () => {

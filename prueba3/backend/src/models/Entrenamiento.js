@@ -6,6 +6,8 @@ const Entrenamiento = sequelize.define('Entrenamiento', {
   id_categoria: { type: DataTypes.INTEGER, allowNull: false },
   fecha: { type: DataTypes.DATE, allowNull: false },
   id_lugar: { type: DataTypes.INTEGER, allowNull: false },
+  id_usuario: { type: DataTypes.INTEGER, allowNull: true },
+  recurrente: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   incidencias: { type: DataTypes.TEXT, allowNull: true }
 }, {
   tableName: 'entrenamientos'

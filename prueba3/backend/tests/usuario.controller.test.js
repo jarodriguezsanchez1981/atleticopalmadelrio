@@ -54,15 +54,22 @@ describe('Sección Usuarios · usuario.controller', () => {
     expect(res._json.message).toBe('Todos los campos son obligatorios.');
   });
 
-  it('crear valida al menos una sección', async () => {
+  it('crear permite crear un usuario sin secciones', async () => {
+    const nuevo = { id: 6, setSecciones: vi.fn().mockResolvedValue() };
+    const completo = { id: 6, usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B', secciones: [] };
+    Usuario.create.mockResolvedValue(nuevo);
+    Usuario.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { usuario: 'x', password: 'Clave123!', nombre: 'A', apellidos: 'B' }
+      body: { usuario: 'sinesc', password: 'Clave123!', nombre: 'A', apellidos: 'B', ids_secciones: [] }
     });
 
     await promesa;
 
-    expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Debes seleccionar al menos una sección visible.');
+    expect(Usuario.create).toHaveBeenCalledWith({
+      usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B'
+    });
+    expect(nuevo.setSecciones).toHaveBeenCalledWith([]);
+    expect(res._status).toBe(201);
   });
 
   it('crear valida la fortaleza de la contraseña', async () => {
@@ -123,17 +130,18 @@ describe('Sección Usuarios · usuario.controller', () => {
     expect(usuario.save).not.toHaveBeenCalled();
   });
 
-  it('actualizar valida al menos una sección al cambiarlas', async () => {
-    const usuario = { id: 1, save: vi.fn() };
-    Usuario.findByPk.mockResolvedValue(usuario);
+  it('actualizar permite quitar todas las secciones', async () => {
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue(), setSecciones: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' }, body: { ids_secciones: [] }
     });
 
     await promesa;
 
-    expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Debes seleccionar al menos una sección visible.');
+    expect(usuario.setSecciones).toHaveBeenCalledWith([]);
+    expect(res._status).toBe(200);
   });
 
   it('eliminar impide borrar el propio usuario', async () => {
