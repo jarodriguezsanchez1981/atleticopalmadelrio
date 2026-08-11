@@ -10,6 +10,7 @@ describe('Sección Delegados · delegado.controller', () => {
     Delegado.findOne.mockReset();
     Delegado.create.mockReset();
     Delegado.destroy.mockReset();
+    Categoria.update.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -72,22 +73,76 @@ describe('Sección Delegados · delegado.controller', () => {
     expect(Delegado.create).not.toHaveBeenCalled();
   });
 
-  it('crear crea el delegado y devuelve 201 con el registro completo', async () => {
-    const creado = { id: 5, nombre: 'Ana', apellidos: 'López', dni: '12345678A', id_temporada: 1 };
-    const completo = { id: 5, ...creado, categoria: null, temporada: { id: 1 } };
-    Delegado.create.mockResolvedValue(creado);
-    Delegado.findOne.mockResolvedValue(completo);
+  it('crear rechaza un DNI no válido', async () => {
     const { promesa, res } = llamar(ctrl.crear, {
       body: { nombre: 'Ana', apellidos: 'López', dni: '12345678A', id_temporada: 1 }
     });
 
     await promesa;
 
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El DNI introducido no es válido.');
+    expect(Delegado.create).not.toHaveBeenCalled();
+  });
+
+  it('actualizar rechaza un DNI no válido', async () => {
+    const delegado = { id: 1, save: vi.fn() };
+    Delegado.findOne.mockResolvedValueOnce(delegado);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { dni: '12345678A' }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El DNI introducido no es válido.');
+  });
+
+  it('crear crea el delegado y devuelve 201 con el registro completo', async () => {
+    const creado = { id: 5, nombre: 'Ana', apellidos: 'López', dni: '12345678Z', id_temporada: 1 };
+    const completo = { id: 5, ...creado, categoria: null, temporada: { id: 1 } };
+    Delegado.create.mockResolvedValue(creado);
+    Delegado.findOne.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Ana', apellidos: 'López', dni: '12345678Z', id_temporada: 1 }
+    });
+
+    await promesa;
+
     expect(Delegado.create).toHaveBeenCalledWith({
-      nombre: 'Ana', apellidos: 'López', dni: '12345678A', foto: null, tipo: 'campo', id_categoria: null, id_temporada: 1
+      nombre: 'Ana', apellidos: 'López', dni: '12345678Z', foto: null, tipo: 'campo', id_categoria: null, id_temporada: 1
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(completo);
+  });
+
+  it('crear sincroniza la categoría asignada con id_delegado', async () => {
+    const creado = { id: 6, nombre: 'Ana', apellidos: 'López', dni: '12345678Z', id_temporada: 1, id_categoria: 3 };
+    const completo = { id: 6, id_categoria: 3, categoria: null, temporada: { id: 1 } };
+    Delegado.create.mockResolvedValue(creado);
+    Delegado.findOne.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Ana', apellidos: 'López', dni: '12345678Z', id_temporada: 1, id_categoria: '3' }
+    });
+
+    await promesa;
+
+    expect(Categoria.update).toHaveBeenCalledWith({ id_delegado: 6 }, { where: { id: 3 } });
+    expect(res._status).toBe(201);
+  });
+
+  it('actualizar reasigna la categoría y limpia la anterior del delegado', async () => {
+    const delegado = { id: 1, nombre: 'Viejo', id_categoria: 3, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, nombre: 'Viejo', id_categoria: 4, categoria: null, temporada: null };
+    Delegado.findOne.mockResolvedValueOnce(delegado).mockResolvedValueOnce(actualizado);
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { id_categoria: '4' }
+    });
+
+    await promesa;
+
+    expect(Categoria.update).toHaveBeenCalledWith({ id_delegado: 1 }, { where: { id: 4 } });
+    expect(Categoria.update).toHaveBeenCalledWith({ id_delegado: null }, { where: { id: 3, id_delegado: 1 } });
   });
 
   it('actualizar devuelve 404 si no existe', async () => {

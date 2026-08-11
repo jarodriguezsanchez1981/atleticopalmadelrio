@@ -86,19 +86,44 @@ describe('Sección Jugadores · jugador.controller', () => {
     expect(Jugador.create).not.toHaveBeenCalled();
   });
 
+  it('crear rechaza un DNI no válido', async () => {
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678A', id_temporada: 1 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El DNI introducido no es válido.');
+    expect(Jugador.create).not.toHaveBeenCalled();
+  });
+
+  it('actualizar rechaza un DNI no válido', async () => {
+    const jugador = { id: 1, save: vi.fn() };
+    Jugador.findOne.mockResolvedValueOnce(jugador);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { dni: '12345678A' }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El DNI introducido no es válido.');
+  });
+
   it('crear crea el jugador, asigna categorías y devuelve 201', async () => {
     const creado = { id: 5, setCategorias: vi.fn().mockResolvedValue() };
     const completo = { id: 5, nombre: 'Luis', categorias: [{ id: 2 }] };
     Jugador.create.mockResolvedValue(creado);
     Jugador.findOne.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678A', id_temporada: 1, ids_categorias: ['2', '3'] }
+      body: { nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', id_temporada: 1, ids_categorias: ['2', '3'] }
     });
 
     await promesa;
 
     expect(Jugador.create).toHaveBeenCalledWith({
-      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678A', foto: null, id_temporada: 1
+      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', foto: null, id_temporada: 1
     });
     expect(creado.setCategorias).toHaveBeenCalledWith([2, 3]);
     expect(res._status).toBe(201);

@@ -1,9 +1,10 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Partido, Categoria, Lugar, Equipo } = require('../models');
+const { EntrenamientoSemanal, Entrenamiento, Partido, Categoria, Lugar, Equipo } = require('../models');
 
 /**
- * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados
- * como eventos para FullCalendar.
+ * Endpoint de SOLO LECTURA. Devuelve entrenamientos (desde
+ * entrenamientos_semanales) y partidos normalizados como eventos
+ * para FullCalendar.
  */
 async function eventos(req, res, next) {
   try {
@@ -12,30 +13,10 @@ async function eventos(req, res, next) {
     const fechaDesde = desde ? new Date(desde) : null;
     const fechaHasta = hasta ? new Date(hasta) : null;
 
-    const whereBase = {};
-    if (id_categoria) whereBase.id_categoria = id_categoria;
-    whereBase.id_usuario = req.user?.id;
+    const incluirEntrenamientos = !tipo || tipo === 'entrenamiento';
+    const incluirPartidos = !tipo || tipo === 'partido';
 
-    // ---- Consultas ----
-    const whereNoRecurrente = { ...whereBase, recurrente: false };
-    const whereRecurrente = { ...whereBase, recurrente: true };
-    const wherePartido = { ...whereBase };
-
-    if (fechaDesde && fechaHasta) {
-      whereNoRecurrente.fecha = { [Op.between]: [fechaDesde, fechaHasta] };
-      wherePartido.fecha = { [Op.between]: [fechaDesde, fechaHasta] };
-    } else if (fechaDesde) {
-      whereNoRecurrente.fecha = { [Op.gte]: fechaDesde };
-      wherePartido.fecha = { [Op.gte]: fechaDesde };
-    } else if (fechaHasta) {
-      whereNoRecurrente.fecha = { [Op.lte]: fechaHasta };
-      wherePartido.fecha = { [Op.lte]: fechaHasta };
-    }
-
-    // Recurrentes: solo se acotan por el FIN del rango (se repiten por semanas).
-    if (fechaHasta) whereRecurrente.fecha = { [Op.lte]: fechaHasta };
-
-    const includesBase = [
+    const includesCategoria = [
       {
         model: Categoria,
         as: 'categoria',
@@ -44,83 +25,95 @@ async function eventos(req, res, next) {
       },
       { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
     ];
-    const includesPartido = [...includesBase, { model: Equipo, as: 'equipo', attributes: ['id', 'nombre'] }];
 
-    const incluirEntrenamientos = !tipo || tipo === 'entrenamiento';
-    const incluirPartidos = !tipo || tipo === 'partido';
+    // ---- Consultas ----
+    const promesas = [];
 
-    const [entrenamientos, recurrentes, partidos] = await Promise.all([
-      incluirEntrenamientos
-        ? Entrenamiento.findAll({ where: whereNoRecurrente, include: includesBase })
-        : Promise.resolve([]),
-      incluirEntrenamientos
-        ? Entrenamiento.findAll({ where: whereRecurrente, include: includesBase })
-        : Promise.resolve([]),
-      incluirPartidos
-        ? Partido.findAll({ where: wherePartido, include: includesPartido })
-        : Promise.resolve([])
-    ]);
-
-    // ---- Eventos ----
-    const eventosEntrenamiento = entrenamientos.map(e => ({
-      id: `entrenamiento-${e.id}`,
-      tipo: 'entrenamiento',
-      titulo: `Entrenamiento · ${e.categoria?.nombre ?? ''}`,
-      inicio: e.fecha,
-      lugar: e.lugar?.nombre ?? null,
-      id_lugar: e.id_lugar,
-      incidencias: e.incidencias,
-      categoria: e.categoria,
-      recurrente: false
-    }));
-
-    // Expandir recurrentes: cada 7 días desde su fecha base hasta el fin del rango.
-    for (const e of recurrentes) {
-      const base = new Date(e.fecha);
-      const push = (fecha, oc) => eventosEntrenamiento.push({
-        id: `entrenamiento-${e.id}-${oc}`,
-        tipo: 'entrenamiento',
-        base_id: e.id,
-        titulo: `Entrenamiento · ${e.categoria?.nombre ?? ''}`,
-        inicio: new Date(fecha),
-        lugar: e.lugar?.nombre ?? null,
-        id_lugar: e.id_lugar,
-        incidencias: e.incidencias,
-        categoria: e.categoria,
-        recurrente: true
-      });
-
-      if (!fechaHasta && !fechaDesde) {
-        push(base, 0);
-        continue;
+    if (incluirEntrenamientos) {
+      const whereSemanal = {};
+      if (fechaDesde || fechaHasta) {
+        whereSemanal.fecha_entrenamiento = {};
+        if (fechaDesde) whereSemanal.fecha_entrenamiento[Op.gte] = fechaDesde;
+        if (fechaHasta) whereSemanal.fecha_entrenamiento[Op.lte] = fechaHasta;
       }
+      const whereEntrenamiento = { id_usuario: req.user?.id };
+      if (id_categoria) whereEntrenamiento.id_categoria = id_categoria;
 
-      let it = new Date(base);
-      let oc = 0;
-      while (true) {
-        if (fechaDesde && it < fechaDesde) {
-          it = new Date(it.getTime() + 7 * 24 * 60 * 60 * 1000);
-          continue;
-        }
-        if (fechaHasta && it > fechaHasta) break;
-        push(it, oc);
-        oc += 1;
-        it = new Date(it.getTime() + 7 * 24 * 60 * 60 * 1000);
-      }
+      promesas.push(
+        EntrenamientoSemanal.findAll({
+          where: whereSemanal,
+          include: [{
+            model: Entrenamiento,
+            as: 'entrenamiento',
+            where: whereEntrenamiento,
+            attributes: ['id', 'id_categoria', 'id_lugar', 'fecha', 'recurrente'],
+            include: includesCategoria
+          }]
+        })
+      );
+    } else {
+      promesas.push(Promise.resolve([]));
     }
 
-    const eventosPartido = partidos.map(p => ({
-      id: `partido-${p.id}`,
-      tipo: 'partido',
-      titulo: `Partido vs ${p.equipo?.nombre ?? ''} · ${p.categoria?.nombre ?? ''}`,
-      inicio: p.fecha,
-      lugar: p.lugar?.nombre ?? null,
-      id_lugar: p.id_lugar,
-      id_equipo: p.id_equipo,
-      equipo: p.equipo,
-      incidencias: p.incidencias,
-      categoria: p.categoria
-    }));
+    if (incluirPartidos) {
+      const wherePartido = { id_usuario: req.user?.id };
+      if (id_categoria) wherePartido.id_categoria = id_categoria;
+      if (fechaDesde || fechaHasta) {
+        wherePartido.fecha = {};
+        if (fechaDesde) wherePartido.fecha[Op.gte] = fechaDesde;
+        if (fechaHasta) wherePartido.fecha[Op.lte] = fechaHasta;
+      }
+      const includesPartido = [
+        ...includesCategoria,
+        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre'] }
+      ];
+      promesas.push(
+        Partido.findAll({ where: wherePartido, include: includesPartido })
+      );
+    } else {
+      promesas.push(Promise.resolve([]));
+    }
+
+    const [semanales, partidos] = await Promise.all(promesas);
+
+    // ---- Eventos ----
+    const eventosEntrenamiento = semanales.map((s) => {
+      const b = s.entrenamiento;
+      return {
+        id: `entrenamiento-${s.id}`,
+        tipo: 'entrenamiento',
+        base_id: b?.id,
+        titulo: `Entrenamiento · ${b?.categoria?.nombre ?? ''}`,
+        inicio: s.fecha_entrenamiento,
+        lugar: b?.lugar?.nombre ?? null,
+        id_lugar: b?.id_lugar,
+        incidencias: s.incidencias,
+        categoria: b?.categoria,
+        recurrente: b?.recurrente ? true : false
+      };
+    });
+
+    const eventosPartido = partidos.map((p) => {
+      const esLocal = p.es_local;
+      const nombreCat = p.categoria?.nombre ?? '';
+      const nombreEquipo = p.equipo?.nombre ?? '';
+      const titulo = esLocal
+        ? `${nombreCat} vs ${nombreEquipo}`
+        : `${nombreEquipo} vs ${nombreCat}`;
+      return {
+        id: `partido-${p.id}`,
+        tipo: 'partido',
+        titulo,
+        inicio: p.fecha,
+        lugar: p.lugar?.nombre ?? null,
+        id_lugar: p.id_lugar,
+        id_equipo: p.id_equipo,
+        es_local: esLocal,
+        equipo: p.equipo,
+        incidencias: p.incidencias,
+        categoria: p.categoria
+      };
+    });
 
     res.json([...eventosEntrenamiento, ...eventosPartido]);
   } catch (err) { next(err); }

@@ -69,19 +69,44 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     expect(Entrenador.create).not.toHaveBeenCalled();
   });
 
+  it('crear rechaza un DNI no válido', async () => {
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678A', id_temporada: 1 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El DNI introducido no es válido.');
+    expect(Entrenador.create).not.toHaveBeenCalled();
+  });
+
+  it('actualizar rechaza un DNI no válido', async () => {
+    const entrenador = { id: 1, save: vi.fn() };
+    Entrenador.findOne.mockResolvedValueOnce(entrenador);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { dni: '12345678A' }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El DNI introducido no es válido.');
+  });
+
   it('crear crea el entrenador, asigna categorías y títulos y devuelve 201', async () => {
     const creado = { id: 5, setCategorias: vi.fn().mockResolvedValue(), setTitulos: vi.fn().mockResolvedValue() };
     const completo = { id: 5, nombre: 'Carlos', categorias: [{ id: 2 }], titulos: [{ id: 1 }] };
     Entrenador.create.mockResolvedValue(creado);
     Entrenador.findOne.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678A', id_temporada: 1, ids_categorias: ['2'], ids_titulos: ['1'] }
+      body: { nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678Z', id_temporada: 1, ids_categorias: ['2'], ids_titulos: ['1'] }
     });
 
     await promesa;
 
     expect(Entrenador.create).toHaveBeenCalledWith({
-      nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678A', foto: null, id_temporada: 1
+      nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678Z', foto: null, id_temporada: 1
     });
     expect(creado.setCategorias).toHaveBeenCalledWith([2]);
     expect(creado.setTitulos).toHaveBeenCalledWith([1]);

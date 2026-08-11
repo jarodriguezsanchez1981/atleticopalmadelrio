@@ -10,6 +10,7 @@ const Categoria = require('./Categoria');
 const Jugador = require('./Jugador');
 const Entrenador = require('./Entrenador');
 const Entrenamiento = require('./Entrenamiento');
+const EntrenamientoSemanal = require('./EntrenamientoSemanal');
 const Partido = require('./Partido');
 const Equipo = require('./Equipo');
 const Incidencia = require('./Incidencia');
@@ -93,6 +94,9 @@ PartidoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', a
 Entrenamiento.hasMany(EntrenamientoJugador, { foreignKey: 'id_entrenamiento', sourceKey: 'id', onDelete: 'CASCADE', as: 'asistencias' });
 EntrenamientoJugador.belongsTo(Entrenamiento, { foreignKey: 'id_entrenamiento', targetKey: 'id', as: 'entrenamiento' });
 
+Entrenamiento.hasMany(EntrenamientoSemanal, { foreignKey: 'id_entrenamiento', sourceKey: 'id', onDelete: 'CASCADE', onUpdate: 'CASCADE', as: 'semanales' });
+EntrenamientoSemanal.belongsTo(Entrenamiento, { foreignKey: 'id_entrenamiento', targetKey: 'id', as: 'entrenamiento', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+
 Jugador.hasMany(EntrenamientoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', onDelete: 'CASCADE', as: 'asistencias' });
 EntrenamientoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
 
@@ -129,6 +133,7 @@ module.exports = {
   Jugador,
   Entrenador,
   Entrenamiento,
+  EntrenamientoSemanal,
   Partido,
   Equipo,
   Incidencia,

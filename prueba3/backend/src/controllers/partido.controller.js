@@ -85,11 +85,17 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, fecha, id_lugar, id_equipo, incidencias } = req.body;
-    if (!id_categoria || !fecha || !id_lugar || !id_equipo) {
-      return res.status(400).json({ message: 'Categoría, fecha, lugar y equipo son obligatorios.' });
+    const { id_categoria, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
+    const esLocal = es_local !== undefined ? !!es_local : true;
+    if (!id_categoria || !fecha || !id_equipo) {
+      return res.status(400).json({ message: 'Categoría, fecha y equipo son obligatorios.' });
     }
-    const partido = await Partido.create({ id_categoria, fecha, id_lugar, id_equipo, id_usuario: req.user?.id || null, incidencias });
+    if (esLocal && !id_lugar) {
+      return res.status(400).json({ message: 'El lugar es obligatorio para partidos como local.' });
+    }
+    const partido = await Partido.create({
+      id_categoria, fecha, id_lugar: esLocal ? id_lugar : null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
+    });
     const idsJugadores = normalizeIds(req.body.ids_jugadores);
     await guardarConvocados(partido.id, idsJugadores);
     const creado = await Partido.findByPk(partido.id, { include: includesBase });
@@ -101,10 +107,14 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_categoria, fecha, id_lugar, id_equipo, incidencias } = req.body;
+    const { id_categoria, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
     if (id_categoria !== undefined) partido.id_categoria = id_categoria;
     if (fecha !== undefined) partido.fecha = fecha;
-    if (id_lugar !== undefined) partido.id_lugar = id_lugar;
+    if (es_local !== undefined) {
+      partido.es_local = es_local ? 1 : 0;
+      if (!es_local) partido.id_lugar = null;
+    }
+    if (id_lugar !== undefined && (!es_local || partido.es_local)) partido.id_lugar = es_local ? id_lugar : null;
     if (id_equipo !== undefined) partido.id_equipo = id_equipo;
     if (incidencias !== undefined) partido.incidencias = incidencias;
     await partido.save();

@@ -10,6 +10,7 @@ import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import Textarea from 'primevue/textarea';
 import Select from 'primevue/select';
 import MultiSelect from 'primevue/multiselect';
@@ -21,6 +22,7 @@ import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { mapaFestivosAnio, nombreFestivoNacional } from '../utils/festivosEspana';
+import { emitirCambio } from '../utils/cambioBus';
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -29,12 +31,14 @@ const props = defineProps({
   emptyItem: { type: Object, required: true },
   canCreate: { type: Boolean, default: true },
   canEdit: { type: Boolean, default: true },
-  canDelete: { type: Boolean, default: true }
+  canDelete: { type: Boolean, default: true },
+  listParams: { type: Object, default: () => ({}) }
 });
 
 const emit = defineEmits(['changed']);
 
 const items = ref([]);
+const seleccionados = ref([]);
 const cargando = ref(false);
 const filtroGlobal = ref('');
 const dialogVisible = ref(false);
@@ -45,6 +49,43 @@ const detalle = ref(null);
 const datePickerRefs = {};
 const dateDrafts = reactive({});
 const timeDrafts = reactive({});
+
+const columnas = ref([]);
+const storageKey = `ar_col_order_${props.title}`;
+
+function restaurarOrden() {
+  let orden = [...props.columns];
+  try {
+    const guardado = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (Array.isArray(guardado) && guardado.length) {
+      const porCampo = new Map(props.columns.map((c) => [c.field, c]));
+      const filtrado = guardado.map((f) => porCampo.get(f)).filter(Boolean);
+      if (filtrado.length === props.columns.length && guardado.length === props.columns.length) {
+        orden = filtrado;
+      }
+    }
+  } catch { /* ignora errores de localStorage */ }
+  columnas.value = orden;
+}
+
+function guardarOrden() {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(columnas.value.map((c) => c.field)));
+  } catch { /* ignora errores de localStorage */ }
+}
+
+function onColumnReorder({ dragIndex, dropIndex }) {
+  const offset = props.canDelete ? 1 : 0;
+  const full = [...columnas.value];
+  if (dragIndex == null || dropIndex == null) return;
+  const di = dragIndex - offset;
+  const ti = dropIndex - offset;
+  if (di < 0 || di >= full.length) return;
+  const [movido] = full.splice(di, 1);
+  full.splice(ti, 0, movido);
+  columnas.value = full;
+  guardarOrden();
+}
 
 const MAX_FOTO_SIZE = 5 * 1024 * 1024;
 
@@ -276,7 +317,7 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'delegado', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'convocados', 'asistencias'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'delegado', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'convocados', 'asistencias', 'semanales'].forEach((k) => {
     delete payload[k];
   });
   for (const col of props.columns) {
@@ -293,7 +334,7 @@ function payloadFromForm() {
 async function cargar() {
   cargando.value = true;
   try {
-    items.value = await props.service.listar();
+    items.value = await props.service.listar(props.listParams);
     emit('changed');
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los datos.', life: 4000 });
@@ -391,6 +432,15 @@ function valorDetalle(col, data) {
 
 async function guardar() {
   try {
+    for (const col of props.columns) {
+      if (typeof col.validate === 'function') {
+        const err = col.validate(form[col.field]);
+        if (err) {
+          toast.add({ severity: 'error', summary: col.header, detail: err, life: 4000 });
+          return;
+        }
+      }
+    }
     const payload = payloadFromForm();
     if (editando.value) {
       await props.service.actualizar(form.id, payload);
@@ -401,6 +451,7 @@ async function guardar() {
     }
     dialogVisible.value = false;
     await cargar();
+    emitirCambio();
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -424,6 +475,7 @@ function confirmarEliminar(item) {
         await props.service.eliminar(item.id);
         toast.add({ severity: 'success', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });
         await cargar();
+        emitirCambio();
       } catch (err) {
         toast.add({
           severity: 'error',
@@ -436,8 +488,56 @@ function confirmarEliminar(item) {
   });
 }
 
+function eliminarSeleccionados() {
+  if (!seleccionados.value.length) return;
+  confirm.require({
+    message: `¿Seguro que quieres eliminar ${seleccionados.value.length} registro(s)? Esta acción no se puede deshacer.`,
+    header: 'Confirmar eliminación',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Eliminar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      const total = seleccionados.value.length;
+      let ok = 0;
+      let errorMsg = '';
+      for (const item of [...seleccionados.value]) {
+        try {
+          await props.service.eliminar(item.id);
+          ok += 1;
+        } catch (err) {
+          errorMsg = err.response?.data?.message || '';
+        }
+      }
+      seleccionados.value = [];
+      if (ok === total) {
+        toast.add({ severity: 'success', summary: 'Eliminados', detail: `${total} registro(s) eliminados.`, life: 3000 });
+      } else if (ok > 0) {
+        toast.add({ severity: 'warn', summary: 'Eliminación parcial', detail: `${ok} de ${total} eliminados. ${errorMsg}`.trim(), life: 5000 });
+      } else {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: errorMsg || 'No se pudieron eliminar los registros seleccionados.',
+          life: 5000
+        });
+      }
+      await cargar();
+      if (ok > 0) emitirCambio();
+    }
+  });
+}
+
 defineExpose({ cargar });
-onMounted(cargar);
+onMounted(() => {
+  restaurarOrden();
+  cargar();
+});
+
+watch(
+  () => ({ ...props.listParams }),
+  () => cargar()
+);
 </script>
 
 <template>
@@ -451,6 +551,14 @@ onMounted(cargar);
       </h1>
 
       <div class="flex items-center gap-2">
+        <Button
+          v-if="canDelete && seleccionados.length"
+          :label="`Eliminar seleccionados (${seleccionados.length})`"
+          icon="pi pi-trash"
+          severity="danger"
+          outlined
+          @click="eliminarSeleccionados"
+        />
         <IconField>
           <InputIcon class="pi pi-search" />
           <InputText v-model="filtroGlobal" placeholder="Buscar..." />
@@ -462,14 +570,19 @@ onMounted(cargar);
 
     <DataTable
       :value="items"
+      v-model:selection="seleccionados"
+      :dataKey="'id'"
       :loading="cargando"
       :globalFilterFields="columns.map(c => c.field)"
       :filters="{ global: { value: filtroGlobal, matchMode: 'contains' } }"
+      reorderableColumns
+      @column-reorder="onColumnReorder"
       paginator :rows="10" :rowsPerPageOptions="[10, 20, 50]"
       stripedRows responsiveLayout="scroll"
       class="rounded-xl overflow-hidden shadow-sm"
     >
-      <Column v-for="col in columns" :key="col.field" :field="col.field" :header="col.header" sortable>
+      <Column v-if="canDelete" selectionMode="multiple" headerStyle="width: 3rem" frozen :reorderableColumn="false" />
+      <Column v-for="col in columnas" :key="col.field" :field="col.field" :header="col.header" sortable>
         <template #body="{ data }">
           <slot :name="`cell-${col.field}`" :data="data">
             <img v-if="col.type === 'image' && data[col.field]" :src="data[col.field]" alt="Foto" class="ar-foto-mini" />
@@ -520,6 +633,18 @@ onMounted(cargar);
           </label>
 
           <InputText v-if="col.type === 'text' && !col.readonly" :id="col.field" v-model="form[col.field]" class="w-full" />
+
+          <InputNumber
+            v-else-if="col.type === 'number'"
+            :id="col.field"
+            v-model="form[col.field]"
+            inputClass="w-full"
+            :min="col.min ?? 0"
+            :max="col.max"
+            :minFractionDigits="0"
+            :maxFractionDigits="0"
+            class="w-full"
+          />
 
           <div v-else-if="col.type === 'text' && col.readonly" class="text-sm text-slate-800 py-2">
             {{ form[col.field] && typeof form[col.field] === 'object'

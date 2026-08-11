@@ -4,7 +4,9 @@ import { authService } from '../services';
 const SECCION_ORDER = [
   'calendario',
   'entrenamientos',
+  'entrenamientos_jugadores',
   'partidos',
+  'partidos_jugadores',
   'resultados',
   'temporadas',
   'titulos',

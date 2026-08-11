@@ -29,10 +29,22 @@ const routes = [
         meta: { seccion: 'entrenamientos' }
       },
       {
+        path: 'entrenamientos-jugadores',
+        name: 'entrenamientos-jugadores',
+        component: () => import('../views/entrenamientosJugadores/EntrenamientosJugadores.vue'),
+        meta: { seccion: 'entrenamientos_jugadores' }
+      },
+      {
         path: 'partidos',
         name: 'partidos',
         component: () => import('../views/partidos/Partidos.vue'),
         meta: { seccion: 'partidos' }
+      },
+      {
+        path: 'partidos-jugadores',
+        name: 'partidos-jugadores',
+        component: () => import('../views/partidosJugadores/PartidosJugadores.vue'),
+        meta: { seccion: 'partidos_jugadores' }
       },
       {
         path: 'resultados',

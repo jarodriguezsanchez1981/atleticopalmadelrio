@@ -1,4 +1,5 @@
 const { Jugador, Categoria, Temporada, Partido, Equipo, Lugar, Incidencia, PartidoJugador, Entrenamiento, EntrenamientoJugador } = require('../models');
+const { validarDNI } = require('../utils/dni.utils');
 
 const includeCategorias = {
   model: Categoria,
@@ -84,6 +85,9 @@ async function crear(req, res, next) {
     if (!nombre || !apellidos || !dni || !id_temporada) {
       return res.status(400).json({ message: 'Nombre, apellidos, DNI y temporada son obligatorios.' });
     }
+    if (!validarDNI(dni)) {
+      return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+    }
     const jugador = await Jugador.create({ nombre, apellidos, dni, foto: foto || null, id_temporada });
     if (idsCategorias.length) await jugador.setCategorias(idsCategorias);
     const completo = await Jugador.findOne({ where: { id: jugador.id }, include: includeJugador });
@@ -99,7 +103,12 @@ async function actualizar(req, res, next) {
     const idsCategorias = normalizeCategoriasIds(req.body);
     if (nombre !== undefined) jugador.nombre = nombre;
     if (apellidos !== undefined) jugador.apellidos = apellidos;
-    if (dni !== undefined) jugador.dni = dni;
+    if (dni !== undefined) {
+      if (!validarDNI(dni)) {
+        return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+      }
+      jugador.dni = dni;
+    }
     if (foto !== undefined) jugador.foto = foto || null;
     if (id_temporada !== undefined) jugador.id_temporada = id_temporada;
     await jugador.save();

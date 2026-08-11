@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Entrenamiento, EntrenamientoJugador } from './helpers/models.js';
+import { Entrenamiento, EntrenamientoSemanal, EntrenamientoJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/entrenamiento.controller.js';
@@ -11,6 +11,8 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     Entrenamiento.findByPk.mockReset();
     Entrenamiento.create.mockReset();
     Entrenamiento.destroy.mockReset();
+    EntrenamientoSemanal.bulkCreate.mockReset();
+    EntrenamientoSemanal.destroy.mockReset();
     EntrenamientoJugador.destroy.mockReset();
     EntrenamientoJugador.bulkCreate.mockReset();
   });
@@ -87,7 +89,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(Entrenamiento.create).not.toHaveBeenCalled();
   });
 
-  it('crear crea el entrenamiento con el usuario autenticado y devuelve 201', async () => {
+  it('crear un registro base y un semanal único con el usuario autenticado', async () => {
     const creado = { id: 5 };
     const completo = { id: 5, categoria: null, lugar: null };
     Entrenamiento.create.mockResolvedValue(creado);
@@ -100,50 +102,37 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(Entrenamiento.create).toHaveBeenCalledWith({
-      id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, id_usuario: 7, recurrente: 0, incidencias: undefined
+      id_categoria: 1, fecha: '2026-01-01', hasta: null, id_lugar: 2, id_usuario: 7, recurrente: 0
     });
+    expect(EntrenamientoSemanal.bulkCreate).toHaveBeenCalledWith([
+      { id_entrenamiento: 5, fecha_entrenamiento: expect.any(Date), incidencias: null }
+    ]);
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, categoria: null, lugar: null, ids_presentes: [], ids_ausentes: [] });
   });
 
-  it('crear guarda presentes y ausentes', async () => {
-    const creado = { id: 9 };
-    const completo = { id: 9, categoria: null, lugar: null, asistencias: [] };
-    Entrenamiento.create.mockResolvedValue(creado);
-    Entrenamiento.findByPk.mockResolvedValue(completo);
-    const { promesa } = llamar(ctrl.crear, {
+  it('crear recurrente guarda un solo registro base + un semanal por semana hasta la fecha límite', async () => {
+    Entrenamiento.create.mockResolvedValueOnce({ id: 1 });
+    Entrenamiento.findByPk.mockResolvedValueOnce({ id: 1, fecha: '2026-01-05', hasta: '2026-01-15', categoria: null, lugar: null });
+    const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
       body: {
-        id_categoria: 1, fecha: '2026-01-01', id_lugar: 2,
-        ids_presentes: [4, 5], ids_ausentes: [6]
+        id_categoria: 1, fecha: '2026-01-05', id_lugar: 2,
+        recurrente: 1, hasta: '2026-01-15'
       }
     });
 
     await promesa;
 
-    expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 9 } });
-    expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
-      { id_entrenamiento: 9, id_jugador: 4, asistencia: true, incidencias: null },
-      { id_entrenamiento: 9, id_jugador: 5, asistencia: true, incidencias: null },
-      { id_entrenamiento: 9, id_jugador: 6, asistencia: false, incidencias: null }
-    ]);
-  });
-
-  it('listar expone ids_presentes e ids_ausentes desde las asistencias', async () => {
-    const entrenamiento = {
-      id: 1, fecha: '2026-01-01',
-      asistencias: [
-        { id_jugador: 2, asistencia: true },
-        { id_jugador: 3, asistencia: false }
-      ]
-    };
-    Entrenamiento.findAll.mockResolvedValue([entrenamiento]);
-    const { promesa, res } = llamar(ctrl.listar);
-
-    await promesa;
-
-    expect(res._json[0].ids_presentes).toEqual([2]);
-    expect(res._json[0].ids_ausentes).toEqual([3]);
+    expect(Entrenamiento.create).toHaveBeenCalledTimes(1);
+    expect(Entrenamiento.create).toHaveBeenCalledWith(
+      expect.objectContaining({ recurrente: 1, hasta: '2026-01-15' })
+    );
+    const filas = EntrenamientoSemanal.bulkCreate.mock.calls[0][0];
+    expect(filas).toHaveLength(2);
+    const fechas = filas.map((f) => new Date(f.fecha_entrenamiento).getDate());
+    expect(fechas).toEqual([5, 12]);
+    expect(res._status).toBe(201);
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -155,7 +144,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._status).toBe(404);
   });
 
-  it('actualizar guarda los cambios', async () => {
+  it('actualizar guarda los cambios sin regenerar semanales', async () => {
     const entrenamiento = { id: 1, id_lugar: 1, save: vi.fn().mockResolvedValue() };
     const actualizado = { id: 1, id_lugar: 2, categoria: null, lugar: null };
     Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
@@ -165,24 +154,65 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(entrenamiento.id_lugar).toBe(2);
     expect(entrenamiento.save).toHaveBeenCalled();
+    expect(EntrenamientoSemanal.destroy).not.toHaveBeenCalled();
     expect(res._json).toEqual({ id: 1, id_lugar: 2, categoria: null, lugar: null, ids_presentes: [], ids_ausentes: [] });
   });
 
-  it('actualizar reemplaza presentes y ausentes si vienen en el body', async () => {
+  it('actualizar regenera los semanales si cambia fecha o recurrencia', async () => {
+    const entrenamiento = { id: 1, id_lugar: 1, fecha: '2026-01-05', recurrente: 1, hasta: '2026-01-15', save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, fecha: '2026-01-05', categoria: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { recurrente: 1, hasta: '2026-01-15' }
+    });
+
+    await promesa;
+
+    expect(EntrenamientoSemanal.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 1 } });
+    const filas = EntrenamientoSemanal.bulkCreate.mock.calls[0][0];
+    expect(filas).toHaveLength(2);
+  });
+
+  it('crear guarda presentes y ausentes en entrenamientos_jugadores', async () => {
+    const creado = { id: 8 };
+    const completo = { id: 8, categoria: null, lugar: null, asistencias: [] };
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: {
+        id_categoria: 1, fecha: '2026-01-01', id_lugar: 2,
+        ids_presentes: [11, 12], ids_ausentes: [13]
+      }
+    });
+
+    await promesa;
+
+    expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 8 } });
+    expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
+      { id_entrenamiento: 8, id_jugador: 11, asistencia: true, incidencias: null },
+      { id_entrenamiento: 8, id_jugador: 12, asistencia: true, incidencias: null },
+      { id_entrenamiento: 8, id_jugador: 13, asistencia: false, incidencias: null }
+    ]);
+    expect(res._status).toBe(201);
+  });
+
+  it('actualizar reemplaza presentes y ausentes si los trae el body', async () => {
     const entrenamiento = { id: 1, id_lugar: 1, save: vi.fn().mockResolvedValue() };
     const actualizado = { id: 1, id_lugar: 1, categoria: null, lugar: null, asistencias: [] };
     Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
     const { promesa } = llamar(ctrl.actualizar, {
       params: { id: '1' },
-      body: { ids_presentes: [7], ids_ausentes: [8] }
+      body: { ids_presentes: [21], ids_ausentes: [22] }
     });
 
     await promesa;
 
     expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 1 } });
     expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
-      { id_entrenamiento: 1, id_jugador: 7, asistencia: true, incidencias: null },
-      { id_entrenamiento: 1, id_jugador: 8, asistencia: false, incidencias: null }
+      { id_entrenamiento: 1, id_jugador: 21, asistencia: true, incidencias: null },
+      { id_entrenamiento: 1, id_jugador: 22, asistencia: false, incidencias: null }
     ]);
   });
 

@@ -13,14 +13,16 @@ CREATE TABLE IF NOT EXISTS secciones (
   nombre VARCHAR(100) NOT NULL,
   icono  VARCHAR(50)  NULL,
   orden  INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (id, nombre),
+  PRIMARY KEY (id),
   UNIQUE KEY uq_secciones_nombre (nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('calendario', 'Calendario', 'pi pi-calendar', 10),
   ('entrenamientos', 'Entrenamientos', 'pi pi-stopwatch', 20),
+  ('entrenamientos_jugadores', 'Entrenamientos Jugadores', 'pi pi-check-square', 22),
   ('partidos', 'Partidos', 'pi pi-flag', 30),
+  ('partidos_jugadores', 'Convocatorias', 'pi pi-list-check', 32),
   ('resultados', 'Resultados', 'pi pi-chart-bar', 35),
   ('temporadas', 'Temporadas', 'pi pi-clock', 40),
   ('titulos', 'Títulos', 'pi pi-graduation-cap', 45),
@@ -57,7 +59,7 @@ CREATE TABLE IF NOT EXISTS temporadas (
   nombre        VARCHAR(20) NOT NULL UNIQUE,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre)
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS lugares (
@@ -65,7 +67,7 @@ CREATE TABLE IF NOT EXISTS lugares (
   nombre        VARCHAR(150) NOT NULL UNIQUE,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre)
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS titulo (
@@ -73,7 +75,7 @@ CREATE TABLE IF NOT EXISTS titulo (
   nombre        VARCHAR(100) NOT NULL UNIQUE,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre)
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS delegados (
@@ -87,7 +89,7 @@ CREATE TABLE IF NOT EXISTS delegados (
   id_temporada  INT NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre, apellidos, dni)
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS categorias (
@@ -98,7 +100,7 @@ CREATE TABLE IF NOT EXISTS categorias (
   id_delegado   INT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre),
+  PRIMARY KEY (id),
   UNIQUE KEY uq_categoria_temporada (nombre, id_temporada),
   CONSTRAINT fk_categorias_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_categorias_delegado FOREIGN KEY (id_delegado) REFERENCES delegados(id) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -108,9 +110,11 @@ CREATE TABLE IF NOT EXISTS categorias (
 CREATE TABLE IF NOT EXISTS equipos (
   id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
+  escudo        LONGTEXT NULL,
+  direccion     VARCHAR(255) NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre),
+  PRIMARY KEY (id),
   UNIQUE KEY uq_equipos_nombre (nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -123,7 +127,7 @@ CREATE TABLE IF NOT EXISTS jugadores (
   id_temporada  INT NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre, apellidos, dni),
+  PRIMARY KEY (id),
   CONSTRAINT fk_jugadores_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -144,7 +148,7 @@ CREATE TABLE IF NOT EXISTS entrenadores (
   id_temporada  INT NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id, nombre, apellidos, dni),
+  PRIMARY KEY (id),
   CONSTRAINT fk_entrenadores_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -168,10 +172,10 @@ CREATE TABLE IF NOT EXISTS entrenamientos (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   id_categoria  INT NOT NULL,
   fecha         DATETIME NOT NULL,
+  hasta         DATETIME NULL,
   id_lugar      INT NOT NULL,
   id_usuario    INT NULL,
   recurrente    TINYINT(1) NOT NULL DEFAULT 0,
-  incidencias   TEXT,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_entrenamientos_categoria FOREIGN KEY (id_categoria) REFERENCES categorias(id) ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -179,12 +183,23 @@ CREATE TABLE IF NOT EXISTS entrenamientos (
   CONSTRAINT fk_entrenamientos_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS entrenamientos_semanales (
+  id                    INT AUTO_INCREMENT PRIMARY KEY,
+  id_entrenamiento      INT NOT NULL,
+  fecha_entrenamiento   DATETIME NOT NULL,
+  incidencias           TEXT NULL,
+  created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_es_entrenamiento FOREIGN KEY (id_entrenamiento) REFERENCES entrenamientos(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS partidos (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   id_categoria  INT NOT NULL,
   fecha         DATETIME NOT NULL,
-  id_lugar      INT NOT NULL,
+  id_lugar      INT NULL,
   id_equipo     INT NOT NULL,
+  es_local      TINYINT(1) NOT NULL DEFAULT 1,
   id_usuario    INT NULL,
   incidencias   TEXT,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -196,11 +211,16 @@ CREATE TABLE IF NOT EXISTS partidos (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS partidos_jugadores (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  id_partido  INT NOT NULL,
-  id_jugador  INT NOT NULL,
-  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  id_partido      INT NOT NULL,
+  id_jugador      INT NOT NULL,
+  minutos         INT NOT NULL DEFAULT 0,
+  goles           INT NOT NULL DEFAULT 0,
+  tarjeta_amarilla INT NOT NULL DEFAULT 0,
+  tarjeta_roja    INT NOT NULL DEFAULT 0,
+  incidencias     TEXT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_pj_partido FOREIGN KEY (id_partido) REFERENCES partidos(id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_pj_jugador FOREIGN KEY (id_jugador) REFERENCES jugadores(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -258,6 +278,8 @@ ALTER TABLE delegados
 
 CREATE INDEX idx_entrenamientos_fecha ON entrenamientos(fecha);
 CREATE INDEX idx_entrenamientos_lugar ON entrenamientos(id_lugar);
+CREATE INDEX idx_es_entrenamiento ON entrenamientos_semanales(id_entrenamiento);
+CREATE INDEX idx_es_fecha ON entrenamientos_semanales(fecha_entrenamiento);
 CREATE INDEX idx_partidos_fecha       ON partidos(fecha);
 CREATE INDEX idx_partidos_lugar       ON partidos(id_lugar);
 CREATE INDEX idx_partidos_equipo      ON partidos(id_equipo);

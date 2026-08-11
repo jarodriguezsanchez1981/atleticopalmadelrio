@@ -2,7 +2,7 @@
 /**
  * Calendario de solo lectura para entrenamientos y/o partidos + festivos ES.
  */
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -11,8 +11,15 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Dialog from 'primevue/dialog';
 import Tag from 'primevue/tag';
-import { calendarioService } from '../services';
+import Button from 'primevue/button';
+import ConfirmDialog from 'primevue/confirmdialog';
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
+import EventoFormCalendario from './EventoFormCalendario.vue';
+import { calendarioService, entrenamientosService, partidosService } from '../services';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
+import { useAuthStore } from '../stores/auth.store';
+import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
 
 const props = defineProps({
   tipo: {
@@ -29,6 +36,19 @@ const props = defineProps({
 const calendarRef = ref();
 const eventoSeleccionado = ref(null);
 const dialogVisible = ref(false);
+const formVisible = ref(false);
+const formTipo = ref('entrenamiento');
+const formRegistroId = ref(null);
+const formFechaDefecto = ref(null);
+const confirm = useConfirm();
+const toast = useToast();
+const auth = useAuthStore();
+
+const puedeCrear = computed(() => {
+  if (props.tipo === 'entrenamiento') return auth.puedeVer('entrenamientos');
+  if (props.tipo === 'partido') return auth.puedeVer('partidos');
+  return auth.puedeVer('entrenamientos') || auth.puedeVer('partidos');
+});
 
 const COLOR_ENTRENAMIENTO = '#0B3D2E';
 const COLOR_PARTIDO = '#7A1E2B';
@@ -52,7 +72,8 @@ function etiquetaEvento(e) {
 
   if (e.tipo === 'partido') {
     const rival = e.equipo?.nombre || '—';
-    return `${categoria} - ${rival} - ${lugar}`;
+    if (e.es_local) return `${categoria} vs ${rival} · ${lugar}`;
+    return `${rival} vs ${categoria}`;
   }
   return `${categoria} - ${lugar}`;
 }
@@ -91,6 +112,56 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
   }
 }
 
+function idDeEvento(e) {
+  if (e.tipo === 'partido') return String(e.id || '').replace('partido-', '');
+  return e.base_id;
+}
+
+function editarEvento() {
+  const e = eventoSeleccionado.value;
+  if (!e) return;
+  formTipo.value = e.tipo === 'partido' ? 'partido' : 'entrenamiento';
+  formRegistroId.value = idDeEvento(e);
+  formFechaDefecto.value = null;
+  dialogVisible.value = false;
+  formVisible.value = true;
+}
+
+function eliminarEvento() {
+  const e = eventoSeleccionado.value;
+  if (!e) return;
+  const id = idDeEvento(e);
+  const service = e.tipo === 'partido' ? partidosService : entrenamientosService;
+  confirm.require({
+    message: '¿Seguro que quieres eliminar este evento? Esta acción no se puede deshacer.',
+    header: 'Confirmar eliminación',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Eliminar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await service.eliminar(id);
+        dialogVisible.value = false;
+        await refrescar();
+        emitirCambio();
+      } catch (err) {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err.response?.data?.message || 'No se pudo eliminar el evento.',
+          life: 5000
+        });
+      }
+    }
+  });
+}
+
+function onFormSaved() {
+  refrescar();
+  emitirCambio();
+}
+
 function onEventClick(info) {
   eventoSeleccionado.value = {
     ...info.event.extendedProps,
@@ -98,6 +169,14 @@ function onEventClick(info) {
     inicio: info.event.extendedProps?.inicio || info.event.start
   };
   dialogVisible.value = true;
+}
+
+function onDateClick(info) {
+  if (!info?.dateStr) return;
+  formTipo.value = props.tipo || 'entrenamiento';
+  formRegistroId.value = null;
+  formFechaDefecto.value = info.dateStr;
+  formVisible.value = true;
 }
 
 function refrescar() {
@@ -138,6 +217,7 @@ const calendarOptions = {
   },
   events: fetchEventos,
   eventClick: onEventClick,
+  dateClick: onDateClick,
   editable: false,
   selectable: false,
   dayMaxEvents: 4,
@@ -180,6 +260,14 @@ function severidadTipo(tipo) {
 }
 
 defineExpose({ refrescar });
+
+let unsubCambio = null;
+onMounted(() => {
+  unsubCambio = suscribirseCambio(() => refrescar());
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
+});
 </script>
 
 <template>
@@ -247,8 +335,40 @@ defineExpose({ refrescar });
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>
         </div>
+
+        <div
+          v-if="eventoSeleccionado.tipo !== 'festivo'"
+          class="flex justify-end gap-2 pt-2 border-t border-slate-100"
+        >
+          <Button
+            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
+            label="Editar"
+            icon="pi pi-pencil"
+            text
+            severity="secondary"
+            @click="editarEvento"
+          />
+          <Button
+            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
+            label="Eliminar"
+            icon="pi pi-trash"
+            text
+            severity="danger"
+            @click="eliminarEvento"
+          />
+        </div>
       </div>
     </Dialog>
+
+    <EventoFormCalendario
+      v-model:visible="formVisible"
+      :tipo="formTipo"
+      :registroId="formRegistroId"
+      :fechaDefecto="formFechaDefecto"
+      @saved="onFormSaved"
+    />
+
+    <ConfirmDialog />
   </div>
 </template>
 

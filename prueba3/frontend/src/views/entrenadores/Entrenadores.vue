@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { entrenadoresService, categoriasService, temporadasService, titulosService } from '../../services';
+import { validarDNI } from '../../utils/dni';
 
 const categorias = ref([]);
 const temporadas = ref([]);
@@ -37,7 +38,7 @@ const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'dni', header: 'DNI', type: 'text', required: true },
+  { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
   { field: 'ids_titulos', header: 'Títulos', type: 'multiselect', relation: 'titulos', options: opcionesTitulo.value, required: false },
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
   { field: 'ids_categorias', header: 'Categorías', type: 'multiselect', relation: 'categorias', options: opcionesCategoria.value, required: false }

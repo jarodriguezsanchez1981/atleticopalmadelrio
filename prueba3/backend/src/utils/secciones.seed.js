@@ -1,7 +1,9 @@
 const SECCIONES = [
   { clave: 'calendario', nombre: 'Calendario', icono: 'pi pi-calendar', orden: 10 },
   { clave: 'entrenamientos', nombre: 'Entrenamientos', icono: 'pi pi-stopwatch', orden: 20 },
+  { clave: 'entrenamientos_jugadores', nombre: 'Entrenamientos Jugadores', icono: 'pi pi-check-square', orden: 22 },
   { clave: 'partidos', nombre: 'Partidos', icono: 'pi pi-flag', orden: 30 },
+  { clave: 'partidos_jugadores', nombre: 'Convocatorias', icono: 'pi pi-list-check', orden: 32 },
   { clave: 'resultados', nombre: 'Resultados', icono: 'pi pi-chart-bar', orden: 35 },
   { clave: 'temporadas', nombre: 'Temporadas', icono: 'pi pi-clock', orden: 40 },
   { clave: 'titulos', nombre: 'Títulos', icono: 'pi pi-graduation-cap', orden: 45 },

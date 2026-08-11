@@ -66,9 +66,24 @@ describe('Sección Equipos · equipo.controller', () => {
 
     await promesa;
 
-    expect(Equipo.create).toHaveBeenCalledWith({ nombre: 'Senior' });
+    expect(Equipo.create).toHaveBeenCalledWith({ nombre: 'Senior', escudo: null, direccion: null });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(creado);
+  });
+
+  it('crear guarda escudo y dirección si se envían', async () => {
+    const creado = { id: 9, nombre: 'Senior', escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1' };
+    Equipo.create.mockResolvedValue(creado);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Senior', escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1' }
+    });
+
+    await promesa;
+
+    expect(Equipo.create).toHaveBeenCalledWith({
+      nombre: 'Senior', escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1'
+    });
+    expect(res._status).toBe(201);
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -90,6 +105,31 @@ describe('Sección Equipos · equipo.controller', () => {
     expect(equipo.nombre).toBe('Nuevo');
     expect(equipo.save).toHaveBeenCalled();
     expect(res._json).toEqual(equipo);
+  });
+
+  it('actualizar guarda escudo y dirección y limpia vacíos', async () => {
+    const equipo = { id: 1, nombre: 'Senior', save: vi.fn().mockResolvedValue() };
+    Equipo.findOne.mockResolvedValue(equipo);
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { escudo: 'data:image/png;base64,abc', direccion: 'Calle 2', escudoLimpiado: true }
+    });
+
+    await promesa;
+
+    expect(equipo.escudo).toBe('data:image/png;base64,abc');
+    expect(equipo.direccion).toBe('Calle 2');
+    expect(equipo.save).toHaveBeenCalled();
+  });
+
+  it('actualizar permite quitar escudo', async () => {
+    const equipo = { id: 1, nombre: 'Senior', escudo: 'viejo', save: vi.fn().mockResolvedValue() };
+    Equipo.findOne.mockResolvedValue(equipo);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { escudo: null } });
+
+    await promesa;
+
+    expect(equipo.escudo).toBeNull();
   });
 
   it('eliminar elimina y responde 204', async () => {

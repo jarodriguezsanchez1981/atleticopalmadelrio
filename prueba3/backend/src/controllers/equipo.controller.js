@@ -19,7 +19,11 @@ async function crear(req, res, next) {
   try {
     const { nombre } = req.body;
     if (!nombre) return res.status(400).json({ message: 'El nombre es obligatorio.' });
-    const equipo = await Equipo.create({ nombre });
+    const equipo = await Equipo.create({
+      nombre,
+      escudo: req.body.escudo || null,
+      direccion: req.body.direccion || null
+    });
     res.status(201).json(equipo);
   } catch (err) { next(err); }
 }
@@ -30,6 +34,8 @@ async function actualizar(req, res, next) {
     if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado.' });
     const { nombre } = req.body;
     if (nombre !== undefined) equipo.nombre = nombre;
+    if (req.body.escudo !== undefined) equipo.escudo = req.body.escudo || null;
+    if (req.body.direccion !== undefined) equipo.direccion = req.body.direccion || null;
     await equipo.save();
     res.json(equipo);
   } catch (err) { next(err); }

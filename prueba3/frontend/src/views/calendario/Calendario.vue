@@ -2,7 +2,7 @@
 /**
  * Calendario solo lectura: entrenamientos, partidos y festivos nacionales ES.
  */
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -12,14 +12,29 @@ import esLocale from '@fullcalendar/core/locales/es';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import Tag from 'primevue/tag';
-import { calendarioService, categoriasService } from '../../services';
+import Button from 'primevue/button';
+import ConfirmDialog from 'primevue/confirmdialog';
+import { useConfirm } from 'primevue/useconfirm';
+import { useToast } from 'primevue/usetoast';
+import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
+import { calendarioService, categoriasService, entrenamientosService, partidosService } from '../../services';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
+import { useAuthStore } from '../../stores/auth.store';
+import { emitirCambio, suscribirseCambio } from '../../utils/cambioBus';
 
 const categorias = ref([]);
 const filtroCategoria = ref(null);
 const calendarRef = ref();
 const eventoSeleccionado = ref(null);
 const dialogVisible = ref(false);
+const elegirTipoVisible = ref(false);
+const formVisible = ref(false);
+const formTipo = ref('entrenamiento');
+const formRegistroId = ref(null);
+const formFechaDefecto = ref(null);
+const confirm = useConfirm();
+const toast = useToast();
+const auth = useAuthStore();
 
 const opcionesCategoria = computed(() => [
   { label: 'Todas las categorías', value: null },
@@ -71,9 +86,78 @@ function onEventClick(info) {
   dialogVisible.value = true;
 }
 
+function onDateClick(info) {
+  elegirTipoVisible.value = true;
+  formFechaDefecto.value = info?.dateStr || info?.startStr;
+}
+
+function idDeEvento(e) {
+  if (e.tipo === 'partido') return String(e.id || '').replace('partido-', '');
+  return e.base_id;
+}
+
+function nuevoDeTipo(tipo) {
+  elegirTipoVisible.value = false;
+  formTipo.value = tipo;
+  formRegistroId.value = null;
+  formVisible.value = true;
+}
+
+function editarEvento() {
+  const e = eventoSeleccionado.value;
+  if (!e) return;
+  formTipo.value = e.tipo === 'partido' ? 'partido' : 'entrenamiento';
+  formRegistroId.value = idDeEvento(e);
+  formFechaDefecto.value = null;
+  dialogVisible.value = false;
+  formVisible.value = true;
+}
+
+function eliminarEvento() {
+  const e = eventoSeleccionado.value;
+  if (!e) return;
+  const service = e.tipo === 'partido' ? partidosService : entrenamientosService;
+  confirm.require({
+    message: '¿Seguro que quieres eliminar este evento? Esta acción no se puede deshacer.',
+    header: 'Confirmar eliminación',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Eliminar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await service.eliminar(idDeEvento(e));
+        dialogVisible.value = false;
+        refrescar();
+        emitirCambio();
+      } catch (err) {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err.response?.data?.message || 'No se pudo eliminar el evento.',
+          life: 5000
+        });
+      }
+    }
+  });
+}
+
 function refrescar() {
   calendarRef.value?.getApi().refetchEvents();
 }
+
+function onFormSaved() {
+  refrescar();
+  emitirCambio();
+}
+
+let unsubCambio = null;
+onMounted(() => {
+  unsubCambio = suscribirseCambio(() => refrescar());
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
+});
 
 const calendarOptions = {
   plugins: [dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin],
@@ -104,6 +188,7 @@ const calendarOptions = {
   },
   events: fetchEventos,
   eventClick: onEventClick,
+  dateClick: onDateClick,
   editable: false,
   selectable: false,
   dayMaxEvents: 4,
@@ -143,7 +228,7 @@ function formatearFecha(fecha) {
           Calendario
         </h1>
         <p class="text-sm text-slate-500">
-          Entrenamientos, partidos y festivos nacionales de España. Solo lectura.
+          Pincha en un día para añadir un evento. Pincha en un evento para editar o eliminar.
         </p>
       </div>
 
@@ -201,8 +286,43 @@ function formatearFecha(fecha) {
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>
         </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <template
+            v-if="eventoSeleccionado.tipo !== 'festivo' && auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
+          >
+            <Button label="Editar" icon="pi pi-pencil" text severity="secondary" @click="editarEvento" />
+            <Button label="Eliminar" icon="pi pi-trash" text severity="danger" @click="eliminarEvento" />
+          </template>
+        </div>
       </div>
     </Dialog>
+
+    <Dialog v-model:visible="elegirTipoVisible" modal class="w-full max-w-xs">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
+          <span class="font-display text-club-green text-lg">Nuevo evento</span>
+        </div>
+      </template>
+      <p class="text-sm text-slate-500 mb-3">¿Qué tipo de evento quieres registrar?</p>
+      <div class="flex flex-col gap-2">
+        <Button v-if="auth.puedeVer('entrenamientos')" label="Entrenamiento" icon="pi pi-clock" text
+                class="!justify-start" @click="nuevoDeTipo('entrenamiento')" />
+        <Button v-if="auth.puedeVer('partidos')" label="Partido" icon="pi pi-flag" text
+                class="!justify-start" @click="nuevoDeTipo('partido')" />
+      </div>
+    </Dialog>
+
+    <EventoFormCalendario
+      v-model:visible="formVisible"
+      :tipo="formTipo"
+      :registroId="formRegistroId"
+      :fechaDefecto="formFechaDefecto"
+      @saved="onFormSaved"
+    />
+
+    <ConfirmDialog />
   </div>
 </template>
 
