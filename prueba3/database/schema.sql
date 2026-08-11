@@ -26,6 +26,7 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('resultados', 'Resultados', 'pi pi-chart-bar', 35),
   ('temporadas', 'Temporadas', 'pi pi-clock', 40),
   ('titulos', 'Títulos', 'pi pi-graduation-cap', 45),
+  ('division', 'División', 'pi pi-tags', 47),
   ('lugares', 'Lugares', 'pi pi-map-marker', 50),
   ('delegados', 'Delegados', 'pi pi-user-plus', 55),
   ('categorias', 'Categorías', 'pi pi-sitemap', 60),
@@ -78,6 +79,14 @@ CREATE TABLE IF NOT EXISTS titulo (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS division (
+  id            INT AUTO_INCREMENT,
+  nombre        VARCHAR(100) NOT NULL UNIQUE,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS delegados (
   id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
@@ -95,7 +104,9 @@ CREATE TABLE IF NOT EXISTS delegados (
 CREATE TABLE IF NOT EXISTS categorias (
   id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
+  alias         VARCHAR(100) NULL,
   id_temporada  INT NOT NULL,
+  id_division   INT NULL,
   id_entrenador INT NULL,
   id_delegado   INT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -103,6 +114,7 @@ CREATE TABLE IF NOT EXISTS categorias (
   PRIMARY KEY (id),
   UNIQUE KEY uq_categoria_temporada (nombre, id_temporada),
   CONSTRAINT fk_categorias_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_categorias_division FOREIGN KEY (id_division) REFERENCES division(id) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_categorias_delegado FOREIGN KEY (id_delegado) REFERENCES delegados(id) ON DELETE SET NULL ON UPDATE CASCADE,
   UNIQUE KEY uq_categorias_nombre (nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

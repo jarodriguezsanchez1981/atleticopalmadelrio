@@ -1,23 +1,19 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { partidosJugadoresService, partidosService, jugadoresService, categoriasService } from '../../services';
+import { partidosJugadoresService, partidosService, jugadoresService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 
 const partidos = ref([]);
 const jugadores = ref([]);
-const categorias = ref([]);
-const filtroCategoria = ref(null);
 
 async function cargarOpciones() {
-  const [pts, jugs, cats] = await Promise.all([
+  const [pts, jugs] = await Promise.all([
     partidosService.listar(),
-    jugadoresService.listar(),
-    categoriasService.listar()
+    jugadoresService.listar()
   ]);
   partidos.value = pts;
   jugadores.value = jugs;
-  categorias.value = cats;
 }
 
 onMounted(async () => {
@@ -30,15 +26,8 @@ onBeforeUnmount(() => {
 
 let unsubCambio = null;
 
-const opcionesCategoria = computed(() =>
-  categorias.value
-    .map(c => ({ label: c.nombre, value: c.id }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
-
 const opcionesPartido = computed(() =>
   partidos.value
-    .filter(p => !filtroCategoria.value || p.id_categoria === filtroCategoria.value)
     .map(p => ({
       label: `${new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} vs ${p.equipo?.nombre || ''}`,
       value: p.id
@@ -80,27 +69,11 @@ function nombreJugador(id) {
 </script>
 
 <template>
-  <div class="flex align-items-center gap-2 mb-3">
-    <label for="filtro-categoria" class="font-medium">Categoría</label>
-    <Select
-      id="filtro-categoria"
-      v-model="filtroCategoria"
-      :options="opcionesCategoria"
-      optionLabel="label"
-      optionValue="value"
-      placeholder="Todas"
-      showClear
-      class="w-64"
-      filter
-      filterPlaceholder="Busca una categoría..."
-    />
-  </div>
   <CrudDataTable
     title="Convocatorias"
     :columns="columns"
     :service="partidosJugadoresService"
     :emptyItem="emptyItem"
-    :listParams="{ id_categoria: filtroCategoria }"
   >
     <template #cell-id_partido="{ data }">
       {{ data.partido ? nombrePartido(data.partido.id) : nombrePartido(data.id_partido) }}

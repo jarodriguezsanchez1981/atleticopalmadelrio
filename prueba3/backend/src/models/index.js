@@ -5,6 +5,7 @@ const Seccion = require('./Seccion');
 const Temporada = require('./Temporada');
 const Lugar = require('./Lugar');
 const Titulo = require('./Titulo');
+const Division = require('./Division');
 const Delegado = require('./Delegado');
 const Categoria = require('./Categoria');
 const Jugador = require('./Jugador');
@@ -40,6 +41,9 @@ Seccion.belongsToMany(Usuario, {
 
 Temporada.hasMany(Categoria, { foreignKey: 'id_temporada', sourceKey: 'id' });
 Categoria.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Division.hasMany(Categoria, { foreignKey: 'id_division', sourceKey: 'id' });
+Categoria.belongsTo(Division, { foreignKey: 'id_division', targetKey: 'id', as: 'division', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
 Temporada.hasMany(Jugador, { foreignKey: 'id_temporada', sourceKey: 'id' });
 Jugador.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
@@ -128,6 +132,7 @@ module.exports = {
   Temporada,
   Lugar,
   Titulo,
+  Division,
   Delegado,
   Categoria,
   Jugador,

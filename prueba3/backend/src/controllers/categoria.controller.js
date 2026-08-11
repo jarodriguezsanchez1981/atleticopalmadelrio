@@ -1,4 +1,11 @@
-const { Categoria, Entrenador, Delegado, Temporada } = require('../models');
+const { Categoria, Entrenador, Delegado, Temporada, Division } = require('../models');
+
+const includeEntrenadores = {
+  model: Entrenador,
+  as: 'entrenadores',
+  attributes: ['id', 'nombre', 'apellidos', 'dni'],
+  through: { attributes: [] }
+};
 
 const includes = [
   {
@@ -7,11 +14,11 @@ const includes = [
     attributes: ['id', 'nombre']
   },
   {
-    model: Entrenador,
-    as: 'entrenador',
-    attributes: ['id', 'nombre', 'apellidos', 'dni'],
-    required: false
+    model: Division,
+    as: 'division',
+    attributes: ['id', 'nombre']
   },
+  includeEntrenadores,
   {
     model: Delegado,
     as: 'delegado',
@@ -19,6 +26,20 @@ const includes = [
     required: false
   }
 ];
+
+function normalizeEntrenadoresIds(body) {
+  if (Array.isArray(body.ids_entrenadores)) return body.ids_entrenadores.map(Number).filter(Boolean);
+  if (Array.isArray(body.entrenadores)) {
+    return body.entrenadores.map((e) => (typeof e === 'object' ? Number(e.id) : Number(e))).filter(Boolean);
+  }
+  return null;
+}
+
+function serializeCategoria(categoria) {
+  const json = categoria.toJSON ? categoria.toJSON() : categoria;
+  json.ids_entrenadores = (json.entrenadores || []).map((e) => e.id);
+  return json;
+}
 
 async function listar(req, res, next) {
   try {
@@ -29,7 +50,7 @@ async function listar(req, res, next) {
       include: includes,
       order: [[{ model: Temporada, as: 'temporada' }, 'nombre', 'DESC'], ['nombre', 'ASC']]
     });
-    res.json(categorias);
+    res.json(categorias.map(serializeCategoria));
   } catch (err) { next(err); }
 }
 
@@ -37,21 +58,28 @@ async function obtener(req, res, next) {
   try {
     const categoria = await Categoria.findOne({ where: { id: req.params.id }, include: includes });
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    res.json(categoria);
+    res.json(serializeCategoria(categoria));
   } catch (err) { next(err); }
 }
 
 async function crear(req, res, next) {
   try {
-    const { nombre, id_temporada, id_entrenador, id_delegado } = req.body;
+    const { nombre, alias, id_temporada, id_division, id_delegado } = req.body;
+    const idsEntrenadores = normalizeEntrenadoresIds(req.body) || [];
     if (!nombre || !id_temporada) {
       return res.status(400).json({ message: 'Nombre y temporada son obligatorios.' });
     }
     const temporada = await Temporada.findOne({ where: { id: id_temporada } });
     if (!temporada) return res.status(400).json({ message: 'La temporada indicada no existe.' });
-    if (id_entrenador) {
-      const existe = await Entrenador.findOne({ where: { id: id_entrenador } });
-      if (!existe) return res.status(400).json({ message: 'El entrenador indicado no existe.' });
+    if (id_division) {
+      const existe = await Division.findOne({ where: { id: id_division } });
+      if (!existe) return res.status(400).json({ message: 'La división indicada no existe.' });
+    }
+    if (idsEntrenadores.length) {
+      const contados = await Entrenador.count({ where: { id: idsEntrenadores } });
+      if (contados !== idsEntrenadores.length) {
+        return res.status(400).json({ message: 'Algún entrenador indicado no existe.' });
+      }
     }
     if (id_delegado) {
       const existe = await Delegado.findOne({ where: { id: id_delegado } });
@@ -59,12 +87,14 @@ async function crear(req, res, next) {
     }
     const categoria = await Categoria.create({
       nombre,
+      alias: alias || null,
       id_temporada,
-      id_entrenador: id_entrenador || null,
+      id_division: id_division || null,
       id_delegado: id_delegado || null
     });
+    if (idsEntrenadores.length) await categoria.setEntrenadores(idsEntrenadores);
     const creada = await Categoria.findOne({ where: { id: categoria.id }, include: includes });
-    res.status(201).json(creada);
+    res.status(201).json(serializeCategoria(creada));
   } catch (err) { next(err); }
 }
 
@@ -72,19 +102,27 @@ async function actualizar(req, res, next) {
   try {
     const categoria = await Categoria.findOne({ where: { id: req.params.id } });
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    const { nombre, id_temporada, id_entrenador, id_delegado } = req.body;
+    const { nombre, alias, id_temporada, id_division, id_delegado } = req.body;
+    const idsEntrenadores = normalizeEntrenadoresIds(req.body);
     if (nombre !== undefined) categoria.nombre = nombre;
+    if (alias !== undefined) categoria.alias = alias || null;
+    if (id_division !== undefined) {
+      if (id_division) {
+        const existe = await Division.findOne({ where: { id: id_division } });
+        if (!existe) return res.status(400).json({ message: 'La división indicada no existe.' });
+      }
+      categoria.id_division = id_division || null;
+    }
     if (id_temporada !== undefined) {
       const temporada = await Temporada.findOne({ where: { id: id_temporada } });
       if (!temporada) return res.status(400).json({ message: 'La temporada indicada no existe.' });
       categoria.id_temporada = id_temporada;
     }
-    if (id_entrenador !== undefined) {
-      if (id_entrenador) {
-        const existe = await Entrenador.findOne({ where: { id: id_entrenador } });
-        if (!existe) return res.status(400).json({ message: 'El entrenador indicado no existe.' });
+    if (idsEntrenadores) {
+      const contados = await Entrenador.count({ where: { id: idsEntrenadores } });
+      if (contados !== idsEntrenadores.length) {
+        return res.status(400).json({ message: 'Algún entrenador indicado no existe.' });
       }
-      categoria.id_entrenador = id_entrenador || null;
     }
     if (id_delegado !== undefined) {
       if (id_delegado) {
@@ -94,8 +132,9 @@ async function actualizar(req, res, next) {
       categoria.id_delegado = id_delegado || null;
     }
     await categoria.save();
+    if (idsEntrenadores) await categoria.setEntrenadores(idsEntrenadores);
     const actualizada = await Categoria.findOne({ where: { id: categoria.id }, include: includes });
-    res.json(actualizada);
+    res.json(serializeCategoria(actualizada));
   } catch (err) { next(err); }
 }
 

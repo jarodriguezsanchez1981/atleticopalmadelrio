@@ -313,6 +313,31 @@ onBeforeUnmount(() => {
       </template>
 
       <div v-if="eventoSeleccionado" class="space-y-3">
+        <div
+          v-if="eventoSeleccionado.tipo === 'partido' && eventoSeleccionado.equipo"
+          class="flex items-center justify-center gap-4 py-3"
+        >
+          <div class="flex flex-col items-center gap-1.5">
+            <img :src="eventoSeleccionado.es_local ? '/escudo.png' : (eventoSeleccionado.equipo.escudo || '/escudo.png')"
+                 alt="Escudo"
+                 class="w-20 h-20 object-contain" />
+            <span class="text-xs font-medium text-slate-600 text-center">
+              {{ eventoSeleccionado.es_local ? 'Atlético Palma' : eventoSeleccionado.equipo.nombre }}
+            </span>
+          </div>
+
+          <span class="text-lg font-display text-slate-400">VS</span>
+
+          <div class="flex flex-col items-center gap-1.5">
+            <img :src="eventoSeleccionado.es_local ? (eventoSeleccionado.equipo.escudo || '/escudo.png') : '/escudo.png'"
+                 alt="Escudo"
+                 class="w-20 h-20 object-contain" />
+            <span class="text-xs font-medium text-slate-600 text-center">
+              {{ eventoSeleccionado.es_local ? eventoSeleccionado.equipo.nombre : 'Atlético Palma' }}
+            </span>
+          </div>
+        </div>
+
         <Tag
           :severity="severidadTipo(eventoSeleccionado.tipo)"
           :value="etiquetaTipo(eventoSeleccionado.tipo)"

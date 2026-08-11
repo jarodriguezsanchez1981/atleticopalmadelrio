@@ -65,7 +65,7 @@ async function eventos(req, res, next) {
       }
       const includesPartido = [
         ...includesCategoria,
-        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre'] }
+        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo'] }
       ];
       promesas.push(
         Partido.findAll({ where: wherePartido, include: includesPartido })

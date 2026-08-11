@@ -18,6 +18,7 @@ const ALL_NAV = [
   { label: 'Resultados', icon: 'pi pi-chart-bar', to: '/resultados', seccion: 'resultados' },
   { label: 'Temporadas', icon: 'pi pi-clock', to: '/temporadas', seccion: 'temporadas' },
   { label: 'Títulos', icon: 'pi pi-graduation-cap', to: '/titulos', seccion: 'titulos' },
+  { label: 'División', icon: 'pi pi-tags', to: '/division', seccion: 'division' },
   { label: 'Lugares', icon: 'pi pi-map-marker', to: '/lugares', seccion: 'lugares' },
   { label: 'Delegados', icon: 'pi pi-user-plus', to: '/delegados', seccion: 'delegados' },
   { label: 'Categorías', icon: 'pi pi-sitemap', to: '/categorias', seccion: 'categorias' },
