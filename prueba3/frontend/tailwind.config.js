@@ -4,19 +4,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Paleta del club (placeholder inspirado en un "Atlético" clásico:
-        // verde inglés + grana como acento. Sustituir por los tonos reales
-        // del escudo cuando el club los facilite).
+        // Paleta institucional del club en clave corporativa moderna:
+        // verde profundo como color primario, neutros claros para el fondo
+        // y dorado/grana reducidos a acentos puntuales.
         club: {
-          green: '#0B3D2E',   // verde botella - color principal
-          greenLight: '#155B41',
-          garnet: '#7A1E2B',  // grana - acento
-          gold: '#C9A24B',    // dorado - detalles / hover
-          cream: '#F5F1E8'    // fondo cálido de las pantallas
+          green: '#0B3D2E',      // verde institucional - color principal
+          greenLight: '#156B4F', // hover / gradientes
+          garnet: '#8E2A3D',     // grana - acento (obligatorio, alertas)
+          gold: '#B08D57',       // dorado sobrio - detalles
+          cream: '#F5F6F8'       // fondo neutro claro de las pantallas
         }
       },
       fontFamily: {
-        display: ['"Oswald"', 'sans-serif'],
+        display: ['"Inter"', 'sans-serif'],
         body: ['"Inter"', 'sans-serif']
       }
     }

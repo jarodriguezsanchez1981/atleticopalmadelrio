@@ -60,7 +60,7 @@ async function onSubmit() {
       </div>
 
       <!-- Formulario de acceso -->
-      <form @submit.prevent="onSubmit" class="bg-club-cream rounded-2xl shadow-2xl p-8 space-y-5">
+      <form @submit.prevent="onSubmit" class="bg-white rounded-xl shadow-2xl p-8 space-y-5 border border-slate-200">
         <div class="flex flex-col gap-2">
           <label for="usuario" class="text-sm font-medium text-slate-700">Usuario</label>
           <InputText id="usuario" v-model="usuario" autocomplete="username" placeholder="tu.usuario" class="w-full" />

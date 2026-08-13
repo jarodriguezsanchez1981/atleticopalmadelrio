@@ -18,9 +18,10 @@ import { localeEs } from './utils/localeEs';
 const ClubPreset = definePreset(Aura, {
   semantic: {
     primary: {
-      50: '#eaf3ef', 100: '#c9e0d5', 200: '#a4ccb9', 300: '#7eb89d',
-      400: '#63a888', 500: '#0B3D2E', 600: '#0a3729', 700: '#083023',
-      800: '#06281d', 900: '#031b13', 950: '#020f0a'
+      50: '#eef4f1', 100: '#d3e3dc', 200: '#aecabf',
+      300: '#86af9f', 400: '#4f8a72', 500: '#0B3D2E',
+      600: '#0a3729', 700: '#083023', 800: '#06281d',
+      900: '#031b13', 950: '#020f0a'
     }
   }
 });

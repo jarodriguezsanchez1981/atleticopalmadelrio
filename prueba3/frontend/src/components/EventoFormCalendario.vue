@@ -181,6 +181,46 @@ function cerrar() {
   emit('update:visible', false);
 }
 
+function formatHora(value) {
+  if (!value) return '00:00';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '00:00';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function parseHora(hhmm) {
+  const match = String(hhmm || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (Number.isNaN(h) || Number.isNaN(m) || h > 23 || m > 59) return null;
+  return { h, m };
+}
+
+function combinarFechaHora(dateVal, hhmm) {
+  const base = dateVal instanceof Date ? dateVal : new Date(dateVal);
+  if (Number.isNaN(base.getTime())) base.setTime(Date.now());
+  const next = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 0, 0, 0, 0);
+  const parsed = parseHora(hhmm);
+  if (parsed) next.setHours(parsed.h, parsed.m, 0, 0);
+  return next;
+}
+
+function onHoraInput(campo, value) {
+  if (!parseHora(value)) return;
+  if (form.value[campo]) {
+    form.value[campo] = combinarFechaHora(form.value[campo], value);
+  }
+}
+
+function onFechaChange(campo, value) {
+  if (!value) {
+    form.value[campo] = null;
+    return;
+  }
+  form.value[campo] = combinarFechaHora(value, formatHora(form.value[campo]));
+}
+
 function validar() {
   if (!form.value.id_categoria || !form.value.fecha) {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Categoría y fecha son obligatorias.', life: 4000 });
@@ -278,9 +318,22 @@ async function guardar() {
 
       <div class="flex flex-col gap-1.5">
         <label class="text-sm font-medium text-slate-600">Fecha y hora <span class="text-club-garnet">*</span></label>
-        <DatePicker v-model="form.fecha" showTime hourFormat="24" dateFormat="dd/mm/yy" :showSeconds="false"
-                    :stepMinute="1" showIcon iconDisplay="input" :manualInput="true" class="w-full"
-                    inputClass="w-full" placeholder="dd/mm/aa hh:mm" />
+        <div class="flex gap-2">
+          <DatePicker
+            :model-value="form.fecha"
+            @update:modelValue="(v) => onFechaChange('fecha', v)"
+            dateFormat="dd/mm/yy" showIcon iconDisplay="input" :manualInput="true"
+            class="flex-1" inputClass="w-full" placeholder="dd/mm/aa"
+          />
+          <InputText
+            :model-value="formatHora(form.fecha)"
+            placeholder="HH:mm"
+            maxlength="5"
+            inputmode="numeric"
+            class="w-24"
+            @update:modelValue="(v) => onHoraInput('fecha', v)"
+          />
+        </div>
       </div>
 
       <template v-if="tipo === 'entrenamiento'">
@@ -297,9 +350,22 @@ async function guardar() {
         </div>
         <div v-if="form.recurrente" class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-slate-600">Fecha límite (si repetir)</label>
-          <DatePicker v-model="form.hasta" showTime hourFormat="24" dateFormat="dd/mm/yy" :showSeconds="false"
-                      :stepMinute="1" showIcon iconDisplay="input" :manualInput="true" class="w-full"
-                      inputClass="w-full" placeholder="dd/mm/aa hh:mm" />
+          <div class="flex gap-2">
+            <DatePicker
+              :model-value="form.hasta"
+              @update:modelValue="(v) => onFechaChange('hasta', v)"
+              dateFormat="dd/mm/yy" showIcon iconDisplay="input" :manualInput="true"
+              class="flex-1" inputClass="w-full" placeholder="dd/mm/aa"
+            />
+            <InputText
+              :model-value="formatHora(form.hasta)"
+              placeholder="HH:mm"
+              maxlength="5"
+              inputmode="numeric"
+              class="w-24"
+              @update:modelValue="(v) => onHoraInput('hasta', v)"
+            />
+          </div>
         </div>
         <div v-if="registroId" class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-slate-600">Asistencia</label>

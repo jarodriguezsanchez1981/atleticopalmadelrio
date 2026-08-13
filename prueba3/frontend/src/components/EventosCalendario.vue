@@ -79,9 +79,8 @@ function etiquetaEvento(e) {
   const lugar = e.lugar || '—';
 
   if (e.tipo === 'partido') {
-    const rival = e.equipo?.nombre || '—';
-    if (e.es_local) return `${categoria} vs ${rival} · ${lugar}`;
-    return `${rival} vs ${categoria}`;
+    const alias = e.categoria?.alias || e.categoria?.nombre || '—';
+    return alias;
   }
   return `${categoria} - ${lugar}`;
 }

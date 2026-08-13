@@ -54,7 +54,6 @@ const editando = ref(false);
 const form = reactive({ ...props.emptyItem });
 const detalle = ref(null);
 const datePickerRefs = {};
-const dateDrafts = reactive({});
 const timeDrafts = reactive({});
 
 const columnas = ref([]);
@@ -229,7 +228,6 @@ function pintarFestivos(field) {
 
 function onDatePickerShow(field) {
   const current = toDateValue(form[field]);
-  dateDrafts[field] = current ? new Date(current.getTime()) : null;
   timeDrafts[field] = formatHora(current) || '00:00';
   pintarFestivos(field);
 }
@@ -238,12 +236,11 @@ function onDatePickerMonthYearChange(field) {
   pintarFestivos(field);
 }
 
-function closeDatePicker(field) {
-  const dp = datePickerRefs[field];
-  if (dp) dp.overlayVisible = false;
-}
-
 function onFechaSelect(field, value) {
+  if (!value) {
+    form[field] = null;
+    return;
+  }
   const fecha = toDateValue(value) || toDateValue(form[field]);
   if (!fecha) return;
   form[field] = combinarFechaHora(fecha, timeDrafts[field] || '00:00');
@@ -256,20 +253,6 @@ function onHoraInput(field, value) {
   if (form[field]) {
     form[field] = combinarFechaHora(form[field], value);
   }
-}
-
-function confirmarFecha(field) {
-  if (form[field] || parseHora(timeDrafts[field])) {
-    form[field] = combinarFechaHora(form[field] || new Date(), timeDrafts[field] || '00:00');
-  }
-  closeDatePicker(field);
-}
-
-function cancelarFecha(field) {
-  const draft = dateDrafts[field];
-  form[field] = draft ? new Date(draft.getTime()) : null;
-  timeDrafts[field] = formatHora(form[field]);
-  closeDatePicker(field);
 }
 
 const datePickerPt = {
@@ -364,7 +347,14 @@ watch(
   { deep: true }
 );
 
+function limpiarDraftsFecha() {
+  for (const col of props.columns) {
+    if (col.type === 'date') delete timeDrafts[col.field];
+  }
+}
+
 function abrirNuevo() {
+  limpiarDraftsFecha();
   Object.keys(form).forEach((k) => delete form[k]);
   Object.assign(form, prepareFormData(props.emptyItem));
   editando.value = false;
@@ -372,6 +362,7 @@ function abrirNuevo() {
 }
 
 function abrirEdicion(item) {
+  limpiarDraftsFecha();
   Object.keys(form).forEach((k) => delete form[k]);
   Object.assign(form, prepareFormData(item));
   editando.value = true;
@@ -586,7 +577,7 @@ watch(
       @column-reorder="onColumnReorder"
       paginator :rows="10" :rowsPerPageOptions="[10, 20, 50]"
       stripedRows responsiveLayout="scroll"
-      class="rounded-xl overflow-hidden shadow-sm"
+      class="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200"
     >
       <Column v-if="permisoEliminar" selectionMode="multiple" headerStyle="width: 3rem" frozen :reorderableColumn="false" />
       <Column v-for="col in columnas" :key="col.field" :field="col.field" :header="col.header" sortable>
@@ -665,64 +656,43 @@ watch(
 
           <Textarea v-else-if="col.type === 'textarea'" :id="col.field" v-model="form[col.field]" rows="3" class="w-full" />
 
-          <DatePicker
-            v-else-if="col.type === 'date'"
-            :id="col.field"
-            :ref="(el) => setDatePickerRef(col.field, el)"
-            v-model="form[col.field]"
-            showTime
-            hourFormat="24"
-            dateFormat="dd/mm/yy"
-            :showSeconds="false"
-            :stepMinute="1"
-            :hideOnDateTimeSelect="false"
-            showIcon
-            iconDisplay="input"
-            :manualInput="true"
-            class="w-full"
-            inputClass="w-full"
-            placeholder="dd/mm/aa hh:mm"
-            :pt="datePickerPt"
-            @show="onDatePickerShow(col.field)"
-            @month-change="onDatePickerMonthYearChange(col.field)"
-            @year-change="onDatePickerMonthYearChange(col.field)"
-            @date-select="(val) => onFechaSelect(col.field, val)"
-            @update:modelValue="(val) => onFechaSelect(col.field, val)"
-          >
-            <template #date="slotProps">
-              <span
-                class="dp-day-label"
-                :class="{ 'dp-festivo-es': esDiaFestivo(slotProps) }"
-                :title="tituloFestivo(slotProps)"
-              >{{ diaSlot(slotProps) }}</span>
-            </template>
-            <template #footer>
-              <div class="dp-panel-footer">
-                <div class="dp-hora-row">
-                  <label class="text-sm font-medium text-slate-600" :for="`${col.field}-hora`">Hora</label>
-                  <InputText
-                    :id="`${col.field}-hora`"
-                    class="w-28"
-                    :modelValue="timeDrafts[col.field] ?? formatHora(form[col.field]) ?? '00:00'"
-                    placeholder="HH:mm"
-                    maxlength="5"
-                    inputmode="numeric"
-                    @update:modelValue="(v) => onHoraInput(col.field, v)"
-                  />
-                </div>
-                <div class="dp-actions-row">
-                  <Button type="button" label="Cancelar" text severity="secondary" @click="cancelarFecha(col.field)" />
-                  <Button
-                    type="button"
-                    label="OK"
-                    icon="pi pi-check"
-                    class="!bg-club-green !border-club-green"
-                    @click="confirmarFecha(col.field)"
-                  />
-                </div>
-              </div>
-            </template>
-          </DatePicker>
+          <div v-else-if="col.type === 'date'" class="flex gap-2 w-full">
+            <DatePicker
+              :id="col.field"
+              :ref="(el) => setDatePickerRef(col.field, el)"
+              :model-value="toDateValue(form[col.field])"
+              @update:modelValue="(val) => onFechaSelect(col.field, val)"
+              dateFormat="dd/mm/yy"
+              showIcon
+              iconDisplay="input"
+              :manualInput="true"
+              class="flex-1"
+              inputClass="w-full"
+              placeholder="dd/mm/aa"
+              :pt="datePickerPt"
+              @show="onDatePickerShow(col.field)"
+              @month-change="onDatePickerMonthYearChange(col.field)"
+              @year-change="onDatePickerMonthYearChange(col.field)"
+              @date-select="(val) => onFechaSelect(col.field, val)"
+            >
+              <template #date="slotProps">
+                <span
+                  class="dp-day-label"
+                  :class="{ 'dp-festivo-es': esDiaFestivo(slotProps) }"
+                  :title="tituloFestivo(slotProps)"
+                >{{ diaSlot(slotProps) }}</span>
+              </template>
+            </DatePicker>
+            <InputText
+              :id="`${col.field}-hora`"
+              :model-value="timeDrafts[col.field] ?? formatHora(form[col.field]) ?? '00:00'"
+              placeholder="HH:mm"
+              maxlength="5"
+              inputmode="numeric"
+              class="w-24"
+              @update:modelValue="(v) => onHoraInput(col.field, v)"
+            />
+          </div>
 
           <div v-else-if="col.type === 'image'" class="flex flex-wrap items-center gap-3">
             <img v-if="form[col.field]" :src="form[col.field]" alt="Foto" class="ar-foto-mini border border-slate-200" />
@@ -854,27 +824,5 @@ watch(
 .p-datepicker-panel .p-datepicker-day-selected.dp-festivo-es,
 .p-datepicker-panel .p-datepicker-day-selected .dp-festivo-es {
   box-shadow: inset 0 0 0 2px #9a3412;
-}
-
-.p-datepicker-panel .dp-panel-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem 1rem;
-  border-top: 1px solid #e2e8f0;
-}
-
-.p-datepicker-panel .dp-hora-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-}
-
-.p-datepicker-panel .dp-actions-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
 }
 </style>

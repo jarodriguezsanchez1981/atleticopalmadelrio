@@ -11,17 +11,18 @@ body {
 }
 
 h1, h2, h3, .font-display {
-  font-family: 'Oswald', sans-serif;
-  letter-spacing: 0.02em;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+  font-weight: 600;
 }
 
 /* Barra de scroll discreta */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #0B3D2E33; border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: #0B3D2E26; border-radius: 8px; }
 
 /* Foco visible accesible en toda la app */
 :focus-visible {
-  outline: 2px solid #C9A24B;
+  outline: 2px solid #B08D57;
   outline-offset: 2px;
 }
 
