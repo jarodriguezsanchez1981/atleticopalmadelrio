@@ -32,7 +32,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(Entrenamiento.findAll).toHaveBeenCalledWith(
       expect.objectContaining({ order: [['fecha', 'ASC']], include: expect.any(Array) })
     );
-    expect(res._json[0]).toEqual({ id: 1, fecha: '2026-01-01', ids_presentes: [], ids_ausentes: [] });
+    expect(res._json[0]).toEqual({ id: 1, fecha: '2026-01-01', ids_presentes: [], ids_ausentes: [], asistencia_tipo: 'total' });
   });
 
   it('listar filtra por categoría y lugar', async () => {
@@ -76,7 +76,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(Entrenamiento.findByPk).toHaveBeenCalledWith('3', expect.objectContaining({ include: expect.any(Array) }));
-    expect(res._json).toEqual({ id: 3, fecha: '2026-01-01', ids_presentes: [], ids_ausentes: [] });
+    expect(res._json).toEqual({ id: 3, fecha: '2026-01-01', ids_presentes: [], ids_ausentes: [], asistencia_tipo: 'total' });
   });
 
   it('crear valida campos obligatorios', async () => {
@@ -108,7 +108,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
       { id_entrenamiento: 5, fecha_entrenamiento: expect.any(Date), incidencias: null }
     ]);
     expect(res._status).toBe(201);
-    expect(res._json).toEqual({ id: 5, categoria: null, lugar: null, ids_presentes: [], ids_ausentes: [] });
+    expect(res._json).toEqual({ id: 5, categoria: null, lugar: null, ids_presentes: [], ids_ausentes: [], asistencia_tipo: 'total' });
   });
 
   it('crear recurrente guarda un solo registro base + un semanal por semana hasta la fecha límite', async () => {
@@ -155,7 +155,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(entrenamiento.id_lugar).toBe(2);
     expect(entrenamiento.save).toHaveBeenCalled();
     expect(EntrenamientoSemanal.destroy).not.toHaveBeenCalled();
-    expect(res._json).toEqual({ id: 1, id_lugar: 2, categoria: null, lugar: null, ids_presentes: [], ids_ausentes: [] });
+    expect(res._json).toEqual({ id: 1, id_lugar: 2, categoria: null, lugar: null, ids_presentes: [], ids_ausentes: [], asistencia_tipo: 'total' });
   });
 
   it('actualizar regenera los semanales si cambia fecha o recurrencia', async () => {
@@ -174,7 +174,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(filas).toHaveLength(2);
   });
 
-  it('crear guarda presentes y ausentes en entrenamientos_jugadores', async () => {
+  it('crear guarda asistencias parciales con incidencias si asistencia !== total', async () => {
     const creado = { id: 8 };
     const completo = { id: 8, categoria: null, lugar: null, asistencias: [] };
     Entrenamiento.create.mockResolvedValue(creado);
@@ -182,8 +182,11 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
       body: {
-        id_categoria: 1, fecha: '2026-01-01', id_lugar: 2,
-        ids_presentes: [11, 12], ids_ausentes: [13]
+        id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, asistencia: 'parcial',
+        asistencias: [
+          { id_jugador: 11, asistencia: true },
+          { id_jugador: 12, asistencia: false, incidencias: 'Lesión de rodilla' }
+        ]
       }
     });
 
@@ -192,19 +195,60 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 8 } });
     expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
       { id_entrenamiento: 8, id_jugador: 11, asistencia: true, incidencias: null },
-      { id_entrenamiento: 8, id_jugador: 12, asistencia: true, incidencias: null },
-      { id_entrenamiento: 8, id_jugador: 13, asistencia: false, incidencias: null }
+      { id_entrenamiento: 8, id_jugador: 12, asistencia: false, incidencias: 'Lesión de rodilla' }
     ]);
     expect(res._status).toBe(201);
   });
 
-  it('actualizar reemplaza presentes y ausentes si los trae el body', async () => {
+  it('crear con asistencia total no inserta registros de jugadores', async () => {
+    const creado = { id: 9 };
+    const completo = { id: 9, categoria: null, lugar: null, asistencias: [] };
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, asistencia: 'total' }
+    });
+
+    await promesa;
+
+    expect(EntrenamientoJugador.destroy).not.toHaveBeenCalled();
+    expect(EntrenamientoJugador.bulkCreate).not.toHaveBeenCalled();
+    expect(res._status).toBe(201);
+  });
+
+  it('crear sigue soportando ids_presentes/ids_ausentes (retrocompatibilidad)', async () => {
+    const creado = { id: 10 };
+    const completo = { id: 10, categoria: null, lugar: null, asistencias: [] };
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, ids_presentes: [11], ids_ausentes: [13] }
+    });
+
+    await promesa;
+
+    expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
+      { id_entrenamiento: 10, id_jugador: 11, asistencia: true, incidencias: null },
+      { id_entrenamiento: 10, id_jugador: 13, asistencia: false, incidencias: null }
+    ]);
+    expect(res._status).toBe(201);
+  });
+
+  it('actualizar reemplaza asistencias si trae detalle parcial', async () => {
     const entrenamiento = { id: 1, id_lugar: 1, save: vi.fn().mockResolvedValue() };
     const actualizado = { id: 1, id_lugar: 1, categoria: null, lugar: null, asistencias: [] };
     Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
     const { promesa } = llamar(ctrl.actualizar, {
       params: { id: '1' },
-      body: { ids_presentes: [21], ids_ausentes: [22] }
+      body: {
+        asistencia: 'parcial',
+        asistencias: [
+          { id_jugador: 21, asistencia: true },
+          { id_jugador: 22, asistencia: false, incidencias: 'Examen' }
+        ]
+      }
     });
 
     await promesa;
@@ -212,8 +256,23 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 1 } });
     expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
       { id_entrenamiento: 1, id_jugador: 21, asistencia: true, incidencias: null },
-      { id_entrenamiento: 1, id_jugador: 22, asistencia: false, incidencias: null }
+      { id_entrenamiento: 1, id_jugador: 22, asistencia: false, incidencias: 'Examen' }
     ]);
+  });
+
+  it('actualizar con asistencia total borra todos los registros', async () => {
+    const entrenamiento = { id: 1, id_lugar: 1, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, id_lugar: 1, categoria: null, lugar: null, asistencias: [] };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { asistencia: 'total' }
+    });
+
+    await promesa;
+
+    expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 1 } });
+    expect(EntrenamientoJugador.bulkCreate).not.toHaveBeenCalled();
   });
 
   it('eliminar elimina y responde 204', async () => {
@@ -229,6 +288,25 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   it('eliminar devuelve 404 si no encuentra nada', async () => {
     Entrenamiento.destroy.mockResolvedValue(0);
     const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '99' } });
+
+    await promesa;
+
+    expect(res._status).toBe(404);
+  });
+
+  it('eliminarSemanal elimina una sesión concreta y responde 204', async () => {
+    EntrenamientoSemanal.destroy.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.eliminarSemanal, { params: { id: '42' } });
+
+    await promesa;
+
+    expect(EntrenamientoSemanal.destroy).toHaveBeenCalledWith({ where: { id: '42' } });
+    expect(res._status).toBe(204);
+  });
+
+  it('eliminarSemanal devuelve 404 si no encuentra nada', async () => {
+    EntrenamientoSemanal.destroy.mockResolvedValue(0);
+    const { promesa, res } = llamar(ctrl.eliminarSemanal, { params: { id: '99' } });
 
     await promesa;
 

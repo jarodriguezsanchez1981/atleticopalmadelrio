@@ -11,6 +11,7 @@ export function createModelMock() {
     findAll: vi.fn(),
     findByPk: vi.fn(),
     findOne: vi.fn(),
+    findOrCreate: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     destroy: vi.fn(),
@@ -27,13 +28,24 @@ export function createModelMock() {
   return model;
 }
 
+const ROLES = {
+  read: { nivel: 1, etiqueta: 'Solo lectura' },
+  write: { nivel: 2, etiqueta: 'Edición y borrado' }
+};
+
+function nivelDeRoles(roles) {
+  if (!Array.isArray(roles) || !roles.length) return 0;
+  return Math.max(...roles.map((r) => ROLES[r]?.nivel || 0));
+}
+
 /**
  * Monta el objeto completo `models` tal y como lo consume `../models`,
  * con los modelos que usan los controladores de las secciones.
  */
 export function createModelsMock() {
-  return {
+  const models = {
     Usuario: createModelMock(),
+    Rol: createModelMock(),
     Seccion: createModelMock(),
     Temporada: createModelMock(),
     Lugar: createModelMock(),
@@ -52,6 +64,7 @@ export function createModelsMock() {
     PartidoJugador: createModelMock(),
     EntrenamientoJugador: createModelMock()
   };
+  return models;
 }
 
 /**
@@ -60,8 +73,11 @@ export function createModelsMock() {
  * test con `vi.clearAllMocks()`.
  */
 export const models = createModelsMock();
+models.Rol.ROLES = ROLES;
+models.Rol.nivelDeRoles = nivelDeRoles;
 
 export const Usuario = models.Usuario;
+export const Rol = models.Rol;
 export const Seccion = models.Seccion;
 export const Temporada = models.Temporada;
 export const Lugar = models.Lugar;

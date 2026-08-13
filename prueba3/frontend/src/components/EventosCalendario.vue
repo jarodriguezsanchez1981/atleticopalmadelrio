@@ -45,10 +45,18 @@ const toast = useToast();
 const auth = useAuthStore();
 
 const puedeCrear = computed(() => {
-  if (props.tipo === 'entrenamiento') return auth.puedeVer('entrenamientos');
-  if (props.tipo === 'partido') return auth.puedeVer('partidos');
-  return auth.puedeVer('entrenamientos') || auth.puedeVer('partidos');
+  if (props.tipo === 'entrenamiento') return auth.puedeVer('entrenamientos') && auth.puedeEditar();
+  if (props.tipo === 'partido') return auth.puedeVer('partidos') && auth.puedeEditar();
+  return (auth.puedeVer('entrenamientos') || auth.puedeVer('partidos')) && auth.puedeEditar();
 });
+
+function puedeEditarEvento(seccion) {
+  return auth.puedeVer(seccion) && auth.puedeEditar();
+}
+
+function puedeEliminarEvento(seccion) {
+  return auth.puedeVer(seccion) && auth.puedeEliminar();
+}
 
 const COLOR_ENTRENAMIENTO = '#0B3D2E';
 const COLOR_PARTIDO = '#7A1E2B';
@@ -132,8 +140,26 @@ function eliminarEvento() {
   if (!e) return;
   const id = idDeEvento(e);
   const service = e.tipo === 'partido' ? partidosService : entrenamientosService;
+
+  if (e.tipo === 'entrenamiento' && e.recurrente) {
+    confirm.require({
+      message: 'Este entrenamiento es recurrente. ¿Quieres eliminar solo esta sesión o todas las sesiones del entrenamiento?',
+      header: 'Eliminar entrenamiento',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Todas',
+      rejectLabel: 'Solo esta',
+      acceptClass: 'p-button-danger',
+      rejectClass: 'p-button-secondary',
+      accept: () => eliminarEntrenamiento(id),
+      reject: () => eliminarSesionEntrenamiento(e, id)
+    });
+    return;
+  }
+
   confirm.require({
-    message: '¿Seguro que quieres eliminar este evento? Esta acción no se puede deshacer.',
+    message: e.tipo === 'partido'
+      ? '¿Seguro que quieres eliminar este partido? Esta acción no se puede deshacer.'
+      : '¿Seguro que quieres eliminar este entrenamiento? Esta acción no se puede deshacer.',
     header: 'Confirmar eliminación',
     icon: 'pi pi-exclamation-triangle',
     acceptLabel: 'Eliminar',
@@ -155,6 +181,45 @@ function eliminarEvento() {
       }
     }
   });
+}
+
+async function eliminarEntrenamiento(id) {
+  try {
+    await entrenamientosService.eliminar(id);
+    dialogVisible.value = false;
+    await refrescar();
+    emitirCambio();
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo eliminar el entrenamiento.',
+      life: 5000
+    });
+  }
+}
+
+async function eliminarSesionEntrenamiento(e, id) {
+  const baseId = e.base_id || id;
+  const semanalId = String(e.id || '').replace('entrenamiento-', '');
+  const service = entrenamientosService;
+  try {
+    if (semanalId && semanalId !== baseId) {
+      await service.eliminarSemanal(semanalId);
+    } else {
+      await service.eliminar(baseId);
+    }
+    dialogVisible.value = false;
+    await refrescar();
+    emitirCambio();
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo eliminar la sesión.',
+      life: 5000
+    });
+  }
 }
 
 function onFormSaved() {
@@ -366,7 +431,7 @@ onBeforeUnmount(() => {
           class="flex justify-end gap-2 pt-2 border-t border-slate-100"
         >
           <Button
-            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
+            v-if="puedeEditarEvento(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
             label="Editar"
             icon="pi pi-pencil"
             text
@@ -374,7 +439,7 @@ onBeforeUnmount(() => {
             @click="editarEvento"
           />
           <Button
-            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
+            v-if="puedeEliminarEvento(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
             label="Eliminar"
             icon="pi pi-trash"
             text

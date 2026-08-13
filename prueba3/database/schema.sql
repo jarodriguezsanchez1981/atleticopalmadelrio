@@ -34,7 +34,8 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('incidencias', 'Incidencias', 'pi pi-exclamation-triangle', 68),
   ('jugadores', 'Jugadores', 'pi pi-users', 70),
   ('entrenadores', 'Entrenadores', 'pi pi-id-card', 80),
-  ('administracion', 'Administración', 'pi pi-shield', 100);
+  ('roles', 'Roles', 'pi pi-shield', 95),
+  ('administracion', 'Administración', 'pi pi-user-cog', 100);
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -54,6 +55,15 @@ CREATE TABLE IF NOT EXISTS usuario_secciones (
   CONSTRAINT fk_us_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
   CONSTRAINT fk_us_seccion FOREIGN KEY (id_seccion) REFERENCES secciones(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS roles (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  id_usuario INT NOT NULL,
+  nombre     ENUM('read', 'write') NOT NULL,
+  UNIQUE KEY uq_roles_usuario_nombre (id_usuario, nombre),
+  CONSTRAINT fk_roles_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 CREATE TABLE IF NOT EXISTS temporadas (
   id            INT AUTO_INCREMENT,

@@ -17,8 +17,12 @@ const SECCION_ORDER = [
   'incidencias',
   'jugadores',
   'entrenadores',
+  'division',
+  'roles',
   'administracion'
 ];
+
+const ROL_NIVEL = { read: 1, write: 2 };
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -34,6 +38,11 @@ export const useAuthStore = defineStore('auth', {
     primeraSeccion: (state) => {
       const set = new Set(state.user?.secciones || []);
       return SECCION_ORDER.find((s) => set.has(s)) || 'calendario';
+    },
+    roles: (state) => state.user?.roles || [],
+    nivelPermiso: (state) => {
+      const roles = state.user?.roles || [];
+      return roles.reduce((max, r) => Math.max(max, ROL_NIVEL[r] || 0), 0);
     }
   },
 
@@ -42,6 +51,18 @@ export const useAuthStore = defineStore('auth', {
       if (!this.user) return false;
       const secs = this.user.secciones || [];
       return secs.includes(clave);
+    },
+
+    puedeCrear() {
+      return this.nivelPermiso >= ROL_NIVEL.write;
+    },
+
+    puedeEditar() {
+      return this.nivelPermiso >= ROL_NIVEL.write;
+    },
+
+    puedeEliminar() {
+      return this.nivelPermiso >= ROL_NIVEL.write;
     },
 
     async login(usuario, password) {

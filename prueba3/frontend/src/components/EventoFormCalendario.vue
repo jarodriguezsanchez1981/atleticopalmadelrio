@@ -2,6 +2,7 @@
 import { ref, watch, computed } from 'vue';
 import Dialog from 'primevue/dialog';
 import Textarea from 'primevue/textarea';
+import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
@@ -34,6 +35,8 @@ const guardando = ref(false);
 
 const form = ref({});
 const asistencias = ref({});
+const incidenciasJugador = ref({});
+const asistenciaTipo = ref('total');
 
 function resetForm() {
   form.value = {
@@ -48,6 +51,8 @@ function resetForm() {
     incidencias: ''
   };
   asistencias.value = {};
+  incidenciasJugador.value = {};
+  asistenciaTipo.value = 'total';
 }
 
 function jugadoresDeCategoria(idCat) {
@@ -58,7 +63,11 @@ function jugadoresDeCategoria(idCat) {
 
 function iniciarAsistencias(idCat) {
   asistencias.value = {};
-  jugadoresDeCategoria(idCat).forEach((j) => { asistencias.value[j.id] = true; });
+  incidenciasJugador.value = {};
+  jugadoresDeCategoria(idCat).forEach((j) => {
+    asistencias.value[j.id] = true;
+    incidenciasJugador.value[j.id] = '';
+  });
 }
 
 async function cargarCatalogo() {
@@ -96,8 +105,11 @@ async function cargarRegistro() {
     };
     if (props.tipo === 'entrenamiento') {
       asistencias.value = {};
+      incidenciasJugador.value = {};
       (item.ids_presentes || []).forEach((id) => { asistencias.value[id] = true; });
       (item.ids_ausentes || []).forEach((id) => { asistencias.value[id] = false; });
+      (item.asistencias || []).forEach((a) => { incidenciasJugador.value[a.id_jugador] = a.incidencias || ''; });
+      asistenciaTipo.value = (item.asistencias || []).length ? 'parcial' : 'total';
     }
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el registro.', life: 4000 });
@@ -143,6 +155,11 @@ const opcionesEquipo = computed(() =>
 const opcionesRecurrente = [
   { label: 'No (solo este día)', value: 0 },
   { label: 'Sí (todas las semanas)', value: 1 }
+];
+
+const opcionesAsistencia = [
+  { label: 'Total', value: 'total' },
+  { label: 'Parcial', value: 'parcial' }
 ];
 
 const opcionesLocalVisitante = [
@@ -196,15 +213,16 @@ async function guardar() {
       payload.id_lugar = form.value.id_lugar;
       payload.recurrente = form.value.recurrente ? 1 : 0;
       payload.hasta = form.value.hasta ? form.value.hasta.toISOString() : null;
-      const presentes = [];
-      const ausentes = [];
-      for (const [id, asist] of Object.entries(asistencias.value)) {
-        if (asist) presentes.push(Number(id));
-        else ausentes.push(Number(id));
-      }
-      if (presentes.length || ausentes.length) {
-        payload.ids_presentes = presentes;
-        payload.ids_ausentes = ausentes;
+      if (asistenciaTipo.value === 'total') {
+        payload.asistencia = 'total';
+      } else {
+        payload.asistencia = 'parcial';
+        const detalle = jugadoresDeCategoria(form.value.id_categoria).map((j) => ({
+          id_jugador: j.id,
+          asistencia: asistencias.value[j.id] !== false,
+          incidencias: incidenciasJugador.value[j.id] || null
+        }));
+        if (detalle.length) payload.asistencias = detalle;
       }
     } else {
       const esLocal = !!form.value.es_local;
@@ -283,20 +301,42 @@ async function guardar() {
                       :stepMinute="1" showIcon iconDisplay="input" :manualInput="true" class="w-full"
                       inputClass="w-full" placeholder="dd/mm/aa hh:mm" />
         </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Jugadores de la categoría y asistencia</label>
-          <div v-if="jugadoresDeCategoria(form.id_categoria).length" class="border border-slate-200 rounded-lg max-h-48 overflow-y-auto p-2 space-y-1">
+        <div v-if="registroId" class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-slate-600">Asistencia</label>
+          <Select v-model="asistenciaTipo" :options="opcionesAsistencia" optionLabel="label" optionValue="value"
+                  class="w-full" />
+        </div>
+        <template v-if="asistenciaTipo === 'parcial'">
+          <div v-if="jugadoresDeCategoria(form.id_categoria).length" class="border border-slate-200 rounded-lg p-2 space-y-2">
             <div
               v-for="j in jugadoresDeCategoria(form.id_categoria)"
               :key="j.id"
-              class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-50"
+              class="border-b border-slate-100 last:border-0 pb-2 space-y-1"
             >
-              <span class="text-sm text-slate-700">{{ j.apellidos }}, {{ j.nombre }}</span>
-              <Checkbox v-model="asistencias[j.id]" binary />
+              <div class="flex items-center justify-between px-1">
+                <span class="text-sm text-slate-700">{{ j.apellidos }}, {{ j.nombre }}</span>
+                <div class="flex items-center gap-2">
+                  <Checkbox
+                    :model-value="asistencias[j.id] !== false"
+                    :binary="true"
+                    @update:model-value="(v) => { asistencias[j.id] = !!v; if (v) incidenciasJugador[j.id] = ''; }"
+                  />
+                  <span class="text-xs text-slate-500">Asistió</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 px-1">
+                <i class="pi pi-exclamation-circle text-slate-300"></i>
+                <InputText
+                  v-model="incidenciasJugador[j.id]"
+                  :disabled="asistencias[j.id] !== false"
+                  placeholder="Causa de la ausencia"
+                  class="w-full !py-1.5 !text-sm"
+                />
+              </div>
             </div>
           </div>
           <p v-else class="text-xs text-slate-400">Sin jugadores en la categoría seleccionada.</p>
-        </div>
+        </template>
       </template>
 
       <template v-if="tipo === 'partido'">

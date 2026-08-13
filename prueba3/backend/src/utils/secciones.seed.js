@@ -15,7 +15,8 @@ const SECCIONES = [
   { clave: 'incidencias', nombre: 'Incidencias', icono: 'pi pi-exclamation-triangle', orden: 68 },
   { clave: 'jugadores', nombre: 'Jugadores', icono: 'pi pi-users', orden: 70 },
   { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80 },
-  { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-shield', orden: 100 }
+  { clave: 'roles', nombre: 'Roles', icono: 'pi pi-shield', orden: 95 },
+  { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100 }
 ];
 
 async function ensureSecciones(Seccion) {

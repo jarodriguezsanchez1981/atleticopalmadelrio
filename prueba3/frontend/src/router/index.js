@@ -117,6 +117,12 @@ const routes = [
         name: 'administracion',
         component: () => import('../views/admin/Usuarios.vue'),
         meta: { seccion: 'administracion' }
+      },
+      {
+        path: 'roles',
+        name: 'roles',
+        component: () => import('../views/roles/Roles.vue'),
+        meta: { seccion: 'roles' }
       }
     ]
   },

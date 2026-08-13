@@ -16,6 +16,7 @@ export function crudService(resource) {
 }
 
 export const usuariosService = crudService('usuarios');
+export const rolesService = crudService('roles');
 export const seccionesService = crudService('secciones');
 export const temporadasService = crudService('temporadas');
 export const lugaresService = crudService('lugares');
@@ -25,7 +26,10 @@ export const delegadosService = crudService('delegados');
 export const categoriasService = crudService('categorias');
 export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
-export const entrenamientosService = crudService('entrenamientos');
+export const entrenamientosService = {
+  ...crudService('entrenamientos'),
+  eliminarSemanal: (id) => api.delete(`/entrenamientos/semanal/${id}`)
+};
 export const entrenamientosJugadoresService = crudService('entrenamientos-jugadores');
 export const partidosService = crudService('partidos');
 export const partidosJugadoresService = crudService('partidos-jugadores');

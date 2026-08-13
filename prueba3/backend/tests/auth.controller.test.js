@@ -79,11 +79,11 @@ describe('Autenticación · auth.controller', () => {
 
     expect(res._status).toBe(200);
     expect(jwtUtils.signToken).toHaveBeenCalledWith({
-      id: 1, usuario: 'admin', secciones: ['administracion', 'temporadas']
+      id: 1, usuario: 'admin', secciones: ['administracion', 'temporadas'], roles: []
     });
     expect(res._json.token).toBe('token-fake');
     expect(res._json.user).toEqual({
-      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['administracion', 'temporadas']
+      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['administracion', 'temporadas'], roles: []
     });
   });
 
@@ -107,7 +107,7 @@ describe('Autenticación · auth.controller', () => {
 
     expect(Usuario.findByPk).toHaveBeenCalledWith(1, expect.objectContaining({ include: expect.any(Array) }));
     expect(res._json).toEqual({
-      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['temporadas']
+      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['temporadas'], roles: []
     });
   });
 });

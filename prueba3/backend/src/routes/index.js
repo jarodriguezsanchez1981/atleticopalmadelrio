@@ -2,6 +2,7 @@ const { Router } = require('express');
 
 const authRoutes = require('./auth.routes');
 const usuarioRoutes = require('./usuario.routes');
+const rolRoutes = require('./rol.routes');
 const temporadaRoutes = require('./temporada.routes');
 const lugarRoutes = require('./lugar.routes');
 const tituloRoutes = require('./titulo.routes');
@@ -24,6 +25,7 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
+router.use('/roles', rolRoutes);
 router.use('/temporadas', temporadaRoutes);
 router.use('/lugares', lugarRoutes);
 router.use('/titulos', tituloRoutes);

@@ -52,14 +52,26 @@ async function seedAdminIfNeeded() {
   if (secciones.length) {
     await user.setSecciones(secciones.map((s) => s.id));
   }
+
+  // Admin siempre tiene el rol máximo (write) para poder editar y borrar
+  const { Rol } = require('./models');
+  const existeRol = await Rol.findOne({ where: { id_usuario: user.id, nombre: 'write' } });
+  if (!existeRol) {
+    await Rol.create({ id_usuario: user.id, nombre: 'write' });
+  }
 }
 
 async function start() {
   try {
     await waitForDb();
 
-    // Crea tablas nuevas (secciones, usuario_secciones) si no existen
-    await sequelize.sync({ alter: false });
+    // Crea tablas nuevas (secciones, usuario_secciones) si no existen.
+    // Nunca debe tumbar el arranque: un fallo de sync no ha de dejar la API caída
+    try {
+      await sequelize.sync({ alter: false });
+    } catch (syncErr) {
+      console.warn('⚠️  sequelize.sync no pudo completarse (se omite y se continúa):', syncErr.message);
+    }
     await ensureSecciones(Seccion);
     await seedAdminIfNeeded();
 

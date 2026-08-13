@@ -13,7 +13,7 @@ const includes = [
   {
     model: EntrenamientoJugador,
     as: 'asistencias',
-    attributes: ['id', 'id_jugador', 'asistencia'],
+    attributes: ['id', 'id_jugador', 'asistencia', 'incidencias'],
     include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
   }
 ];
@@ -28,16 +28,36 @@ function serialize(entrenamiento) {
   const asistencias = json.asistencias || [];
   json.ids_presentes = asistencias.filter((a) => a.asistencia).map((a) => a.id_jugador);
   json.ids_ausentes = asistencias.filter((a) => !a.asistencia).map((a) => a.id_jugador);
+  json.asistencia_tipo = asistencias.length ? 'parcial' : 'total';
   return json;
 }
 
-async function guardarAsistencias(idEntrenamiento, presentes, ausentes) {
+async function guardarAsistencias(idEntrenamiento, detalle) {
   await EntrenamientoJugador.destroy({ where: { id_entrenamiento: idEntrenamiento } });
-  const filas = [
-    ...presentes.map((id_jugador) => ({ id_entrenamiento: idEntrenamiento, id_jugador, asistencia: true, incidencias: null })),
-    ...ausentes.map((id_jugador) => ({ id_entrenamiento: idEntrenamiento, id_jugador, asistencia: false, incidencias: null }))
-  ];
+  const filas = detalle.map((d) => ({
+    id_entrenamiento: idEntrenamiento,
+    id_jugador: d.id_jugador,
+    asistencia: d.asistencia ? true : false,
+    incidencias: d.incidencias || null
+  }));
   if (filas.length) await EntrenamientoJugador.bulkCreate(filas);
+}
+
+function normalizarDetalleAsistencias(body) {
+  if (Array.isArray(body.asistencias)) {
+    return body.asistencias.map((a) => ({
+      id_jugador: Number(a.id_jugador),
+      asistencia: !!a.asistencia,
+      incidencias: a.incidencias || null
+    })).filter((a) => Number.isFinite(a.id_jugador));
+  }
+  const presentes = normalizeIds(body.ids_presentes);
+  const ausentes = normalizeIds(body.ids_ausentes);
+  if (!presentes.length && !ausentes.length) return null;
+  return [
+    ...presentes.map((id_jugador) => ({ id_jugador, asistencia: true, incidencias: null })),
+    ...ausentes.map((id_jugador) => ({ id_jugador, asistencia: false, incidencias: null }))
+  ];
 }
 
 function calcularFechasSemanal(fechaBase, hasta) {
@@ -110,10 +130,9 @@ async function crear(req, res, next) {
     }));
     if (filas.length) await EntrenamientoSemanal.bulkCreate(filas);
 
-    const presentes = normalizeIds(req.body.ids_presentes);
-    const ausentes = normalizeIds(req.body.ids_ausentes);
-    if (presentes.length || ausentes.length) {
-      await guardarAsistencias(entrenamiento.id, presentes, ausentes);
+    const detalle = normalizarDetalleAsistencias(req.body);
+    if (req.body.asistencia !== 'total' && detalle) {
+      await guardarAsistencias(entrenamiento.id, detalle);
     }
 
     const completo = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
@@ -146,8 +165,13 @@ async function actualizar(req, res, next) {
       if (filas.length) await EntrenamientoSemanal.bulkCreate(filas);
     }
 
-    if (req.body.ids_presentes !== undefined || req.body.ids_ausentes !== undefined) {
-      await guardarAsistencias(entrenamiento.id, normalizeIds(req.body.ids_presentes), normalizeIds(req.body.ids_ausentes));
+    if (req.body.asistencia !== undefined || req.body.asistencias !== undefined || req.body.ids_presentes !== undefined || req.body.ids_ausentes !== undefined) {
+      if (req.body.asistencia === 'total') {
+        await EntrenamientoJugador.destroy({ where: { id_entrenamiento: entrenamiento.id } });
+      } else {
+        const detalle = normalizarDetalleAsistencias(req.body);
+        if (detalle) await guardarAsistencias(entrenamiento.id, detalle);
+      }
     }
 
     const actualizado = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
@@ -163,4 +187,12 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+async function eliminarSemanal(req, res, next) {
+  try {
+    const eliminado = await EntrenamientoSemanal.destroy({ where: { id: req.params.id } });
+    if (!eliminado) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+    res.status(204).send();
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, eliminarSemanal };

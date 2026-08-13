@@ -26,7 +26,8 @@ const ALL_NAV = [
   { label: 'Incidencias', icon: 'pi pi-exclamation-triangle', to: '/incidencias', seccion: 'incidencias' },
   { label: 'Jugadores', icon: 'pi pi-users', to: '/jugadores', seccion: 'jugadores' },
   { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
-  { label: 'Administración', icon: 'pi pi-shield', to: '/administracion', seccion: 'administracion' }
+  { label: 'Roles', icon: 'pi pi-shield', to: '/roles', seccion: 'roles' },
+  { label: 'Administración', icon: 'pi pi-cog', to: '/administracion', seccion: 'administracion' }
 ];
 
 const navItems = computed(() => ALL_NAV.filter((item) => auth.puedeVer(item.seccion)));

@@ -4,7 +4,7 @@
  * columns: [{ field, header, type: 'text'|'textarea'|'date'|'select'|'multiselect'|'password',
  *             options?: [{label,value}], required?: bool }]
  */
-import { ref, reactive, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Dialog from 'primevue/dialog';
@@ -23,6 +23,9 @@ import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { mapaFestivosAnio, nombreFestivoNacional } from '../utils/festivosEspana';
 import { emitirCambio } from '../utils/cambioBus';
+import { useAuthStore } from '../stores/auth.store';
+
+const auth = useAuthStore();
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -36,6 +39,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['changed']);
+
+const permisoCrear = computed(() => props.canCreate && auth.puedeCrear());
+const permisoEditar = computed(() => props.canEdit && auth.puedeEditar());
+const permisoEliminar = computed(() => props.canDelete && auth.puedeEliminar());
 
 const items = ref([]);
 const seleccionados = ref([]);
@@ -75,7 +82,7 @@ function guardarOrden() {
 }
 
 function onColumnReorder({ dragIndex, dropIndex }) {
-  const offset = props.canDelete ? 1 : 0;
+  const offset = permisoEliminar.value ? 1 : 0;
   const full = [...columnas.value];
   if (dragIndex == null || dropIndex == null) return;
   const di = dragIndex - offset;
@@ -552,7 +559,7 @@ watch(
 
       <div class="flex items-center gap-2">
         <Button
-          v-if="canDelete && seleccionados.length"
+          v-if="permisoEliminar && seleccionados.length"
           :label="`Eliminar seleccionados (${seleccionados.length})`"
           icon="pi pi-trash"
           severity="danger"
@@ -563,7 +570,7 @@ watch(
           <InputIcon class="pi pi-search" />
           <InputText v-model="filtroGlobal" placeholder="Buscar..." />
         </IconField>
-        <Button v-if="canCreate" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
+        <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
                 class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
       </div>
     </div>
@@ -581,7 +588,7 @@ watch(
       stripedRows responsiveLayout="scroll"
       class="rounded-xl overflow-hidden shadow-sm"
     >
-      <Column v-if="canDelete" selectionMode="multiple" headerStyle="width: 3rem" frozen :reorderableColumn="false" />
+      <Column v-if="permisoEliminar" selectionMode="multiple" headerStyle="width: 3rem" frozen :reorderableColumn="false" />
       <Column v-for="col in columnas" :key="col.field" :field="col.field" :header="col.header" sortable>
         <template #body="{ data }">
           <slot :name="`cell-${col.field}`" :data="data">
@@ -597,9 +604,9 @@ watch(
           <div class="flex gap-1">
             <Button icon="pi pi-search" text rounded severity="info" v-tooltip.top="'Ver detalle'"
                     @click="abrirDetalle(data)" />
-            <Button v-if="canEdit" icon="pi pi-pencil" text rounded severity="secondary" v-tooltip.top="'Editar'"
+            <Button v-if="permisoEditar" icon="pi pi-pencil" text rounded severity="secondary" v-tooltip.top="'Editar'"
                     @click="abrirEdicion(data)" />
-            <Button v-if="canDelete" icon="pi pi-trash" text rounded severity="danger" v-tooltip.top="'Eliminar'"
+            <Button v-if="permisoEliminar" icon="pi pi-trash" text rounded severity="danger" v-tooltip.top="'Eliminar'"
                     @click="confirmarEliminar(data)" />
           </div>
         </template>
@@ -783,7 +790,7 @@ watch(
         <slot name="detail-extra" :data="detalle" />
 
         <div class="flex justify-end gap-2 pt-3">
-          <Button v-if="canEdit" label="Editar" icon="pi pi-pencil" text
+          <Button v-if="permisoEditar" label="Editar" icon="pi pi-pencil" text
                   @click="detalleVisible = false; abrirEdicion(detalle)" />
           <Button label="Cerrar" @click="detalleVisible = false"
                   class="!bg-club-green !border-club-green" />
