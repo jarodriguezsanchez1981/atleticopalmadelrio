@@ -1,4 +1,4 @@
-const { Categoria, Entrenador, Delegado, Temporada, Division } = require('../models');
+const { Categoria, Entrenador, Delegado, Temporada, Division, TipoFutbol } = require('../models');
 
 const includeEntrenadores = {
   model: Entrenador,
@@ -8,6 +8,11 @@ const includeEntrenadores = {
 };
 
 const includes = [
+  {
+    model: TipoFutbol,
+    as: 'tipofutbol',
+    attributes: ['id', 'nombre']
+  },
   {
     model: Temporada,
     as: 'temporada',
@@ -64,11 +69,13 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, alias, id_temporada, id_division, id_delegado } = req.body;
+    const { nombre, alias, id_tipofutbol, id_temporada, id_division, id_delegado } = req.body;
     const idsEntrenadores = normalizeEntrenadoresIds(req.body) || [];
-    if (!nombre || !id_temporada) {
-      return res.status(400).json({ message: 'Nombre y temporada son obligatorios.' });
+    if (!nombre || !id_temporada || !id_tipofutbol) {
+      return res.status(400).json({ message: 'Nombre, temporada y tipo de fútbol son obligatorios.' });
     }
+    const tipoFutbol = await TipoFutbol.findOne({ where: { id: id_tipofutbol } });
+    if (!tipoFutbol) return res.status(400).json({ message: 'El tipo de fútbol indicado no existe.' });
     const temporada = await Temporada.findOne({ where: { id: id_temporada } });
     if (!temporada) return res.status(400).json({ message: 'La temporada indicada no existe.' });
     if (id_division) {
@@ -88,6 +95,7 @@ async function crear(req, res, next) {
     const categoria = await Categoria.create({
       nombre,
       alias: alias || null,
+      id_tipofutbol,
       id_temporada,
       id_division: id_division || null,
       id_delegado: id_delegado || null
@@ -102,10 +110,15 @@ async function actualizar(req, res, next) {
   try {
     const categoria = await Categoria.findOne({ where: { id: req.params.id } });
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    const { nombre, alias, id_temporada, id_division, id_delegado } = req.body;
+    const { nombre, alias, id_tipofutbol, id_temporada, id_division, id_delegado } = req.body;
     const idsEntrenadores = normalizeEntrenadoresIds(req.body);
     if (nombre !== undefined) categoria.nombre = nombre;
     if (alias !== undefined) categoria.alias = alias || null;
+    if (id_tipofutbol !== undefined) {
+      const tipoFutbol = await TipoFutbol.findOne({ where: { id: id_tipofutbol } });
+      if (!tipoFutbol) return res.status(400).json({ message: 'El tipo de fútbol indicado no existe.' });
+      categoria.id_tipofutbol = id_tipofutbol;
+    }
     if (id_division !== undefined) {
       if (id_division) {
         const existe = await Division.findOne({ where: { id: id_division } });

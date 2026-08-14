@@ -83,6 +83,24 @@ async function obtener(req, res, next) {
   } catch (err) { next(err); }
 }
 
+function ctrlDia(fecha) {
+  if (!fecha) return null;
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function existePartidoDia(idCategoria, fecha, omitirId = null) {
+  const dia = ctrlDia(fecha);
+  if (!idCategoria || !dia) return false;
+  const inicio = new Date(`${dia}T00:00:00`);
+  const fin = new Date(`${dia}T23:59:59.999`);
+  const where = { id_categoria: idCategoria, fecha: { [Op.gte]: inicio, [Op.lte]: fin } };
+  if (omitirId) where.id = { [Op.ne]: omitirId };
+  const contados = await Partido.count({ where });
+  return contados > 0;
+}
+
 async function crear(req, res, next) {
   try {
     const { id_categoria, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
@@ -92,6 +110,9 @@ async function crear(req, res, next) {
     }
     if (esLocal && !id_lugar) {
       return res.status(400).json({ message: 'El lugar es obligatorio para partidos como local.' });
+    }
+    if (await existePartidoDia(id_categoria, fecha)) {
+      return res.status(409).json({ message: 'Esta categoría ya tiene un partido ese día.' });
     }
     const partido = await Partido.create({
       id_categoria, fecha, id_lugar: esLocal ? id_lugar : null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
@@ -110,6 +131,13 @@ async function actualizar(req, res, next) {
     const { id_categoria, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
     if (id_categoria !== undefined) partido.id_categoria = id_categoria;
     if (fecha !== undefined) partido.fecha = fecha;
+    if (id_categoria !== undefined || fecha !== undefined) {
+      const catFinal = id_categoria !== undefined ? id_categoria : partido.id_categoria;
+      const fechaFinal = fecha !== undefined ? fecha : partido.fecha;
+      if (await existePartidoDia(catFinal, fechaFinal, partido.id)) {
+        return res.status(409).json({ message: 'Esta categoría ya tiene un partido ese día.' });
+      }
+    }
     if (es_local !== undefined) {
       partido.es_local = es_local ? 1 : 0;
       if (!es_local) partido.id_lugar = null;

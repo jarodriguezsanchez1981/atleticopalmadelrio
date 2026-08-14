@@ -20,6 +20,7 @@ export const rolesService = crudService('roles');
 export const seccionesService = crudService('secciones');
 export const temporadasService = crudService('temporadas');
 export const lugaresService = crudService('lugares');
+export const tiposFutbolService = crudService('tipos-futbol');
 export const titulosService = crudService('titulos');
 export const divisionesService = crudService('divisiones');
 export const delegadosService = crudService('delegados');

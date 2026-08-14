@@ -22,6 +22,7 @@ export function createModelMock() {
     setCategorias: vi.fn(),
     setTitulos: vi.fn(),
     setEntrenadores: vi.fn(),
+    setTiposFutbol: vi.fn(),
     bulkCreate: vi.fn()
   };
   model.scope.mockReturnValue(model);
@@ -49,6 +50,7 @@ export function createModelsMock() {
     Seccion: createModelMock(),
     Temporada: createModelMock(),
     Lugar: createModelMock(),
+    TipoFutbol: createModelMock(),
     Titulo: createModelMock(),
     Division: createModelMock(),
     Delegado: createModelMock(),
@@ -81,6 +83,7 @@ export const Rol = models.Rol;
 export const Seccion = models.Seccion;
 export const Temporada = models.Temporada;
 export const Lugar = models.Lugar;
+export const TipoFutbol = models.TipoFutbol;
 export const Titulo = models.Titulo;
 export const Division = models.Division;
 export const Delegado = models.Delegado;

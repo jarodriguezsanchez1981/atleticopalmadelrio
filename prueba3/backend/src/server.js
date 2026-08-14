@@ -2,6 +2,7 @@ const app = require('./app');
 const { sequelize, Usuario, Seccion } = require('./models');
 const { hashPassword, isPasswordValid } = require('./utils/password.utils');
 const { ensureSecciones } = require('./utils/secciones.seed');
+const { ensureTiposFutbol } = require('./utils/tipofutbol.seed');
 
 const PORT = process.env.PORT || 4000;
 const MAX_RETRIES = 30;
@@ -65,14 +66,12 @@ async function start() {
   try {
     await waitForDb();
 
-    // Crea tablas nuevas (secciones, usuario_secciones) si no existen.
-    // Nunca debe tumbar el arranque: un fallo de sync no ha de dejar la API caída
-    try {
-      await sequelize.sync({ alter: false });
-    } catch (syncErr) {
-      console.warn('⚠️  sequelize.sync no pudo completarse (se omite y se continúa):', syncErr.message);
-    }
+    // La BD se gestiona con database/schema.sql + init.sql. NO se usa
+    // sequelize.sync: con atributos unique:true Sequelize emite ALTERs
+    // en cada arranque que generan índices duplicados (_2, _3...).
+    // Los seeds usan findOrCreate, que no altera la estructura.
     await ensureSecciones(Seccion);
+    await ensureTiposFutbol(require('./models').TipoFutbol);
     await seedAdminIfNeeded();
 
     app.listen(PORT, '0.0.0.0', () => {

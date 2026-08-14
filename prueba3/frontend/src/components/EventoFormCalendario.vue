@@ -12,7 +12,7 @@ import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import {
   entrenamientosService, partidosService, categoriasService,
-  lugaresService, equiposService, jugadoresService
+  lugaresService, equiposService, jugadoresService, calendarioService
 } from '../services';
 
 const props = defineProps({
@@ -37,6 +37,29 @@ const form = ref({});
 const asistencias = ref({});
 const incidenciasJugador = ref({});
 const asistenciaTipo = ref('total');
+const partidosDelDia = ref([]);
+
+function claveDia(fecha) {
+  if (!fecha) return null;
+  const d = fecha instanceof Date ? fecha : new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function diaDePartido(p) {
+  return p.fecha ? claveDia(p.fecha) : null;
+}
+
+async function cargarPartidosDelDia() {
+  if (props.tipo !== 'partido') {
+    partidosDelDia.value = [];
+  } else {
+    const dia = claveDia(form.value?.fecha);
+    partidosDelDia.value = (await partidosService.listar()).filter((p) =>
+      dia && diaDePartido(p) === dia && String(p.id) !== String(props.registroId || '')
+    );
+  }
+}
 
 function resetForm() {
   form.value = {
@@ -126,25 +149,49 @@ watch(
     resetForm();
     await cargarCatalogo();
     await cargarRegistro();
+    await cargarPartidosDelDia();
   }
+);
+
+watch(
+  () => form.value?.fecha,
+  () => cargarPartidosDelDia()
 );
 
 watch(
   () => form.value.id_categoria,
   (idCat) => {
     if (!props.registroId && idCat != null) iniciarAsistencias(idCat);
+    // Si el lugar seleccionado ya no corresponde al tipo de fútbol de la categoría, se limpia
+    if (form.value.id_lugar != null) {
+      const sigue = opcionesLugar.value.some((o) => o.value === form.value.id_lugar);
+      if (!sigue) form.value.id_lugar = null;
+    }
   }
 );
 
-const opcionesCategoria = computed(() =>
-  categorias.value
+const opcionesCategoria = computed(() => {
+  const ocupadas = new Set(
+    props.tipo === 'partido'
+      ? partidosDelDia.value.map((p) => p.id_categoria ?? p.categoria?.id ?? null)
+      : []
+  );
+  return categorias.value
+    .filter((c) => !ocupadas.has(c.id))
     .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
 
-const opcionesLugar = computed(() =>
-  lugares.value.map((l) => ({ label: l.nombre, value: l.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
+const opcionesLugar = computed(() => {
+  const idCat = form.value.id_categoria;
+  const cat = categorias.value.find((c) => c.id === idCat);
+  const filtradas = idCat && cat
+    ? lugares.value.filter((l) => (l.ids_tipos_futbol || []).includes(cat.id_tipofutbol))
+    : lugares.value;
+  return filtradas
+    .map((l) => ({ label: l.nombre, value: l.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
 
 const opcionesEquipo = computed(() =>
   equipos.value

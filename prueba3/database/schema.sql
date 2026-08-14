@@ -81,6 +81,14 @@ CREATE TABLE IF NOT EXISTS lugares (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS lugar_tipofutbol (
+  id_lugar      INT NOT NULL,
+  id_tipofutbol INT NOT NULL,
+  PRIMARY KEY (id_lugar, id_tipofutbol),
+  CONSTRAINT fk_lt_lugar FOREIGN KEY (id_lugar) REFERENCES lugares(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_lt_tipo  FOREIGN KEY (id_tipofutbol) REFERENCES tipofutbol(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS titulo (
   id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL UNIQUE,
@@ -96,6 +104,13 @@ CREATE TABLE IF NOT EXISTS division (
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS tipofutbol (
+  id     INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO tipofutbol (nombre) VALUES ('Futbol 7'), ('Futbol 11');
 
 CREATE TABLE IF NOT EXISTS delegados (
   id            INT AUTO_INCREMENT,
@@ -115,6 +130,7 @@ CREATE TABLE IF NOT EXISTS categorias (
   id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
   alias         VARCHAR(100) NULL,
+  id_tipofutbol INT NOT NULL,
   id_temporada  INT NOT NULL,
   id_division   INT NULL,
   id_entrenador INT NULL,
@@ -123,6 +139,7 @@ CREATE TABLE IF NOT EXISTS categorias (
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_categoria_temporada (nombre, id_temporada),
+  CONSTRAINT fk_categorias_tipofutbol FOREIGN KEY (id_tipofutbol) REFERENCES tipofutbol(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_categorias_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_categorias_division FOREIGN KEY (id_division) REFERENCES division(id) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_categorias_delegado FOREIGN KEY (id_delegado) REFERENCES delegados(id) ON DELETE SET NULL ON UPDATE CASCADE,

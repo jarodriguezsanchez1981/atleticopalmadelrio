@@ -19,6 +19,7 @@ const Incidencia = require('./Incidencia');
 const Resultado = require('./Resultado');
 const PartidoJugador = require('./PartidoJugador');
 const EntrenamientoJugador = require('./EntrenamientoJugador');
+const TipoFutbol = require('./TipoFutbol');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -129,6 +130,26 @@ Incidencia.belongsTo(Entrenador, { foreignKey: 'id_entrenador', targetKey: 'id',
 Delegado.hasMany(Incidencia, { foreignKey: 'id_delegado', sourceKey: 'id' });
 Incidencia.belongsTo(Delegado, { foreignKey: 'id_delegado', targetKey: 'id', as: 'delegado', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
+TipoFutbol.hasMany(Categoria, { foreignKey: 'id_tipofutbol', sourceKey: 'id' });
+Categoria.belongsTo(TipoFutbol, { foreignKey: 'id_tipofutbol', targetKey: 'id', as: 'tipofutbol', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Lugar.belongsToMany(TipoFutbol, {
+  through: 'lugar_tipofutbol',
+  foreignKey: 'id_lugar',
+  sourceKey: 'id',
+  otherKey: 'id_tipofutbol',
+  as: 'tiposFutbol',
+  timestamps: false
+});
+TipoFutbol.belongsToMany(Lugar, {
+  through: 'lugar_tipofutbol',
+  foreignKey: 'id_tipofutbol',
+  sourceKey: 'id',
+  otherKey: 'id_lugar',
+  as: 'lugares',
+  timestamps: false
+});
+
 module.exports = {
   sequelize,
   Usuario,
@@ -149,5 +170,6 @@ module.exports = {
   Incidencia,
   Resultado,
   PartidoJugador,
-  EntrenamientoJugador
+  EntrenamientoJugador,
+  TipoFutbol
 };

@@ -22,19 +22,21 @@ CREATE TABLE `categorias` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   `alias` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `id_tipofutbol` int NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_categoria_temporada` (`nombre`,`id_temporada`),
   UNIQUE KEY `uq_categorias_nombre` (`nombre`),
   UNIQUE KEY `nombre` (`nombre`),
-  UNIQUE KEY `nombre_2` (`nombre`),
   KEY `idx_categorias_entrenador` (`id_entrenador`),
   KEY `idx_categorias_temporada` (`id_temporada`),
   KEY `idx_categorias_delegado` (`id_delegado`),
   KEY `id_division` (`id_division`),
-  CONSTRAINT `categorias_ibfk_207` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `categorias_ibfk_208` FOREIGN KEY (`id_division`) REFERENCES `division` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `categorias_ibfk_209` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `categorias_ibfk_210` FOREIGN KEY (`id_delegado`) REFERENCES `delegados` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY `id_tipofutbol` (`id_tipofutbol`),
+  CONSTRAINT `categorias_ibfk_274` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `categorias_ibfk_275` FOREIGN KEY (`id_division`) REFERENCES `division` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `categorias_ibfk_276` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `categorias_ibfk_277` FOREIGN KEY (`id_delegado`) REFERENCES `delegados` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `categorias_ibfk_278` FOREIGN KEY (`id_tipofutbol`) REFERENCES `tipofutbol` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `delegados`;
@@ -53,11 +55,10 @@ CREATE TABLE `delegados` (
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `dni` (`dni`),
-  UNIQUE KEY `dni_2` (`dni`),
   KEY `idx_delegados_categoria` (`id_categoria`),
   KEY `idx_delegados_temporada` (`id_temporada`),
-  CONSTRAINT `delegados_ibfk_123` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `delegados_ibfk_124` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `delegados_ibfk_153` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `delegados_ibfk_154` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `division`;
@@ -69,8 +70,7 @@ CREATE TABLE `division` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `nombre` (`nombre`),
-  UNIQUE KEY `nombre_2` (`nombre`)
+  UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `entrenador_categorias`;
@@ -111,7 +111,6 @@ CREATE TABLE `entrenadores` (
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `dni` (`dni`),
-  UNIQUE KEY `dni_2` (`dni`),
   KEY `idx_entrenadores_temporada` (`id_temporada`),
   CONSTRAINT `entrenadores_ibfk_1` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -134,9 +133,9 @@ CREATE TABLE `entrenamientos` (
   KEY `idx_entrenamientos_fecha` (`fecha`),
   KEY `idx_entrenamientos_lugar` (`id_lugar`),
   KEY `idx_entrenamientos_usuario` (`id_usuario`),
-  CONSTRAINT `entrenamientos_ibfk_175` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `entrenamientos_ibfk_176` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `entrenamientos_ibfk_177` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `entrenamientos_ibfk_220` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `entrenamientos_ibfk_221` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `entrenamientos_ibfk_222` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `entrenamientos_jugadores`;
@@ -153,8 +152,8 @@ CREATE TABLE `entrenamientos_jugadores` (
   PRIMARY KEY (`id`),
   KEY `idx_etj_entrenamiento` (`id_entrenamiento`),
   KEY `idx_etj_jugador` (`id_jugador`),
-  CONSTRAINT `entrenamientos_jugadores_ibfk_115` FOREIGN KEY (`id_entrenamiento`) REFERENCES `entrenamientos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `entrenamientos_jugadores_ibfk_116` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `entrenamientos_jugadores_ibfk_145` FOREIGN KEY (`id_entrenamiento`) REFERENCES `entrenamientos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `entrenamientos_jugadores_ibfk_146` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `entrenamientos_semanales`;
@@ -185,8 +184,7 @@ CREATE TABLE `equipos` (
   `direccion` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_equipos_nombre` (`nombre`),
-  UNIQUE KEY `nombre` (`nombre`),
-  UNIQUE KEY `nombre_2` (`nombre`)
+  UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `incidencias`;
@@ -210,11 +208,11 @@ CREATE TABLE `incidencias` (
   KEY `idx_incidencias_categoria` (`id_categoria`),
   KEY `idx_incidencias_fecha` (`fecha`),
   KEY `idx_incidencias_usuario` (`id_usuario`),
-  CONSTRAINT `incidencias_ibfk_286` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_287` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_288` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_289` FOREIGN KEY (`id_delegado`) REFERENCES `delegados` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_290` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `incidencias_ibfk_361` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `incidencias_ibfk_362` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `incidencias_ibfk_363` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `incidencias_ibfk_364` FOREIGN KEY (`id_delegado`) REFERENCES `delegados` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `incidencias_ibfk_365` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `jugador_categorias`;
@@ -243,10 +241,21 @@ CREATE TABLE `jugadores` (
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `dni` (`dni`),
-  UNIQUE KEY `dni_2` (`dni`),
   KEY `idx_jugadores_temporada` (`id_temporada`),
   CONSTRAINT `jugadores_ibfk_1` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=93 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `lugar_tipofutbol`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lugar_tipofutbol` (
+  `id_lugar` int NOT NULL,
+  `id_tipofutbol` int NOT NULL,
+  PRIMARY KEY (`id_lugar`,`id_tipofutbol`),
+  KEY `fk_lt_tipo` (`id_tipofutbol`),
+  CONSTRAINT `fk_lt_lugar` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_lt_tipo` FOREIGN KEY (`id_tipofutbol`) REFERENCES `tipofutbol` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `lugares`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -257,9 +266,8 @@ CREATE TABLE `lugares` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `nombre` (`nombre`),
-  UNIQUE KEY `nombre_2` (`nombre`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  UNIQUE KEY `nombre` (`nombre`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `partidos`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -281,11 +289,11 @@ CREATE TABLE `partidos` (
   KEY `idx_partidos_lugar` (`id_lugar`),
   KEY `idx_partidos_equipo` (`id_equipo`),
   KEY `idx_partidos_usuario` (`id_usuario`),
-  CONSTRAINT `partidos_ibfk_229` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `partidos_ibfk_230` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `partidos_ibfk_231` FOREIGN KEY (`id_equipo`) REFERENCES `equipos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `partidos_ibfk_232` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  CONSTRAINT `partidos_ibfk_289` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `partidos_ibfk_290` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `partidos_ibfk_291` FOREIGN KEY (`id_equipo`) REFERENCES `equipos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `partidos_ibfk_292` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `partidos_jugadores`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -304,8 +312,8 @@ CREATE TABLE `partidos_jugadores` (
   PRIMARY KEY (`id`),
   KEY `idx_pj_partido` (`id_partido`),
   KEY `idx_pj_jugador` (`id_jugador`),
-  CONSTRAINT `partidos_jugadores_ibfk_115` FOREIGN KEY (`id_partido`) REFERENCES `partidos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `partidos_jugadores_ibfk_116` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `partidos_jugadores_ibfk_145` FOREIGN KEY (`id_partido`) REFERENCES `partidos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `partidos_jugadores_ibfk_146` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `resultados`;
@@ -347,9 +355,7 @@ CREATE TABLE `secciones` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `clave` (`clave`),
   UNIQUE KEY `uq_secciones_nombre` (`nombre`),
-  UNIQUE KEY `nombre` (`nombre`),
-  UNIQUE KEY `clave_2` (`clave`),
-  UNIQUE KEY `nombre_2` (`nombre`)
+  UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `temporadas`;
@@ -361,9 +367,18 @@ CREATE TABLE `temporadas` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `nombre` (`nombre`),
-  UNIQUE KEY `nombre_2` (`nombre`)
+  UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `tipofutbol`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tipofutbol` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `nombre` (`nombre`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `titulo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -374,8 +389,7 @@ CREATE TABLE `titulo` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `nombre` (`nombre`),
-  UNIQUE KEY `nombre_2` (`nombre`)
+  UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `usuario_secciones`;
@@ -403,8 +417,7 @@ CREATE TABLE `usuarios` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `usuario` (`usuario`),
-  UNIQUE KEY `usuario_2` (`usuario`)
+  UNIQUE KEY `usuario` (`usuario`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

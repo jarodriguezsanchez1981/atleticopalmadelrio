@@ -1,12 +1,30 @@
 <script setup>
+import { ref, onMounted, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { lugaresService } from '../../services';
+import { lugaresService, tiposFutbolService } from '../../services';
 
-const columns = [
-  { field: 'nombre', header: 'Nombre', type: 'text', required: true }
-];
+const tiposFutbol = ref([]);
 
-const emptyItem = { nombre: '' };
+onMounted(async () => {
+  tiposFutbol.value = await tiposFutbolService.listar();
+});
+
+const opcionesTipoFutbol = computed(() =>
+  tiposFutbol.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
+const columns = computed(() => [
+  { field: 'nombre', header: 'Nombre', type: 'text', required: true },
+  { field: 'ids_tipos_futbol', header: 'Tipos de fútbol', type: 'multiselect', relation: 'tiposFutbol', options: opcionesTipoFutbol.value, required: true }
+]);
+
+const emptyItem = { nombre: '', ids_tipos_futbol: [] };
+
+function nombreTipos(data) {
+  if (data.tiposFutbol?.length) return data.tiposFutbol.map(t => t.nombre).join(', ');
+  const ids = data.ids_tipos_futbol || [];
+  return ids.map(id => opcionesTipoFutbol.value.find(o => o.value === id)?.label || id).join(', ') || '—';
+}
 </script>
 
 <template>
@@ -15,5 +33,12 @@ const emptyItem = { nombre: '' };
     :columns="columns"
     :service="lugaresService"
     :emptyItem="emptyItem"
-  />
+  >
+    <template #cell-ids_tipos_futbol="{ data }">
+      {{ nombreTipos(data) }}
+    </template>
+    <template #detail-ids_tipos_futbol="{ data }">
+      {{ nombreTipos(data) }}
+    </template>
+  </CrudDataTable>
 </template>

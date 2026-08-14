@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Categoria, Entrenador, Delegado, Temporada, Division } from './helpers/models.js';
+import { Categoria, Entrenador, Delegado, Temporada, Division, TipoFutbol } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/categoria.controller.js';
@@ -15,6 +15,7 @@ describe('Sección Categorías · categoria.controller', () => {
     Entrenador.count.mockReset();
     Delegado.findOne.mockReset();
     Division.findOne.mockReset();
+    TipoFutbol.findOne.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -73,13 +74,27 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Nombre y temporada son obligatorios.');
+    expect(res._json.message).toBe('Nombre, temporada y tipo de fútbol son obligatorios.');
+    expect(Categoria.create).not.toHaveBeenCalled();
+  });
+
+  it('crear valida que el tipo de fútbol exista', async () => {
+    TipoFutbol.findOne.mockResolvedValue(null);
+    const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 99 } });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El tipo de fútbol indicado no existe.');
     expect(Categoria.create).not.toHaveBeenCalled();
   });
 
   it('crear valida que la temporada exista', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue(null);
-    const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín', id_temporada: 99 } });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', id_temporada: 99, id_tipofutbol: 1 }
+    });
 
     await promesa;
 
@@ -88,10 +103,11 @@ describe('Sección Categorías · categoria.controller', () => {
   });
 
   it('crear valida que los entrenadores existan', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Entrenador.count.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Alevín', id_temporada: 1, ids_entrenadores: [99, 100] }
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, ids_entrenadores: [99, 100] }
     });
 
     await promesa;
@@ -101,10 +117,11 @@ describe('Sección Categorías · categoria.controller', () => {
   });
 
   it('crear valida que el delegado exista', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Delegado.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Alevín', id_temporada: 1, id_delegado: 99 }
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, id_delegado: 99 }
     });
 
     await promesa;
@@ -116,39 +133,47 @@ describe('Sección Categorías · categoria.controller', () => {
   it('crear crea la categoría y devuelve 201', async () => {
     const creada = { id: 5, nombre: 'Alevín', id_temporada: 1 };
     const completo = { id: 5, nombre: 'Alevín', temporada: { id: 1 } };
+    TipoFutbol.findOne.mockResolvedValue({ id: 1, nombre: 'Futbol 7' });
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Categoria.create.mockResolvedValue(creada);
     Categoria.findOne.mockResolvedValue(completo);
-    const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín', id_temporada: 1 } });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1 }
+    });
 
     await promesa;
 
+    expect(TipoFutbol.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_temporada: 1, id_division: null, id_delegado: null
+      nombre: 'Alevín', alias: null, id_tipofutbol: 1, id_temporada: 1, id_division: null, id_delegado: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(completo);
   });
 
   it('crear guarda el alias si se envía', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Categoria.create.mockResolvedValue({ id: 8 });
     Categoria.findOne.mockResolvedValue({ id: 8, alias: 'Ali' });
-    const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín', alias: 'Ali', id_temporada: 1 } });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', alias: 'Ali', id_temporada: 1, id_tipofutbol: 1 }
+    });
 
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: 'Ali', id_temporada: 1, id_division: null, id_delegado: null
+      nombre: 'Alevín', alias: 'Ali', id_tipofutbol: 1, id_temporada: 1, id_division: null, id_delegado: null
     });
     expect(res._status).toBe(201);
   });
 
   it('crear valida que la división exista', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Division.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Alevín', id_temporada: 1, id_division: 99 }
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, id_division: 99 }
     });
 
     await promesa;
@@ -158,23 +183,25 @@ describe('Sección Categorías · categoria.controller', () => {
   });
 
   it('crear guarda la división si se envía', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Division.findOne.mockResolvedValue({ id: 3 });
     Categoria.create.mockResolvedValue({ id: 9 });
     Categoria.findOne.mockResolvedValue({ id: 9, id_division: 3 });
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Alevín', id_temporada: 1, id_division: 3 }
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, id_division: 3 }
     });
 
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_temporada: 1, id_division: 3, id_delegado: null
+      nombre: 'Alevín', alias: null, id_tipofutbol: 1, id_temporada: 1, id_division: 3, id_delegado: null
     });
     expect(res._status).toBe(201);
   });
 
   it('crear asigna varios entrenadores si se envían', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Entrenador.count.mockResolvedValue(2);
     const creada = { id: 10, setEntrenadores: vi.fn().mockResolvedValue() };
@@ -182,7 +209,7 @@ describe('Sección Categorías · categoria.controller', () => {
     Categoria.create.mockResolvedValue(creada);
     Categoria.findOne.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Alevín', id_temporada: 1, ids_entrenadores: [1, 2] }
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, ids_entrenadores: [1, 2] }
     });
 
     await promesa;
@@ -255,6 +282,25 @@ describe('Sección Categorías · categoria.controller', () => {
     const { promesa: promesa2 } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { id_division: 3 } });
     await promesa2;
     expect(categoria.id_division).toBe(3);
+    expect(categoria.save).toHaveBeenCalled();
+  });
+
+  it('actualizar valida el tipo de fútbol al cambiarlo', async () => {
+    const categoria = { id: 1, nombre: 'Alevín', save: vi.fn().mockResolvedValue() };
+    Categoria.findOne.mockResolvedValue(categoria);
+    TipoFutbol.findOne.mockResolvedValue(null);
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { id_tipofutbol: 99 } });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El tipo de fútbol indicado no existe.');
+    expect(categoria.save).not.toHaveBeenCalled();
+
+    TipoFutbol.findOne.mockResolvedValue({ id: 2 });
+    const { promesa: promesa2 } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { id_tipofutbol: 2 } });
+    await promesa2;
+    expect(categoria.id_tipofutbol).toBe(2);
     expect(categoria.save).toHaveBeenCalled();
   });
 

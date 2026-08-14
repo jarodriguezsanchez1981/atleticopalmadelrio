@@ -1,25 +1,32 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { categoriasService, entrenadoresService, temporadasService, delegadosService, divisionesService } from '../../services';
+import { categoriasService, entrenadoresService, temporadasService, delegadosService, divisionesService, tiposFutbolService } from '../../services';
 
 const entrenadores = ref([]);
 const temporadas = ref([]);
 const delegados = ref([]);
 const divisiones = ref([]);
+const tiposFutbol = ref([]);
 
 onMounted(async () => {
-  const [ents, temps, dels, divs] = await Promise.all([
+  const [ents, temps, dels, divs, tfs] = await Promise.all([
     entrenadoresService.listar(),
     temporadasService.listar(),
     delegadosService.listar(),
-    divisionesService.listar()
+    divisionesService.listar(),
+    tiposFutbolService.listar()
   ]);
   entrenadores.value = ents;
   temporadas.value = temps;
   delegados.value = dels;
   divisiones.value = divs;
+  tiposFutbol.value = tfs;
 });
+
+const opcionesTipoFutbol = computed(() =>
+  tiposFutbol.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
 
 const opcionesTemporada = computed(() =>
   temporadas.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
@@ -46,13 +53,18 @@ const opcionesDelegado = computed(() =>
 const columns = computed(() => [
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'alias', header: 'Alias', type: 'text', required: false },
+  { field: 'id_tipofutbol', header: 'Tipo de fútbol', type: 'select', options: opcionesTipoFutbol.value, required: true },
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', relation: 'entrenadores', options: opcionesEntrenador.value, required: false },
   { field: 'id_delegado', header: 'Delegado', type: 'select', options: opcionesDelegado.value, required: false }
 ]);
 
-const emptyItem = { nombre: '', alias: '', id_temporada: null, id_division: null, ids_entrenadores: [], id_delegado: null };
+const emptyItem = { nombre: '', alias: '', id_tipofutbol: null, id_temporada: null, id_division: null, ids_entrenadores: [], id_delegado: null };
+
+function nombreTipoFutbol(id) {
+  return tiposFutbol.value.find(t => t.id === id)?.nombre || '—';
+}
 
 function nombreTemporada(id) {
   return temporadas.value.find(t => t.id === id)?.nombre || '—';
@@ -83,6 +95,9 @@ function nombreDelegado(id) {
   >
     <template #cell-id_temporada="{ data }">
       {{ data.temporada?.nombre || nombreTemporada(data.id_temporada) }}
+    </template>
+    <template #cell-id_tipofutbol="{ data }">
+      {{ data.tipofutbol?.nombre || nombreTipoFutbol(data.id_tipofutbol) }}
     </template>
     <template #cell-id_division="{ data }">
       {{ data.division?.nombre || nombreDivision(data.id_division) }}

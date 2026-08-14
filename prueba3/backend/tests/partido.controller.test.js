@@ -11,6 +11,7 @@ describe('Sección Partidos · partido.controller', () => {
     Partido.findByPk.mockReset();
     Partido.create.mockReset();
     Partido.destroy.mockReset();
+    Partido.count.mockReset();
     PartidoJugador.destroy.mockReset();
     PartidoJugador.bulkCreate.mockReset();
   });
@@ -109,7 +110,35 @@ describe('Sección Partidos · partido.controller', () => {
     expect(Partido.create).not.toHaveBeenCalled();
   });
 
+  it('crear rechaza duplicado: misma categoría y mismo día', async () => {
+    Partido.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo: 6 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta categoría ya tiene un partido ese día.');
+    expect(Partido.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza duplicado de otra categoría', async () => {
+    Partido.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 2, fecha: '2026-01-01', id_lugar: 2, id_equipo: 6 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta categoría ya tiene un partido ese día.');
+  });
+
   it('crear crea el partido como local por defecto y devuelve 201', async () => {
+    Partido.count.mockResolvedValue(0);
     const creado = { id: 5, id_equipo: 6 };
     const completo = { id: 5, id_equipo: 6, categoria: null, lugar: null, equipo: null };
     Partido.create.mockResolvedValue(creado);
@@ -129,6 +158,7 @@ describe('Sección Partidos · partido.controller', () => {
   });
 
   it('crear como visitante deja el lugar en null', async () => {
+    Partido.count.mockResolvedValue(0);
     const creado = { id: 7, id_equipo: 6 };
     const completo = { id: 7, id_equipo: 6, categoria: null, lugar: null, equipo: null };
     Partido.create.mockResolvedValue(creado);
@@ -147,6 +177,7 @@ describe('Sección Partidos · partido.controller', () => {
   });
 
   it('crear guarda los convocados', async () => {
+    Partido.count.mockResolvedValue(0);
     const creado = { id: 9, id_equipo: 6 };
     const completo = { id: 9, id_equipo: 6, categoria: null, lugar: null, equipo: null, convocados: [] };
     Partido.create.mockResolvedValue(creado);
