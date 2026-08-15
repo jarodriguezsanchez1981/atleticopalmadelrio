@@ -76,6 +76,24 @@ function calcularFechasSemanal(fechaBase, hasta) {
   return fechas;
 }
 
+function ctrlMomento(fecha) {
+  if (!fecha) return null;
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+async function existeEntrenamientoMismoHorario(idCategoria, fecha, omitirId = null) {
+  const momento = ctrlMomento(fecha);
+  if (!idCategoria || !momento) return false;
+  const inicio = new Date(`${momento}:00`);
+  const fin = new Date(`${momento}:59.999`);
+  const where = { id_categoria: idCategoria, fecha: { [Op.gte]: inicio, [Op.lte]: fin } };
+  if (omitirId) where.id = { [Op.ne]: omitirId };
+  const contados = await Entrenamiento.count({ where });
+  return contados > 0;
+}
+
 async function listar(req, res, next) {
   try {
     const { id_categoria, id_lugar, desde, hasta } = req.query;
@@ -109,6 +127,9 @@ async function crear(req, res, next) {
     const { id_categoria, fecha, id_lugar, recurrente, incidencias, hasta } = req.body;
     if (!id_categoria || !fecha || !id_lugar) {
       return res.status(400).json({ message: 'Categoría, fecha y lugar son obligatorios.' });
+    }
+    if (await existeEntrenamientoMismoHorario(id_categoria, fecha)) {
+      return res.status(409).json({ message: 'Esta categoría ya tiene un entrenamiento a esa hora.' });
     }
     const esRecurrente = recurrente ? 1 : 0;
     const hastaFecha = recurrente && hasta ? hasta : null;
@@ -145,6 +166,13 @@ async function actualizar(req, res, next) {
     const entrenamiento = await Entrenamiento.findByPk(req.params.id);
     if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
     const { id_categoria, fecha, id_lugar, recurrente, hasta } = req.body;
+    if (id_categoria !== undefined || fecha !== undefined) {
+      const catFinal = id_categoria !== undefined ? id_categoria : entrenamiento.id_categoria;
+      const fechaFinal = fecha !== undefined ? fecha : entrenamiento.fecha;
+      if (await existeEntrenamientoMismoHorario(catFinal, fechaFinal, entrenamiento.id)) {
+        return res.status(409).json({ message: 'Esta categoría ya tiene un entrenamiento a esa hora.' });
+      }
+    }
     if (id_categoria !== undefined) entrenamiento.id_categoria = id_categoria;
     if (fecha !== undefined) entrenamiento.fecha = fecha;
     if (id_lugar !== undefined) entrenamiento.id_lugar = id_lugar;

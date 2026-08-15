@@ -38,6 +38,7 @@ const asistencias = ref({});
 const incidenciasJugador = ref({});
 const asistenciaTipo = ref('total');
 const partidosDelDia = ref([]);
+const entrenamientosDelDia = ref([]);
 
 function claveDia(fecha) {
   if (!fecha) return null;
@@ -57,6 +58,17 @@ async function cargarPartidosDelDia() {
     const dia = claveDia(form.value?.fecha);
     partidosDelDia.value = (await partidosService.listar()).filter((p) =>
       dia && diaDePartido(p) === dia && String(p.id) !== String(props.registroId || '')
+    );
+  }
+}
+
+async function cargarEntrenamientosDelDia() {
+  if (props.tipo !== 'entrenamiento') {
+    entrenamientosDelDia.value = [];
+  } else {
+    const dia = claveDia(form.value?.fecha);
+    entrenamientosDelDia.value = (await entrenamientosService.listar()).filter((e) =>
+      dia && diaDePartido(e) === dia && String(e.id) !== String(props.registroId || '')
     );
   }
 }
@@ -150,12 +162,16 @@ watch(
     await cargarCatalogo();
     await cargarRegistro();
     await cargarPartidosDelDia();
+    await cargarEntrenamientosDelDia();
   }
 );
 
 watch(
   () => form.value?.fecha,
-  () => cargarPartidosDelDia()
+  () => {
+    cargarPartidosDelDia();
+    cargarEntrenamientosDelDia();
+  }
 );
 
 watch(
@@ -224,6 +240,50 @@ const opcionesJugadores = computed(() => {
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 });
 
+function duracionCategoria(idCat) {
+  const cat = categorias.value.find((c) => c.id === idCat);
+  return (cat && cat.tiempopartido) || 90;
+}
+
+function partidoEnConflicto() {
+  if (props.tipo !== 'partido' || !form.value.es_local || form.value.id_lugar == null || !form.value.fecha) return null;
+  const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
+  if (Number.isNaN(inicio.getTime())) return null;
+  const fin = inicio.getTime() + duracionCategoria(form.value.id_categoria) * 60000;
+  return partidosDelDia.value.find((p) => {
+    if (p.id_lugar != null && String(p.id_lugar) !== String(form.value.id_lugar)) return false;
+    if (p.lugar?.id != null && String(p.lugar.id) !== String(form.value.id_lugar)) return false;
+    const pInicio = new Date(p.fecha).getTime();
+    if (Number.isNaN(pInicio)) return false;
+    const pFin = pInicio + ((p.categoria?.tiempopartido) || 90) * 60000;
+    return inicio.getTime() < pFin && pInicio < fin;
+  }) || null;
+}
+
+function textoConflicto() {
+  const p = partidoEnConflicto();
+  if (!p) return null;
+  const cat = p.categoria?.nombre || nombreCategoria(p.id_categoria);
+  return `Ese lugar ya está ocupado a esa hora por otro partido (${cat}, ${formatHora(p.fecha)}).`;
+}
+
+function nombreCategoria(idCat) {
+  return categorias.value.find((c) => c.id === idCat)?.nombre || '?';
+}
+
+function entrenamientoEnConflicto() {
+  if (props.tipo !== 'entrenamiento' || form.value.id_categoria == null || !form.value.fecha) return null;
+  const fecha = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return entrenamientosDelDia.value.find((e) => {
+    const eCat = e.id_categoria ?? e.categoria?.id ?? null;
+    if (eCat == null || String(eCat) !== String(form.value.id_categoria)) return false;
+    const eFecha = new Date(e.fecha);
+    if (Number.isNaN(eFecha.getTime())) return false;
+    return Math.abs(eFecha.getTime() - fecha.getTime()) < 60000;
+  }) || null;
+}
+
 function cerrar() {
   emit('update:visible', false);
 }
@@ -283,6 +343,26 @@ function validar() {
   }
   if (props.tipo === 'partido' && form.value.es_local && !form.value.id_lugar) {
     toast.add({ severity: 'error', summary: 'Error', detail: 'El lugar es obligatorio en partidos como local.', life: 4000 });
+    return false;
+  }
+  const conflicto = props.tipo === 'partido' ? partidoEnConflicto() : null;
+  if (conflicto) {
+    toast.add({
+      severity: 'error',
+      summary: 'Lugar ocupado',
+      detail: `Ese lugar ya está ocupado a esa hora por otro partido (${conflicto.categoria?.nombre || nombreCategoria(conflicto.id_categoria)}, ${formatHora(conflicto.fecha)}).`,
+      life: 5000
+    });
+    return false;
+  }
+  const conflictoEntrenamiento = props.tipo === 'entrenamiento' ? entrenamientoEnConflicto() : null;
+  if (conflictoEntrenamiento) {
+    toast.add({
+      severity: 'error',
+      summary: 'Entrenamiento duplicado',
+      detail: `Esta categoría ya tiene un entrenamiento a esa hora (${formatHora(conflictoEntrenamiento.fecha)}).`,
+      life: 5000
+    });
     return false;
   }
   return true;
@@ -381,6 +461,10 @@ async function guardar() {
             @update:modelValue="(v) => onHoraInput('fecha', v)"
           />
         </div>
+        <p v-if="tipo === 'entrenamiento' && entrenamientoEnConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
+          <i class="pi pi-exclamation-circle"></i>
+          Esta categoría ya tiene un entrenamiento a esa hora.
+        </p>
       </div>
 
       <template v-if="tipo === 'entrenamiento'">
@@ -499,6 +583,9 @@ async function guardar() {
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
+          <p v-if="textoConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
+            <i class="pi pi-exclamation-circle"></i> {{ textoConflicto() }}
+          </p>
         </div>
         <div v-if="registroId" class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-slate-600">Jugadores convocados</label>

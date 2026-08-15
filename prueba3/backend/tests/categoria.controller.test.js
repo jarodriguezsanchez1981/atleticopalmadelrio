@@ -145,7 +145,8 @@ describe('Sección Categorías · categoria.controller', () => {
 
     expect(TipoFutbol.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_tipofutbol: 1, id_temporada: 1, id_division: null, id_delegado: null
+      nombre: 'Alevín', alias: null, id_tipofutbol: 1, id_temporada: 1, id_division: null, id_delegado: null,
+      tiempopartido: null, tiempoentrenamiento: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(completo);
@@ -163,7 +164,8 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: 'Ali', id_tipofutbol: 1, id_temporada: 1, id_division: null, id_delegado: null
+      nombre: 'Alevín', alias: 'Ali', id_tipofutbol: 1, id_temporada: 1, id_division: null, id_delegado: null,
+      tiempopartido: null, tiempoentrenamiento: null
     });
     expect(res._status).toBe(201);
   });
@@ -195,9 +197,56 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_tipofutbol: 1, id_temporada: 1, id_division: 3, id_delegado: null
+      nombre: 'Alevín', alias: null, id_tipofutbol: 1, id_temporada: 1, id_division: 3, id_delegado: null,
+      tiempopartido: null, tiempoentrenamiento: null
     });
     expect(res._status).toBe(201);
+  });
+
+  it('crear guarda los tiempos si se envían', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Categoria.create.mockResolvedValue({ id: 9 });
+    Categoria.findOne.mockResolvedValue({ id: 9, tiempopartido: 90, tiempoentrenamiento: 60 });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, tiempopartido: 90, tiempoentrenamiento: 60 }
+    });
+
+    await promesa;
+
+    expect(Categoria.create).toHaveBeenCalledWith({
+      nombre: 'Alevín', alias: null, id_tipofutbol: 1, id_temporada: 1, id_division: null, id_delegado: null,
+      tiempopartido: 90, tiempoentrenamiento: 60
+    });
+    expect(res._status).toBe(201);
+  });
+
+  it('crear valida que el tiempo de partido sea positivo', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, tiempopartido: 0 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El tiempo de partido debe ser un número de minutos positivo.');
+    expect(Categoria.create).not.toHaveBeenCalled();
+  });
+
+  it('crear valida que el tiempo de entrenamiento sea positivo', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', id_temporada: 1, id_tipofutbol: 1, tiempoentrenamiento: -5 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El tiempo de entrenamiento debe ser un número de minutos positivo.');
+    expect(Categoria.create).not.toHaveBeenCalled();
   });
 
   it('crear asigna varios entrenadores si se envían', async () => {
@@ -218,6 +267,41 @@ describe('Sección Categorías · categoria.controller', () => {
     expect(creada.setEntrenadores).toHaveBeenCalledWith([1, 2]);
     expect(res._status).toBe(201);
     expect(res._json.ids_entrenadores).toEqual([1, 2]);
+  });
+
+  it('actualizar guarda los tiempos y valida su valor', async () => {
+    const categoria = { id: 1, nombre: 'Alevín', save: vi.fn().mockResolvedValue() };
+    Categoria.findOne.mockResolvedValue(categoria);
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { tiempopartido: -1 } });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El tiempo de partido debe ser un número de minutos positivo.');
+    expect(categoria.save).not.toHaveBeenCalled();
+
+    const { promesa: promesa2 } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { tiempopartido: 90, tiempoentrenamiento: 60 }
+    });
+    await promesa2;
+
+    expect(categoria.tiempopartido).toBe(90);
+    expect(categoria.tiempoentrenamiento).toBe(60);
+    expect(categoria.save).toHaveBeenCalled();
+  });
+
+  it('actualizar limpia los tiempos si se envían vacíos', async () => {
+    const categoria = { id: 1, nombre: 'Alevín', tiempopartido: 90, tiempoentrenamiento: 60, save: vi.fn().mockResolvedValue() };
+    Categoria.findOne.mockResolvedValue(categoria);
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { tiempopartido: null, tiempoentrenamiento: null }
+    });
+
+    await promesa;
+
+    expect(categoria.tiempopartido).toBeNull();
+    expect(categoria.tiempoentrenamiento).toBeNull();
+    expect(categoria.save).toHaveBeenCalled();
   });
 
   it('actualizar devuelve 404 si no existe', async () => {

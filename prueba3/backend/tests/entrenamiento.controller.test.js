@@ -11,6 +11,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     Entrenamiento.findByPk.mockReset();
     Entrenamiento.create.mockReset();
     Entrenamiento.destroy.mockReset();
+    Entrenamiento.count.mockReset();
     EntrenamientoSemanal.bulkCreate.mockReset();
     EntrenamientoSemanal.destroy.mockReset();
     EntrenamientoJugador.destroy.mockReset();
@@ -109,6 +110,70 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     ]);
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, categoria: null, lugar: null, ids_presentes: [], ids_ausentes: [], asistencia_tipo: 'total' });
+  });
+
+  it('crear rechaza duplicado: misma categoría y misma hora', async () => {
+    Entrenamiento.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta categoría ya tiene un entrenamiento a esa hora.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear permite la misma categoría a otra hora o día', async () => {
+    Entrenamiento.count.mockResolvedValue(0);
+    const creado = { id: 5 };
+    const completo = { id: 5, categoria: null, lugar: null };
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-02T16:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(Entrenamiento.create).toHaveBeenCalledWith(
+      expect.objectContaining({ id_categoria: 1, fecha: '2026-01-02T16:00:00' })
+    );
+    expect(res._status).toBe(201);
+  });
+
+  it('actualizar rechaza duplicado al cambiar de categoría o fecha', async () => {
+    const entrenamiento = { id: 1, id_categoria: 1, fecha: '2026-01-01T10:00:00', recurrente: 0, id_lugar: 2, save: vi.fn().mockResolvedValue() };
+    Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
+    Entrenamiento.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { fecha: '2026-01-03T10:00:00' }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta categoría ya tiene un entrenamiento a esa hora.');
+    expect(entrenamiento.save).not.toHaveBeenCalled();
+  });
+
+  it('actualizar permite mantener su propia categoría y fecha sin duplicado', async () => {
+    const entrenamiento = { id: 1, id_categoria: 1, fecha: '2026-01-01T10:00:00', recurrente: 0, id_lugar: 2, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, id_lugar: 2, categoria: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { id_lugar: 3 }
+    });
+
+    await promesa;
+
+    expect(entrenamiento.id_lugar).toBe(3);
+    expect(res._status).toBe(200);
   });
 
   it('crear recurrente guarda un solo registro base + un semanal por semana hasta la fecha límite', async () => {

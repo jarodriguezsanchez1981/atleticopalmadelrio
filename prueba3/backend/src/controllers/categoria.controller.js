@@ -69,7 +69,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, alias, id_tipofutbol, id_temporada, id_division, id_delegado } = req.body;
+    const { nombre, alias, id_tipofutbol, id_temporada, id_division, id_delegado, tiempopartido, tiempoentrenamiento } = req.body;
     const idsEntrenadores = normalizeEntrenadoresIds(req.body) || [];
     if (!nombre || !id_temporada || !id_tipofutbol) {
       return res.status(400).json({ message: 'Nombre, temporada y tipo de fútbol son obligatorios.' });
@@ -92,13 +92,21 @@ async function crear(req, res, next) {
       const existe = await Delegado.findOne({ where: { id: id_delegado } });
       if (!existe) return res.status(400).json({ message: 'El delegado indicado no existe.' });
     }
+    if (tiempopartido !== undefined && tiempopartido !== null && (!Number.isInteger(tiempopartido) || tiempopartido <= 0)) {
+      return res.status(400).json({ message: 'El tiempo de partido debe ser un número de minutos positivo.' });
+    }
+    if (tiempoentrenamiento !== undefined && tiempoentrenamiento !== null && (!Number.isInteger(tiempoentrenamiento) || tiempoentrenamiento <= 0)) {
+      return res.status(400).json({ message: 'El tiempo de entrenamiento debe ser un número de minutos positivo.' });
+    }
     const categoria = await Categoria.create({
       nombre,
       alias: alias || null,
       id_tipofutbol,
       id_temporada,
       id_division: id_division || null,
-      id_delegado: id_delegado || null
+      id_delegado: id_delegado || null,
+      tiempopartido: tiempopartido || null,
+      tiempoentrenamiento: tiempoentrenamiento || null
     });
     if (idsEntrenadores.length) await categoria.setEntrenadores(idsEntrenadores);
     const creada = await Categoria.findOne({ where: { id: categoria.id }, include: includes });
@@ -110,7 +118,7 @@ async function actualizar(req, res, next) {
   try {
     const categoria = await Categoria.findOne({ where: { id: req.params.id } });
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    const { nombre, alias, id_tipofutbol, id_temporada, id_division, id_delegado } = req.body;
+    const { nombre, alias, id_tipofutbol, id_temporada, id_division, id_delegado, tiempopartido, tiempoentrenamiento } = req.body;
     const idsEntrenadores = normalizeEntrenadoresIds(req.body);
     if (nombre !== undefined) categoria.nombre = nombre;
     if (alias !== undefined) categoria.alias = alias || null;
@@ -143,6 +151,18 @@ async function actualizar(req, res, next) {
         if (!existe) return res.status(400).json({ message: 'El delegado indicado no existe.' });
       }
       categoria.id_delegado = id_delegado || null;
+    }
+    if (tiempopartido !== undefined) {
+      if (tiempopartido !== null && (!Number.isInteger(tiempopartido) || tiempopartido <= 0)) {
+        return res.status(400).json({ message: 'El tiempo de partido debe ser un número de minutos positivo.' });
+      }
+      categoria.tiempopartido = tiempopartido || null;
+    }
+    if (tiempoentrenamiento !== undefined) {
+      if (tiempoentrenamiento !== null && (!Number.isInteger(tiempoentrenamiento) || tiempoentrenamiento <= 0)) {
+        return res.status(400).json({ message: 'El tiempo de entrenamiento debe ser un número de minutos positivo.' });
+      }
+      categoria.tiempoentrenamiento = tiempoentrenamiento || null;
     }
     await categoria.save();
     if (idsEntrenadores) await categoria.setEntrenadores(idsEntrenadores);

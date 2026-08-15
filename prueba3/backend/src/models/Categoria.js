@@ -9,7 +9,9 @@ const Categoria = sequelize.define('Categoria', {
   id_temporada: { type: DataTypes.INTEGER, allowNull: false },
   id_division: { type: DataTypes.INTEGER, allowNull: true },
   id_entrenador: { type: DataTypes.INTEGER, allowNull: true },
-  id_delegado: { type: DataTypes.INTEGER, allowNull: true }
+  id_delegado: { type: DataTypes.INTEGER, allowNull: true },
+  tiempopartido: { type: DataTypes.INTEGER, allowNull: true },
+  tiempoentrenamiento: { type: DataTypes.INTEGER, allowNull: true }
 }, {
   tableName: 'categorias'
 });

@@ -57,10 +57,12 @@ const columns = computed(() => [
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', relation: 'entrenadores', options: opcionesEntrenador.value, required: false },
-  { field: 'id_delegado', header: 'Delegado', type: 'select', options: opcionesDelegado.value, required: false }
+  { field: 'id_delegado', header: 'Delegado', type: 'select', options: opcionesDelegado.value, required: false },
+  { field: 'tiempopartido', header: 'Tiempo partido (min)', type: 'number', required: false },
+  { field: 'tiempoentrenamiento', header: 'Tiempo entrenam. (min)', type: 'number', required: false }
 ]);
 
-const emptyItem = { nombre: '', alias: '', id_tipofutbol: null, id_temporada: null, id_division: null, ids_entrenadores: [], id_delegado: null };
+const emptyItem = { nombre: '', alias: '', id_tipofutbol: null, id_temporada: null, id_division: null, ids_entrenadores: [], id_delegado: null, tiempopartido: null, tiempoentrenamiento: null };
 
 function nombreTipoFutbol(id) {
   return tiposFutbol.value.find(t => t.id === id)?.nombre || '—';
