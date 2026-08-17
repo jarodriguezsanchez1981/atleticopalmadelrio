@@ -196,6 +196,15 @@ watch(
 );
 
 const opcionesCategoria = computed(() => {
+  if (props.tipo === 'entrenamiento') {
+    const ocupadas = new Set(
+      entrenamientosDelDia.value.map((e) => e.id_categoria ?? e.categoria?.id ?? null).filter(Boolean)
+    );
+    return categorias.value
+      .filter((c) => !ocupadas.has(c.id))
+      .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+  }
   if (props.tipo !== 'partido') {
     return categorias.value
       .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
@@ -216,9 +225,29 @@ const opcionesLugar = computed(() => {
   const filtradas = idCat && cat
     ? lugares.value.filter((l) => (l.ids_tipos_futbol || []).includes(cat.id_tipofutbol))
     : lugares.value;
+
+  const ocupados = props.tipo === 'entrenamiento' ? lugaresOcupadosEntrenamiento.value : new Set();
   return filtradas
+    .filter((l) => !ocupados.has(l.id))
     .map((l) => ({ label: l.nombre, value: l.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
+
+const lugaresOcupadosEntrenamiento = computed(() => {
+  const set = new Set();
+  if (props.tipo !== 'entrenamiento' || !form.value.fecha) return set;
+  const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
+  if (Number.isNaN(inicio.getTime())) return set;
+  const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_categoria) * 60000;
+  entrenamientosDelDia.value.forEach((e) => {
+    const eInicio = new Date(e.fecha);
+    if (Number.isNaN(eInicio.getTime())) return;
+    const eFin = eInicio.getTime() + ((e.categoria?.tiempoentrenamiento) || 60) * 60000;
+    if (inicio.getTime() < eFin && eInicio.getTime() < fin && e.id_lugar != null) {
+      set.add(e.id_lugar);
+    }
+  });
+  return set;
 });
 
 const opcionesEquipo = computed(() =>

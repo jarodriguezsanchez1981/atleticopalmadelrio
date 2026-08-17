@@ -20,6 +20,7 @@ import EventoFormCalendario from './EventoFormCalendario.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { generarPdfPartidos } from '../utils/pdfPartidos';
+import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
 
@@ -320,7 +321,17 @@ async function genarPdfRango(inicio, fin) {
   try {
     const hasta = new Date(fin);
     hasta.setHours(23, 59, 59, 999);
-    const partidos = await partidosService.listar({ desde: new Date(inicio).toISOString(), hasta: hasta.toISOString() });
+    const desdeISO = new Date(inicio).toISOString();
+    const hastaISO = hasta.toISOString();
+    const fechaTitulo = `${inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} al ${fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+
+    if (props.tipo === 'entrenamiento') {
+      const entrenamientos = await entrenamientosService.listar({ desde: desdeISO, hasta: hastaISO });
+      await generarPdfEntrenamientos(entrenamientos, `Entrenamientos · ${fechaTitulo}`);
+      return;
+    }
+
+    const partidos = await partidosService.listar({ desde: desdeISO, hasta: hastaISO });
     const mapeados = partidos.map((p) => ({
       inicio: p.fecha,
       es_local: p.es_local,
@@ -328,8 +339,7 @@ async function genarPdfRango(inicio, fin) {
       lugar: p.lugar || null,
       categoria: p.categoria || null
     }));
-    const titulo = `Partidos · ${inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} al ${fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
-    await generarPdfPartidos(mapeados, titulo);
+    await generarPdfPartidos(mapeados, `Partidos · ${fechaTitulo}`);
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -462,7 +472,7 @@ onBeforeUnmount(() => {
           Festivo
         </template>
         <Button
-          v-if="tipo === 'partido'"
+          v-if="tipo"
           label="PDF"
           icon="pi pi-print"
           size="small"
@@ -570,7 +580,7 @@ onBeforeUnmount(() => {
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
-          <span class="font-display text-club-green text-lg">Generar PDF de partidos</span>
+          <span class="font-display text-club-green text-lg">Generar PDF {{ tipo === 'entrenamiento' ? 'de entrenamientos' : 'de partidos' }}</span>
         </div>
       </template>
       <div class="flex flex-col gap-4 py-2">
@@ -580,7 +590,7 @@ onBeforeUnmount(() => {
                       :manualInput="true" class="w-full" inputClass="w-full" />
         </div>
         <p class="text-xs text-slate-500">
-          Se generará el PDF con los partidos de la semana (lunes a domingo) que contiene la fecha elegida:
+          Se generará el PDF con los {{ tipo === 'entrenamiento' ? 'entrenamientos' : 'partidos' }} de la semana (lunes a domingo) que contiene la fecha elegida:
           <span class="font-medium text-slate-700">
             {{ pdfSemana ? `${semanaDe(pdfSemana)?.inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${semanaDe(pdfSemana)?.fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '—' }}
           </span>
