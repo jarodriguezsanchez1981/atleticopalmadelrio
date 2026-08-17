@@ -38,6 +38,7 @@ const asistencias = ref({});
 const incidenciasJugador = ref({});
 const asistenciaTipo = ref('total');
 const partidosDelDia = ref([]);
+const partidosRecientes = ref([]);
 const entrenamientosDelDia = ref([]);
 
 function claveDia(fecha) {
@@ -54,11 +55,19 @@ function diaDePartido(p) {
 async function cargarPartidosDelDia() {
   if (props.tipo !== 'partido') {
     partidosDelDia.value = [];
+    partidosRecientes.value = [];
   } else {
     const dia = claveDia(form.value?.fecha);
-    partidosDelDia.value = (await partidosService.listar()).filter((p) =>
+    const fechaRef = form.value?.fecha instanceof Date ? form.value.fecha : new Date(form.value?.fecha);
+    const limite = fechaRef && !Number.isNaN(fechaRef.getTime()) ? new Date(fechaRef.getTime() - 72 * 60 * 60 * 1000) : null;
+    const todos = await partidosService.listar();
+    partidosDelDia.value = todos.filter((p) =>
       dia && diaDePartido(p) === dia && String(p.id) !== String(props.registroId || '')
     );
+    partidosRecientes.value = todos.filter((p) => {
+      const f = p.fecha ? new Date(p.fecha) : null;
+      return f && limite && f >= limite && f <= fechaRef && String(p.id) !== String(props.registroId || '');
+    });
   }
 }
 
@@ -187,13 +196,16 @@ watch(
 );
 
 const opcionesCategoria = computed(() => {
-  const ocupadas = new Set(
-    props.tipo === 'partido'
-      ? partidosDelDia.value.map((p) => p.id_categoria ?? p.categoria?.id ?? null)
-      : []
+  if (props.tipo !== 'partido') {
+    return categorias.value
+      .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+  }
+  const recientes = new Set(
+    partidosRecientes.value.map((p) => p.id_categoria ?? p.categoria?.id ?? null).filter(Boolean)
   );
   return categorias.value
-    .filter((c) => !ocupadas.has(c.id))
+    .filter((c) => !recientes.has(c.id))
     .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 });
@@ -271,17 +283,34 @@ function nombreCategoria(idCat) {
   return categorias.value.find((c) => c.id === idCat)?.nombre || '?';
 }
 
-function entrenamientoEnConflicto() {
-  if (props.tipo !== 'entrenamiento' || form.value.id_categoria == null || !form.value.fecha) return null;
+function categoriaJugoRecientemente() {
+  if (props.tipo !== 'partido' || form.value.id_categoria == null || !form.value.fecha) return null;
   const fecha = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(fecha.getTime())) return null;
+  return partidosRecientes.value.find((p) => {
+    const pCat = p.id_categoria ?? p.categoria?.id ?? null;
+    return pCat != null && String(pCat) === String(form.value.id_categoria);
+  }) || null;
+}
+
+function entrenamientoEnConflicto() {
+  if (props.tipo !== 'entrenamiento' || form.value.id_categoria == null || !form.value.fecha) return null;
+  const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
+  if (Number.isNaN(inicio.getTime())) return null;
+  const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_categoria) * 60000;
   return entrenamientosDelDia.value.find((e) => {
     const eCat = e.id_categoria ?? e.categoria?.id ?? null;
     if (eCat == null || String(eCat) !== String(form.value.id_categoria)) return false;
-    const eFecha = new Date(e.fecha);
-    if (Number.isNaN(eFecha.getTime())) return false;
-    return Math.abs(eFecha.getTime() - fecha.getTime()) < 60000;
+    const eInicio = new Date(e.fecha);
+    if (Number.isNaN(eInicio.getTime())) return false;
+    const eFin = eInicio.getTime() + ((e.categoria?.tiempoentrenamiento) || 60) * 60000;
+    return inicio.getTime() < eFin && eInicio.getTime() < fin;
   }) || null;
+}
+
+function duracionEntrenamiento(idCat) {
+  const cat = categorias.value.find((c) => c.id === idCat);
+  return (cat && cat.tiempoentrenamiento) || 60;
 }
 
 function cerrar() {
@@ -361,6 +390,16 @@ function validar() {
       severity: 'error',
       summary: 'Entrenamiento duplicado',
       detail: `Esta categoría ya tiene un entrenamiento a esa hora (${formatHora(conflictoEntrenamiento.fecha)}).`,
+      life: 5000
+    });
+    return false;
+  }
+  const reciente = props.tipo === 'partido' ? categoriaJugoRecientemente() : null;
+  if (reciente) {
+    toast.add({
+      severity: 'error',
+      summary: 'Categoría ocupada',
+      detail: 'Esta categoría jugó hace menos de 72 horas.',
       life: 5000
     });
     return false;

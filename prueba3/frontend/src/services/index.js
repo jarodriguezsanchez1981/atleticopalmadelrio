@@ -46,3 +46,7 @@ export const authService = {
 export const calendarioService = {
   eventos: (params = {}) => api.get('/calendario', { params }).then(r => r.data)
 };
+
+export const utilService = {
+  imagen: (url) => api.get('/util/imagen', { params: { url } }).then(r => r.data)
+};

@@ -138,6 +138,37 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._json.message).toBe('Esta categoría ya tiene un partido ese día.');
   });
 
+  it('crear rechaza si la categoría jugó hace menos de 72 horas', async () => {
+    Partido.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-03T10:00:00', id_lugar: 2, id_equipo: 6 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta categoría jugó hace menos de 72 horas.');
+    expect(Partido.create).not.toHaveBeenCalled();
+  });
+
+  it('crear permite si pasaron más de 72 horas', async () => {
+    Partido.count.mockResolvedValue(0);
+    Partido.findAll.mockResolvedValue([]);
+    const creado = { id: 5, id_equipo: 6 };
+    const completo = { id: 5, id_equipo: 6, categoria: null, lugar: null, equipo: null };
+    Partido.create.mockResolvedValue(creado);
+    Partido.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-05T10:00:00', id_lugar: 2, id_equipo: 6 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(201);
+  });
+
   it('crear crea el partido como local por defecto y devuelve 201', async () => {
     Partido.count.mockResolvedValue(0);
     Partido.findAll.mockResolvedValue([]);

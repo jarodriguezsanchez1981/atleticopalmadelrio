@@ -9,24 +9,31 @@ const toast = useToast();
 const columns = [
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'escudo', header: 'Escudo', type: 'image' },
-  { field: 'direccion', header: 'Dirección', type: 'text' }
+  { field: 'direccion', header: 'Dirección', type: 'text' },
+  { field: 'codigopostal', header: 'Código postal', type: 'text' },
+  { field: 'localidad', header: 'Localidad', type: 'text' },
+  { field: 'provincia', header: 'Provincia', type: 'text' }
 ];
 
-const emptyItem = { nombre: '', escudo: null, direccion: '' };
+const emptyItem = { nombre: '', escudo: null, direccion: '', codigopostal: '', localidad: '', provincia: '' };
 
-function mapsQuery(direccion) {
-  return encodeURIComponent(direccion || '');
+function direccionCompleta(data) {
+  return [data.direccion, data.codigopostal, data.localidad, data.provincia].filter(Boolean).join(', ');
 }
 
-function mapsUrl(direccion) {
-  return `https://www.google.com/maps/search/?api=1&query=${mapsQuery(direccion)}`;
+function mapsQuery(parte) {
+  return encodeURIComponent(parte || '');
 }
 
-function mapsEmbedUrl(direccion) {
-  return `https://maps.google.com/maps?q=${mapsQuery(direccion)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+function mapsUrl(parte) {
+  return `https://www.google.com/maps/search/?api=1&query=${mapsQuery(parte)}`;
 }
 
-async function copiarDireccion(direccion) {
+function mapsEmbedUrl(parte) {
+  return `https://maps.google.com/maps?q=${mapsQuery(parte)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+}
+
+async function copiarDireccion(parte) {
   if (!direccion) return;
   try {
     await navigator.clipboard.writeText(direccion);
@@ -47,7 +54,7 @@ async function copiarDireccion(direccion) {
     <template #cell-direccion="{ data }">
       <a
         v-if="data.direccion"
-        :href="mapsUrl(data.direccion)"
+        :href="mapsUrl(direccionCompleta(data))"
         target="_blank"
         rel="noopener noreferrer"
         class="inline-flex items-center gap-1.5 text-club-green hover:underline"
@@ -60,27 +67,27 @@ async function copiarDireccion(direccion) {
 
     <template #detail-direccion="{ data }">
       <div v-if="data.direccion" class="flex items-center justify-between gap-3">
-        <span class="break-words">{{ data.direccion }}</span>
+        <span class="break-words">{{ direccionCompleta(data) }}</span>
         <Button
           type="button"
           icon="pi pi-copy"
           label="Copiar"
           text
           severity="secondary"
-          @click="copiarDireccion(data.direccion)"
+          @click="copiarDireccion(direccionCompleta(data))"
         />
       </div>
       <span v-else>—</span>
     </template>
 
     <template #detail-extra="{ data }">
-      <div v-if="data.direccion" class="mt-3 space-y-2">
+      <div v-if="data.direccion || data.localidad" class="mt-3 space-y-2">
         <div class="text-sm font-semibold text-slate-600 uppercase tracking-wide">
           <i class="pi pi-map-marker mr-1"></i>
           Ubicación
         </div>
         <iframe
-          :src="mapsEmbedUrl(data.direccion)"
+          :src="mapsEmbedUrl(direccionCompleta(data))"
           class="w-full rounded-lg border border-slate-200"
           style="height: 260px"
           loading="lazy"
@@ -88,7 +95,7 @@ async function copiarDireccion(direccion) {
           allowfullscreen
         ></iframe>
         <a
-          :href="mapsUrl(data.direccion)"
+          :href="mapsUrl(direccionCompleta(data))"
           target="_blank"
           rel="noopener noreferrer"
           class="inline-flex items-center gap-1.5 text-club-green hover:underline text-sm"

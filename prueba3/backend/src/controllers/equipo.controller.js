@@ -22,7 +22,10 @@ async function crear(req, res, next) {
     const equipo = await Equipo.create({
       nombre,
       escudo: req.body.escudo || null,
-      direccion: req.body.direccion || null
+      direccion: req.body.direccion || null,
+      codigopostal: req.body.codigopostal || null,
+      localidad: req.body.localidad || null,
+      provincia: req.body.provincia || null
     });
     res.status(201).json(equipo);
   } catch (err) { next(err); }
@@ -36,6 +39,9 @@ async function actualizar(req, res, next) {
     if (nombre !== undefined) equipo.nombre = nombre;
     if (req.body.escudo !== undefined) equipo.escudo = req.body.escudo || null;
     if (req.body.direccion !== undefined) equipo.direccion = req.body.direccion || null;
+    if (req.body.codigopostal !== undefined) equipo.codigopostal = req.body.codigopostal || null;
+    if (req.body.localidad !== undefined) equipo.localidad = req.body.localidad || null;
+    if (req.body.provincia !== undefined) equipo.provincia = req.body.provincia || null;
     await equipo.save();
     res.json(equipo);
   } catch (err) { next(err); }

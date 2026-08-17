@@ -10,6 +10,7 @@ import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Dialog from 'primevue/dialog';
+import DatePicker from 'primevue/datepicker';
 import Tag from 'primevue/tag';
 import Button from 'primevue/button';
 import ConfirmDialog from 'primevue/confirmdialog';
@@ -18,6 +19,7 @@ import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from './EventoFormCalendario.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
+import { generarPdfPartidos } from '../utils/pdfPartidos';
 import { useAuthStore } from '../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
 
@@ -40,6 +42,9 @@ const formVisible = ref(false);
 const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
+const generandoPdf = ref(false);
+const pdfDialogVisible = ref(false);
+const pdfSemana = ref(new Date());
 const confirm = useConfirm();
 const toast = useToast();
 const auth = useAuthStore();
@@ -277,6 +282,66 @@ function onDateClick(info) {
   formVisible.value = true;
 }
 
+function obtenerSemanaVisible() {
+  const api = calendarRef.value?.getApi();
+  if (!api) return null;
+  const vista = api.view;
+  if (!vista) return null;
+  const inicio = new Date(vista.activeStart);
+  const fin = new Date(vista.activeEnd);
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) return null;
+  fin.setDate(fin.getDate() - 1);
+  return { inicio, fin };
+}
+
+function abrirPdfSemana() {
+  pdfSemana.value = new Date();
+  pdfDialogVisible.value = true;
+}
+
+function semanaDe(fecha) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  const dia = (d.getDay() + 6) % 7; // lunes = 0
+  const lunes = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dia);
+  const domingo = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 6);
+  return { inicio: lunes, fin: domingo };
+}
+
+async function generarPdfSemana() {
+  const semana = semanaDe(pdfSemana.value);
+  if (!semana) return;
+  await genarPdfRango(semana.inicio, semana.fin);
+  pdfDialogVisible.value = false;
+}
+
+async function genarPdfRango(inicio, fin) {
+  generandoPdf.value = true;
+  try {
+    const hasta = new Date(fin);
+    hasta.setHours(23, 59, 59, 999);
+    const partidos = await partidosService.listar({ desde: new Date(inicio).toISOString(), hasta: hasta.toISOString() });
+    const mapeados = partidos.map((p) => ({
+      inicio: p.fecha,
+      es_local: p.es_local,
+      equipo: p.equipo || null,
+      lugar: p.lugar || null,
+      categoria: p.categoria || null
+    }));
+    const titulo = `Partidos · ${inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} al ${fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    await generarPdfPartidos(mapeados, titulo);
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo generar el PDF.',
+      life: 5000
+    });
+  } finally {
+    generandoPdf.value = false;
+  }
+}
+
 function refrescar() {
   calendarRef.value?.getApi()?.refetchEvents();
 }
@@ -379,7 +444,7 @@ onBeforeUnmount(() => {
         </h2>
         <p v-if="subtitle" class="text-sm text-slate-500">{{ subtitle }}</p>
       </div>
-      <div class="flex items-center gap-2 text-xs text-slate-500">
+      <div class="flex items-center gap-2">
         <template v-if="!tipo || tipo === 'entrenamiento'">
           <span class="w-3 h-3 rounded-full inline-block" :style="{ background: COLOR_ENTRENAMIENTO }"></span>
           Entrenamiento
@@ -396,6 +461,15 @@ onBeforeUnmount(() => {
           <span class="w-3 h-3 rounded-full inline-block ml-2" :style="{ background: COLOR_FESTIVO }"></span>
           Festivo
         </template>
+        <Button
+          v-if="tipo === 'partido'"
+          label="PDF"
+          icon="pi pi-print"
+          size="small"
+          text
+          :loading="generandoPdf"
+          @click="abrirPdfSemana"
+        />
       </div>
     </div>
 
@@ -491,6 +565,33 @@ onBeforeUnmount(() => {
       :fechaDefecto="formFechaDefecto"
       @saved="onFormSaved"
     />
+
+    <Dialog v-model:visible="pdfDialogVisible" modal class="w-full max-w-sm">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
+          <span class="font-display text-club-green text-lg">Generar PDF de partidos</span>
+        </div>
+      </template>
+      <div class="flex flex-col gap-4 py-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-slate-600">Elige la semana</label>
+          <DatePicker v-model="pdfSemana" dateFormat="dd/mm/yy" showIcon iconDisplay="input"
+                      :manualInput="true" class="w-full" inputClass="w-full" />
+        </div>
+        <p class="text-xs text-slate-500">
+          Se generará el PDF con los partidos de la semana (lunes a domingo) que contiene la fecha elegida:
+          <span class="font-medium text-slate-700">
+            {{ pdfSemana ? `${semanaDe(pdfSemana)?.inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${semanaDe(pdfSemana)?.fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '—' }}
+          </span>
+        </p>
+        <div class="flex justify-end gap-2 pt-1">
+          <Button type="button" label="Cancelar" text severity="secondary" @click="pdfDialogVisible = false" />
+          <Button type="button" label="Generar PDF" icon="pi pi-print" :loading="generandoPdf"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight" @click="generarPdfSemana" />
+        </div>
+      </div>
+    </Dialog>
 
     <ConfirmDialog />
   </div>

@@ -1,8 +1,10 @@
 const { Op } = require('sequelize');
 const { Entrenamiento, EntrenamientoSemanal, EntrenamientoJugador, Jugador, Categoria, Lugar } = require('../models');
 
+const DURACION_ENTRENAMIENTO_DEFECTO = 60;
+
 const includes = [
-  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_temporada'] },
+  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_temporada', 'tiempoentrenamiento'] },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   {
     model: EntrenamientoSemanal,
@@ -76,22 +78,29 @@ function calcularFechasSemanal(fechaBase, hasta) {
   return fechas;
 }
 
-function ctrlMomento(fecha) {
-  if (!fecha) return null;
-  const d = new Date(fecha);
-  if (Number.isNaN(d.getTime())) return null;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+function seSolapanEntrenamientos(entrenamiento, inicioNuevo, finNuevo) {
+  const inicioEx = new Date(entrenamiento.fecha).getTime();
+  const finEx = inicioEx + (entrenamiento.categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO) * 60000;
+  return inicioNuevo < finEx && inicioEx < finNuevo;
 }
 
-async function existeEntrenamientoMismoHorario(idCategoria, fecha, omitirId = null) {
-  const momento = ctrlMomento(fecha);
-  if (!idCategoria || !momento) return false;
-  const inicio = new Date(`${momento}:00`);
-  const fin = new Date(`${momento}:59.999`);
-  const where = { id_categoria: idCategoria, fecha: { [Op.gte]: inicio, [Op.lte]: fin } };
+async function existeEntrenamientoMismoHorario(idCategoria, fecha, minutosNuevo, omitirId = null) {
+  if (!idCategoria || !fecha) return false;
+  const inicio = new Date(fecha);
+  if (Number.isNaN(inicio.getTime())) return false;
+  const finNuevo = inicio.getTime() + (minutosNuevo || DURACION_ENTRENAMIENTO_DEFECTO) * 60000;
+  const margen = DURACION_ENTRENAMIENTO_DEFECTO * 60000;
+  const where = {
+    id_categoria: idCategoria,
+    fecha: { [Op.gte]: new Date(inicio.getTime() - margen), [Op.lte]: new Date(finNuevo) }
+  };
   if (omitirId) where.id = { [Op.ne]: omitirId };
-  const contados = await Entrenamiento.count({ where });
-  return contados > 0;
+  const entrenamientos = await Entrenamiento.findAll({
+    where,
+    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempoentrenamiento'] }]
+  });
+  if (omitirId) return entrenamientos.some((e) => String(e.id) !== String(omitirId) && seSolapanEntrenamientos(e, inicio.getTime(), finNuevo));
+  return entrenamientos.some((e) => seSolapanEntrenamientos(e, inicio.getTime(), finNuevo));
 }
 
 async function listar(req, res, next) {
@@ -128,7 +137,9 @@ async function crear(req, res, next) {
     if (!id_categoria || !fecha || !id_lugar) {
       return res.status(400).json({ message: 'Categoría, fecha y lugar son obligatorios.' });
     }
-    if (await existeEntrenamientoMismoHorario(id_categoria, fecha)) {
+    const categoria = await Categoria.findOne({ where: { id: id_categoria }, attributes: ['id', 'tiempoentrenamiento'] });
+    const minutosEntrenamiento = categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO;
+    if (await existeEntrenamientoMismoHorario(id_categoria, fecha, minutosEntrenamiento)) {
       return res.status(409).json({ message: 'Esta categoría ya tiene un entrenamiento a esa hora.' });
     }
     const esRecurrente = recurrente ? 1 : 0;
@@ -169,7 +180,9 @@ async function actualizar(req, res, next) {
     if (id_categoria !== undefined || fecha !== undefined) {
       const catFinal = id_categoria !== undefined ? id_categoria : entrenamiento.id_categoria;
       const fechaFinal = fecha !== undefined ? fecha : entrenamiento.fecha;
-      if (await existeEntrenamientoMismoHorario(catFinal, fechaFinal, entrenamiento.id)) {
+      const categoria = await Categoria.findOne({ where: { id: catFinal }, attributes: ['id', 'tiempoentrenamiento'] });
+      const minutosEntrenamiento = categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO;
+      if (await existeEntrenamientoMismoHorario(catFinal, fechaFinal, minutosEntrenamiento, entrenamiento.id)) {
         return res.status(409).json({ message: 'Esta categoría ya tiene un entrenamiento a esa hora.' });
       }
     }

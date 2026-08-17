@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Entrenamiento, EntrenamientoSemanal, EntrenamientoJugador } from './helpers/models.js';
+import { Entrenamiento, EntrenamientoSemanal, EntrenamientoJugador, Categoria } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/entrenamiento.controller.js';
@@ -12,6 +12,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     Entrenamiento.create.mockReset();
     Entrenamiento.destroy.mockReset();
     Entrenamiento.count.mockReset();
+    Categoria.findOne.mockReset();
     EntrenamientoSemanal.bulkCreate.mockReset();
     EntrenamientoSemanal.destroy.mockReset();
     EntrenamientoJugador.destroy.mockReset();
@@ -93,6 +94,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   it('crear un registro base y un semanal único con el usuario autenticado', async () => {
     const creado = { id: 5 };
     const completo = { id: 5, categoria: null, lugar: null };
+    Entrenamiento.findAll.mockResolvedValue([]);
     Entrenamiento.create.mockResolvedValue(creado);
     Entrenamiento.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
@@ -113,7 +115,10 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   });
 
   it('crear rechaza duplicado: misma categoría y misma hora', async () => {
-    Entrenamiento.count.mockResolvedValue(1);
+    Categoria.findOne.mockResolvedValue({ id: 1, tiempoentrenamiento: 60 });
+    Entrenamiento.findAll.mockResolvedValue([
+      { id: 9, fecha: new Date('2026-01-01T10:00:00'), categoria: { id: 1, tiempoentrenamiento: 60 } }
+    ]);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
       body: { id_categoria: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
@@ -127,7 +132,8 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   });
 
   it('crear permite la misma categoría a otra hora o día', async () => {
-    Entrenamiento.count.mockResolvedValue(0);
+    Categoria.findOne.mockResolvedValue({ id: 1, tiempoentrenamiento: 60 });
+    Entrenamiento.findAll.mockResolvedValue([]);
     const creado = { id: 5 };
     const completo = { id: 5, categoria: null, lugar: null };
     Entrenamiento.create.mockResolvedValue(creado);
@@ -145,10 +151,49 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._status).toBe(201);
   });
 
+  it('crear rechaza si el entrenamiento anterior aún no ha terminado (tiempoentrenamiento)', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1, tiempoentrenamiento: 60 });
+    Entrenamiento.findAll.mockResolvedValue([
+      { id: 9, fecha: new Date('2026-01-01T10:00:00'), categoria: { id: 1, tiempoentrenamiento: 60 } }
+    ]);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01T10:30:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta categoría ya tiene un entrenamiento a esa hora.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear permite cuando el entrenamiento anterior ya ha terminado', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1, tiempoentrenamiento: 60 });
+    Entrenamiento.findAll.mockResolvedValue([
+      { id: 9, fecha: new Date('2026-01-01T10:00:00'), categoria: { id: 1, tiempoentrenamiento: 60 } }
+    ]);
+    const creado = { id: 6 };
+    const completo = { id: 6, categoria: null, lugar: null };
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_categoria: 1, fecha: '2026-01-01T11:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(201);
+  });
+
   it('actualizar rechaza duplicado al cambiar de categoría o fecha', async () => {
     const entrenamiento = { id: 1, id_categoria: 1, fecha: '2026-01-01T10:00:00', recurrente: 0, id_lugar: 2, save: vi.fn().mockResolvedValue() };
     Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
-    Entrenamiento.count.mockResolvedValue(1);
+    Categoria.findOne.mockResolvedValue({ id: 1, tiempoentrenamiento: 60 });
+    Entrenamiento.findAll.mockResolvedValue([
+      { id: 2, fecha: new Date('2026-01-03T10:00:00'), categoria: { id: 1, tiempoentrenamiento: 60 } }
+    ]);
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' },
       body: { fecha: '2026-01-03T10:00:00' }
@@ -177,6 +222,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   });
 
   it('crear recurrente guarda un solo registro base + un semanal por semana hasta la fecha límite', async () => {
+    Entrenamiento.findAll.mockResolvedValue([]);
     Entrenamiento.create.mockResolvedValueOnce({ id: 1 });
     Entrenamiento.findByPk.mockResolvedValueOnce({ id: 1, fecha: '2026-01-05', hasta: '2026-01-15', categoria: null, lugar: null });
     const { promesa, res } = llamar(ctrl.crear, {
@@ -242,6 +288,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   it('crear guarda asistencias parciales con incidencias si asistencia !== total', async () => {
     const creado = { id: 8 };
     const completo = { id: 8, categoria: null, lugar: null, asistencias: [] };
+    Entrenamiento.findAll.mockResolvedValue([]);
     Entrenamiento.create.mockResolvedValue(creado);
     Entrenamiento.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
@@ -268,6 +315,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   it('crear con asistencia total no inserta registros de jugadores', async () => {
     const creado = { id: 9 };
     const completo = { id: 9, categoria: null, lugar: null, asistencias: [] };
+    Entrenamiento.findAll.mockResolvedValue([]);
     Entrenamiento.create.mockResolvedValue(creado);
     Entrenamiento.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
@@ -285,6 +333,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
   it('crear sigue soportando ids_presentes/ids_ausentes (retrocompatibilidad)', async () => {
     const creado = { id: 10 };
     const completo = { id: 10, categoria: null, lugar: null, asistencias: [] };
+    Entrenamiento.findAll.mockResolvedValue([]);
     Entrenamiento.create.mockResolvedValue(creado);
     Entrenamiento.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {

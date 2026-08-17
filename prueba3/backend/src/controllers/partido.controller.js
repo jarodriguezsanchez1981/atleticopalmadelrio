@@ -22,7 +22,7 @@ const includesBase = [
     include: [{ model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }]
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
-  { model: Equipo, as: 'equipo', attributes: ['id', 'nombre'] },
+  { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },
   {
     model: PartidoJugador,
     as: 'convocados',
@@ -30,7 +30,6 @@ const includesBase = [
     include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
   }
 ];
-
 function serialize(partido) {
   const json = partido.toJSON ? partido.toJSON() : partido;
   json.ids_jugadores = (json.convocados || []).map((c) => c.id_jugador);
@@ -63,7 +62,7 @@ async function listar(req, res, next) {
           include: [{ model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }]
         },
         { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
-        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre'] },
+        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },
         {
           model: PartidoJugador,
           as: 'convocados',
@@ -98,6 +97,19 @@ async function existePartidoDia(idCategoria, fecha, omitirId = null) {
   const inicio = new Date(`${dia}T00:00:00`);
   const fin = new Date(`${dia}T23:59:59.999`);
   const where = { id_categoria: idCategoria, fecha: { [Op.gte]: inicio, [Op.lte]: fin } };
+  if (omitirId) where.id = { [Op.ne]: omitirId };
+  const contados = await Partido.count({ where });
+  return contados > 0;
+}
+
+const HORAS_DESCANSO_ENTRE_PARTIDOS = 72;
+
+async function existePartidoReciente(idCategoria, fecha, omitirId = null) {
+  if (!idCategoria || !fecha) return false;
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return false;
+  const inicio = new Date(d.getTime() - HORAS_DESCANSO_ENTRE_PARTIDOS * 60 * 60 * 1000);
+  const where = { id_categoria: idCategoria, fecha: { [Op.gte]: inicio, [Op.lte]: d } };
   if (omitirId) where.id = { [Op.ne]: omitirId };
   const contados = await Partido.count({ where });
   return contados > 0;
@@ -139,6 +151,9 @@ async function crear(req, res, next) {
     if (await existePartidoDia(id_categoria, fecha)) {
       return res.status(409).json({ message: 'Esta categoría ya tiene un partido ese día.' });
     }
+    if (await existePartidoReciente(id_categoria, fecha)) {
+      return res.status(409).json({ message: 'Esta categoría jugó hace menos de 72 horas.' });
+    }
     const categoria = await Categoria.findOne({ where: { id: id_categoria }, attributes: ['id', 'tiempopartido'] });
     const minutosPartido = categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
     if (esLocal && id_lugar && await existePartidoLugar(id_lugar, fecha, minutosPartido)) {
@@ -173,6 +188,9 @@ async function actualizar(req, res, next) {
 
     if (cambiaCatOFecha && (await existePartidoDia(idCategoriaFinal, fechaFinal, partido.id))) {
       return res.status(409).json({ message: 'Esta categoría ya tiene un partido ese día.' });
+    }
+    if (cambiaCatOFecha && (await existePartidoReciente(idCategoriaFinal, fechaFinal, partido.id))) {
+      return res.status(409).json({ message: 'Esta categoría jugó hace menos de 72 horas.' });
     }
     if (esLocalFinal && idLugarFinal && cambiaUbicacion) {
       const categoria = await Categoria.findOne({ where: { id: idCategoriaFinal }, attributes: ['id', 'tiempopartido'] });
