@@ -11,6 +11,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Dialog from 'primevue/dialog';
 import DatePicker from 'primevue/datepicker';
+import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import Button from 'primevue/button';
 import ConfirmDialog from 'primevue/confirmdialog';
@@ -46,6 +47,7 @@ const formFechaDefecto = ref(null);
 const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
 const pdfSemana = ref(new Date());
+const pdfTipoFutbol = ref(null);
 const confirm = useConfirm();
 const toast = useToast();
 const auth = useAuthStore();
@@ -295,10 +297,17 @@ function obtenerSemanaVisible() {
   return { inicio, fin };
 }
 
-function abrirPdfSemana() {
+async function abrirPdfSemana() {
   pdfSemana.value = new Date();
+  pdfTipoFutbol.value = null;
   pdfDialogVisible.value = true;
 }
+
+const OPCIONES_TIPO_FUTBOL = [
+  { label: 'Todos (Futbol 7 y Futbol 11)', value: null },
+  { label: 'Futbol 7', value: 1 },
+  { label: 'Futbol 11', value: 2 }
+];
 
 function semanaDe(fecha) {
   const d = new Date(fecha);
@@ -312,11 +321,11 @@ function semanaDe(fecha) {
 async function generarPdfSemana() {
   const semana = semanaDe(pdfSemana.value);
   if (!semana) return;
-  await genarPdfRango(semana.inicio, semana.fin);
+  await genarPdfRango(semana.inicio, semana.fin, pdfTipoFutbol.value);
   pdfDialogVisible.value = false;
 }
 
-async function genarPdfRango(inicio, fin) {
+async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   generandoPdf.value = true;
   try {
     const hasta = new Date(fin);
@@ -327,19 +336,21 @@ async function genarPdfRango(inicio, fin) {
 
     if (props.tipo === 'entrenamiento') {
       const entrenamientos = await entrenamientosService.listar({ desde: desdeISO, hasta: hastaISO });
-      await generarPdfEntrenamientos(entrenamientos, `Entrenamientos · ${fechaTitulo}`);
+      await generarPdfEntrenamientos(entrenamientos, `Entrenamientos · ${fechaTitulo}`, tipoFutbol);
       return;
     }
 
     const partidos = await partidosService.listar({ desde: desdeISO, hasta: hastaISO });
-    const mapeados = partidos.map((p) => ({
-      inicio: p.fecha,
-      es_local: p.es_local,
-      equipo: p.equipo || null,
-      lugar: p.lugar || null,
-      categoria: p.categoria || null
-    }));
-    await generarPdfPartidos(mapeados, `Partidos · ${fechaTitulo}`);
+    const mapeados = partidos
+      .filter((p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || 0) === tipoFutbol)
+      .map((p) => ({
+        inicio: p.fecha,
+        es_local: p.es_local,
+        equipo: p.equipo || null,
+        lugar: p.lugar || null,
+        categoria: p.categoria || null
+      }));
+    await generarPdfPartidos(mapeados, `Partidos · ${fechaTitulo}`, tipoFutbol);
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -595,6 +606,11 @@ onBeforeUnmount(() => {
             {{ pdfSemana ? `${semanaDe(pdfSemana)?.inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${semanaDe(pdfSemana)?.fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '—' }}
           </span>
         </p>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-slate-600">Tipo de fútbol</label>
+          <Select v-model="pdfTipoFutbol" :options="OPCIONES_TIPO_FUTBOL" optionLabel="label" optionValue="value"
+                  placeholder="Elige el tipo de fútbol" class="w-full" />
+        </div>
         <div class="flex justify-end gap-2 pt-1">
           <Button type="button" label="Cancelar" text severity="secondary" @click="pdfDialogVisible = false" />
           <Button type="button" label="Generar PDF" icon="pi pi-print" :loading="generandoPdf"

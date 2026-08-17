@@ -177,7 +177,11 @@ watch(
 
 watch(
   () => form.value?.fecha,
-  () => {
+  (nueva, anterior) => {
+    // Al crear un entrenamiento, si cambia la fecha se reinicia el lugar elegido
+    if (props.tipo === 'entrenamiento' && !props.registroId && nueva && anterior) {
+      form.value.id_lugar = null;
+    }
     cargarPartidosDelDia();
     cargarEntrenamientosDelDia();
   }

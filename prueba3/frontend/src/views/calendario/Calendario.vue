@@ -151,6 +151,48 @@ function onFormSaved() {
   emitirCambio();
 }
 
+function formatearHora(fecha) {
+  if (!fecha) return '—';
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+/** Contenido HTML del evento: hora + icono local/visitante + alias para partidos;
+ *  hora + lugar + alias para entrenamientos. */
+function contenidoEvento(arg) {
+  const e = arg.event?.extendedProps;
+  if (e?.tipo === 'partido') {
+    const hora = escapeHtml(formatearHora(e.inicio));
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    const esLocal = !!e.es_local;
+    const icono = esLocal ? 'pi pi-home' : 'pi pi-arrow-right-arrow-left';
+    const etiquetaIcono = esLocal ? 'Local' : 'Visitante';
+    return {
+      html: `<span class="fc-partido-hora">${hora}</span>&nbsp;&nbsp;` +
+        `<i class="${icono} fc-local-icon" data-lv="${etiquetaIcono}"></i>&nbsp;&nbsp;` +
+        `<span class="fc-partido-alias">${alias}</span>`
+    };
+  }
+  if (e?.tipo === 'entrenamiento') {
+    const hora = escapeHtml(formatearHora(e.inicio));
+    const lugar = escapeHtml(e.lugar || '—');
+    const categoria = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    return {
+      html: `<span class="fc-partido-hora">${hora}</span>&nbsp;&nbsp;` +
+        `<span class="fc-partido-lugar">${lugar}</span>&nbsp;&nbsp;` +
+        `<span class="fc-partido-alias">${categoria}</span>`
+    };
+  }
+  return { html: escapeHtml(arg.event?.title) };
+}
+
 let unsubCambio = null;
 onMounted(() => {
   unsubCambio = suscribirseCambio(() => refrescar());
@@ -187,6 +229,7 @@ const calendarOptions = {
     hour12: false
   },
   events: fetchEventos,
+  eventContent: contenidoEvento,
   eventClick: onEventClick,
   dateClick: onDateClick,
   editable: false,
@@ -335,6 +378,23 @@ function formatearFecha(fecha) {
 .calendario-club .fc-toolbar-title {
   font-size: 1.15rem;
   text-transform: capitalize;
+}
+.calendario-club .fc-local-icon {
+  font-size: 0.7rem;
+  vertical-align: middle;
+  margin: 0 0.1rem;
+}
+.calendario-club .fc-partido-hora {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.calendario-club .fc-partido-alias {
+  font-weight: 500;
+}
+.calendario-club .fc-partido-lugar {
+  font-weight: 400;
+  opacity: 0.9;
 }
 .calendario-club .fc-col-header-cell-cushion,
 .calendario-club .fc-daygrid-day-number {

@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import { utilService } from '../services';
 
 const ESCUDO_CLUB = '/escudo.png';
-const NOMBRE_CLUB = 'Atlético Palma del Río';
+const NOMBRE_CLUB = 'ATLÉTICO PALMA DEL RÍO';
 
 const VERDE = '#0B3D2E';
 const GRANATE = '#7A1E2B';
@@ -117,12 +117,16 @@ function ajustarTexto(doc, texto, size, anchoMax) {
  * Genera el PDF con el escudo del club y dos bloques: partidos locales y
  * partidos visitantes. Cada fila muestra ambos escudos y nombre de equipo,
  * la fecha y hora, el lugar y la categoría.
+ * @param {Array} partidos
+ * @param {string} titulo
+ * @param {number|null} tipoFutbol 1 = solo Futbol 7, 2 = solo Futbol 11, null/undefined = ambos
  */
-export async function generarPdfPartidos(partidos, titulo = 'Calendario de partidos') {
+export async function generarPdfPartidos(partidos, titulo = 'Calendario de partidos', tipoFutbol = null) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const locales = partidos.filter((p) => p.es_local);
-  const visitantes = partidos.filter((p) => !p.es_local);
+  const filtrar = (p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || p.id_tipofutbol) === tipoFutbol;
+  const locales = partidos.filter((p) => p.es_local && filtrar(p));
+  const visitantes = partidos.filter((p) => !p.es_local && filtrar(p));
 
   const porFecha = (a, b) => new Date(a.inicio) - new Date(b.inicio);
   locales.sort(porFecha);
@@ -144,7 +148,7 @@ export async function generarPdfPartidos(partidos, titulo = 'Calendario de parti
 
   // ---- Encabezado ----
   dibujarEscudo(doc, escudoClub, (anchoA4 - 30) / 2, y, 30);
-  y += 34;
+  y += 42;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
@@ -213,7 +217,7 @@ function dibujarBloque(doc, tituloBloque, lista, escudoClub, imagenes, yIni) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(255, 255, 255);
-  const headers = ['Categoría', 'Local / Visitante', 'Fecha y hora', 'Lugar'];
+  const headers = ['Categoría', 'Partido', 'Fecha y hora', 'Lugar'];
   let x = margen;
   headers.forEach((h, i) => {
     doc.text(h, x + ANCHO_COLUMNAS[i] / 2, y + 5.5, { align: 'center' });
