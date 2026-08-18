@@ -19,6 +19,7 @@ import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
 import { calendarioService, categoriasService, entrenamientosService, partidosService } from '../../services';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
+import { tituloCalendario } from '../../utils/tituloCalendario';
 import { useAuthStore } from '../../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../../utils/cambioBus';
 
@@ -207,6 +208,7 @@ const calendarOptions = {
   locale: esLocale,
   height: 'auto',
   firstDay: 1,
+  titleFormat: tituloCalendario,
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',

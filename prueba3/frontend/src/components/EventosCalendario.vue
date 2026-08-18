@@ -20,6 +20,7 @@ import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from './EventoFormCalendario.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
+import { tituloCalendario } from '../utils/tituloCalendario';
 import { generarPdfPartidos } from '../utils/pdfPartidos';
 import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
@@ -378,6 +379,7 @@ const calendarOptions = {
   locale: esLocale,
   height: 'auto',
   firstDay: 1,
+  titleFormat: tituloCalendario,
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',
@@ -591,7 +593,7 @@ onBeforeUnmount(() => {
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
-          <span class="font-display text-club-green text-lg">Generar PDF {{ tipo === 'entrenamiento' ? 'de entrenamientos' : 'de partidos' }}</span>
+          <span class="font-display text-club-green text-lg">Generar PDF {{ tipo === 'entrenamiento' ? 'entrenamientos' : 'partidos' }}</span>
         </div>
       </template>
       <div class="flex flex-col gap-4 py-2">
