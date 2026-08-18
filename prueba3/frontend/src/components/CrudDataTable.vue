@@ -625,7 +625,7 @@ watch(
       </template>
 
       <form @submit.prevent="guardar" class="space-y-4 pt-1">
-        <div v-for="col in columns" :key="col.field" class="flex flex-col gap-1.5">
+        <div v-for="col in columns.filter(c => !c.soloTabla)" :key="col.field" class="flex flex-col gap-1.5">
           <label :for="col.field" class="text-sm font-medium text-slate-600">
             {{ col.header }} <span v-if="col.required" class="text-club-garnet">*</span>
           </label>
@@ -742,7 +742,7 @@ watch(
 
       <div v-if="detalle" class="space-y-3 pt-1">
         <div
-          v-for="col in columns"
+          v-for="col in columns.filter(c => !c.soloTabla)"
           :key="`d-${col.field}`"
           class="flex gap-3 border-b border-slate-100 pb-2 last:border-0"
         >

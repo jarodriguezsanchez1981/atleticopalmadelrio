@@ -45,6 +45,24 @@ async function guardarAsistencias(idEntrenamiento, detalle) {
   if (filas.length) await EntrenamientoJugador.bulkCreate(filas);
 }
 
+/** Asistencia total: registra a todos los jugadores de la categoría como presentes. */
+async function guardarAsistenciaTotal(idEntrenamiento, idCategoria) {
+  await EntrenamientoJugador.destroy({ where: { id_entrenamiento: idEntrenamiento } });
+  const categoria = await Categoria.findOne({
+    where: { id: idCategoria },
+    include: [{ model: Jugador, as: 'jugadores', attributes: ['id'] }]
+  });
+  const jugadores = (categoria?.jugadores || []).map((j) => j.id);
+  if (jugadores.length) {
+    await EntrenamientoJugador.bulkCreate(jugadores.map((id_jugador) => ({
+      id_entrenamiento: idEntrenamiento,
+      id_jugador,
+      asistencia: true,
+      incidencias: null
+    })));
+  }
+}
+
 function normalizarDetalleAsistencias(body) {
   if (Array.isArray(body.asistencias)) {
     return body.asistencias.map((a) => ({
@@ -163,7 +181,9 @@ async function crear(req, res, next) {
     if (filas.length) await EntrenamientoSemanal.bulkCreate(filas);
 
     const detalle = normalizarDetalleAsistencias(req.body);
-    if (req.body.asistencia !== 'total' && detalle) {
+    if (req.body.asistencia === 'total') {
+      await guardarAsistenciaTotal(entrenamiento.id, id_categoria);
+    } else if (detalle) {
       await guardarAsistencias(entrenamiento.id, detalle);
     }
 
@@ -208,7 +228,7 @@ async function actualizar(req, res, next) {
 
     if (req.body.asistencia !== undefined || req.body.asistencias !== undefined || req.body.ids_presentes !== undefined || req.body.ids_ausentes !== undefined) {
       if (req.body.asistencia === 'total') {
-        await EntrenamientoJugador.destroy({ where: { id_entrenamiento: entrenamiento.id } });
+        await guardarAsistenciaTotal(entrenamiento.id, entrenamiento.id_categoria);
       } else {
         const detalle = normalizarDetalleAsistencias(req.body);
         if (detalle) await guardarAsistencias(entrenamiento.id, detalle);

@@ -4,7 +4,7 @@ const includes = [
   {
     model: Partido,
     as: 'partido',
-    attributes: ['id', 'fecha', 'id_categoria', 'id_lugar', 'id_equipo'],
+    attributes: ['id', 'fecha', 'id_categoria', 'id_lugar', 'id_equipo', 'es_local'],
     include: [
       { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] },
       { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },

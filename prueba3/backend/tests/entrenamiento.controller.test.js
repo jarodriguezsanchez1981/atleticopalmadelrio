@@ -312,12 +312,13 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._status).toBe(201);
   });
 
-  it('crear con asistencia total no inserta registros de jugadores', async () => {
+  it('crear con asistencia total registra a todos los jugadores de la categoría', async () => {
     const creado = { id: 9 };
     const completo = { id: 9, categoria: null, lugar: null, asistencias: [] };
     Entrenamiento.findAll.mockResolvedValue([]);
     Entrenamiento.create.mockResolvedValue(creado);
     Entrenamiento.findByPk.mockResolvedValue(completo);
+    Categoria.findOne.mockResolvedValue({ jugadores: [{ id: 11 }, { id: 12 }, { id: 13 }] });
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
       body: { id_categoria: 1, fecha: '2026-01-01', id_lugar: 2, asistencia: 'total' }
@@ -325,8 +326,12 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     await promesa;
 
-    expect(EntrenamientoJugador.destroy).not.toHaveBeenCalled();
-    expect(EntrenamientoJugador.bulkCreate).not.toHaveBeenCalled();
+    expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 9 } });
+    expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
+      { id_entrenamiento: 9, id_jugador: 11, asistencia: true, incidencias: null },
+      { id_entrenamiento: 9, id_jugador: 12, asistencia: true, incidencias: null },
+      { id_entrenamiento: 9, id_jugador: 13, asistencia: true, incidencias: null }
+    ]);
     expect(res._status).toBe(201);
   });
 
@@ -374,10 +379,11 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     ]);
   });
 
-  it('actualizar con asistencia total borra todos los registros', async () => {
-    const entrenamiento = { id: 1, id_lugar: 1, save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, id_lugar: 1, categoria: null, lugar: null, asistencias: [] };
+  it('actualizar con asistencia total registra a todos los jugadores de la categoría', async () => {
+    const entrenamiento = { id: 1, id_categoria: 2, id_lugar: 1, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, id_categoria: 2, id_lugar: 1, categoria: null, lugar: null, asistencias: [] };
     Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    Categoria.findOne.mockResolvedValue({ jugadores: [{ id: 21 }, { id: 22 }] });
     const { promesa } = llamar(ctrl.actualizar, {
       params: { id: '1' },
       body: { asistencia: 'total' }
@@ -386,7 +392,10 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(EntrenamientoJugador.destroy).toHaveBeenCalledWith({ where: { id_entrenamiento: 1 } });
-    expect(EntrenamientoJugador.bulkCreate).not.toHaveBeenCalled();
+    expect(EntrenamientoJugador.bulkCreate).toHaveBeenCalledWith([
+      { id_entrenamiento: 1, id_jugador: 21, asistencia: true, incidencias: null },
+      { id_entrenamiento: 1, id_jugador: 22, asistencia: true, incidencias: null }
+    ]);
   });
 
   it('eliminar elimina y responde 204', async () => {

@@ -43,6 +43,8 @@ const opcionesJugador = computed(() =>
 const columns = computed(() => [
   { field: 'id_partido', header: 'Partido', type: 'select', options: opcionesPartido.value, required: true },
   { field: 'id_jugador', header: 'Jugador', type: 'select', options: opcionesJugador.value, required: true },
+  { field: 'categoria_partido', header: 'Categoría', soloTabla: true },
+  { field: 'local_visitante', header: 'Local / Visitante', soloTabla: true },
   { field: 'minutos', header: 'Minutos', type: 'number' },
   { field: 'goles', header: 'Goles', type: 'number' },
   { field: 'tarjeta_amarilla', header: 'Tarjeta amarilla', type: 'number' },
@@ -80,6 +82,15 @@ function nombreJugador(id) {
     </template>
     <template #cell-id_jugador="{ data }">
       {{ data.jugador ? `${data.jugador.apellidos}, ${data.jugador.nombre}` : nombreJugador(data.id_jugador) }}
+    </template>
+    <template #cell-categoria_partido="{ data }">
+      {{ data.partido?.categoria?.nombre || '—' }}
+    </template>
+    <template #cell-local_visitante="{ data }">
+      <span v-if="data.partido" :class="data.partido.es_local ? 'text-club-green font-medium' : 'font-medium'">
+        {{ data.partido.es_local ? 'Local' : 'Visitante' }}
+      </span>
+      <span v-else>—</span>
     </template>
     <template #detail-id_partido="{ data }">
       {{ data.partido?.equipo?.nombre ? `${new Date(data.partido.fecha).toLocaleString('es-ES')} vs ${data.partido.equipo.nombre}` : nombrePartido(data.id_partido) }}
