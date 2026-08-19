@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS jugadores (
   apellidos     VARCHAR(150) NOT NULL,
   dni           VARCHAR(15)  NOT NULL UNIQUE,
   foto          LONGTEXT NULL,
+  dorsal        INT NULL,
   id_temporada  INT NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

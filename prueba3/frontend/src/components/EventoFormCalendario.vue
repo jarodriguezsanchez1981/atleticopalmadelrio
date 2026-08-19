@@ -92,7 +92,9 @@ function resetForm() {
     id_equipo: null,
     es_local: props.tipo === 'partido' ? 1 : null,
     ids_jugadores: [],
-    incidencias: ''
+    incidencias: '',
+    resultado: '',
+    resultado_incidencias: ''
   };
   asistencias.value = {};
   incidenciasJugador.value = {};
@@ -145,7 +147,9 @@ async function cargarRegistro() {
       id_equipo: props.tipo === 'partido' ? item.id_equipo ?? item.equipo?.id ?? null : null,
       es_local: props.tipo === 'partido' ? (item.es_local ? 1 : 0) : null,
       ids_jugadores: item.ids_jugadores || [],
-      incidencias: item.incidencias || ''
+      incidencias: item.incidencias || '',
+      resultado: item.resultado_valor || '',
+      resultado_incidencias: item.resultado_incidencias || ''
     };
     if (props.tipo === 'entrenamiento') {
       asistencias.value = {};
@@ -469,6 +473,8 @@ async function guardar() {
       payload.id_lugar = esLocal ? form.value.id_lugar : null;
       payload.id_equipo = form.value.id_equipo;
       payload.incidencias = form.value.incidencias;
+      payload.resultado = form.value.resultado;
+      payload.resultado_incidencias = form.value.resultado_incidencias || null;
       if (form.value.ids_jugadores && form.value.ids_jugadores.length) {
         payload.ids_jugadores = form.value.ids_jugadores;
       }
@@ -658,6 +664,14 @@ async function guardar() {
           <p v-if="textoConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
             <i class="pi pi-exclamation-circle"></i> {{ textoConflicto() }}
           </p>
+        </div>
+        <div v-if="registroId" class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-slate-600">Resultado</label>
+          <div class="flex items-center gap-2">
+            <InputText v-model="form.resultado" placeholder="Marcador, p. ej. 2-1" class="flex-1" maxlength="30" />
+            <i class="pi pi-flag text-slate-300"></i>
+          </div>
+          <p class="text-xs text-slate-500">El resultado quedará guardado en la sección Resultados.</p>
         </div>
         <div v-if="registroId" class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-slate-600">Jugadores convocados</label>

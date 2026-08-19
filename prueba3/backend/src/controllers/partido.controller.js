@@ -1,11 +1,18 @@
 const { Op } = require('sequelize');
-const { Partido, Categoria, Temporada, Lugar, Equipo, PartidoJugador, Jugador } = require('../models');
+const { Partido, Categoria, Temporada, Lugar, Equipo, PartidoJugador, Jugador, Resultado } = require('../models');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 
 function normalizeIds(value) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map(Number).filter(Boolean))];
+}
+
+/** Guarda (upsert) el resultado del partido en la tabla resultados. */
+async function guardarResultado(idPartido, resultado, incidencias) {
+  await Resultado.destroy({ where: { id_partido: idPartido } });
+  if (resultado == null || resultado === '') return;
+  await Resultado.create({ id_partido: idPartido, resultado: String(resultado), incidencias: incidencias || null });
 }
 
 async function guardarConvocados(idPartido, idsJugadores) {
@@ -28,11 +35,17 @@ const includesBase = [
     as: 'convocados',
     attributes: ['id', 'id_jugador'],
     include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
-  }
+  },
+  { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
 ];
 function serialize(partido) {
   const json = partido.toJSON ? partido.toJSON() : partido;
   json.ids_jugadores = (json.convocados || []).map((c) => c.id_jugador);
+  const res = Array.isArray(json.Resultados) ? json.Resultados[0] : null;
+  if (res) {
+    json.resultado_valor = res.resultado;
+    json.resultado_incidencias = res.incidencias;
+  }
   return json;
 }
 
@@ -68,7 +81,8 @@ async function listar(req, res, next) {
           as: 'convocados',
           attributes: ['id', 'id_jugador'],
           include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
-        }
+        },
+        { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
       ],
       order: [['fecha', 'ASC']]
     });
@@ -164,6 +178,7 @@ async function crear(req, res, next) {
     });
     const idsJugadores = normalizeIds(req.body.ids_jugadores);
     await guardarConvocados(partido.id, idsJugadores);
+    await guardarResultado(partido.id, req.body.resultado, req.body.resultado_incidencias);
     const creado = await Partido.findByPk(partido.id, { include: includesBase });
     res.status(201).json(serialize(creado));
   } catch (err) { next(err); }
@@ -211,6 +226,13 @@ async function actualizar(req, res, next) {
     await partido.save();
     if (req.body.ids_jugadores !== undefined) {
       await guardarConvocados(partido.id, normalizeIds(req.body.ids_jugadores));
+    }
+    if (req.body.resultado !== undefined || req.body.resultado_incidencias !== undefined) {
+      const resultado = req.body.resultado !== undefined ? req.body.resultado : (await Resultado.findOne({ where: { id_partido: partido.id } }))?.resultado;
+      const resultadoIncidencias = req.body.resultado_incidencias !== undefined
+        ? req.body.resultado_incidencias
+        : (await Resultado.findOne({ where: { id_partido: partido.id } }))?.incidencias;
+      await guardarResultado(partido.id, resultado, resultadoIncidencias);
     }
     const actualizado = await Partido.findByPk(partido.id, { include: includesBase });
     res.json(serialize(actualizado));

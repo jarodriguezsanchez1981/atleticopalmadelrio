@@ -123,11 +123,26 @@ describe('Sección Jugadores · jugador.controller', () => {
     await promesa;
 
     expect(Jugador.create).toHaveBeenCalledWith({
-      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', foto: null, id_temporada: 1
+      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', foto: null, dorsal: null, id_temporada: 1
     });
     expect(creado.setCategorias).toHaveBeenCalledWith([2, 3]);
     expect(res._status).toBe(201);
     expect(res._json.ids_categorias).toEqual([2]);
+  });
+
+  it('crear guarda el dorsal numérico', async () => {
+    const creado = { id: 6, setCategorias: vi.fn().mockResolvedValue() };
+    const completo = { id: 6, nombre: 'Ana', categorias: [] };
+    Jugador.create.mockResolvedValue(creado);
+    Jugador.findOne.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Ana', apellidos: 'Mora', dni: '12345678Z', id_temporada: 1, dorsal: '7' }
+    });
+
+    await promesa;
+
+    expect(Jugador.create).toHaveBeenCalledWith(expect.objectContaining({ dorsal: 7 }));
+    expect(res._status).toBe(201);
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -144,12 +159,13 @@ describe('Sección Jugadores · jugador.controller', () => {
     const actualizado = { id: 1, nombre: 'Nuevo', categorias: [] };
     Jugador.findOne.mockResolvedValueOnce(jugador).mockResolvedValueOnce(actualizado);
     const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { nombre: 'Nuevo', categorias: [{ id: 2 }] }
+      params: { id: '1' }, body: { nombre: 'Nuevo', categorias: [{ id: 2 }], dorsal: '10' }
     });
 
     await promesa;
 
     expect(jugador.nombre).toBe('Nuevo');
+    expect(jugador.dorsal).toBe(10);
     expect(jugador.save).toHaveBeenCalled();
     expect(jugador.setCategorias).toHaveBeenCalledWith([2]);
     expect(res._json).toEqual({ id: 1, nombre: 'Nuevo', categorias: [], ids_categorias: [] });
