@@ -408,6 +408,7 @@ CREATE TABLE `jugador_categorias` (
 
 LOCK TABLES `jugador_categorias` WRITE;
 /*!40000 ALTER TABLE `jugador_categorias` DISABLE KEYS */;
+INSERT INTO `jugador_categorias` VALUES (633,12);
 /*!40000 ALTER TABLE `jugador_categorias` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -433,7 +434,7 @@ CREATE TABLE `jugadores` (
   UNIQUE KEY `dni` (`dni`),
   KEY `idx_jugadores_temporada` (`id_temporada`),
   CONSTRAINT `jugadores_ibfk_1` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=633 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=634 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -442,6 +443,7 @@ CREATE TABLE `jugadores` (
 
 LOCK TABLES `jugadores` WRITE;
 /*!40000 ALTER TABLE `jugadores` DISABLE KEYS */;
+INSERT INTO `jugadores` VALUES (633,'JOSE ANTONIO','RODRIGUEZ SANCHEZ','28808104Y',NULL,4,'12',2,'2026-08-19 14:20:48','2026-08-19 14:20:48');
 /*!40000 ALTER TABLE `jugadores` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -576,6 +578,36 @@ LOCK TABLES `partidos_jugadores` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `patrocinadores`
+--
+
+DROP TABLE IF EXISTS `patrocinadores`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `patrocinadores` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tipo` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'colaborador',
+  `imagen` longtext COLLATE utf8mb4_unicode_ci,
+  `orden` int NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `orden` (`orden`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `patrocinadores`
+--
+
+LOCK TABLES `patrocinadores` WRITE;
+/*!40000 ALTER TABLE `patrocinadores` DISABLE KEYS */;
+INSERT INTO `patrocinadores` VALUES (1,'URBSYER','principal','/sponsors/sponsor-oficial.png',1,'2026-08-19 16:22:25','2026-08-19 16:22:25'),(2,'Patrocinador 2','oficial','/sponsors/sponsor-1.png',2,'2026-08-19 16:22:25','2026-08-19 16:22:25'),(3,'Patrocinador 3','oficial','/sponsors/sponsor-2.png',3,'2026-08-19 16:22:25','2026-08-19 16:22:25'),(4,'Patrocinador 4','oficial','/sponsors/sponsor-3.png',4,'2026-08-19 16:22:25','2026-08-19 16:22:25');
+/*!40000 ALTER TABLE `patrocinadores` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `resultados`
 --
 
@@ -649,7 +681,7 @@ CREATE TABLE `secciones` (
   UNIQUE KEY `clave` (`clave`),
   UNIQUE KEY `uq_secciones_nombre` (`nombre`),
   UNIQUE KEY `nombre` (`nombre`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -658,7 +690,7 @@ CREATE TABLE `secciones` (
 
 LOCK TABLES `secciones` WRITE;
 /*!40000 ALTER TABLE `secciones` DISABLE KEYS */;
-INSERT INTO `secciones` VALUES (1,'calendario','Calendario','pi pi-calendar',10),(2,'entrenamientos','Entrenamientos','pi pi-stopwatch',20),(3,'partidos','Partidos','pi pi-flag',30),(4,'resultados','Resultados','pi pi-chart-bar',35),(5,'temporadas','Temporadas','pi pi-clock',40),(6,'titulos','Títulos','pi pi-graduation-cap',45),(7,'lugares','Lugares','pi pi-map-marker',50),(8,'delegados','Delegados','pi pi-user-plus',55),(9,'categorias','Categorías','pi pi-sitemap',60),(10,'equipos','Equipos','pi pi-trophy',65),(11,'incidencias','Incidencias','pi pi-exclamation-triangle',68),(12,'jugadores','Jugadores','pi pi-users',70),(13,'entrenadores','Entrenadores','pi pi-id-card',80),(14,'administracion','Administración','pi pi-shield',100),(15,'entrenamientos_jugadores','Entrenamientos Jugadores','pi pi-check-square',22),(16,'partidos_jugadores','Convocatorias','pi pi-list-check',32),(17,'division','División','pi pi-tags',47),(18,'roles','Roles','pi pi-shield',95);
+INSERT INTO `secciones` VALUES (1,'calendario','Calendario','pi pi-calendar',10),(2,'entrenamientos','Entrenamientos','pi pi-stopwatch',20),(3,'partidos','Partidos','pi pi-flag',30),(4,'resultados','Resultados','pi pi-chart-bar',35),(5,'temporadas','Temporadas','pi pi-clock',40),(6,'titulos','Títulos','pi pi-graduation-cap',45),(7,'lugares','Lugares','pi pi-map-marker',50),(8,'delegados','Delegados','pi pi-user-plus',55),(9,'categorias','Categorías','pi pi-sitemap',60),(10,'equipos','Equipos','pi pi-trophy',65),(11,'incidencias','Incidencias','pi pi-exclamation-triangle',68),(12,'jugadores','Jugadores','pi pi-users',70),(13,'entrenadores','Entrenadores','pi pi-id-card',80),(14,'administracion','Administración','pi pi-shield',100),(15,'entrenamientos_jugadores','Entrenamientos Jugadores','pi pi-check-square',22),(16,'partidos_jugadores','Convocatorias','pi pi-list-check',32),(17,'division','División','pi pi-tags',47),(18,'roles','Roles','pi pi-shield',95),(19,'patrocinadores','Patrocinadores','pi pi-briefcase',97);
 /*!40000 ALTER TABLE `secciones` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -764,7 +796,7 @@ CREATE TABLE `usuario_secciones` (
 
 LOCK TABLES `usuario_secciones` WRITE;
 /*!40000 ALTER TABLE `usuario_secciones` DISABLE KEYS */;
-INSERT INTO `usuario_secciones` VALUES (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(1,18);
+INSERT INTO `usuario_secciones` VALUES (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(1,18),(1,19);
 /*!40000 ALTER TABLE `usuario_secciones` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -808,4 +840,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-08-19 15:40:17
+-- Dump completed on 2026-08-19 18:27:06

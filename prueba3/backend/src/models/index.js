@@ -20,6 +20,7 @@ const Resultado = require('./Resultado');
 const PartidoJugador = require('./PartidoJugador');
 const EntrenamientoJugador = require('./EntrenamientoJugador');
 const TipoFutbol = require('./TipoFutbol');
+const Patrocinador = require('./Patrocinador');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -171,5 +172,6 @@ module.exports = {
   Resultado,
   PartidoJugador,
   EntrenamientoJugador,
-  TipoFutbol
+  TipoFutbol,
+  Patrocinador
 };

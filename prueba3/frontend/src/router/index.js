@@ -123,6 +123,12 @@ const routes = [
         name: 'roles',
         component: () => import('../views/roles/Roles.vue'),
         meta: { seccion: 'roles' }
+      },
+      {
+        path: 'patrocinadores',
+        name: 'patrocinadores',
+        component: () => import('../views/patrocinadores/Patrocinadores.vue'),
+        meta: { seccion: 'patrocinadores' }
       }
     ]
   },

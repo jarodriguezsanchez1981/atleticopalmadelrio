@@ -35,6 +35,7 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('jugadores', 'Jugadores', 'pi pi-users', 70),
   ('entrenadores', 'Entrenadores', 'pi pi-id-card', 80),
   ('roles', 'Roles', 'pi pi-shield', 95),
+  ('patrocinadores', 'Patrocinadores', 'pi pi-briefcase', 97),
   ('administracion', 'Administración', 'pi pi-user-cog', 100);
 
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -291,6 +292,16 @@ CREATE TABLE IF NOT EXISTS resultados (
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_resultados_partido FOREIGN KEY (id_partido) REFERENCES partidos(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS patrocinadores (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  nombre      VARCHAR(150) NOT NULL,
+  tipo        VARCHAR(20) NOT NULL DEFAULT 'colaborador',
+  imagen      LONGTEXT,
+  orden       INT NOT NULL UNIQUE,
+  created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS incidencias (

@@ -111,6 +111,13 @@ function formatHora(value) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function nombreCamiseta(nombre) {
+  if (!nombre) return '';
+  const partes = nombre.trim().split(/\s+/);
+  const nombreCorto = partes.length > 2 ? partes[0] : nombre.trim();
+  return nombreCorto.length > 10 ? nombreCorto.slice(0, 10) + '…' : nombreCorto;
+}
+
 function setDatePickerRef(field, el) {
   if (el) datePickerRefs[field] = el;
   else delete datePickerRefs[field];
@@ -625,8 +632,8 @@ watch(
       </template>
 
       <form @submit.prevent="guardar" class="space-y-4 pt-1">
-        <div v-for="col in columns.filter(c => !c.soloTabla)" :key="col.field" class="flex flex-col gap-1.5">
-          <label :for="col.field" class="text-sm font-medium text-slate-600">
+        <div v-for="col in columns.filter(c => !c.soloTabla && c.enForm !== false)" :key="col.field" class="flex flex-col gap-1.5">
+          <label v-if="col.type !== 'dorsal'" :for="col.field" class="text-sm font-medium text-slate-600">
             {{ col.header }} <span v-if="col.required" class="text-club-garnet">*</span>
           </label>
 
@@ -644,54 +651,44 @@ watch(
             class="w-full"
           />
 
-          <div v-else-if="col.type === 'text' && col.readonly" class="text-sm text-slate-800 py-2">
-            {{ form[col.field] && typeof form[col.field] === 'object'
-               ? `${form[col.field].nombre || ''} ${form[col.field].apellidos || ''}`.trim() || form[col.field].usuario || '—'
-               : (form[col.field] || '—') }}
-          </div>
-
-          <Password v-else-if="col.type === 'password'" :id="col.field" v-model="form[col.field]"
-                    :feedback="false" toggleMask inputClass="w-full" class="w-full"
-                    :placeholder="editando ? 'Dejar en blanco para no cambiarla' : ''" />
-
-          <Textarea v-else-if="col.type === 'textarea'" :id="col.field" v-model="form[col.field]" rows="3" class="w-full" />
-
-          <div v-else-if="col.type === 'date'" class="flex gap-2 w-full">
-            <DatePicker
-              :id="col.field"
-              :ref="(el) => setDatePickerRef(col.field, el)"
-              :model-value="toDateValue(form[col.field])"
-              @update:modelValue="(val) => onFechaSelect(col.field, val)"
-              dateFormat="dd/mm/yy"
-              showIcon
-              iconDisplay="input"
-              :manualInput="true"
-              class="flex-1"
-              inputClass="w-full"
-              placeholder="dd/mm/aa"
-              :pt="datePickerPt"
-              @show="onDatePickerShow(col.field)"
-              @month-change="onDatePickerMonthYearChange(col.field)"
-              @year-change="onDatePickerMonthYearChange(col.field)"
-              @date-select="(val) => onFechaSelect(col.field, val)"
-            >
-              <template #date="slotProps">
-                <span
-                  class="dp-day-label"
-                  :class="{ 'dp-festivo-es': esDiaFestivo(slotProps) }"
-                  :title="tituloFestivo(slotProps)"
-                >{{ diaSlot(slotProps) }}</span>
-              </template>
-            </DatePicker>
-            <InputText
-              :id="`${col.field}-hora`"
-              :model-value="timeDrafts[col.field] ?? formatHora(form[col.field]) ?? '00:00'"
-              placeholder="HH:mm"
-              maxlength="5"
-              inputmode="numeric"
-              class="w-24"
-              @update:modelValue="(v) => onHoraInput(col.field, v)"
-            />
+          <div v-else-if="col.type === 'dorsal'" class="flex items-center justify-center gap-6 py-1">
+            <div class="relative shrink-0" style="width: 176px; height: 235px;">
+              <img
+                src="/jersey.png"
+                alt="Camiseta"
+                class="w-full h-full object-contain"
+                draggable="false"
+              />
+              <span
+                class="absolute left-0 right-0 text-center font-bold"
+                style="top: 42%; transform: translateY(-50%); color: #1d4ed8; font-size: 60px;"
+              >
+                <template v-if="form[col.field] != null && form[col.field] !== ''">{{ form[col.field] }}</template>
+              </span>
+            </div>
+            <div class="flex items-start justify-center gap-5">
+              <div class="flex flex-col gap-1.5 items-center">
+                <label :for="col.field" class="text-xs font-medium text-slate-500">Dorsal</label>
+                <InputNumber
+                  :id="col.field"
+                  v-model="form[col.field]"
+                  inputClass="w-20 text-center"
+                  :min="col.min ?? 0"
+                  :max="col.max"
+                  :minFractionDigits="0"
+                  :maxFractionDigits="0"
+                />
+              </div>
+              <div v-if="col.conTalla" class="flex flex-col gap-1.5 items-center">
+                <label :for="col.tallaField" class="text-xs font-medium text-slate-500">Talla</label>
+                <InputText
+                  :id="col.tallaField"
+                  v-model="form[col.tallaField]"
+                  maxlength="10"
+                  class="w-20 text-center"
+                />
+              </div>
+            </div>
           </div>
 
           <div v-else-if="col.type === 'image'" class="flex flex-wrap items-center gap-3">

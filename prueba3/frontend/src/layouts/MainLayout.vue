@@ -1,13 +1,46 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Avatar from 'primevue/avatar';
 import Menu from 'primevue/menu';
 import { useAuthStore } from '../stores/auth.store';
+import { patrocinadoresService } from '../services';
+import { suscribirseCambio } from '../utils/cambioBus';
 
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
+
+const patrocinadores = ref([]);
+
+const principal = computed(() =>
+  patrocinadores.value.find((p) => p.tipo === 'principal') ||
+  patrocinadores.value.find((p) => Number(p.orden) === 1) || null
+);
+const oficiales = computed(() =>
+  patrocinadores.value
+    .filter((p) => p.tipo === 'oficial')
+    .sort((a, b) => Number(a.orden) - Number(b.orden))
+);
+const colaboradores = computed(() =>
+  patrocinadores.value
+    .filter((p) => p.tipo === 'colaborador')
+    .sort((a, b) => Number(a.orden) - Number(b.orden))
+);
+
+async function cargarPatrocinadores() {
+  try {
+    patrocinadores.value = await patrocinadoresService.listar();
+  } catch {
+    patrocinadores.value = [];
+  }
+}
+
+onMounted(() => {
+  cargarPatrocinadores();
+  const desuscribir = suscribirseCambio(cargarPatrocinadores);
+  onUnmounted(desuscribir);
+});
 
 const ALL_NAV = [
   { label: 'Calendario', icon: 'pi pi-calendar', to: '/calendario', seccion: 'calendario' },
@@ -27,6 +60,7 @@ const ALL_NAV = [
   { label: 'Jugadores', icon: 'pi pi-users', to: '/jugadores', seccion: 'jugadores' },
   { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
   { label: 'Roles', icon: 'pi pi-shield', to: '/roles', seccion: 'roles' },
+  { label: 'Patrocinadores', icon: 'pi pi-briefcase', to: '/patrocinadores', seccion: 'patrocinadores' },
   { label: 'Administración', icon: 'pi pi-cog', to: '/administracion', seccion: 'administracion' }
 ];
 
@@ -97,6 +131,43 @@ const tituloPagina = computed(() => {
       <main class="flex-1 overflow-y-auto p-6">
         <router-view />
       </main>
+
+      <footer v-if="patrocinadores.length" class="bg-club-green border-t border-white/10 px-6 py-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <div v-if="principal" class="flex flex-col items-center gap-3">
+            <span class="text-[10px] font-semibold text-club-cream/80 uppercase tracking-wider text-center">Patrocinador Principal</span>
+            <img
+              :src="principal.imagen"
+              :alt="principal.nombre"
+              class="h-14 w-auto object-contain max-w-[180px] drop-shadow"
+            />
+          </div>
+          <div v-if="oficiales.length" class="flex flex-col items-center gap-3">
+            <span class="text-[10px] font-semibold text-club-cream/80 uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
+            <div class="flex flex-wrap items-center justify-center gap-6 max-w-[320px]">
+              <img
+                v-for="(p, i) in oficiales"
+                :key="p.id || i"
+                :src="p.imagen"
+                :alt="p.nombre"
+                class="h-14 w-auto object-contain max-w-[160px]"
+              />
+            </div>
+          </div>
+          <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
+            <span class="text-[10px] font-semibold text-club-cream/80 uppercase tracking-wider text-center">Colaboradores</span>
+            <div class="grid grid-cols-5 items-center justify-items-center gap-4 max-w-[520px]">
+              <img
+                v-for="(p, i) in colaboradores"
+                :key="p.id || i"
+                :src="p.imagen"
+                :alt="p.nombre"
+                class="h-12 w-auto object-contain max-w-[120px]"
+              />
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   </div>
 </template>

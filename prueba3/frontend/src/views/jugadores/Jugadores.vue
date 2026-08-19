@@ -29,8 +29,8 @@ const opcionesCategoria = computed(() =>
 
 const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
-  { field: 'dorsal', header: 'Dorsal', type: 'number', min: 1, max: 99 },
-  { field: 'talla', header: 'Talla', type: 'text', maxlength: 10 },
+  { field: 'dorsal', header: 'Dorsal', type: 'dorsal', conTalla: true, tallaField: 'talla', min: 1, max: 99 },
+  { field: 'talla', header: 'Talla', type: 'text', maxlength: 10, enForm: false },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
   { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },

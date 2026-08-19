@@ -1,11 +1,36 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import { useAuthStore } from '../../stores/auth.store';
+import { patrocinadoresService } from '../../services';
+
+const patrocinadores = ref([]);
+const principal = computed(() =>
+  patrocinadores.value.find((p) => p.tipo === 'principal') ||
+  patrocinadores.value.find((p) => Number(p.orden) === 1) || null
+);
+const oficiales = computed(() =>
+  patrocinadores.value
+    .filter((p) => p.tipo === 'oficial')
+    .sort((a, b) => Number(a.orden) - Number(b.orden))
+);
+const colaboradores = computed(() =>
+  patrocinadores.value
+    .filter((p) => p.tipo === 'colaborador')
+    .sort((a, b) => Number(a.orden) - Number(b.orden))
+);
+
+onMounted(async () => {
+  try {
+    patrocinadores.value = await patrocinadoresService.listar();
+  } catch {
+    patrocinadores.value = [];
+  }
+});
 
 const usuario = ref('');
 const password = ref('');
@@ -95,6 +120,44 @@ async function onSubmit() {
       <p class="text-center text-xs text-club-cream/50 mt-6">
         © {{ new Date().getFullYear() }} Atlético Palma del Río
       </p>
+
+      <!-- Patrocinadores -->
+      <div v-if="patrocinadores.length" class="mt-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <div v-if="principal" class="flex flex-col items-center gap-3">
+            <span class="text-[10px] font-semibold text-club-cream/70 uppercase tracking-wider text-center">Patrocinador Principal</span>
+            <img
+              :src="principal.imagen"
+              :alt="principal.nombre"
+              class="h-14 w-auto object-contain max-w-[180px] drop-shadow"
+            />
+          </div>
+          <div v-if="oficiales.length" class="flex flex-col items-center gap-3">
+            <span class="text-[10px] font-semibold text-club-cream/70 uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
+            <div class="flex flex-wrap items-center justify-center gap-6 max-w-[320px]">
+              <img
+                v-for="(p, i) in oficiales"
+                :key="p.id || i"
+                :src="p.imagen"
+                :alt="p.nombre"
+                class="h-14 w-auto object-contain max-w-[160px]"
+              />
+            </div>
+          </div>
+          <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
+            <span class="text-[10px] font-semibold text-club-cream/70 uppercase tracking-wider text-center">Colaboradores</span>
+            <div class="grid grid-cols-5 items-center justify-items-center gap-4 max-w-[520px]">
+              <img
+                v-for="(p, i) in colaboradores"
+                :key="p.id || i"
+                :src="p.imagen"
+                :alt="p.nombre"
+                class="h-12 w-auto object-contain max-w-[120px]"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

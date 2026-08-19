@@ -22,6 +22,7 @@ const entrenamientoJugadorRoutes = require('./entrenamientoJugador.routes');
 const partidoJugadorRoutes = require('./partidoJugador.routes');
 const tipofutbolRoutes = require('./tipofutbol.routes');
 const utilRoutes = require('./util.routes');
+const patrocinadorRoutes = require('./patrocinador.routes');
 
 const router = Router();
 
@@ -46,6 +47,7 @@ router.use('/calendario', calendarioRoutes);
 router.use('/entrenamientos-jugadores', entrenamientoJugadorRoutes);
 router.use('/partidos-jugadores', partidoJugadorRoutes);
 router.use('/tipos-futbol', tipofutbolRoutes);
+router.use('/patrocinadores', patrocinadorRoutes);
 router.use('/util', utilRoutes);
 
 module.exports = router;
