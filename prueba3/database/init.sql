@@ -425,6 +425,7 @@ CREATE TABLE `jugadores` (
   `dni` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
   `foto` longtext COLLATE utf8mb4_unicode_ci,
   `dorsal` int DEFAULT NULL,
+  `talla` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `id_temporada` int NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
@@ -807,4 +808,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-08-19 15:19:50
+-- Dump completed on 2026-08-19 15:40:17

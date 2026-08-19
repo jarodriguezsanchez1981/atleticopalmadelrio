@@ -56,6 +56,11 @@ function normalizeDorsal(value) {
   return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
 }
 
+function normalizeTalla(value) {
+  if (value === null || value === undefined || value === '') return null;
+  return String(value).trim().toUpperCase().slice(0, 10) || null;
+}
+
 function serializeJugador(jugador) {
   const json = jugador.toJSON ? jugador.toJSON() : jugador;
   json.ids_categorias = (json.categorias || []).map((c) => c.id);
@@ -86,7 +91,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, dni, foto, dorsal, id_temporada } = req.body;
+    const { nombre, apellidos, dni, foto, dorsal, talla, id_temporada } = req.body;
     const idsCategorias = normalizeCategoriasIds(req.body) || [];
     if (!nombre || !apellidos || !dni || !id_temporada) {
       return res.status(400).json({ message: 'Nombre, apellidos, DNI y temporada son obligatorios.' });
@@ -100,6 +105,7 @@ async function crear(req, res, next) {
       dni,
       foto: foto || null,
       dorsal: normalizeDorsal(dorsal),
+      talla: normalizeTalla(talla),
       id_temporada
     });
     if (idsCategorias.length) await jugador.setCategorias(idsCategorias);
@@ -112,7 +118,7 @@ async function actualizar(req, res, next) {
   try {
     const jugador = await Jugador.findOne({ where: { id: req.params.id } });
     if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado.' });
-    const { nombre, apellidos, dni, foto, dorsal, id_temporada } = req.body;
+    const { nombre, apellidos, dni, foto, dorsal, talla, id_temporada } = req.body;
     const idsCategorias = normalizeCategoriasIds(req.body);
     if (nombre !== undefined) jugador.nombre = nombre;
     if (apellidos !== undefined) jugador.apellidos = apellidos;
@@ -124,6 +130,7 @@ async function actualizar(req, res, next) {
     }
     if (foto !== undefined) jugador.foto = foto || null;
     if (dorsal !== undefined) jugador.dorsal = normalizeDorsal(dorsal);
+    if (talla !== undefined) jugador.talla = normalizeTalla(talla);
     if (id_temporada !== undefined) jugador.id_temporada = id_temporada;
     await jugador.save();
     if (idsCategorias) await jugador.setCategorias(idsCategorias);

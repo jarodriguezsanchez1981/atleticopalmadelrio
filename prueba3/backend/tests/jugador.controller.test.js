@@ -123,7 +123,7 @@ describe('Sección Jugadores · jugador.controller', () => {
     await promesa;
 
     expect(Jugador.create).toHaveBeenCalledWith({
-      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', foto: null, dorsal: null, id_temporada: 1
+      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', foto: null, dorsal: null, talla: null, id_temporada: 1
     });
     expect(creado.setCategorias).toHaveBeenCalledWith([2, 3]);
     expect(res._status).toBe(201);
@@ -145,6 +145,21 @@ describe('Sección Jugadores · jugador.controller', () => {
     expect(res._status).toBe(201);
   });
 
+  it('crear guarda la talla en mayúsculas', async () => {
+    const creado = { id: 7, setCategorias: vi.fn().mockResolvedValue() };
+    const completo = { id: 7, nombre: 'Ana', categorias: [] };
+    Jugador.create.mockResolvedValue(creado);
+    Jugador.findOne.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Ana', apellidos: 'Mora', dni: '12345678Z', id_temporada: 1, talla: 'xl' }
+    });
+
+    await promesa;
+
+    expect(Jugador.create).toHaveBeenCalledWith(expect.objectContaining({ talla: 'XL' }));
+    expect(res._status).toBe(201);
+  });
+
   it('actualizar devuelve 404 si no existe', async () => {
     Jugador.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'X' } });
@@ -159,13 +174,14 @@ describe('Sección Jugadores · jugador.controller', () => {
     const actualizado = { id: 1, nombre: 'Nuevo', categorias: [] };
     Jugador.findOne.mockResolvedValueOnce(jugador).mockResolvedValueOnce(actualizado);
     const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { nombre: 'Nuevo', categorias: [{ id: 2 }], dorsal: '10' }
+      params: { id: '1' }, body: { nombre: 'Nuevo', categorias: [{ id: 2 }], dorsal: '10', talla: 'm' }
     });
 
     await promesa;
 
     expect(jugador.nombre).toBe('Nuevo');
     expect(jugador.dorsal).toBe(10);
+    expect(jugador.talla).toBe('M');
     expect(jugador.save).toHaveBeenCalled();
     expect(jugador.setCategorias).toHaveBeenCalledWith([2]);
     expect(res._json).toEqual({ id: 1, nombre: 'Nuevo', categorias: [], ids_categorias: [] });

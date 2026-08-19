@@ -30,6 +30,7 @@ const opcionesCategoria = computed(() =>
 const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
   { field: 'dorsal', header: 'Dorsal', type: 'number', min: 1, max: 99 },
+  { field: 'talla', header: 'Talla', type: 'text', maxlength: 10 },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
   { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
@@ -37,7 +38,7 @@ const columns = computed(() => [
   { field: 'ids_categorias', header: 'Categorías', type: 'multiselect', relation: 'categorias', options: opcionesCategoria.value, required: false }
 ]);
 
-const emptyItem = { foto: null, dorsal: null, nombre: '', apellidos: '', dni: '', id_temporada: null, ids_categorias: [] };
+const emptyItem = { foto: null, dorsal: null, talla: '', nombre: '', apellidos: '', dni: '', id_temporada: null, ids_categorias: [] };
 
 function nombresCategorias(data) {
   if (data.categorias?.length) return data.categorias.map(c => `${c.nombre} (${c.temporada?.nombre || ''})`).join(', ');
