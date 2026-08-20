@@ -65,10 +65,9 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen w-full flex items-center justify-center bg-club-green
-              bg-[radial-gradient(circle_at_50%_0%,theme(colors.club.greenLight),theme(colors.club.green)_60%)]
-              px-4">
-    <div class="w-full max-w-sm">
+  <div class="min-h-screen w-full flex flex-col bg-club-cream">
+    <div class="flex-1 flex items-center justify-center px-4">
+      <div class="w-full max-w-sm">
       <!-- Escudo del club, centrado -->
       <div class="flex flex-col items-center mb-8">
         <img
@@ -78,10 +77,10 @@ async function onSubmit() {
           width="160"
           height="180"
         />
-        <h1 class="mt-5 font-display text-2xl text-club-cream tracking-wide text-center">
+        <h1 class="mt-5 font-display text-2xl text-club-green tracking-wide text-center">
           ATLÉTICO PALMA DEL RÍO
         </h1>
-        <p class="text-club-cream/70 text-sm mt-1">Intranet de gestión del club</p>
+        <p class="text-club-green/70 text-sm mt-1">Intranet de gestión del club</p>
       </div>
 
       <!-- Formulario de acceso -->
@@ -117,47 +116,47 @@ async function onSubmit() {
         />
       </form>
 
-      <p class="text-center text-xs text-club-cream/50 mt-6">
+      <p class="text-center text-xs text-club-green/50 mt-6">
         © {{ new Date().getFullYear() }} Atlético Palma del Río
       </p>
+      </div>
+    </div>
 
-      <!-- Patrocinadores -->
-      <div v-if="patrocinadores.length" class="mt-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          <div v-if="principal" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-cream/70 uppercase tracking-wider text-center">Patrocinador Principal</span>
+    <footer v-if="patrocinadores.length" class="bg-club-cream px-6 py-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div v-if="principal" class="flex flex-col items-center gap-3">
+          <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinador Principal</span>
+          <img
+            :src="principal.imagen"
+            :alt="principal.nombre"
+            class="h-[140px] w-auto object-contain max-w-[140px] drop-shadow"
+          />
+        </div>
+        <div v-if="oficiales.length" class="flex flex-col items-center gap-3">
+          <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
+          <div class="flex flex-wrap items-center justify-center gap-6 max-w-[320px]">
             <img
-              :src="principal.imagen"
-              :alt="principal.nombre"
-              class="h-14 w-auto object-contain max-w-[180px] drop-shadow"
+              v-for="(p, i) in oficiales"
+              :key="p.id || i"
+              :src="p.imagen"
+              :alt="p.nombre"
+              class="h-[90px] w-auto object-contain max-w-[90px]"
             />
           </div>
-          <div v-if="oficiales.length" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-cream/70 uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
-            <div class="flex flex-wrap items-center justify-center gap-6 max-w-[320px]">
-              <img
-                v-for="(p, i) in oficiales"
-                :key="p.id || i"
-                :src="p.imagen"
-                :alt="p.nombre"
-                class="h-14 w-auto object-contain max-w-[160px]"
-              />
-            </div>
-          </div>
-          <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-cream/70 uppercase tracking-wider text-center">Colaboradores</span>
-            <div class="grid grid-cols-5 items-center justify-items-center gap-4 max-w-[520px]">
+        </div>
+        <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
+          <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Colaboradores</span>
+<div class="grid grid-cols-5 items-center justify-items-center gap-4 max-w-[520px]">
               <img
                 v-for="(p, i) in colaboradores"
                 :key="p.id || i"
                 :src="p.imagen"
                 :alt="p.nombre"
-                class="h-12 w-auto object-contain max-w-[120px]"
+                class="h-[80px] w-auto object-contain max-w-[80px]"
               />
-            </div>
           </div>
         </div>
       </div>
-    </div>
+    </footer>
   </div>
 </template>

@@ -86,8 +86,8 @@ const tituloPagina = computed(() => {
 
 <template>
   <div class="min-h-screen flex bg-club-cream">
-    <aside class="w-64 bg-club-green text-club-cream flex flex-col shrink-0">
-      <div class="flex items-center gap-3 px-5 py-5 border-b border-white/10">
+    <aside class="w-64 bg-club-cream text-club-green flex flex-col shrink-0 border-r border-slate-200">
+      <div class="flex items-center gap-3 px-5 py-5 border-b border-slate-200">
         <img
           src="/escudo.png"
           alt="Escudo Atlético Palma del Río"
@@ -106,8 +106,8 @@ const tituloPagina = computed(() => {
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg text-club-cream/80 hover:bg-white/10 hover:text-club-cream transition-colors"
-          active-class="!bg-white/10 !text-club-cream border-l-2 border-club-gold"
+          class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg text-club-green/70 hover:bg-club-green hover:text-club-cream transition-colors"
+          active-class="!bg-club-green !text-club-cream border-l-2 border-club-gold"
         >
           <i :class="item.icon" />
           <span>{{ item.label }}</span>
@@ -132,37 +132,37 @@ const tituloPagina = computed(() => {
         <router-view />
       </main>
 
-      <footer v-if="patrocinadores.length" class="bg-club-green border-t border-white/10 px-6 py-4">
+      <footer v-if="patrocinadores.length" class="bg-club-cream px-6 py-4">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           <div v-if="principal" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-cream/80 uppercase tracking-wider text-center">Patrocinador Principal</span>
+            <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinador Principal</span>
             <img
               :src="principal.imagen"
               :alt="principal.nombre"
-              class="h-14 w-auto object-contain max-w-[180px] drop-shadow"
+              class="h-[140px] w-auto object-contain max-w-[140px] drop-shadow"
             />
           </div>
           <div v-if="oficiales.length" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-cream/80 uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
+            <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
             <div class="flex flex-wrap items-center justify-center gap-6 max-w-[320px]">
               <img
                 v-for="(p, i) in oficiales"
                 :key="p.id || i"
                 :src="p.imagen"
                 :alt="p.nombre"
-                class="h-14 w-auto object-contain max-w-[160px]"
+                class="h-[90px] w-auto object-contain max-w-[90px]"
               />
             </div>
           </div>
           <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-cream/80 uppercase tracking-wider text-center">Colaboradores</span>
+            <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Colaboradores</span>
             <div class="grid grid-cols-5 items-center justify-items-center gap-4 max-w-[520px]">
               <img
                 v-for="(p, i) in colaboradores"
                 :key="p.id || i"
                 :src="p.imagen"
                 :alt="p.nombre"
-                class="h-12 w-auto object-contain max-w-[120px]"
+                class="h-[80px] w-auto object-contain max-w-[80px]"
               />
             </div>
           </div>

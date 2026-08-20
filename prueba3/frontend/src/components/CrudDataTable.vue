@@ -93,7 +93,7 @@ function onColumnReorder({ dragIndex, dropIndex }) {
   guardarOrden();
 }
 
-const MAX_FOTO_SIZE = 5 * 1024 * 1024;
+const MAX_FOTO_SIZE = 1 * 1024 * 1024;
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -275,7 +275,7 @@ function onFotoInput(field, event) {
     return;
   }
   if (file.size > MAX_FOTO_SIZE) {
-    toast.add({ severity: 'error', summary: 'Archivo demasiado grande', detail: 'La foto debe pesar 5 MB como máximo.', life: 4000 });
+    toast.add({ severity: 'error', summary: 'Archivo demasiado grande', detail: 'La foto debe pesar 1 MB como máximo.', life: 4000 });
     event.target.value = '';
     return;
   }
@@ -549,28 +549,38 @@ watch(
   <div>
     <ConfirmDialog />
 
-    <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-      <h1 class="font-display text-xl text-club-green flex items-center gap-2">
-        <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
-        {{ title }}
-      </h1>
+    <div class="mb-4">
+      <div class="flex items-end justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3">
+          <h1 class="font-display text-xl text-club-green flex items-center gap-2">
+            <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
+            {{ title }}
+          </h1>
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-club-green/10 text-club-green text-xs font-semibold">
+            <i class="pi pi-database text-[11px]"></i>
+            {{ items.length }} {{ items.length === 1 ? 'registro' : 'registros' }}
+          </span>
+        </div>
 
-      <div class="flex items-center gap-2">
-        <Button
-          v-if="permisoEliminar && seleccionados.length"
-          :label="`Eliminar seleccionados (${seleccionados.length})`"
-          icon="pi pi-trash"
-          severity="danger"
-          outlined
-          @click="eliminarSeleccionados"
-        />
-        <IconField>
-          <InputIcon class="pi pi-search" />
-          <InputText v-model="filtroGlobal" placeholder="Buscar..." />
-        </IconField>
-        <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
-                class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+        <div class="flex items-center gap-2">
+          <Button
+            v-if="permisoEliminar && seleccionados.length"
+            :label="`Eliminar seleccionados (${seleccionados.length})`"
+            icon="pi pi-trash"
+            severity="danger"
+            outlined
+            class="!text-club-garnet !border-club-garnet/50 hover:!bg-club-garnet/5"
+            @click="eliminarSeleccionados"
+          />
+          <IconField>
+            <InputIcon class="pi pi-search" />
+            <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
+          </IconField>
+          <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight !shadow-sm" />
+        </div>
       </div>
+      <div class="mt-3 h-px bg-slate-200"></div>
     </div>
 
     <DataTable
@@ -583,8 +593,14 @@ watch(
       reorderableColumns
       @column-reorder="onColumnReorder"
       paginator :rows="10" :rowsPerPageOptions="[10, 20, 50]"
-      stripedRows responsiveLayout="scroll"
-      class="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200"
+      rowHover stripedRows
+      class="ar-datatable bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200"
+      :pt="{
+        header: { class: 'ar-dt-header !bg-white' },
+        rowgroupfooter: { class: '!bg-club-cream' },
+        footer: { class: '!bg-club-cream' },
+        paginator: { class: 'ar-dt-paginator !bg-white' }
+      }"
     >
       <Column v-if="permisoEliminar" selectionMode="multiple" headerStyle="width: 3rem" frozen :reorderableColumn="false" />
       <Column v-for="col in columnas" :key="col.field" :field="col.field" :header="col.header" sortable>
@@ -597,21 +613,27 @@ watch(
         </template>
       </Column>
 
-      <Column header="Acciones" style="width: 150px">
+      <Column header="Acciones" style="width: 150px" :pt="{ bodyCell: { class: 'ar-dt-acciones' } }">
+        <template #header>
+          <div class="text-right">Acciones</div>
+        </template>
         <template #body="{ data }">
-          <div class="flex gap-1">
-            <Button icon="pi pi-search" text rounded severity="info" v-tooltip.top="'Ver detalle'"
-                    @click="abrirDetalle(data)" />
+          <div class="flex gap-1 justify-end">
+            <Button icon="pi pi-eye" text rounded severity="secondary" v-tooltip.top="'Ver detalle'"
+                    class="ar-dt-btn" @click="abrirDetalle(data)" />
             <Button v-if="permisoEditar" icon="pi pi-pencil" text rounded severity="secondary" v-tooltip.top="'Editar'"
-                    @click="abrirEdicion(data)" />
+                    class="ar-dt-btn" @click="abrirEdicion(data)" />
             <Button v-if="permisoEliminar" icon="pi pi-trash" text rounded severity="danger" v-tooltip.top="'Eliminar'"
-                    @click="confirmarEliminar(data)" />
+                    class="ar-dt-btn" @click="confirmarEliminar(data)" />
           </div>
         </template>
       </Column>
 
       <template #empty>
-        <div class="text-center text-slate-400 py-6">No hay registros todavía.</div>
+        <div class="text-center text-slate-400 py-8">
+          <i class="pi pi-inbox text-2xl block mb-2"></i>
+          No hay registros todavía.
+        </div>
       </template>
     </DataTable>
 
@@ -661,7 +683,7 @@ watch(
               />
               <span
                 class="absolute left-0 right-0 text-center font-bold"
-                style="top: 42%; transform: translateY(-50%); color: #1d4ed8; font-size: 60px;"
+                style="top: 42%; transform: translateY(-50%); color: #003d93; font-size: 60px;"
               >
                 <template v-if="form[col.field] != null && form[col.field] !== ''">{{ form[col.field] }}</template>
               </span>
@@ -768,6 +790,81 @@ watch(
 </template>
 
 <style>
+/* ===== DataTable profesional ===== */
+.ar-datatable .p-datatable-header {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+}
+.ar-datatable .p-datatable-thead > tr > th,
+.ar-datatable .p-datatable-thead > tr > td {
+  background: #EAF1EE !important;
+  border-color: #d5e2dc !important;
+  color: #0B3D2E !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+.ar-datatable .p-datatable-tbody > tr {
+  transition: background-color 0.12s ease;
+}
+.ar-datatable .p-datatable-tbody > tr > td {
+  border-color: #f1f5f9 !important;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  color: #1e293b;
+  font-size: 0.86rem;
+}
+.ar-datatable .p-datatable-tbody > tr.ar-dt-row-selected,
+.ar-datatable .p-datatable-tbody > tr.p-highlight {
+  background: #eef2f7 !important;
+}
+.ar-datatable .p-paginator {
+  border-top: 1px solid #e2e8f0;
+  padding: 0.6rem 1rem;
+  justify-content: flex-end;
+  gap: 0.15rem;
+}
+.ar-datatable .p-paginator .p-paginator-current {
+  margin-right: auto;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+.ar-datatable .p-paginator .p-paginator-page,
+.ar-datatable .p-paginator .p-paginator-first,
+.ar-datatable .p-paginator .p-paginator-prev,
+.ar-datatable .p-paginator .p-paginator-next,
+.ar-datatable .p-paginator .p-paginator-last {
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  color: #475569;
+  font-size: 0.85rem;
+}
+.ar-datatable .p-paginator .p-paginator-page.p-highlight {
+  background: #0B3D2E !important;
+  color: #fff !important;
+}
+.ar-datatable .p-datatable-footer {
+  border-top: 1px solid #e2e8f0;
+}
+.ar-dt-acciones {
+  text-align: right;
+}
+.ar-dt-btn {
+  color: #64748b !important;
+}
+.ar-dt-btn:hover {
+  background: #eef2f7 !important;
+  color: #0B3D2E !important;
+}
+.ar-dt-btn.p-button-danger:hover {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+}
+
 /* Foto */
 .ar-foto-mini {
   width: 2.5rem;
