@@ -129,6 +129,18 @@ const routes = [
         name: 'patrocinadores',
         component: () => import('../views/patrocinadores/Patrocinadores.vue'),
         meta: { seccion: 'patrocinadores' }
+      },
+      {
+        path: 'categoria-calendario',
+        name: 'categoria-calendario',
+        component: () => import('../views/categoriaCalendario/CategoriaCalendario.vue'),
+        meta: { seccion: 'categoria_calendario' }
+      },
+      {
+        path: 'sanciones',
+        name: 'sanciones',
+        component: () => import('../views/sanciones/Sanciones.vue'),
+        meta: { seccion: 'sanciones' }
       }
     ]
   },

@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { EntrenamientoSemanal, Entrenamiento, Partido, Categoria, Lugar, Equipo } = require('../models');
+const { EntrenamientoSemanal, Entrenamiento, Partido, Categoria, Lugar, Equipo, Jornada, Resultado } = require('../models');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos (desde
@@ -65,7 +65,12 @@ async function eventos(req, res, next) {
       }
       const includesPartido = [
         ...includesCategoria,
-        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo'] }
+        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
+        { model: Jornada, as: 'jornada', attributes: ['id', 'jornada'], include: [
+          { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
+          { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] }
+        ] },
+        { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
       ];
       promesas.push(
         Partido.findAll({ where: wherePartido, include: includesPartido })
@@ -111,7 +116,11 @@ async function eventos(req, res, next) {
         es_local: esLocal,
         equipo: p.equipo,
         incidencias: p.incidencias,
-        categoria: p.categoria
+        categoria: p.categoria,
+        jornada: p.jornada ? p.jornada.jornada : null,
+        equipoLocal: p.jornada?.equipoLocal || null,
+        equipoVisitante: p.jornada?.equipoVisitante || null,
+        resultado: p.Resultados?.[0]?.resultado || null
       };
     });
 

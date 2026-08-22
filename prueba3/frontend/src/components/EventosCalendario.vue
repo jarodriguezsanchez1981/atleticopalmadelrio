@@ -45,6 +45,60 @@ const formVisible = ref(false);
 const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
+
+const golesLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
+  const partes = e.resultado.split('-');
+  if (partes.length !== 2) return '—';
+  return e.es_local ? partes[0].trim() : partes[1].trim();
+});
+
+const golesVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
+  const partes = e.resultado.split('-');
+  if (partes.length !== 2) return '—';
+  return e.es_local ? partes[1].trim() : partes[0].trim();
+});
+
+const nombreLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '';
+  if (e.equipoLocal?.nombre) return e.equipoLocal.nombre;
+  return e.es_local ? 'PALMA DEL RIO ATLETICO C.F.' : (e.equipo?.nombre || '');
+});
+
+const nombreVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '';
+  if (e.equipoVisitante?.nombre) return e.equipoVisitante.nombre;
+  return e.es_local ? (e.equipo?.nombre || '') : 'PALMA DEL RIO ATLETICO C.F.';
+});
+
+const escudoLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '/escudo.png';
+  if (e.equipoLocal?.escudo) return e.equipoLocal.escudo;
+  return e.es_local ? '/escudo.png' : (e.equipo?.escudo || '/escudo.png');
+});
+
+const escudoVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '/escudo.png';
+  if (e.equipoVisitante?.escudo) return e.equipoVisitante.escudo;
+  return e.es_local ? (e.equipo?.escudo || '/escudo.png') : '/escudo.png';
+});
+
+const lugarPartido = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '—';
+  if (!e.es_local) {
+    if (e.equipoLocal?.localidad) return e.equipoLocal.localidad;
+    if (e.equipo?.localidad) return e.equipo.localidad;
+  }
+  return e.lugar || '—';
+});
 const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
 const pdfSemana = ref(new Date());
@@ -434,6 +488,13 @@ function formatearFecha(fecha) {
   });
 }
 
+function formatearFechaCorta(fecha) {
+  if (!fecha) return '—';
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return String(fecha);
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function etiquetaTipo(tipo) {
   if (tipo === 'partido') return 'Partido';
   if (tipo === 'festivo') return 'Festivo nacional';
@@ -504,54 +565,57 @@ onBeforeUnmount(() => {
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
-          <span class="font-display text-club-green text-lg">Detalle del evento</span>
+          <span class="font-display text-club-green text-lg">{{ eventoSeleccionado?.categoria?.nombre || 'Detalle del evento' }}</span>
         </div>
       </template>
 
       <div v-if="eventoSeleccionado" class="space-y-3">
+        <template v-if="eventoSeleccionado.tipo === 'partido'">
+          <div class="grid grid-cols-4 gap-2 text-center pb-2 border-b border-slate-100">
+            <div>
+              <p class="text-xs text-slate-400 font-medium uppercase">Fecha</p>
+              <p class="text-sm text-slate-700">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 font-medium uppercase">Hora</p>
+              <p class="text-sm text-slate-700">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 font-medium uppercase">Lugar</p>
+              <p class="text-sm text-slate-700">{{ lugarPartido }}</p>
+            </div>
+            <div>
+              <p v-if="eventoSeleccionado.jornada" class="text-xs text-slate-400 font-medium uppercase">Jornada</p>
+              <p v-if="eventoSeleccionado.jornada" class="text-sm text-slate-700">{{ eventoSeleccionado.jornada }}</p>
+              <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                <i class="pi pi-handshake"></i> Amistoso
+              </span>
+            </div>
+          </div>
+        </template>
+
         <div
-          v-if="eventoSeleccionado.tipo === 'partido' && eventoSeleccionado.equipo"
-          class="flex items-center justify-center gap-4 py-3"
+          v-if="eventoSeleccionado.tipo === 'partido'"
+          class="flex flex-col gap-2 py-3"
         >
-          <div class="flex flex-col items-center gap-1.5">
-            <img :src="eventoSeleccionado.es_local ? '/escudo.png' : (eventoSeleccionado.equipo.escudo || '/escudo.png')"
-                 alt="Escudo"
-                 class="w-20 h-20 object-contain" />
-            <span class="text-xs font-medium text-slate-600 text-center">
-              {{ eventoSeleccionado.es_local ? 'Atlético Palma' : eventoSeleccionado.equipo.nombre }}
-            </span>
+          <div class="grid grid-cols-[80px_1fr_60px] items-center gap-3">
+            <div class="flex justify-center">
+              <img :src="escudoLocal" alt="Escudo" class="w-16 h-16 object-contain" />
+            </div>
+            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreLocal }}</span>
+            <span class="text-center text-lg font-bold text-club-green">{{ golesLocal }}</span>
           </div>
 
-          <span class="text-lg font-display text-slate-400">VS</span>
-
-          <div class="flex flex-col items-center gap-1.5">
-            <img :src="eventoSeleccionado.es_local ? (eventoSeleccionado.equipo.escudo || '/escudo.png') : '/escudo.png'"
-                 alt="Escudo"
-                 class="w-20 h-20 object-contain" />
-            <span class="text-xs font-medium text-slate-600 text-center">
-              {{ eventoSeleccionado.es_local ? eventoSeleccionado.equipo.nombre : 'Atlético Palma' }}
-            </span>
+          <div class="grid grid-cols-[80px_1fr_60px] items-center gap-3">
+            <div class="flex justify-center">
+              <img :src="escudoVisitante" alt="Escudo" class="w-16 h-16 object-contain" />
+            </div>
+            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreVisitante }}</span>
+            <span class="text-center text-lg font-bold text-club-green">{{ golesVisitante }}</span>
           </div>
         </div>
 
-        <Tag
-          :severity="severidadTipo(eventoSeleccionado.tipo)"
-          :value="etiquetaTipo(eventoSeleccionado.tipo)"
-        />
-        <h3 class="font-display text-lg text-club-green">{{ eventoSeleccionado.titulo }}</h3>
         <div class="text-sm text-slate-600 space-y-1.5">
-          <p><i class="pi pi-calendar mr-2"></i>{{ formatearFecha(eventoSeleccionado.inicio) }}</p>
-          <p v-if="eventoSeleccionado.lugar">
-            <i class="pi pi-map-marker mr-2"></i>{{ eventoSeleccionado.lugar }}
-          </p>
-          <p v-if="eventoSeleccionado.categoria">
-            <i class="pi pi-sitemap mr-2"></i>
-            {{ eventoSeleccionado.categoria.nombre }}
-            ({{ eventoSeleccionado.categoria.temporada?.nombre || '' }})
-          </p>
-          <p v-if="eventoSeleccionado.equipo">
-            <i class="pi pi-flag mr-2"></i>Rival: {{ eventoSeleccionado.equipo.nombre }}
-          </p>
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>
@@ -646,6 +710,16 @@ onBeforeUnmount(() => {
 }
 .calendario-club .fc-partido-alias {
   font-weight: 500;
+}
+.calendario-club .fc-amistoso-badge {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 .calendario-club .fc-partido-lugar {
   font-weight: 400;

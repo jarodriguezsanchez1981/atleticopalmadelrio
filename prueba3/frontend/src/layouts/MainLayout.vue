@@ -61,6 +61,8 @@ const ALL_NAV = [
   { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
   { label: 'Roles', icon: 'pi pi-shield', to: '/roles', seccion: 'roles' },
   { label: 'Patrocinadores', icon: 'pi pi-briefcase', to: '/patrocinadores', seccion: 'patrocinadores' },
+  { label: 'Jornadas', icon: 'pi pi-calendar-plus', to: '/categoria-calendario', seccion: 'categoria_calendario' },
+  { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' },
   { label: 'Administración', icon: 'pi pi-cog', to: '/administracion', seccion: 'administracion' }
 ];
 
@@ -156,7 +158,7 @@ const tituloPagina = computed(() => {
           </div>
           <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
             <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Colaboradores</span>
-            <div class="grid grid-cols-5 items-center justify-items-center gap-4 max-w-[520px]">
+            <div class="grid grid-cols-5 items-center justify-items-center gap-1 max-w-[520px]">
               <img
                 v-for="(p, i) in colaboradores"
                 :key="p.id || i"

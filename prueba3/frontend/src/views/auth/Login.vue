@@ -66,7 +66,7 @@ async function onSubmit() {
 
 <template>
   <div class="min-h-screen w-full flex flex-col bg-club-cream">
-    <div class="flex-1 flex items-center justify-center px-4">
+    <div class="flex-1 flex items-center justify-center px-4 pb-56">
       <div class="w-full max-w-sm">
       <!-- Escudo del club, centrado -->
       <div class="flex flex-col items-center mb-8">
@@ -122,7 +122,7 @@ async function onSubmit() {
       </div>
     </div>
 
-    <footer v-if="patrocinadores.length" class="bg-club-cream px-6 py-4">
+    <footer v-if="patrocinadores.length" class="fixed bottom-0 left-0 w-full bg-club-cream px-6 py-4">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         <div v-if="principal" class="flex flex-col items-center gap-3">
           <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinador Principal</span>
@@ -146,7 +146,7 @@ async function onSubmit() {
         </div>
         <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
           <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Colaboradores</span>
-<div class="grid grid-cols-5 items-center justify-items-center gap-4 max-w-[520px]">
+<div class="grid grid-cols-5 items-center justify-items-center gap-1 max-w-[520px]">
               <img
                 v-for="(p, i) in colaboradores"
                 :key="p.id || i"

@@ -35,7 +35,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 4000
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://intranet.atleticopalmadelrio.com,https://intranet.atleticopalmadelrio.com,https://localhost}
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
@@ -82,8 +82,23 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    expose:
+      - "80"
+    networks:
+      - apr_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: apr_nginx
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
     networks:
       - apr_net
 

@@ -38,6 +38,8 @@ export const equiposService = crudService('equipos');
 export const incidenciasService = crudService('incidencias');
 export const resultadosService = crudService('resultados');
 export const patrocinadoresService = crudService('patrocinadores');
+export const categoriaCalendarioService = crudService('jornadas');
+export const sancionesService = crudService('sanciones');
 
 export const authService = {
   login: (usuario, password) => api.post('/auth/login', { usuario, password }).then(r => r.data),

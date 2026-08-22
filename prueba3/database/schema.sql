@@ -36,6 +36,8 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('entrenadores', 'Entrenadores', 'pi pi-id-card', 80),
   ('roles', 'Roles', 'pi pi-shield', 95),
   ('patrocinadores', 'Patrocinadores', 'pi pi-briefcase', 97),
+  ('categoria_calendario', 'Jornadas', 'pi pi-calendar-plus', 98),
+  ('sanciones', 'Sanciones', 'pi pi-ban', 99),
   ('administracion', 'Administración', 'pi pi-user-cog', 100);
 
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -163,6 +165,24 @@ CREATE TABLE IF NOT EXISTS equipos (
   UNIQUE KEY uq_equipos_nombre (nombre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS jornadas (
+  id                INT AUTO_INCREMENT,
+  id_temporada      INT NOT NULL,
+  id_categoria      INT NOT NULL,
+  id_equipo_local   INT NOT NULL,
+  id_equipo_visitante INT NOT NULL,
+  jornada           INT NOT NULL,
+  fecha             DATE NOT NULL,
+  hora              TIME NULL,
+  created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_jornadas_temporada FOREIGN KEY (id_temporada) REFERENCES temporadas(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_jornadas_categoria FOREIGN KEY (id_categoria) REFERENCES categorias(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_jornadas_equipo_local FOREIGN KEY (id_equipo_local) REFERENCES equipos(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_jornadas_equipo_visitante FOREIGN KEY (id_equipo_visitante) REFERENCES equipos(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS jugadores (
   id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL,
@@ -245,6 +265,7 @@ CREATE TABLE IF NOT EXISTS partidos (
   id_categoria  INT NOT NULL,
   fecha         DATETIME NOT NULL,
   id_lugar      INT NULL,
+  id_jornada    INT NULL,
   id_equipo     INT NOT NULL,
   es_local      TINYINT(1) NOT NULL DEFAULT 1,
   id_usuario    INT NULL,
@@ -253,6 +274,7 @@ CREATE TABLE IF NOT EXISTS partidos (
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_partidos_categoria FOREIGN KEY (id_categoria) REFERENCES categorias(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_partidos_lugar FOREIGN KEY (id_lugar) REFERENCES lugares(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_partidos_jornada FOREIGN KEY (id_jornada) REFERENCES jornadas(id) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_partidos_equipo FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_partidos_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -302,6 +324,18 @@ CREATE TABLE IF NOT EXISTS patrocinadores (
   orden       INT NOT NULL UNIQUE,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS sanciones (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  id_partido      INT NOT NULL,
+  id_jugador      INT NOT NULL,
+  amarilla        INT NOT NULL DEFAULT 0,
+  roja            INT NOT NULL DEFAULT 0,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_sanciones_partido FOREIGN KEY (id_partido) REFERENCES partidos(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_sanciones_jugador FOREIGN KEY (id_jugador) REFERENCES jugadores(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS incidencias (
@@ -360,3 +394,8 @@ CREATE INDEX idx_pj_jugador  ON partidos_jugadores(id_jugador);
 CREATE INDEX idx_etj_entrenamiento ON entrenamientos_jugadores(id_entrenamiento);
 CREATE INDEX idx_etj_jugador ON entrenamientos_jugadores(id_jugador);
 CREATE INDEX idx_resultados_partido ON resultados(id_partido);
+CREATE INDEX idx_jornadas_categoria ON jornadas(id_categoria);
+CREATE INDEX idx_jornadas_fecha ON jornadas(fecha);
+CREATE INDEX idx_jornadas_jornada ON jornadas(jornada);
+CREATE INDEX idx_sanciones_partido ON sanciones(id_partido);
+CREATE INDEX idx_sanciones_jugador ON sanciones(id_jugador);

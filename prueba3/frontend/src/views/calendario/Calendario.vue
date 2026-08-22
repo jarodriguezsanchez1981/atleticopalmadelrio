@@ -11,7 +11,6 @@ import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
-import Tag from 'primevue/tag';
 import Button from 'primevue/button';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
@@ -42,6 +41,60 @@ const opcionesCategoria = computed(() => [
   ...categorias.value.map(c => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 ]);
+
+const golesLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
+  const partes = e.resultado.split('-');
+  if (partes.length !== 2) return '—';
+  return e.es_local ? partes[0].trim() : partes[1].trim();
+});
+
+const golesVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
+  const partes = e.resultado.split('-');
+  if (partes.length !== 2) return '—';
+  return e.es_local ? partes[1].trim() : partes[0].trim();
+});
+
+const nombreLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '';
+  if (e.equipoLocal?.nombre) return e.equipoLocal.nombre;
+  return e.es_local ? 'PALMA DEL RIO ATLETICO C.F.' : (e.equipo?.nombre || '');
+});
+
+const nombreVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '';
+  if (e.equipoVisitante?.nombre) return e.equipoVisitante.nombre;
+  return e.es_local ? (e.equipo?.nombre || '') : 'PALMA DEL RIO ATLETICO C.F.';
+});
+
+const escudoLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '/escudo.png';
+  if (e.equipoLocal?.escudo) return e.equipoLocal.escudo;
+  return e.es_local ? '/escudo.png' : (e.equipo?.escudo || '/escudo.png');
+});
+
+const escudoVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '/escudo.png';
+  if (e.equipoVisitante?.escudo) return e.equipoVisitante.escudo;
+  return e.es_local ? (e.equipo?.escudo || '/escudo.png') : '/escudo.png';
+});
+
+const lugarPartido = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '—';
+  if (!e.es_local) {
+    if (e.equipoLocal?.localidad) return e.equipoLocal.localidad;
+    if (e.equipo?.localidad) return e.equipo.localidad;
+  }
+  return e.lugar || '—';
+});
 
 const COLOR_ENTRENAMIENTO = '#0B3D2E';
 const COLOR_PARTIDO = '#7A1E2B';
@@ -159,6 +212,13 @@ function formatearHora(fecha) {
   return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function formatearFechaCorta(fecha) {
+  if (!fecha) return '—';
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return String(fecha);
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -243,25 +303,6 @@ const calendarOptions = {
 onMounted(async () => {
   categorias.value = await categoriasService.listar();
 });
-
-function formatearFecha(fecha) {
-  if (!fecha) return '—';
-  const d = new Date(fecha);
-  if (Number.isNaN(d.getTime())) return String(fecha);
-  // Si es solo fecha (festivo all-day), sin hora
-  if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-    return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  return d.toLocaleString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-}
 </script>
 
 <template>
@@ -302,43 +343,82 @@ function formatearFecha(fecha) {
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
-          <span class="font-display text-club-green text-lg">Detalle del evento</span>
+          <span class="font-display text-club-green text-lg">{{ eventoSeleccionado?.categoria?.nombre || 'Detalle del evento' }}</span>
         </div>
       </template>
 
       <div v-if="eventoSeleccionado" class="space-y-3">
-        <Tag
-          :severity="eventoSeleccionado.tipo === 'partido' ? 'danger' : (eventoSeleccionado.tipo === 'festivo' ? 'warn' : 'success')"
-          :value="eventoSeleccionado.tipo === 'partido' ? 'Partido' : (eventoSeleccionado.tipo === 'festivo' ? 'Festivo nacional' : 'Entrenamiento')"
-        />
+        <template v-if="eventoSeleccionado.tipo === 'partido'">
+          <div class="grid grid-cols-4 gap-2 text-center pb-2 border-b border-slate-100">
+            <div>
+              <p class="text-xs text-slate-400 font-medium uppercase">Fecha</p>
+              <p class="text-sm text-slate-700">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 font-medium uppercase">Hora</p>
+              <p class="text-sm text-slate-700">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 font-medium uppercase">Lugar</p>
+              <p class="text-sm text-slate-700">{{ lugarPartido }}</p>
+            </div>
+            <div>
+              <p v-if="eventoSeleccionado.jornada" class="text-xs text-slate-400 font-medium uppercase">Jornada</p>
+              <p v-if="eventoSeleccionado.jornada" class="text-sm text-slate-700">{{ eventoSeleccionado.jornada }}</p>
+              <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                <i class="pi pi-handshake"></i> Amistoso
+              </span>
+            </div>
+          </div>
+        </template>
 
-        <h3 class="font-display text-lg text-club-green">{{ eventoSeleccionado.titulo }}</h3>
+        <div
+          v-if="eventoSeleccionado.tipo === 'partido'"
+          class="flex flex-col gap-2 py-3"
+        >
+          <div class="grid grid-cols-[80px_1fr_60px] items-center gap-3">
+            <div class="flex justify-center">
+              <img :src="escudoLocal" alt="Escudo" class="w-16 h-16 object-contain" />
+            </div>
+            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreLocal }}</span>
+            <span class="text-center text-lg font-bold text-club-green">{{ golesLocal }}</span>
+          </div>
+
+          <div class="grid grid-cols-[80px_1fr_60px] items-center gap-3">
+            <div class="flex justify-center">
+              <img :src="escudoVisitante" alt="Escudo" class="w-16 h-16 object-contain" />
+            </div>
+            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreVisitante }}</span>
+            <span class="text-center text-lg font-bold text-club-green">{{ golesVisitante }}</span>
+          </div>
+        </div>
 
         <div class="text-sm text-slate-600 space-y-1.5">
-          <p><i class="pi pi-calendar mr-2"></i>{{ formatearFecha(eventoSeleccionado.inicio) }}</p>
-          <p v-if="eventoSeleccionado.lugar">
-            <i class="pi pi-map-marker mr-2"></i>{{ eventoSeleccionado.lugar }}
-          </p>
-          <p v-if="eventoSeleccionado.categoria">
-            <i class="pi pi-sitemap mr-2"></i>
-            {{ eventoSeleccionado.categoria.nombre }}
-            ({{ eventoSeleccionado.categoria.temporada?.nombre || '' }})
-          </p>
-          <p v-if="eventoSeleccionado.equipo">
-            <i class="pi pi-flag mr-2"></i>Rival: {{ eventoSeleccionado.equipo.nombre }}
-          </p>
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>
         </div>
 
-        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-          <template
-            v-if="eventoSeleccionado.tipo !== 'festivo' && auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
-          >
-            <Button label="Editar" icon="pi pi-pencil" text severity="secondary" @click="editarEvento" />
-            <Button label="Eliminar" icon="pi pi-trash" text severity="danger" @click="eliminarEvento" />
-          </template>
+        <div
+          v-if="eventoSeleccionado.tipo !== 'festivo'"
+          class="flex justify-end gap-2 pt-2 border-t border-slate-100"
+        >
+          <Button
+            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos') && auth.puedeEditar()"
+            label="Editar"
+            icon="pi pi-pencil"
+            text
+            severity="secondary"
+            @click="editarEvento"
+          />
+          <Button
+            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos') && auth.puedeEliminar()"
+            label="Eliminar"
+            icon="pi pi-trash"
+            text
+            severity="danger"
+            @click="eliminarEvento"
+          />
         </div>
       </div>
     </Dialog>

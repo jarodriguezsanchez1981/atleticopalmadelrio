@@ -613,7 +613,7 @@ watch(
         </template>
       </Column>
 
-      <Column header="Acciones" style="width: 150px" :pt="{ bodyCell: { class: 'ar-dt-acciones' } }">
+      <Column style="width: 150px" :pt="{ bodyCell: { class: 'ar-dt-acciones' } }">
         <template #header>
           <div class="text-right">Acciones</div>
         </template>
@@ -728,6 +728,13 @@ watch(
                   :options="resolveOptions(col)" optionLabel="label" optionValue="value" class="w-full"
                   placeholder="Selecciona una opción" showClear />
 
+          <DatePicker v-else-if="col.type === 'date'" :id="col.field" v-model="form[col.field]"
+                      dateFormat="dd/mm/yy" class="w-full"
+                      :showTime="false" :pt="datePickerPt"
+                      @show="onDatePickerShow(col.field)"
+                      @month-change="onDatePickerMonthYearChange(col.field)"
+                      :ref="(el) => setDatePickerRef(col.field, el)" />
+
 <MultiSelect
             v-else-if="col.type === 'multiselect'"
             :id="col.field"
@@ -804,8 +811,8 @@ watch(
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding-top: 0.7rem;
-  padding-bottom: 0.7rem;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
 }
 .ar-datatable .p-datatable-tbody > tr {
   transition: background-color 0.12s ease;

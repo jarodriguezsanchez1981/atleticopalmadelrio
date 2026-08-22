@@ -407,10 +407,6 @@ function validar() {
     toast.add({ severity: 'error', summary: 'Error', detail: 'El equipo es obligatorio.', life: 4000 });
     return false;
   }
-  if (props.tipo === 'partido' && form.value.es_local && !form.value.id_lugar) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'El lugar es obligatorio en partidos como local.', life: 4000 });
-    return false;
-  }
   const conflicto = props.tipo === 'partido' ? partidoEnConflicto() : null;
   if (conflicto) {
     toast.add({
@@ -657,7 +653,7 @@ async function guardar() {
           </SelectButton>
         </div>
         <div v-if="form.es_local" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Lugar <span class="text-club-garnet">*</span></label>
+          <label class="text-sm font-medium text-slate-600">Lugar</label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />

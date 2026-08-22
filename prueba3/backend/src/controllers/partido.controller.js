@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Categoria, Temporada, Lugar, Equipo, PartidoJugador, Jugador, Resultado } = require('../models');
+const { Partido, Categoria, Temporada, Lugar, Equipo, PartidoJugador, Jugador, Resultado, Jornada } = require('../models');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 
@@ -30,6 +30,7 @@ const includesBase = [
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },
+  { model: Jornada, as: 'jornada', attributes: ['id', 'jornada', 'fecha'] },
   {
     model: PartidoJugador,
     as: 'convocados',
@@ -154,13 +155,10 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
+    const { id_categoria, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
     const esLocal = es_local !== undefined ? !!es_local : true;
     if (!id_categoria || !fecha || !id_equipo) {
       return res.status(400).json({ message: 'Categoría, fecha y equipo son obligatorios.' });
-    }
-    if (esLocal && !id_lugar) {
-      return res.status(400).json({ message: 'El lugar es obligatorio para partidos como local.' });
     }
     if (await existePartidoDia(id_categoria, fecha)) {
       return res.status(409).json({ message: 'Esta categoría ya tiene un partido ese día.' });
@@ -174,7 +172,7 @@ async function crear(req, res, next) {
       return res.status(409).json({ message: 'Ese lugar ya está ocupado a esa hora por otro partido.' });
     }
     const partido = await Partido.create({
-      id_categoria, fecha, id_lugar: esLocal ? id_lugar : null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
+      id_categoria, fecha, id_lugar: id_lugar || null, id_jornada: id_jornada || null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
     });
     const idsJugadores = normalizeIds(req.body.ids_jugadores);
     await guardarConvocados(partido.id, idsJugadores);
@@ -188,7 +186,7 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_categoria, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
+    const { id_categoria, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
     const esLocalFinal = es_local !== undefined ? !!es_local : !!partido.es_local;
     const idLugarFinal = esLocalFinal
       ? (id_lugar !== undefined ? id_lugar : partido.id_lugar)
@@ -221,6 +219,7 @@ async function actualizar(req, res, next) {
       if (!es_local) partido.id_lugar = null;
     }
     if (id_lugar !== undefined && esLocalFinal) partido.id_lugar = id_lugar;
+    if (id_jornada !== undefined) partido.id_jornada = id_jornada || null;
     if (id_equipo !== undefined) partido.id_equipo = id_equipo;
     if (incidencias !== undefined) partido.incidencias = incidencias;
     await partido.save();
