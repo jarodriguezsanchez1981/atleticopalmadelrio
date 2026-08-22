@@ -1,36 +1,12 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import { useAuthStore } from '../../stores/auth.store';
-import { patrocinadoresService } from '../../services';
-
-const patrocinadores = ref([]);
-const principal = computed(() =>
-  patrocinadores.value.find((p) => p.tipo === 'principal') ||
-  patrocinadores.value.find((p) => Number(p.orden) === 1) || null
-);
-const oficiales = computed(() =>
-  patrocinadores.value
-    .filter((p) => p.tipo === 'oficial')
-    .sort((a, b) => Number(a.orden) - Number(b.orden))
-);
-const colaboradores = computed(() =>
-  patrocinadores.value
-    .filter((p) => p.tipo === 'colaborador')
-    .sort((a, b) => Number(a.orden) - Number(b.orden))
-);
-
-onMounted(async () => {
-  try {
-    patrocinadores.value = await patrocinadoresService.listar();
-  } catch {
-    patrocinadores.value = [];
-  }
-});
+import FooterSponsors from '../../components/FooterSponsors.vue';
 
 const usuario = ref('');
 const password = ref('');
@@ -65,8 +41,8 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen w-full flex flex-col bg-club-cream">
-    <div class="flex-1 flex items-center justify-center px-4 pb-56">
+  <div class="h-screen w-full flex flex-col bg-club-cream overflow-hidden">
+    <div class="flex-1 flex items-center justify-center px-4 overflow-y-auto">
       <div class="w-full max-w-sm">
         <!-- Escudo del club, centrado -->
         <div class="flex flex-col items-center mb-8">
@@ -121,41 +97,6 @@ async function onSubmit() {
       </div>
     </div>
 
-    <footer v-if="patrocinadores.length" class="fixed bottom-0 left-0 w-full bg-white border-t border-line px-6 py-4">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        <div v-if="principal" class="flex flex-col items-center gap-2">
-          <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Patrocinador principal</span>
-          <img
-            :src="principal.imagen"
-            :alt="principal.nombre"
-            class="h-[120px] w-auto object-contain max-w-[120px]"
-          />
-        </div>
-        <div v-if="oficiales.length" class="flex flex-col items-center gap-2">
-          <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Patrocinadores oficiales</span>
-          <div class="flex flex-wrap items-center justify-center gap-4 max-w-[300px]">
-            <img
-              v-for="(p, i) in oficiales"
-              :key="p.id || i"
-              :src="p.imagen"
-              :alt="p.nombre"
-              class="h-[80px] w-auto object-contain max-w-[80px]"
-            />
-          </div>
-        </div>
-        <div v-if="colaboradores.length" class="flex flex-col items-center gap-2">
-          <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Colaboradores</span>
-          <div class="grid grid-cols-5 items-center justify-items-center gap-1 max-w-[480px]">
-            <img
-              v-for="(p, i) in colaboradores"
-              :key="p.id || i"
-              :src="p.imagen"
-              :alt="p.nombre"
-              class="h-[70px] w-auto object-contain max-w-[70px]"
-            />
-          </div>
-        </div>
-      </div>
-    </footer>
+    <FooterSponsors :with-border="false" />
   </div>
 </template>
