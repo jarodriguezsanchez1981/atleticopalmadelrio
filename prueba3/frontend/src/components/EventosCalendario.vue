@@ -405,7 +405,7 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
         lugar: p.lugar || null,
         categoria: p.categoria || null
       }));
-    await generarPdfPartidos(mapeados, `Partidos · ${fechaTitulo}`, tipoFutbol);
+    await generarPdfPartidos(mapeados, fechaTitulo, tipoFutbol);
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -526,7 +526,7 @@ onBeforeUnmount(() => {
           <img src="/escudo.png" alt="" class="w-6 h-6 object-contain" />
           {{ title }}
         </h2>
-        <p v-if="subtitle" class="text-sm text-slate-500">{{ subtitle }}</p>
+        <p v-if="subtitle" class="text-sm text-ink-tertiary">{{ subtitle }}</p>
       </div>
       <div class="flex items-center gap-2">
         <template v-if="!tipo || tipo === 'entrenamiento'">
@@ -557,7 +557,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm p-4 calendario-club" :style="{ '--fc-event-bg-color': colorPrincipal }">
+    <div class="bg-white rounded-xl  p-4 calendario-club" :style="{ '--fc-event-bg-color': colorPrincipal }">
       <FullCalendar ref="calendarRef" :options="calendarOptions" />
     </div>
 
@@ -571,22 +571,22 @@ onBeforeUnmount(() => {
 
       <div v-if="eventoSeleccionado" class="space-y-3">
         <template v-if="eventoSeleccionado.tipo === 'partido'">
-          <div class="grid grid-cols-4 gap-2 text-center pb-2 border-b border-slate-100">
+          <div class="grid grid-cols-4 gap-2 text-center pb-2 border-b border-line">
             <div>
-              <p class="text-xs text-slate-400 font-medium uppercase">Fecha</p>
-              <p class="text-sm text-slate-700">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
+              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
+              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
             </div>
             <div>
-              <p class="text-xs text-slate-400 font-medium uppercase">Hora</p>
-              <p class="text-sm text-slate-700">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
+              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
             </div>
             <div>
-              <p class="text-xs text-slate-400 font-medium uppercase">Lugar</p>
-              <p class="text-sm text-slate-700">{{ lugarPartido }}</p>
+              <p class="text-xs text-ink-tertiary font-medium">Lugar</p>
+              <p class="text-sm text-ink-secondary">{{ lugarPartido }}</p>
             </div>
             <div>
-              <p v-if="eventoSeleccionado.jornada" class="text-xs text-slate-400 font-medium uppercase">Jornada</p>
-              <p v-if="eventoSeleccionado.jornada" class="text-sm text-slate-700">{{ eventoSeleccionado.jornada }}</p>
+              <p v-if="eventoSeleccionado.jornada" class="text-xs text-ink-tertiary font-medium">Jornada</p>
+              <p v-if="eventoSeleccionado.jornada" class="text-sm text-ink-secondary">{{ eventoSeleccionado.jornada }}</p>
               <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
                 <i class="pi pi-handshake"></i> Amistoso
               </span>
@@ -602,7 +602,7 @@ onBeforeUnmount(() => {
             <div class="flex justify-center">
               <img :src="escudoLocal" alt="Escudo" class="w-16 h-16 object-contain" />
             </div>
-            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreLocal }}</span>
+            <span class="text-sm font-medium text-ink-secondary text-left">{{ nombreLocal }}</span>
             <span class="text-center text-lg font-bold text-club-green">{{ golesLocal }}</span>
           </div>
 
@@ -610,12 +610,12 @@ onBeforeUnmount(() => {
             <div class="flex justify-center">
               <img :src="escudoVisitante" alt="Escudo" class="w-16 h-16 object-contain" />
             </div>
-            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreVisitante }}</span>
+            <span class="text-sm font-medium text-ink-secondary text-left">{{ nombreVisitante }}</span>
             <span class="text-center text-lg font-bold text-club-green">{{ golesVisitante }}</span>
           </div>
         </div>
 
-        <div class="text-sm text-slate-600 space-y-1.5">
+        <div class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>
@@ -623,7 +623,7 @@ onBeforeUnmount(() => {
 
         <div
           v-if="eventoSeleccionado.tipo !== 'festivo'"
-          class="flex justify-end gap-2 pt-2 border-t border-slate-100"
+          class="flex justify-end gap-2 pt-2 border-t border-line"
         >
           <Button
             v-if="puedeEditarEvento(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos')"
@@ -662,18 +662,18 @@ onBeforeUnmount(() => {
       </template>
       <div class="flex flex-col gap-4 py-2">
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Elige la semana</label>
+          <label class="text-sm font-medium text-ink-secondary">Elige la semana</label>
           <DatePicker v-model="pdfSemana" dateFormat="dd/mm/yy" showIcon iconDisplay="input"
                       :manualInput="true" class="w-full" inputClass="w-full" />
         </div>
-        <p class="text-xs text-slate-500">
+        <p class="text-xs text-ink-tertiary">
           Se generará el PDF con los {{ tipo === 'entrenamiento' ? 'entrenamientos' : 'partidos' }} de la semana (lunes a domingo) que contiene la fecha elegida:
-          <span class="font-medium text-slate-700">
+          <span class="font-medium text-ink-secondary">
             {{ pdfSemana ? `${semanaDe(pdfSemana)?.inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${semanaDe(pdfSemana)?.fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '—' }}
           </span>
         </p>
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Tipo de fútbol</label>
+          <label class="text-sm font-medium text-ink-secondary">Tipo de fútbol</label>
           <Select v-model="pdfTipoFutbol" :options="OPCIONES_TIPO_FUTBOL" optionLabel="label" optionValue="value"
                   placeholder="Elige el tipo de fútbol" class="w-full" />
         </div>
@@ -696,7 +696,7 @@ onBeforeUnmount(() => {
 }
 .calendario-club .fc-toolbar-title {
   font-size: 1.15rem;
-  text-transform: capitalize;
+  font-weight: 600;
 }
 .calendario-club .fc-local-icon {
   font-size: 0.7rem;
@@ -704,7 +704,7 @@ onBeforeUnmount(() => {
   margin: 0 0.1rem;
 }
 .calendario-club .fc-partido-hora {
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
@@ -712,18 +712,16 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 .calendario-club .fc-amistoso-badge {
-  background: #fef3c7;
-  color: #b45309;
+  background: rgb(0 0 0 / 5%);
+  color: rgb(0 0 0 / 64%);
   font-size: 0.65rem;
-  font-weight: 700;
+  font-weight: 500;
   padding: 1px 5px;
   border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 .calendario-club .fc-partido-lugar {
   font-weight: 400;
-  opacity: 0.9;
+  opacity: 0.7;
 }
 .calendario-club .fc-col-header-cell-cushion,
 .calendario-club .fc-daygrid-day-number {

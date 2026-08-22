@@ -43,7 +43,7 @@ function nombresSecciones(data) {
       <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
       Administración
     </h1>
-    <p class="text-sm text-slate-500 mb-4">
+    <p class="text-sm text-ink-tertiary mb-4">
       Gestión de usuarios de la intranet. Al crear o editar, indica las secciones que podrá ver.
     </p>
 
@@ -63,7 +63,7 @@ function nombresSecciones(data) {
         <span class="text-sm">{{ nombresSecciones(data) }}</span>
       </template>
       <template #cell-password>
-        <span class="text-slate-400">••••••••</span>
+        <span class="text-ink-tertiary">••••••••</span>
       </template>
       <template #detail-ids_secciones="{ data }">
         {{ nombresSecciones(data) }}

@@ -313,13 +313,13 @@ onMounted(async () => {
           <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
           Calendario
         </h1>
-        <p class="text-sm text-slate-500">
+        <p class="text-sm text-ink-tertiary">
           Pincha en un día para añadir un evento. Pincha en un evento para editar o eliminar.
         </p>
       </div>
 
       <div class="flex items-center gap-3 flex-wrap">
-        <div class="flex items-center gap-2 text-xs text-slate-500">
+        <div class="flex items-center gap-2 text-xs text-ink-tertiary">
           <span class="w-3 h-3 rounded-full inline-block" style="background:#0B3D2E"></span> Entrenamiento
           <span class="w-3 h-3 rounded-full inline-block ml-2" style="background:#7A1E2B"></span> Partido
           <span class="w-3 h-3 rounded-full inline-block ml-2" style="background:#D97706"></span> Festivo
@@ -335,7 +335,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm p-4 calendario-club">
+    <div class="bg-white rounded-xl  p-4 calendario-club">
       <FullCalendar ref="calendarRef" :options="calendarOptions" />
     </div>
 
@@ -349,22 +349,22 @@ onMounted(async () => {
 
       <div v-if="eventoSeleccionado" class="space-y-3">
         <template v-if="eventoSeleccionado.tipo === 'partido'">
-          <div class="grid grid-cols-4 gap-2 text-center pb-2 border-b border-slate-100">
+          <div class="grid grid-cols-4 gap-2 text-center pb-2 border-b border-line">
             <div>
-              <p class="text-xs text-slate-400 font-medium uppercase">Fecha</p>
-              <p class="text-sm text-slate-700">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
+              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
+              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
             </div>
             <div>
-              <p class="text-xs text-slate-400 font-medium uppercase">Hora</p>
-              <p class="text-sm text-slate-700">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
+              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
             </div>
             <div>
-              <p class="text-xs text-slate-400 font-medium uppercase">Lugar</p>
-              <p class="text-sm text-slate-700">{{ lugarPartido }}</p>
+              <p class="text-xs text-ink-tertiary font-medium">Lugar</p>
+              <p class="text-sm text-ink-secondary">{{ lugarPartido }}</p>
             </div>
             <div>
-              <p v-if="eventoSeleccionado.jornada" class="text-xs text-slate-400 font-medium uppercase">Jornada</p>
-              <p v-if="eventoSeleccionado.jornada" class="text-sm text-slate-700">{{ eventoSeleccionado.jornada }}</p>
+              <p v-if="eventoSeleccionado.jornada" class="text-xs text-ink-tertiary font-medium">Jornada</p>
+              <p v-if="eventoSeleccionado.jornada" class="text-sm text-ink-secondary">{{ eventoSeleccionado.jornada }}</p>
               <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
                 <i class="pi pi-handshake"></i> Amistoso
               </span>
@@ -380,7 +380,7 @@ onMounted(async () => {
             <div class="flex justify-center">
               <img :src="escudoLocal" alt="Escudo" class="w-16 h-16 object-contain" />
             </div>
-            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreLocal }}</span>
+            <span class="text-sm font-medium text-ink-secondary text-left">{{ nombreLocal }}</span>
             <span class="text-center text-lg font-bold text-club-green">{{ golesLocal }}</span>
           </div>
 
@@ -388,12 +388,12 @@ onMounted(async () => {
             <div class="flex justify-center">
               <img :src="escudoVisitante" alt="Escudo" class="w-16 h-16 object-contain" />
             </div>
-            <span class="text-sm font-medium text-slate-700 text-left">{{ nombreVisitante }}</span>
+            <span class="text-sm font-medium text-ink-secondary text-left">{{ nombreVisitante }}</span>
             <span class="text-center text-lg font-bold text-club-green">{{ golesVisitante }}</span>
           </div>
         </div>
 
-        <div class="text-sm text-slate-600 space-y-1.5">
+        <div class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>
@@ -401,7 +401,7 @@ onMounted(async () => {
 
         <div
           v-if="eventoSeleccionado.tipo !== 'festivo'"
-          class="flex justify-end gap-2 pt-2 border-t border-slate-100"
+          class="flex justify-end gap-2 pt-2 border-t border-line"
         >
           <Button
             v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos') && auth.puedeEditar()"
@@ -430,7 +430,7 @@ onMounted(async () => {
           <span class="font-display text-club-green text-lg">Nuevo evento</span>
         </div>
       </template>
-      <p class="text-sm text-slate-500 mb-3">¿Qué tipo de evento quieres registrar?</p>
+      <p class="text-sm text-ink-tertiary mb-3">¿Qué tipo de evento quieres registrar?</p>
       <div class="flex flex-col gap-2">
         <Button v-if="auth.puedeVer('entrenamientos')" label="Entrenamiento" icon="pi pi-clock" text
                 class="!justify-start" @click="nuevoDeTipo('entrenamiento')" />
@@ -459,7 +459,7 @@ onMounted(async () => {
 }
 .calendario-club .fc-toolbar-title {
   font-size: 1.15rem;
-  text-transform: capitalize;
+  font-weight: 600;
 }
 .calendario-club .fc-local-icon {
   font-size: 0.7rem;
@@ -467,7 +467,7 @@ onMounted(async () => {
   margin: 0 0.1rem;
 }
 .calendario-club .fc-partido-hora {
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
@@ -476,7 +476,7 @@ onMounted(async () => {
 }
 .calendario-club .fc-partido-lugar {
   font-weight: 400;
-  opacity: 0.9;
+  opacity: 0.7;
 }
 .calendario-club .fc-col-header-cell-cushion,
 .calendario-club .fc-daygrid-day-number {

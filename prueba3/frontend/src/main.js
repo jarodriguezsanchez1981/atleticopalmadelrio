@@ -18,10 +18,24 @@ import { localeEs } from './utils/localeEs';
 const ClubPreset = definePreset(Aura, {
   semantic: {
     primary: {
-      50: '#eef4f1', 100: '#d3e3dc', 200: '#aecabf',
-      300: '#86af9f', 400: '#4f8a72', 500: '#0B3D2E',
+      50: '#f0f4f2', 100: '#dbe8e2', 200: '#b8d1c6',
+      300: '#8fb5a6', 400: '#5e927c', 500: '#0B3D2E',
       600: '#0a3729', 700: '#083023', 800: '#06281d',
       900: '#031b13', 950: '#020f0a'
+    },
+    surface: {
+      0: '#ffffff',
+      50: '#fafafa',
+      100: '#f4f4f5',
+      200: '#e4e4e7',
+      300: '#d4d4d8',
+      400: '#a1a1aa',
+      500: '#71717a',
+      600: '#52525b',
+      700: '#3f3f46',
+      800: '#27272a',
+      900: '#18181b',
+      950: '#09090b'
     }
   }
 });
@@ -38,7 +52,6 @@ app.use(ConfirmationService);
 app.directive('tooltip', Tooltip);
 app.use(router);
 
-// Antes de montar, intenta restaurar la sesión desde el token guardado
 const authStore = useAuthStore();
 authStore.restoreSession().finally(() => {
   app.mount('#app');

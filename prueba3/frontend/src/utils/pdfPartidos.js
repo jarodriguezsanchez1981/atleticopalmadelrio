@@ -12,30 +12,24 @@ const anchoA4 = 210;
 const altoA4 = 297;
 const margen = 14;
 
-// Columnas de la tabla de cada bloque
-// Orden: Categoría | Local / Visitante | Fecha y hora | Lugar
-const ANCHO_COLUMNAS = [30, 80, 30, 42];
-const ALTO_FILA = 21;
+// Columnas de cada fila: Lugar | Hora | Categoría | Visitante
+const ANCHO_COLUMNAS = [28, 18, 30, 104];
+const ALTO_FILA = 10;
 
 function aDate(inicio) {
   const d = new Date(inicio);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function formatearFechaCorta(d) {
+function formatearFechaLarga(d) {
   if (!d) return '—';
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dia = d.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  return dia.charAt(0).toUpperCase() + dia.slice(1);
 }
 
 function formatearHora(d) {
   if (!d) return '—';
   return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function linea(doc, y, inicio = margen, fin = anchoA4 - margen) {
-  doc.setDrawColor(200, 205, 212);
-  doc.setLineWidth(0.3);
-  doc.line(inicio, y, fin, y);
 }
 
 function esDataUrl(src) {
@@ -54,16 +48,9 @@ function formatoDesdeDataUrl(dataUrl) {
   return 'PNG';
 }
 
-/**
- * Convierte cualquier fuente de imagen (data-URL, URL externa o ruta local)
- * en un data-URL utilizable por jsPDF. Las URLs externas se descargan vía el
- * proxy del backend para evitar bloqueos de CORS.
- */
 async function aDataUrl(src) {
   if (!src) return null;
-
   if (esDataUrl(src)) return src.trim();
-
   if (esUrlExterna(src)) {
     try {
       const proxy = await utilService.imagen(src);
@@ -72,7 +59,6 @@ async function aDataUrl(src) {
       return null;
     }
   }
-
   try {
     const res = await fetch(src);
     const blob = await res.blob();
@@ -101,7 +87,6 @@ function dibujarEscudo(doc, dataUrl, x, y, ancho) {
   }
 }
 
-/** Recorta un texto añadiendo "…" si no cabe en el ancho máximo dado. */
 function ajustarTexto(doc, texto, size, anchoMax) {
   doc.setFontSize(size);
   let t = String(texto ?? '');
@@ -113,28 +98,26 @@ function ajustarTexto(doc, texto, size, anchoMax) {
   return `${recortado}…`;
 }
 
+function claveFecha(p) {
+  const d = aDate(p.inicio);
+  return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : 'sin-fecha';
+}
+
 /**
- * Genera el PDF con el escudo del club y dos bloques: partidos locales y
- * partidos visitantes. Cada fila muestra ambos escudos y nombre de equipo,
- * la fecha y hora, el lugar y la categoría.
+ * Genera el PDF con los partidos agrupados por Fecha.
  * @param {Array} partidos
- * @param {string} titulo
+ * @param {string} semana  Texto del rango de fechas (ej: "22/09/2026 al 28/09/2026")
  * @param {number|null} tipoFutbol 1 = solo Futbol 7, 2 = solo Futbol 11, null/undefined = ambos
  */
-export async function generarPdfPartidos(partidos, titulo = 'Calendario de partidos', tipoFutbol = null) {
+export async function generarPdfPartidos(partidos, semana = '', tipoFutbol = null) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const filtrar = (p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || p.id_tipofutbol) === tipoFutbol;
-  const locales = partidos.filter((p) => p.es_local && filtrar(p));
-  const visitantes = partidos.filter((p) => !p.es_local && filtrar(p));
+  const partidosFiltrados = partidos.filter(filtrar).sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
 
-  const porFecha = (a, b) => new Date(a.inicio) - new Date(b.inicio);
-  locales.sort(porFecha);
-  visitantes.sort(porFecha);
-
-  // Precarga de escudos: el del club + todos los de los equipos implicados
+  // Precarga de escudos
   const fuentes = new Set([ESCUDO_CLUB]);
-  [...locales, ...visitantes].forEach((p) => {
+  partidosFiltrados.forEach((p) => {
     if (p.equipo?.escudo) fuentes.add(p.equipo.escudo);
   });
   const imagenes = {};
@@ -144,37 +127,33 @@ export async function generarPdfPartidos(partidos, titulo = 'Calendario de parti
 
   const escudoClub = imagenes[ESCUDO_CLUB] || null;
 
-  let y = 10;
+  let y = 12;
 
-  // ---- Encabezado ----
-  dibujarEscudo(doc, escudoClub, (anchoA4 - 30) / 2, y, 30);
-  y += 42;
-
+  // ---- Encabezado: 2 columnas sin borde ----
+  const escudoHeader = 22;
+  dibujarEscudo(doc, escudoClub, margen, y, escudoHeader);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  doc.setFontSize(13);
   doc.setTextColor(VERDE);
-  doc.text(NOMBRE_CLUB, anchoA4 / 2, y, { align: 'center' });
-  y += 7;
+  doc.text('Listado de Partidos', anchoA4 / 2, y + escudoHeader / 2 + 2, { align: 'center' });
+  y += escudoHeader + 6;
 
-  doc.setFontSize(12);
-  doc.setTextColor(GRANATE);
-  doc.text(titulo, anchoA4 / 2, y, { align: 'center' });
-  y += 5.5;
-
-  if (partidos.length) {
-    const desde = formatearFechaCorta(aDate(partidos[0].inicio));
-    const hasta = formatearFechaCorta(aDate(partidos[partidos.length - 1].inicio));
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(GRIS);
-    doc.text(`${desde} al ${hasta}`, anchoA4 / 2, y, { align: 'center' });
-    y += 4;
+  // ---- Agrupar por fecha ----
+  const grupos = [];
+  const mapa = new Map();
+  for (const p of partidosFiltrados) {
+    const clave = claveFecha(p);
+    if (!mapa.has(clave)) {
+      const grupo = { clave, partidos: [] };
+      mapa.set(clave, grupo);
+      grupos.push(grupo);
+    }
+    mapa.get(clave).partidos.push(p);
   }
-  linea(doc, y + 4);
-  y += 10;
 
-  y = dibujarBloque(doc, 'PARTIDOS LOCAL', locales, escudoClub, imagenes, y);
-  y = dibujarBloque(doc, 'PARTIDOS VISITANTES', visitantes, escudoClub, imagenes, y + 4);
+  for (const grupo of grupos) {
+    y = dibujarGrupo(doc, grupo, escudoClub, imagenes, y);
+  }
 
   // ---- Pie ----
   const totalPaginas = doc.getNumberOfPages();
@@ -183,7 +162,7 @@ export async function generarPdfPartidos(partidos, titulo = 'Calendario de parti
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(GRIS);
-    doc.text(`${NOMBRE_CLUB} · ${titulo}`, margen, altoA4 - 8);
+    doc.text(`${NOMBRE_CLUB} · Listado de Partidos`, margen, altoA4 - 8);
     doc.text(`Página ${p} de ${totalPaginas}`, anchoA4 - margen, altoA4 - 8, { align: 'right' });
   }
 
@@ -191,57 +170,57 @@ export async function generarPdfPartidos(partidos, titulo = 'Calendario de parti
   return doc;
 }
 
-function dibujarBloque(doc, tituloBloque, lista, escudoClub, imagenes, yIni) {
+function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
+  const primerPartido = grupo.partidos[0];
+  const inicio = aDate(primerPartido.inicio);
+  const fechaTexto = inicio ? formatearFechaLarga(inicio) : '—';
+
   let y = yIni;
 
-  // Título del bloque
-  doc.setFillColor(GRANATE);
-  doc.rect(margen, y, anchoA4 - 2 * margen, 9, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  doc.text(tituloBloque, anchoA4 / 2, y + 6, { align: 'center' });
-  y += 13;
-
-  if (!lista.length) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(GRIS);
-    doc.text('No hay partidos.', margen, y + 3);
-    return y + 8;
+  const altoBanner = 7;
+  if (y + altoBanner + 7 + grupo.partidos.length * (ALTO_FILA + 0.5) > altoA4 - 16) {
+    doc.addPage();
+    y = 14;
   }
 
-  // Cabecera de columnas
-  doc.setFillColor(11, 61, 46);
-  doc.rect(margen, y, anchoA4 - 2 * margen, 8, 'F');
+  // --- Banner de fecha ---
+  doc.setFillColor(GRANATE);
+  doc.rect(margen, y, anchoA4 - 2 * margen, altoBanner, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(9.5);
   doc.setTextColor(255, 255, 255);
-  const headers = ['Categoría', 'Partido', 'Fecha y hora', 'Lugar'];
+  doc.text(fechaTexto, margen + 3, y + 5);
+  y += altoBanner + 1.5;
+
+  // --- Cabecera de columnas ---
+  doc.setFillColor(11, 61, 46);
+  doc.rect(margen, y, anchoA4 - 2 * margen, 6, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  const headers = ['Lugar', 'Hora', 'Categoría', 'Visitante'];
   let x = margen;
   headers.forEach((h, i) => {
-    doc.text(h, x + ANCHO_COLUMNAS[i] / 2, y + 5.5, { align: 'center' });
+    const align = i <= 1 ? 'left' : 'center';
+    const offset = i <= 1 ? 1.5 : ANCHO_COLUMNAS[i] / 2;
+    doc.text(h, x + offset, y + 4.2, { align });
     x += ANCHO_COLUMNAS[i];
   });
-  y += 11;
+  y += 7.5;
 
+  // --- Filas ---
   let fila = 0;
-  for (const p of lista) {
-    const inicio = aDate(p.inicio);
+  for (const p of grupo.partidos) {
     const esLocal = p.es_local;
     const rival = p.equipo?.nombre || '—';
     const escudoRival = p.equipo?.escudo ? (imagenes[p.equipo.escudo] || null) : null;
-    const lugar = esLocal
-      ? (p.lugar?.nombre || '—')
-      : (p.equipo?.localidad || '—');
-    const cat = p.categoria?.alias || p.categoria?.nombre || '—';
+    const cat = p.categoria?.nombre || '—';
+    const lugar = esLocal ? (p.lugar?.nombre || '—') : (p.equipo?.localidad || '—');
 
     const localNombre = esLocal ? NOMBRE_CLUB : rival;
     const visitanteNombre = esLocal ? rival : NOMBRE_CLUB;
     const localImg = esLocal ? escudoClub : escudoRival;
     const visitImg = esLocal ? escudoRival : escudoClub;
-
-    const lineaFecha = inicio ? `${formatearFechaCorta(inicio)} · ${formatearHora(inicio)}` : '—';
 
     if (y + ALTO_FILA > altoA4 - 16) {
       doc.addPage();
@@ -250,57 +229,54 @@ function dibujarBloque(doc, tituloBloque, lista, escudoClub, imagenes, yIni) {
 
     if (fila % 2 === 1) {
       doc.setFillColor(245, 247, 249);
-      doc.rect(margen, y - 2, anchoA4 - 2 * margen, ALTO_FILA, 'F');
+      doc.rect(margen, y - 0.5, anchoA4 - 2 * margen, ALTO_FILA, 'F');
     }
 
-    const escudoTamanio = 8;
-    const mitadV = y + ALTO_FILA / 2 + 1;
+    const escudoTamanio = 7;
+    const mitadV = y + ALTO_FILA / 2 + 0.5;
 
-    // Centro horizontal de cada columna
-    const inicioCol0 = margen;
-    const centroCol0 = inicioCol0 + ANCHO_COLUMNAS[0] / 2;
-    const centroCol2 = inicioCol0 + ANCHO_COLUMNAS[0] + ANCHO_COLUMNAS[1] + ANCHO_COLUMNAS[2] / 2;
-    const centroCol3 = anchoA4 - margen - ANCHO_COLUMNAS[3] / 2;
+    let x = margen;
 
-    // --- Categoría (primera columna, centrada) ---
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(GRANATE);
-    const catTexto = ajustarTexto(doc, cat, 9, ANCHO_COLUMNAS[0] - 2);
-    doc.text(catTexto, centroCol0, mitadV, { align: 'center' });
-
-    // --- Local / Visitante (segunda columna, alineada a la izquierda) ---
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    const xBloque = inicioCol0 + ANCHO_COLUMNAS[0] + 2;
-    const anchoNombre = ANCHO_COLUMNAS[1] - escudoTamanio - 6;
-    const localNombreAjustado = ajustarTexto(doc, localNombre, 8.5, anchoNombre);
-    const visitanteNombreAjustado = ajustarTexto(doc, visitanteNombre, 8.5, anchoNombre);
-
-    // Local: escudo + nombre
-    dibujarEscudo(doc, localImg, xBloque, y + 1, escudoTamanio);
-    doc.setTextColor(20, 26, 32);
-    doc.text(localNombreAjustado, xBloque + escudoTamanio + 2, y + 6);
-
-    // Visitante: escudo + nombre
-    dibujarEscudo(doc, visitImg, xBloque, y + 12, escudoTamanio);
-    doc.setTextColor(20, 26, 32);
-    doc.text(visitanteNombreAjustado, xBloque + escudoTamanio + 2, y + 17);
-
-    // --- Fecha y hora (centrada) ---
+    // --- Lugar ---
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(20, 26, 32);
-    const fechaTexto = ajustarTexto(doc, lineaFecha, 9, ANCHO_COLUMNAS[2] - 2);
-    doc.text(fechaTexto, centroCol2, mitadV, { align: 'center' });
+    const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[0] - 2);
+    doc.text(lugarTexto, x + 1.5, mitadV);
+    x += ANCHO_COLUMNAS[0];
 
-    // --- Lugar (centrada) ---
-    const lugarTexto = ajustarTexto(doc, lugar, 9, ANCHO_COLUMNAS[3] - 2);
-    doc.text(lugarTexto, centroCol3, mitadV, { align: 'center' });
+    // --- Hora ---
+    const inicioP = aDate(p.inicio);
+    const horaTexto = inicioP ? formatearHora(inicioP) : '—';
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(20, 26, 32);
+    doc.text(horaTexto, x + 2, mitadV, { align: 'left' });
+    x += ANCHO_COLUMNAS[1];
 
-    y += ALTO_FILA + 2;
+    // --- Categoría ---
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(GRANATE);
+    const catTexto = ajustarTexto(doc, cat, 9.5, ANCHO_COLUMNAS[2] - 2);
+    doc.text(catTexto, x + ANCHO_COLUMNAS[2] / 2, mitadV, { align: 'center' });
+    x += ANCHO_COLUMNAS[2];
+
+    // --- Visitante (escudo + nombre, centrado) ---
+    const anchoNombre = ANCHO_COLUMNAS[3] - escudoTamanio - 5;
+    const visitanteAjustado = ajustarTexto(doc, visitanteNombre, 8, anchoNombre);
+    doc.setFontSize(8);
+    const anchoCombo = escudoTamanio + 2 + doc.getTextWidth(visitanteAjustado);
+    const xCentrado = x + (ANCHO_COLUMNAS[3] - anchoCombo) / 2;
+    dibujarEscudo(doc, visitImg, xCentrado, mitadV - escudoTamanio / 2, escudoTamanio);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(20, 26, 32);
+    doc.text(visitanteAjustado, xCentrado + escudoTamanio + 2, mitadV);
+
+    y += ALTO_FILA + 0.5;
     fila++;
   }
 
-  return y;
+  return y + 4;
 }

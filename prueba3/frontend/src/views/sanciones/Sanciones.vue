@@ -81,13 +81,13 @@ function nombreJugador(id) {
       <span v-if="data.amarilla" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
         <i class="pi pi-circle-fill text-[8px]"></i>{{ data.amarilla }}
       </span>
-      <span v-else class="text-slate-400">0</span>
+      <span v-else class="text-ink-tertiary">0</span>
     </template>
     <template #cell-roja="{ data }">
       <span v-if="data.roja" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
         <i class="pi pi-circle-fill text-[8px]"></i>{{ data.roja }}
       </span>
-      <span v-else class="text-slate-400">0</span>
+      <span v-else class="text-ink-tertiary">0</span>
     </template>
     <template #detail-id_partido="{ data }">
       {{ data.partido?.equipo?.nombre ? `${new Date(data.partido.fecha).toLocaleString('es-ES')} vs ${data.partido.equipo.nombre}` : nombrePartido(data.id_partido) }}

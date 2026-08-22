@@ -511,14 +511,14 @@ async function guardar() {
 
     <form @submit.prevent="guardar" class="space-y-4 pt-1">
       <div class="flex flex-col gap-1.5">
-        <label class="text-sm font-medium text-slate-600">Categoría <span class="text-club-garnet">*</span></label>
+        <label class="text-sm font-medium text-ink-secondary">Categoría <span class="text-club-garnet">*</span></label>
         <Select v-model="form.id_categoria" :options="opcionesCategoria" optionLabel="label" optionValue="value"
                 filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona una opción"
                 showClear :loading="cargandoCatalogo" />
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <label class="text-sm font-medium text-slate-600">Fecha y hora <span class="text-club-garnet">*</span></label>
+        <label class="text-sm font-medium text-ink-secondary">Fecha y hora <span class="text-club-garnet">*</span></label>
         <div class="flex gap-2">
           <DatePicker
             :model-value="form.fecha"
@@ -543,18 +543,18 @@ async function guardar() {
 
       <template v-if="tipo === 'entrenamiento'">
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Lugar <span class="text-club-garnet">*</span></label>
+          <label class="text-sm font-medium text-ink-secondary">Lugar <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
         </div>
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Repetir cada semana</label>
+          <label class="text-sm font-medium text-ink-secondary">Repetir cada semana</label>
           <Select v-model="form.recurrente" :options="opcionesRecurrente" optionLabel="label" optionValue="value"
                   class="w-full" />
         </div>
         <div v-if="form.recurrente" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Fecha límite (si repetir)</label>
+          <label class="text-sm font-medium text-ink-secondary">Fecha límite (si repetir)</label>
           <div class="flex gap-2">
             <DatePicker
               :model-value="form.hasta"
@@ -573,30 +573,30 @@ async function guardar() {
           </div>
         </div>
         <div v-if="registroId" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Asistencia</label>
+          <label class="text-sm font-medium text-ink-secondary">Asistencia</label>
           <Select v-model="asistenciaTipo" :options="opcionesAsistencia" optionLabel="label" optionValue="value"
                   class="w-full" />
         </div>
         <template v-if="asistenciaTipo === 'parcial'">
-          <div v-if="jugadoresDeCategoria(form.id_categoria).length" class="border border-slate-200 rounded-lg p-2 space-y-2">
+          <div v-if="jugadoresDeCategoria(form.id_categoria).length" class="border border-line rounded-lg p-2 space-y-2">
             <div
               v-for="j in jugadoresDeCategoria(form.id_categoria)"
               :key="j.id"
-              class="border-b border-slate-100 last:border-0 pb-2 space-y-1"
+              class="border-b border-line last:border-0 pb-2 space-y-1"
             >
               <div class="flex items-center justify-between px-1">
-                <span class="text-sm text-slate-700">{{ j.apellidos }}, {{ j.nombre }}</span>
+                <span class="text-sm text-ink-secondary">{{ j.apellidos }}, {{ j.nombre }}</span>
                 <div class="flex items-center gap-2">
                   <Checkbox
                     :model-value="asistencias[j.id] !== false"
                     :binary="true"
                     @update:model-value="(v) => { asistencias[j.id] = !!v; if (v) incidenciasJugador[j.id] = ''; }"
                   />
-                  <span class="text-xs text-slate-500">Asistió</span>
+                  <span class="text-xs text-ink-tertiary">Asistió</span>
                 </div>
               </div>
               <div class="flex items-center gap-2 px-1">
-                <i class="pi pi-exclamation-circle text-slate-300"></i>
+                <i class="pi pi-exclamation-circle text-ink-tertiary"></i>
                 <InputText
                   v-model="incidenciasJugador[j.id]"
                   :disabled="asistencias[j.id] !== false"
@@ -606,13 +606,13 @@ async function guardar() {
               </div>
             </div>
           </div>
-          <p v-else class="text-xs text-slate-400">Sin jugadores en la categoría seleccionada.</p>
+          <p v-else class="text-xs text-ink-tertiary">Sin jugadores en la categoría seleccionada.</p>
         </template>
       </template>
 
       <template v-if="tipo === 'partido'">
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Equipo <span class="text-club-garnet">*</span></label>
+          <label class="text-sm font-medium text-ink-secondary">Equipo <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_equipo" :options="opcionesEquipo" optionLabel="label" optionValue="value"
                   filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un equipo"
                   showClear :loading="cargandoCatalogo">
@@ -620,7 +620,7 @@ async function guardar() {
               <div class="flex items-center gap-2">
                 <img v-if="option.escudo" :src="option.escudo" alt="" class="w-6 h-6 object-contain" />
                 <span v-else class="w-6 h-6 flex items-center justify-center">
-                  <i class="pi pi-trophy text-sm text-slate-300"></i>
+                  <i class="pi pi-trophy text-sm text-ink-tertiary"></i>
                 </span>
                 <span>{{ option.label }}</span>
               </div>
@@ -633,7 +633,7 @@ async function guardar() {
                   alt="" class="w-6 h-6 object-contain"
                 />
                 <span v-else class="w-6 h-6 flex items-center justify-center">
-                  <i class="pi pi-trophy text-sm text-slate-300"></i>
+                  <i class="pi pi-trophy text-sm text-ink-tertiary"></i>
                 </span>
                 <span>{{ opcionesEquipo.find(o => o.value === value)?.label }}</span>
               </div>
@@ -641,7 +641,7 @@ async function guardar() {
           </Select>
         </div>
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Local / Visitante</label>
+          <label class="text-sm font-medium text-ink-secondary">Local / Visitante</label>
           <SelectButton v-model="form.es_local" :options="opcionesLocalVisitante" optionLabel="label" optionValue="value"
                         class="w-full" allowEmpty>
             <template #option="{ option }">
@@ -653,7 +653,7 @@ async function guardar() {
           </SelectButton>
         </div>
         <div v-if="form.es_local" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Lugar</label>
+          <label class="text-sm font-medium text-ink-secondary">Lugar</label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
@@ -662,20 +662,20 @@ async function guardar() {
           </p>
         </div>
         <div v-if="registroId" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Resultado</label>
+          <label class="text-sm font-medium text-ink-secondary">Resultado</label>
           <div class="flex items-center gap-2">
             <InputText v-model="form.resultado" placeholder="Marcador, p. ej. 2-1" class="flex-1" maxlength="30" />
-            <i class="pi pi-flag text-slate-300"></i>
+            <i class="pi pi-flag text-ink-tertiary"></i>
           </div>
-          <p class="text-xs text-slate-500">El resultado quedará guardado en la sección Resultados.</p>
+          <p class="text-xs text-ink-tertiary">El resultado quedará guardado en la sección Resultados.</p>
         </div>
         <div v-if="registroId" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Jugadores convocados</label>
+          <label class="text-sm font-medium text-ink-secondary">Jugadores convocados</label>
           <MultiSelect v-model="form.ids_jugadores" :options="opcionesJugadores" optionLabel="label" optionValue="value"
                        display="chip" filter placeholder="Selecciona jugadores" class="w-full" />
         </div>
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-slate-600">Incidencias</label>
+          <label class="text-sm font-medium text-ink-secondary">Incidencias</label>
           <Textarea v-model="form.incidencias" rows="3" class="w-full" />
         </div>
       </template>

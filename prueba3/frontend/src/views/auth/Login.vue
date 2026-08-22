@@ -68,92 +68,91 @@ async function onSubmit() {
   <div class="min-h-screen w-full flex flex-col bg-club-cream">
     <div class="flex-1 flex items-center justify-center px-4 pb-56">
       <div class="w-full max-w-sm">
-      <!-- Escudo del club, centrado -->
-      <div class="flex flex-col items-center mb-8">
-        <img
-          src="/escudo.png"
-          alt="Escudo Atlético Palma del Río"
-          class="w-40 h-auto drop-shadow-2xl object-contain select-none"
-          width="160"
-          height="180"
-        />
-        <h1 class="mt-5 font-display text-2xl text-club-green tracking-wide text-center">
-          ATLÉTICO PALMA DEL RÍO
-        </h1>
-        <p class="text-club-green/70 text-sm mt-1">Intranet de gestión del club</p>
-      </div>
-
-      <!-- Formulario de acceso -->
-      <form @submit.prevent="onSubmit" class="bg-white rounded-xl shadow-2xl p-8 space-y-5 border border-slate-200">
-        <div class="flex flex-col gap-2">
-          <label for="usuario" class="text-sm font-medium text-slate-700">Usuario</label>
-          <InputText id="usuario" v-model="usuario" autocomplete="username" placeholder="tu.usuario" class="w-full" />
-        </div>
-
-        <div class="flex flex-col gap-2">
-          <label for="password" class="text-sm font-medium text-slate-700">Contraseña</label>
-          <Password
-            id="password"
-            v-model="password"
-            autocomplete="current-password"
-            placeholder="••••••••"
-            :feedback="false"
-            toggleMask
-            inputClass="w-full"
-            class="w-full"
+        <!-- Escudo del club, centrado -->
+        <div class="flex flex-col items-center mb-8">
+          <img
+            src="/escudo.png"
+            alt="Escudo Atlético Palma del Río"
+            class="w-32 h-auto object-contain select-none"
+            width="128"
+            height="144"
           />
+          <h1 class="mt-5 font-display text-xl text-ink-primary tracking-wide text-center">
+            Atlético Palma del Río
+          </h1>
+          <p class="text-ink-tertiary text-sm mt-1">Intranet de gestión del club</p>
         </div>
 
-        <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+        <!-- Formulario de acceso -->
+        <form @submit.prevent="onSubmit" class="bg-white rounded-lg border border-line p-8 space-y-5">
+          <div class="flex flex-col gap-2">
+            <label for="usuario" class="text-sm font-medium text-ink-secondary">Usuario</label>
+            <InputText id="usuario" v-model="usuario" autocomplete="username" placeholder="tu.usuario" class="w-full" />
+          </div>
 
-        <!-- Botón "Enviar" debajo del formulario -->
-        <Button
-          type="submit"
-          label="Enviar"
-          icon="pi pi-sign-in"
-          :loading="enviando"
-          class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight"
-        />
-      </form>
+          <div class="flex flex-col gap-2">
+            <label for="password" class="text-sm font-medium text-ink-secondary">Contraseña</label>
+            <Password
+              id="password"
+              v-model="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+              :feedback="false"
+              toggleMask
+              inputClass="w-full"
+              class="w-full"
+            />
+          </div>
 
-      <p class="text-center text-xs text-club-green/50 mt-6">
-        © {{ new Date().getFullYear() }} Atlético Palma del Río
-      </p>
+          <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+
+          <Button
+            type="submit"
+            label="Enviar"
+            icon="pi pi-sign-in"
+            :loading="enviando"
+            class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight"
+          />
+        </form>
+
+        <p class="text-center text-xs text-ink-tertiary mt-6">
+          © {{ new Date().getFullYear() }} Atlético Palma del Río
+        </p>
       </div>
     </div>
 
-    <footer v-if="patrocinadores.length" class="fixed bottom-0 left-0 w-full bg-club-cream px-6 py-4">
+    <footer v-if="patrocinadores.length" class="fixed bottom-0 left-0 w-full bg-white border-t border-line px-6 py-4">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        <div v-if="principal" class="flex flex-col items-center gap-3">
-          <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinador Principal</span>
+        <div v-if="principal" class="flex flex-col items-center gap-2">
+          <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Patrocinador principal</span>
           <img
             :src="principal.imagen"
             :alt="principal.nombre"
-            class="h-[140px] w-auto object-contain max-w-[140px] drop-shadow"
+            class="h-[120px] w-auto object-contain max-w-[120px]"
           />
         </div>
-        <div v-if="oficiales.length" class="flex flex-col items-center gap-3">
-          <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
-          <div class="flex flex-wrap items-center justify-center gap-6 max-w-[320px]">
+        <div v-if="oficiales.length" class="flex flex-col items-center gap-2">
+          <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Patrocinadores oficiales</span>
+          <div class="flex flex-wrap items-center justify-center gap-4 max-w-[300px]">
             <img
               v-for="(p, i) in oficiales"
               :key="p.id || i"
               :src="p.imagen"
               :alt="p.nombre"
-              class="h-[90px] w-auto object-contain max-w-[90px]"
+              class="h-[80px] w-auto object-contain max-w-[80px]"
             />
           </div>
         </div>
-        <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
-          <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Colaboradores</span>
-<div class="grid grid-cols-5 items-center justify-items-center gap-1 max-w-[520px]">
-              <img
-                v-for="(p, i) in colaboradores"
-                :key="p.id || i"
-                :src="p.imagen"
-                :alt="p.nombre"
-                class="h-[80px] w-auto object-contain max-w-[80px]"
-              />
+        <div v-if="colaboradores.length" class="flex flex-col items-center gap-2">
+          <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Colaboradores</span>
+          <div class="grid grid-cols-5 items-center justify-items-center gap-1 max-w-[480px]">
+            <img
+              v-for="(p, i) in colaboradores"
+              :key="p.id || i"
+              :src="p.imagen"
+              :alt="p.nombre"
+              class="h-[70px] w-auto object-contain max-w-[70px]"
+            />
           </div>
         </div>
       </div>

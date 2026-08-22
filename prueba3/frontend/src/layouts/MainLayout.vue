@@ -88,44 +88,44 @@ const tituloPagina = computed(() => {
 
 <template>
   <div class="min-h-screen flex bg-club-cream">
-    <aside class="w-64 bg-club-cream text-club-green flex flex-col shrink-0 border-r border-slate-200">
-      <div class="flex items-center gap-3 px-5 py-5 border-b border-slate-200">
+    <aside class="w-64 bg-white flex flex-col shrink-0 border-r border-line">
+      <div class="flex items-center gap-3 px-5 py-5 border-b border-line">
         <img
           src="/escudo.png"
           alt="Escudo Atlético Palma del Río"
-          class="w-12 h-12 object-contain shrink-0 drop-shadow"
-          width="48"
-          height="48"
+          class="w-10 h-10 object-contain shrink-0"
+          width="40"
+          height="40"
         />
         <div class="leading-tight min-w-0">
-          <p class="font-display text-sm tracking-wide">ATLÉTICO</p>
-          <p class="font-display text-xs text-club-gold">PALMA DEL RÍO</p>
+          <p class="font-display text-sm text-ink-primary">Atlético</p>
+          <p class="font-display text-xs text-ink-tertiary">Palma del Río</p>
         </div>
       </div>
 
-      <nav class="flex-1 py-4 space-y-0.5 overflow-y-auto px-3">
+      <nav class="flex-1 py-3 space-y-0.5 overflow-y-auto px-3">
         <router-link
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg text-club-green/70 hover:bg-club-green hover:text-club-cream transition-colors"
-          active-class="!bg-club-green !text-club-cream border-l-2 border-club-gold"
+          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
+          active-class="!bg-club-green !text-white"
         >
-          <i :class="item.icon" />
+          <i :class="item.icon" class="text-[0.85rem]" />
           <span>{{ item.label }}</span>
         </router-link>
       </nav>
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm">
-        <h2 class="font-display text-club-green text-lg">{{ tituloPagina }}</h2>
+      <header class="h-14 bg-white border-b border-line flex items-center justify-between px-6">
+        <h2 class="font-display text-ink-primary text-lg">{{ tituloPagina }}</h2>
 
         <button class="flex items-center gap-3" @click="menu.toggle($event)">
           <div class="text-right leading-tight hidden sm:block">
-            <p class="text-sm font-medium text-slate-700">{{ auth.nombreCompleto }}</p>
+            <p class="text-sm font-medium text-ink-secondary">{{ auth.nombreCompleto }}</p>
           </div>
-          <Avatar :label="auth.user?.nombre?.[0] || 'U'" shape="circle" class="!bg-club-green !text-club-cream" />
+          <Avatar :label="auth.user?.nombre?.[0] || 'U'" shape="circle" class="!bg-club-green !text-white" />
         </button>
         <Menu ref="menu" :model="userMenuItems" :popup="true" />
       </header>
@@ -134,37 +134,37 @@ const tituloPagina = computed(() => {
         <router-view />
       </main>
 
-      <footer v-if="patrocinadores.length" class="bg-club-cream px-6 py-4">
+      <footer v-if="patrocinadores.length" class="bg-white border-t border-line px-6 py-4">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          <div v-if="principal" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinador Principal</span>
+          <div v-if="principal" class="flex flex-col items-center gap-2">
+            <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Patrocinador principal</span>
             <img
               :src="principal.imagen"
               :alt="principal.nombre"
-              class="h-[140px] w-auto object-contain max-w-[140px] drop-shadow"
+              class="h-[120px] w-auto object-contain max-w-[120px]"
             />
           </div>
-          <div v-if="oficiales.length" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Patrocinadores Oficiales</span>
-            <div class="flex flex-wrap items-center justify-center gap-6 max-w-[320px]">
+          <div v-if="oficiales.length" class="flex flex-col items-center gap-2">
+            <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Patrocinadores oficiales</span>
+            <div class="flex flex-wrap items-center justify-center gap-4 max-w-[300px]">
               <img
                 v-for="(p, i) in oficiales"
                 :key="p.id || i"
                 :src="p.imagen"
                 :alt="p.nombre"
-                class="h-[90px] w-auto object-contain max-w-[90px]"
+                class="h-[80px] w-auto object-contain max-w-[80px]"
               />
             </div>
           </div>
-          <div v-if="colaboradores.length" class="flex flex-col items-center gap-3">
-            <span class="text-[10px] font-semibold text-club-green uppercase tracking-wider text-center">Colaboradores</span>
-            <div class="grid grid-cols-5 items-center justify-items-center gap-1 max-w-[520px]">
+          <div v-if="colaboradores.length" class="flex flex-col items-center gap-2">
+            <span class="text-[10px] font-medium text-ink-tertiary tracking-wide text-center">Colaboradores</span>
+            <div class="grid grid-cols-5 items-center justify-items-center gap-1 max-w-[480px]">
               <img
                 v-for="(p, i) in colaboradores"
                 :key="p.id || i"
                 :src="p.imagen"
                 :alt="p.nombre"
-                class="h-[80px] w-auto object-contain max-w-[80px]"
+                class="h-[70px] w-auto object-contain max-w-[70px]"
               />
             </div>
           </div>

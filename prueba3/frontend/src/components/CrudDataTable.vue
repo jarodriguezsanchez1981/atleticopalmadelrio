@@ -577,10 +577,10 @@ watch(
             <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
           </IconField>
           <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight !shadow-sm" />
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight !" />
         </div>
       </div>
-      <div class="mt-3 h-px bg-slate-200"></div>
+      <div class="mt-3 h-px bg-fill-hover"></div>
     </div>
 
     <DataTable
@@ -594,7 +594,7 @@ watch(
       @column-reorder="onColumnReorder"
       paginator :rows="10" :rowsPerPageOptions="[10, 20, 50]"
       rowHover stripedRows
-      class="ar-datatable bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200"
+      class="ar-datatable bg-white rounded-xl overflow-hidden  border border-line"
       :pt="{
         header: { class: 'ar-dt-header !bg-white' },
         rowgroupfooter: { class: '!bg-club-cream' },
@@ -630,7 +630,7 @@ watch(
       </Column>
 
       <template #empty>
-        <div class="text-center text-slate-400 py-8">
+        <div class="text-center text-ink-tertiary py-8">
           <i class="pi pi-inbox text-2xl block mb-2"></i>
           No hay registros todavía.
         </div>
@@ -655,7 +655,7 @@ watch(
 
       <form @submit.prevent="guardar" class="space-y-4 pt-1">
         <div v-for="col in columns.filter(c => !c.soloTabla && c.enForm !== false)" :key="col.field" class="flex flex-col gap-1.5">
-          <label v-if="col.type !== 'dorsal'" :for="col.field" class="text-sm font-medium text-slate-600">
+          <label v-if="col.type !== 'dorsal'" :for="col.field" class="text-sm font-medium text-ink-secondary">
             {{ col.header }} <span v-if="col.required" class="text-club-garnet">*</span>
           </label>
 
@@ -690,7 +690,7 @@ watch(
             </div>
             <div class="flex items-start justify-center gap-5">
               <div class="flex flex-col gap-1.5 items-center">
-                <label :for="col.field" class="text-xs font-medium text-slate-500">Dorsal</label>
+                <label :for="col.field" class="text-xs font-medium text-ink-tertiary">Dorsal</label>
                 <InputNumber
                   :id="col.field"
                   v-model="form[col.field]"
@@ -702,7 +702,7 @@ watch(
                 />
               </div>
               <div v-if="col.conTalla" class="flex flex-col gap-1.5 items-center">
-                <label :for="col.tallaField" class="text-xs font-medium text-slate-500">Talla</label>
+                <label :for="col.tallaField" class="text-xs font-medium text-ink-tertiary">Talla</label>
                 <InputText
                   :id="col.tallaField"
                   v-model="form[col.tallaField]"
@@ -714,8 +714,8 @@ watch(
           </div>
 
           <div v-else-if="col.type === 'image'" class="flex flex-wrap items-center gap-3">
-            <img v-if="form[col.field]" :src="form[col.field]" alt="Foto" class="ar-foto-mini border border-slate-200" />
-            <label class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 cursor-pointer hover:bg-slate-50">
+            <img v-if="form[col.field]" :src="form[col.field]" alt="Foto" class="ar-foto-mini border border-line" />
+            <label class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-line-strong text-sm text-ink-secondary cursor-pointer hover:bg-fill-surface">
               <i class="pi pi-upload"></i>
               {{ form[col.field] ? 'Cambiar foto' : 'Subir foto' }}
               <input type="file" accept="image/*" class="hidden" @change="onFotoInput(col.field, $event)" />
@@ -770,12 +770,12 @@ watch(
         <div
           v-for="col in columns.filter(c => !c.soloTabla)"
           :key="`d-${col.field}`"
-          class="flex gap-3 border-b border-slate-100 pb-2 last:border-0"
+          class="flex gap-3 border-b border-line pb-2 last:border-0"
         >
-          <div class="w-40 shrink-0 text-sm font-medium text-slate-500">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">
             {{ col.header }}
           </div>
-          <div class="text-sm text-slate-800 flex-1 min-w-0 break-words">
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
             <slot :name="`detail-${col.field}`" :data="detalle">
               <img v-if="col.type === 'image' && detalle[col.field]" :src="detalle[col.field]" alt="Foto" class="ar-foto-detalle rounded-lg" />
               <template v-else>{{ valorDetalle(col, detalle) }}</template>
@@ -797,20 +797,20 @@ watch(
 </template>
 
 <style>
-/* ===== DataTable profesional ===== */
+/* ===== DataTable escandinavo ===== */
 .ar-datatable .p-datatable-header {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgb(0 0 0 / 10%);
   padding: 0.75rem 1rem;
 }
 .ar-datatable .p-datatable-thead > tr > th,
 .ar-datatable .p-datatable-thead > tr > td {
-  background: #EAF1EE !important;
-  border-color: #d5e2dc !important;
-  color: #0B3D2E !important;
+  background: rgb(0 0 0 / 3%) !important;
+  border-color: rgb(0 0 0 / 10%) !important;
+  color: rgb(0 0 0 / 64%) !important;
   font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
   padding-top: 0.4rem;
   padding-bottom: 0.4rem;
 }
@@ -818,25 +818,28 @@ watch(
   transition: background-color 0.12s ease;
 }
 .ar-datatable .p-datatable-tbody > tr > td {
-  border-color: #f1f5f9 !important;
+  border-color: rgb(0 0 0 / 6%) !important;
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
-  color: #1e293b;
+  color: rgb(0 0 0 / 90%);
   font-size: 0.86rem;
+}
+.ar-datatable .p-datatable-tbody > tr:hover {
+  background: rgb(0 0 0 / 3%) !important;
 }
 .ar-datatable .p-datatable-tbody > tr.ar-dt-row-selected,
 .ar-datatable .p-datatable-tbody > tr.p-highlight {
-  background: #eef2f7 !important;
+  background: rgb(0 0 0 / 5%) !important;
 }
 .ar-datatable .p-paginator {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid rgb(0 0 0 / 10%);
   padding: 0.6rem 1rem;
   justify-content: flex-end;
   gap: 0.15rem;
 }
 .ar-datatable .p-paginator .p-paginator-current {
   margin-right: auto;
-  color: #64748b;
+  color: rgb(0 0 0 / 44%);
   font-size: 0.8rem;
 }
 .ar-datatable .p-paginator .p-paginator-page,
@@ -846,8 +849,8 @@ watch(
 .ar-datatable .p-paginator .p-paginator-last {
   min-width: 2rem;
   height: 2rem;
-  border-radius: 0.5rem;
-  color: #475569;
+  border-radius: 0.375rem;
+  color: rgb(0 0 0 / 64%);
   font-size: 0.85rem;
 }
 .ar-datatable .p-paginator .p-paginator-page.p-highlight {
@@ -855,17 +858,17 @@ watch(
   color: #fff !important;
 }
 .ar-datatable .p-datatable-footer {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid rgb(0 0 0 / 10%);
 }
 .ar-dt-acciones {
   text-align: right;
 }
 .ar-dt-btn {
-  color: #64748b !important;
+  color: rgb(0 0 0 / 44%) !important;
 }
 .ar-dt-btn:hover {
-  background: #eef2f7 !important;
-  color: #0B3D2E !important;
+  background: rgb(0 0 0 / 5%) !important;
+  color: rgb(0 0 0 / 90%) !important;
 }
 .ar-dt-btn.p-button-danger:hover {
   background: #fef2f2 !important;
@@ -877,7 +880,7 @@ watch(
   width: 2.5rem;
   height: 2.5rem;
   object-fit: cover;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
 }
 
 .ar-foto-detalle {

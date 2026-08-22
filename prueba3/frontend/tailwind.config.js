@@ -4,15 +4,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Paleta institucional del club en clave corporativa moderna:
-        // verde profundo como color primario, neutros claros para el fondo
-        // y dorado/grana reducidos a acentos puntuales.
+        // Scandinavian neutral foundation: alpha-black ink ladder on white
+        ink: {
+          primary: 'rgb(0 0 0 / 90%)',
+          secondary: 'rgb(0 0 0 / 64%)',
+          tertiary: 'rgb(0 0 0 / 44%)',
+        },
+        line: {
+          DEFAULT: 'rgb(0 0 0 / 10%)',
+          strong: 'rgb(0 0 0 / 18%)',
+        },
+        fill: {
+          hover: 'rgb(0 0 0 / 5%)',
+          pressed: 'rgb(0 0 0 / 9%)',
+          surface: 'rgb(0 0 0 / 3%)',
+        },
+        // Single brand accent: club green for primary actions only
         club: {
-          green: '#0B3D2E',      // verde institucional - color principal
-          greenLight: '#156B4F', // hover / gradientes
-          garnet: '#8E2A3D',     // grana - acento (obligatorio, alertas)
-          gold: '#B08D57',       // dorado sobrio - detalles
-          cream: '#F5F6F8'       // fondo neutro claro de las pantallas
+          green: '#0B3D2E',
+          greenLight: '#156B4F',
+          garnet: '#8E2A3D',
+          gold: '#B08D57',
+          cream: '#FAFAFA',
         }
       },
       fontFamily: {

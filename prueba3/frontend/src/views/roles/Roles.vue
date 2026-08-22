@@ -45,7 +45,7 @@ function nombreUsuario(id) {
       <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
       Roles
     </h1>
-    <p class="text-sm text-slate-500 mb-4">
+    <p class="text-sm text-ink-tertiary mb-4">
       Asigna roles a los usuarios. Un usuario puede tener varios roles; el de mayor nivel decide lo que puede hacer.
     </p>
 

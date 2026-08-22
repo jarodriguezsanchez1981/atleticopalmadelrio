@@ -82,13 +82,13 @@ async function copiarDireccion(parte) {
 
     <template #detail-extra="{ data }">
       <div v-if="data.direccion || data.localidad" class="mt-3 space-y-2">
-        <div class="text-sm font-semibold text-slate-600 uppercase tracking-wide">
+        <div class="text-sm font-medium text-ink-secondary">
           <i class="pi pi-map-marker mr-1"></i>
           Ubicación
         </div>
         <iframe
           :src="mapsEmbedUrl(direccionCompleta(data))"
-          class="w-full rounded-lg border border-slate-200"
+          class="w-full rounded-lg border border-line"
           style="height: 260px"
           loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"

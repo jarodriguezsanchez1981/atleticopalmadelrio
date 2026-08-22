@@ -25,7 +25,7 @@ const includesBase = [
   {
     model: Categoria,
     as: 'categoria',
-    attributes: ['id', 'nombre', 'id_temporada', 'id_tipofutbol', 'tiempopartido'],
+    attributes: ['id', 'nombre', 'alias', 'id_temporada', 'id_tipofutbol', 'tiempopartido'],
     include: [{ model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }]
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
@@ -71,7 +71,7 @@ async function listar(req, res, next) {
         {
           model: Categoria,
           as: 'categoria',
-          attributes: ['id', 'nombre', 'id_temporada', 'id_tipofutbol', 'tiempopartido'],
+          attributes: ['id', 'nombre', 'alias', 'id_temporada', 'id_tipofutbol', 'tiempopartido'],
           where: categoriaWhere,
           include: [{ model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }]
         },
