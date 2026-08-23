@@ -4,7 +4,7 @@ const { Entrenamiento, EntrenamientoSemanal, EntrenamientoJugador, Jugador, Cate
 const DURACION_ENTRENAMIENTO_DEFECTO = 60;
 
 const includes = [
-  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_temporada', 'id_tipofutbol', 'tiempoentrenamiento'] },
+  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol', 'tiempoentrenamiento'] },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   {
     model: EntrenamientoSemanal,

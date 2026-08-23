@@ -25,10 +25,7 @@ DROP TABLE IF EXISTS `categorias`;
 CREATE TABLE `categorias` (
   `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `id_temporada` int NOT NULL,
-  `id_division` int DEFAULT NULL,
   `id_entrenador` int DEFAULT NULL,
-  `id_delegado` int DEFAULT NULL,
   `tiempopartido` int DEFAULT NULL,
   `tiempoentrenamiento` int DEFAULT NULL,
   `created_at` datetime NOT NULL,
@@ -36,19 +33,10 @@ CREATE TABLE `categorias` (
   `alias` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `id_tipofutbol` int NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_categoria_temporada` (`nombre`,`id_temporada`),
   UNIQUE KEY `uq_categorias_nombre` (`nombre`),
   UNIQUE KEY `nombre` (`nombre`),
   KEY `idx_categorias_entrenador` (`id_entrenador`),
-  KEY `idx_categorias_temporada` (`id_temporada`),
-  KEY `idx_categorias_delegado` (`id_delegado`),
-  KEY `id_division` (`id_division`),
-  KEY `id_tipofutbol` (`id_tipofutbol`),
-  CONSTRAINT `categorias_ibfk_274` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `categorias_ibfk_275` FOREIGN KEY (`id_division`) REFERENCES `division` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `categorias_ibfk_276` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `categorias_ibfk_277` FOREIGN KEY (`id_delegado`) REFERENCES `delegados` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `categorias_ibfk_278` FOREIGN KEY (`id_tipofutbol`) REFERENCES `tipofutbol` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `id_tipofutbol` (`id_tipofutbol`)
 ) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -58,7 +46,7 @@ CREATE TABLE `categorias` (
 
 LOCK TABLES `categorias` WRITE;
 /*!40000 ALTER TABLE `categorias` DISABLE KEYS */;
-INSERT INTO `categorias` VALUES (6,'Prebenjamin B',2,NULL,NULL,NULL,50,90,'2026-08-11 09:53:24','2026-08-19 13:00:57','PRE B',1),(7,'Prebenjamin A',2,NULL,NULL,NULL,50,90,'2026-08-11 09:53:35','2026-08-19 13:00:57','PRE A',1),(8,'Benjamin C',2,NULL,NULL,NULL,70,90,'2026-08-11 09:53:47','2026-08-19 13:00:56','BEN C',1),(9,'Benjamin B',2,NULL,NULL,NULL,70,90,'2026-08-11 09:53:59','2026-08-19 13:00:56','BEN B',1),(10,'Benjamin A',2,NULL,NULL,NULL,70,90,'2026-08-11 09:54:11','2026-08-19 13:00:56','BEN A',1),(11,'Alevin C',2,NULL,NULL,NULL,80,90,'2026-08-11 09:54:30','2026-08-19 13:00:55','ALE C',1),(12,'Alevin B',2,NULL,NULL,NULL,80,90,'2026-08-11 09:54:41','2026-08-19 13:00:55','ALE B',1),(13,'Alevin A',2,NULL,NULL,NULL,80,90,'2026-08-11 09:54:52','2026-08-19 13:00:55','ALE A',1),(14,'Infantil A',2,NULL,NULL,NULL,120,90,'2026-08-11 14:15:09','2026-08-19 13:00:56','INF A',2),(15,'Infantil B',2,NULL,NULL,NULL,120,90,'2026-08-11 14:15:20','2026-08-19 13:00:56','INF B',2),(16,'Cadete A',2,NULL,NULL,NULL,120,90,'2026-08-11 14:15:35','2026-08-19 13:00:56','CAD A',2),(17,'Cadete B',2,NULL,NULL,NULL,120,90,'2026-08-11 14:15:44','2026-08-19 13:00:56','CAD B',2),(18,'Juvenil A',2,NULL,NULL,NULL,120,90,'2026-08-11 14:16:02','2026-08-19 13:00:56','JUV A',2),(19,'Juvenil B',2,NULL,NULL,NULL,120,90,'2026-08-11 14:16:14','2026-08-19 13:00:56','JUV B',2),(20,'Senior A',2,NULL,NULL,NULL,120,90,'2026-08-11 14:16:29','2026-08-19 13:00:57','SEN A',2),(23,'Senior B',2,NULL,NULL,NULL,120,90,'2026-08-15 20:17:59','2026-08-19 13:00:57','SEN B',2),(24,'Cadete C',2,NULL,NULL,NULL,120,90,'2026-08-17 15:48:15','2026-08-19 13:00:56','CAD C',2),(25,'Infantil C',2,NULL,NULL,NULL,120,90,'2026-08-17 21:29:28','2026-08-19 13:00:56','INF C',2);
+INSERT INTO `categorias` VALUES (6,'Prebenjamin B',NULL,50,90,'2026-08-11 09:53:24','2026-08-19 13:00:57','PRE B',1),(7,'Prebenjamin A',NULL,50,90,'2026-08-11 09:53:35','2026-08-19 13:00:57','PRE A',1),(8,'Benjamin C',NULL,70,90,'2026-08-11 09:53:47','2026-08-19 13:00:56','BEN C',1),(9,'Benjamin B',NULL,70,90,'2026-08-11 09:53:59','2026-08-19 13:00:56','BEN B',1),(10,'Benjamin A',NULL,70,90,'2026-08-11 09:54:11','2026-08-19 13:00:56','BEN A',1),(11,'Alevin C',NULL,80,90,'2026-08-11 09:54:30','2026-08-19 13:00:55','ALE C',1),(12,'Alevin B',NULL,80,90,'2026-08-11 09:54:41','2026-08-19 13:00:55','ALE B',1),(13,'Alevin A',NULL,80,90,'2026-08-11 09:54:52','2026-08-19 13:00:55','ALE A',1),(14,'Infantil A',NULL,120,90,'2026-08-11 14:15:09','2026-08-19 13:00:56','INF A',2),(15,'Infantil B',NULL,120,90,'2026-08-11 14:15:20','2026-08-19 13:00:56','INF B',2),(16,'Cadete A',NULL,120,90,'2026-08-11 14:15:35','2026-08-19 13:00:56','CAD A',2),(17,'Cadete B',NULL,120,90,'2026-08-11 14:15:44','2026-08-19 13:00:56','CAD B',2),(18,'Juvenil A',NULL,120,90,'2026-08-11 14:16:02','2026-08-19 13:00:56','JUV A',2),(19,'Juvenil B',NULL,120,90,'2026-08-11 14:16:14','2026-08-19 13:00:56','JUV B',2),(20,'Senior A',NULL,120,90,'2026-08-11 14:16:29','2026-08-19 13:00:57','SEN A',2),(23,'Senior B',NULL,120,90,'2026-08-15 20:17:59','2026-08-19 13:00:57','SEN B',2),(24,'Cadete C',NULL,120,90,'2026-08-17 15:48:15','2026-08-19 13:00:56','CAD C',2),(25,'Infantil C',NULL,120,90,'2026-08-17 21:29:28','2026-08-19 13:00:56','INF C',2);
 /*!40000 ALTER TABLE `categorias` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -84,11 +72,7 @@ CREATE TABLE `jornadas` (
   KEY `idx_jornadas_categoria` (`id_categoria`),
   KEY `idx_jornadas_fecha` (`fecha`),
   KEY `idx_jornadas_jornada` (`jornada`),
-  KEY `fk_jornadas_temporada` (`id_temporada`),
-  CONSTRAINT `fk_jornadas_categoria` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_jornadas_equipo_local` FOREIGN KEY (`id_equipo_local`) REFERENCES `equipos` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_jornadas_equipo_visitante` FOREIGN KEY (`id_equipo_visitante`) REFERENCES `equipos` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_jornadas_temporada` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+  KEY `fk_jornadas_temporada` (`id_temporada`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -118,16 +102,10 @@ CREATE TABLE `delegados` (
   `dni` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
   `foto` longtext COLLATE utf8mb4_unicode_ci,
   `tipo` enum('campo','equipo') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'campo',
-  `id_categoria` int DEFAULT NULL,
-  `id_temporada` int NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `dni` (`dni`),
-  KEY `idx_delegados_categoria` (`id_categoria`),
-  KEY `idx_delegados_temporada` (`id_temporada`),
-  CONSTRAINT `delegados_ibfk_153` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `delegados_ibfk_154` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  UNIQUE KEY `dni` (`dni`)
 ) ENGINE=InnoDB AUTO_INCREMENT=111 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -168,32 +146,6 @@ INSERT INTO `division` VALUES (4,'1ª Andaluza','2026-08-11 10:55:58','2026-08-1
 UNLOCK TABLES;
 
 --
--- Table structure for table `entrenador_categorias`
---
-
-DROP TABLE IF EXISTS `entrenador_categorias`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `entrenador_categorias` (
-  `id_entrenador` int NOT NULL,
-  `id_categoria` int NOT NULL,
-  PRIMARY KEY (`id_entrenador`,`id_categoria`),
-  KEY `fk_ec_categoria` (`id_categoria`),
-  CONSTRAINT `fk_ec_categoria` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_ec_entrenador` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `entrenador_categorias`
---
-
-LOCK TABLES `entrenador_categorias` WRITE;
-/*!40000 ALTER TABLE `entrenador_categorias` DISABLE KEYS */;
-/*!40000 ALTER TABLE `entrenador_categorias` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `entrenador_titulos`
 --
 
@@ -204,9 +156,7 @@ CREATE TABLE `entrenador_titulos` (
   `id_entrenador` int NOT NULL,
   `id_titulo` int NOT NULL,
   PRIMARY KEY (`id_entrenador`,`id_titulo`),
-  KEY `fk_et_titulo` (`id_titulo`),
-  CONSTRAINT `fk_et_entrenador` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_et_titulo` FOREIGN KEY (`id_titulo`) REFERENCES `titulo` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `fk_et_titulo` (`id_titulo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -232,13 +182,10 @@ CREATE TABLE `entrenadores` (
   `apellidos` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
   `dni` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
   `foto` longtext COLLATE utf8mb4_unicode_ci,
-  `id_temporada` int NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `dni` (`dni`),
-  KEY `idx_entrenadores_temporada` (`id_temporada`),
-  CONSTRAINT `entrenadores_ibfk_1` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  UNIQUE KEY `dni` (`dni`)
 ) ENGINE=InnoDB AUTO_INCREMENT=112 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -272,10 +219,7 @@ CREATE TABLE `entrenamientos` (
   KEY `fk_entrenamientos_categoria` (`id_categoria`),
   KEY `idx_entrenamientos_fecha` (`fecha`),
   KEY `idx_entrenamientos_lugar` (`id_lugar`),
-  KEY `idx_entrenamientos_usuario` (`id_usuario`),
-  CONSTRAINT `entrenamientos_ibfk_220` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `entrenamientos_ibfk_221` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `entrenamientos_ibfk_222` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY `idx_entrenamientos_usuario` (`id_usuario`)
 ) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -306,9 +250,7 @@ CREATE TABLE `entrenamientos_jugadores` (
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_etj_entrenamiento` (`id_entrenamiento`),
-  KEY `idx_etj_jugador` (`id_jugador`),
-  CONSTRAINT `entrenamientos_jugadores_ibfk_145` FOREIGN KEY (`id_entrenamiento`) REFERENCES `entrenamientos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `entrenamientos_jugadores_ibfk_146` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `idx_etj_jugador` (`id_jugador`)
 ) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -337,8 +279,7 @@ CREATE TABLE `entrenamientos_semanales` (
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_es_entrenamiento` (`id_entrenamiento`),
-  KEY `idx_es_fecha` (`fecha_entrenamiento`),
-  CONSTRAINT `entrenamientos_semanales_ibfk_1` FOREIGN KEY (`id_entrenamiento`) REFERENCES `entrenamientos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `idx_es_fecha` (`fecha_entrenamiento`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1886 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -409,12 +350,7 @@ CREATE TABLE `incidencias` (
   KEY `idx_incidencias_delegado` (`id_delegado`),
   KEY `idx_incidencias_categoria` (`id_categoria`),
   KEY `idx_incidencias_fecha` (`fecha`),
-  KEY `idx_incidencias_usuario` (`id_usuario`),
-  CONSTRAINT `incidencias_ibfk_361` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_362` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_363` FOREIGN KEY (`id_entrenador`) REFERENCES `entrenadores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_364` FOREIGN KEY (`id_delegado`) REFERENCES `delegados` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `incidencias_ibfk_365` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY `idx_incidencias_usuario` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -425,33 +361,6 @@ CREATE TABLE `incidencias` (
 LOCK TABLES `incidencias` WRITE;
 /*!40000 ALTER TABLE `incidencias` DISABLE KEYS */;
 /*!40000 ALTER TABLE `incidencias` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `jugador_categorias`
---
-
-DROP TABLE IF EXISTS `jugador_categorias`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `jugador_categorias` (
-  `id_jugador` int NOT NULL,
-  `id_categoria` int NOT NULL,
-  PRIMARY KEY (`id_jugador`,`id_categoria`),
-  KEY `fk_jc_categoria` (`id_categoria`),
-  CONSTRAINT `fk_jc_categoria` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_jc_jugador` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `jugador_categorias`
---
-
-LOCK TABLES `jugador_categorias` WRITE;
-/*!40000 ALTER TABLE `jugador_categorias` DISABLE KEYS */;
-INSERT INTO `jugador_categorias` VALUES (633,12);
-/*!40000 ALTER TABLE `jugador_categorias` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -467,15 +376,10 @@ CREATE TABLE `jugadores` (
   `apellidos` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
   `dni` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
   `foto` longtext COLLATE utf8mb4_unicode_ci,
-  `dorsal` int DEFAULT NULL,
-  `talla` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `id_temporada` int NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `dni` (`dni`),
-  KEY `idx_jugadores_temporada` (`id_temporada`),
-  CONSTRAINT `jugadores_ibfk_1` FOREIGN KEY (`id_temporada`) REFERENCES `temporadas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  UNIQUE KEY `dni` (`dni`)
 ) ENGINE=InnoDB AUTO_INCREMENT=634 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -485,7 +389,7 @@ CREATE TABLE `jugadores` (
 
 LOCK TABLES `jugadores` WRITE;
 /*!40000 ALTER TABLE `jugadores` DISABLE KEYS */;
-INSERT INTO `jugadores` VALUES (633,'JOSE ANTONIO','RODRIGUEZ SANCHEZ','28808104Y',NULL,4,'12',2,'2026-08-19 14:20:48','2026-08-19 14:20:48');
+INSERT INTO `jugadores` VALUES (633,'JOSE ANTONIO','RODRIGUEZ SANCHEZ','28808104Y',NULL,'2026-08-19 14:20:48','2026-08-19 14:20:48');
 /*!40000 ALTER TABLE `jugadores` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -500,9 +404,7 @@ CREATE TABLE `lugar_tipofutbol` (
   `id_lugar` int NOT NULL,
   `id_tipofutbol` int NOT NULL,
   PRIMARY KEY (`id_lugar`,`id_tipofutbol`),
-  KEY `fk_lt_tipo` (`id_tipofutbol`),
-  CONSTRAINT `fk_lt_lugar` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_lt_tipo` FOREIGN KEY (`id_tipofutbol`) REFERENCES `tipofutbol` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `fk_lt_tipo` (`id_tipofutbol`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -568,12 +470,7 @@ CREATE TABLE `partidos` (
   KEY `idx_partidos_lugar` (`id_lugar`),
   KEY `idx_partidos_jornada` (`id_jornada`),
   KEY `idx_partidos_equipo` (`id_equipo`),
-  KEY `idx_partidos_usuario` (`id_usuario`),
-  CONSTRAINT `partidos_ibfk_289` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `partidos_ibfk_290` FOREIGN KEY (`id_lugar`) REFERENCES `lugares` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `partidos_ibfk_291` FOREIGN KEY (`id_equipo`) REFERENCES `equipos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `partidos_ibfk_292` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_partidos_jornada` FOREIGN KEY (`id_jornada`) REFERENCES `jornadas` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY `idx_partidos_usuario` (`id_usuario`)
 ) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -585,41 +482,6 @@ LOCK TABLES `partidos` WRITE;
 /*!40000 ALTER TABLE `partidos` DISABLE KEYS */;
 INSERT INTO `partidos` VALUES (28,13,'2026-08-21 15:00:00',1,NULL,20,1,1,'','2026-08-17 10:38:10','2026-08-17 10:38:10'),(29,14,'2026-08-21 16:00:00',5,NULL,50,1,1,'','2026-08-17 10:38:29','2026-08-17 10:38:29'),(30,16,'2026-08-21 18:00:00',NULL,NULL,11,0,1,'','2026-08-17 10:38:54','2026-08-17 10:38:54'),(33,12,'2026-08-22 08:00:00',NULL,NULL,48,0,1,'','2026-08-17 12:39:09','2026-08-17 12:39:09'),(34,10,'2026-08-22 08:00:00',NULL,NULL,24,0,1,'','2026-08-17 12:39:49','2026-08-17 12:39:49'),(35,19,'2026-08-23 10:00:00',5,NULL,31,1,1,'','2026-08-17 12:40:10','2026-08-17 12:40:10');,(36,20,'2026-09-13 00:00:00',NULL,91,85,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(37,20,'2026-09-20 00:00:00',NULL,92,86,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(38,20,'2026-09-27 00:00:00',NULL,93,87,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(39,20,'2026-10-04 00:00:00',NULL,94,88,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(40,20,'2026-10-11 00:00:00',NULL,95,89,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(41,20,'2026-10-18 00:00:00',NULL,96,90,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(42,20,'2026-10-25 00:00:00',NULL,97,91,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(43,20,'2026-11-01 00:00:00',NULL,98,92,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(44,20,'2026-11-08 00:00:00',NULL,99,93,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(45,20,'2026-11-15 00:00:00',NULL,100,94,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(46,20,'2026-11-22 00:00:00',NULL,101,95,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(47,20,'2026-11-29 00:00:00',NULL,102,21,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(48,20,'2026-12-06 00:00:00',NULL,103,96,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(49,20,'2026-12-08 00:00:00',NULL,104,97,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(50,20,'2026-12-13 00:00:00',NULL,105,98,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(51,20,'2026-12-20 00:00:00',NULL,106,99,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(52,20,'2027-01-03 00:00:00',NULL,107,100,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(53,20,'2027-01-10 00:00:00',NULL,108,85,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(54,20,'2027-01-17 00:00:00',NULL,109,86,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(55,20,'2027-01-24 00:00:00',NULL,110,87,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(56,20,'2027-01-31 00:00:00',NULL,111,88,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(57,20,'2027-02-07 00:00:00',NULL,112,89,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(58,20,'2027-02-14 00:00:00',NULL,113,90,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(59,20,'2027-02-21 00:00:00',NULL,114,91,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(60,20,'2027-02-28 00:00:00',NULL,115,92,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(61,20,'2027-03-07 00:00:00',NULL,116,93,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(62,20,'2027-03-14 00:00:00',NULL,117,94,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(63,20,'2027-03-21 00:00:00',NULL,118,95,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(64,20,'2027-04-04 00:00:00',NULL,119,21,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(65,20,'2027-04-11 00:00:00',NULL,120,96,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(66,20,'2027-04-18 00:00:00',NULL,121,97,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(67,20,'2027-04-25 00:00:00',NULL,122,98,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(68,20,'2027-05-02 00:00:00',NULL,123,99,1,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00'),(69,20,'2027-05-09 00:00:00',NULL,124,100,0,NULL,NULL,'2026-08-22 00:00:00','2026-08-22 00:00:00');
 /*!40000 ALTER TABLE `partidos` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `partidos_jugadores`
---
-
-DROP TABLE IF EXISTS `partidos_jugadores`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `partidos_jugadores` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `id_partido` int NOT NULL,
-  `id_jugador` int NOT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
-  `minutos` int NOT NULL DEFAULT '0',
-  `goles` int NOT NULL DEFAULT '0',
-  `tarjeta_amarilla` int NOT NULL DEFAULT '0',
-  `tarjeta_roja` int NOT NULL DEFAULT '0',
-  `incidencias` text COLLATE utf8mb4_unicode_ci,
-  PRIMARY KEY (`id`),
-  KEY `idx_pj_partido` (`id_partido`),
-  KEY `idx_pj_jugador` (`id_jugador`),
-  CONSTRAINT `partidos_jugadores_ibfk_145` FOREIGN KEY (`id_partido`) REFERENCES `partidos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `partidos_jugadores_ibfk_146` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `partidos_jugadores`
---
-
-LOCK TABLES `partidos_jugadores` WRITE;
-/*!40000 ALTER TABLE `partidos_jugadores` DISABLE KEYS */;
-/*!40000 ALTER TABLE `partidos_jugadores` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -667,8 +529,7 @@ CREATE TABLE `resultados` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_resultados_partido` (`id_partido`),
-  CONSTRAINT `resultados_ibfk_1` FOREIGN KEY (`id_partido`) REFERENCES `partidos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `idx_resultados_partido` (`id_partido`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -694,8 +555,7 @@ CREATE TABLE `roles` (
   `id_usuario` int NOT NULL,
   `nombre` enum('read','write') NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `roles_id_usuario_nombre` (`id_usuario`,`nombre`),
-  CONSTRAINT `roles_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  UNIQUE KEY `roles_id_usuario_nombre` (`id_usuario`,`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -726,9 +586,7 @@ CREATE TABLE `sanciones` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_sanciones_partido` (`id_partido`),
-  KEY `idx_sanciones_jugador` (`id_jugador`),
-  CONSTRAINT `fk_sanciones_partido` FOREIGN KEY (`id_partido`) REFERENCES `partidos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_sanciones_jugador` FOREIGN KEY (`id_jugador`) REFERENCES `jugadores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `idx_sanciones_jugador` (`id_jugador`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -758,7 +616,7 @@ CREATE TABLE `secciones` (
 
 LOCK TABLES `secciones` WRITE;
 /*!40000 ALTER TABLE `secciones` DISABLE KEYS */;
-INSERT INTO `secciones` VALUES (1,'calendario','Calendario','pi pi-calendar',10),(2,'entrenamientos','Entrenamientos','pi pi-stopwatch',20),(3,'partidos','Partidos','pi pi-flag',30),(4,'resultados','Resultados','pi pi-chart-bar',35),(5,'temporadas','Temporadas','pi pi-clock',40),(6,'titulos','Títulos','pi pi-graduation-cap',45),(7,'lugares','Lugares','pi pi-map-marker',50),(8,'delegados','Delegados','pi pi-user-plus',55),(9,'categorias','Categorías','pi pi-sitemap',60),(10,'equipos','Equipos','pi pi-trophy',65),(11,'incidencias','Incidencias','pi pi-exclamation-triangle',68),(12,'jugadores','Jugadores','pi pi-users',70),(13,'entrenadores','Entrenadores','pi pi-id-card',80),(14,'administracion','Administración','pi pi-shield',100),(15,'entrenamientos_jugadores','Entrenamientos Jugadores','pi pi-check-square',22),(16,'partidos_jugadores','Convocatorias','pi pi-list-check',32),(17,'division','División','pi pi-tags',47),(18,'roles','Roles','pi pi-shield',95),(19,'patrocinadores','Patrocinadores','pi pi-briefcase',97),(20,'categoria_calendario','Jornadas','pi pi-calendar-plus',93),(21,'sanciones','Sanciones','pi pi-ban',99);
+INSERT INTO `secciones` VALUES (1,'calendario','Calendario','pi pi-calendar',10),(2,'entrenamientos','Entrenamientos','pi pi-stopwatch',20),(3,'partidos','Partidos','pi pi-flag',30),(4,'resultados','Resultados','pi pi-chart-bar',35),(5,'temporadas','Temporadas','pi pi-clock',40),(6,'titulos','Títulos','pi pi-graduation-cap',45),(7,'lugares','Lugares','pi pi-map-marker',50),(8,'delegados','Delegados','pi pi-user-plus',55),(9,'categorias','Categorías','pi pi-sitemap',60),(10,'equipos','Equipos','pi pi-trophy',65),(11,'incidencias','Incidencias','pi pi-exclamation-triangle',68),(12,'jugadores','Jugadores','pi pi-users',70),(13,'entrenadores','Entrenadores','pi pi-id-card',80),(14,'administracion','Administración','pi pi-shield',100),(15,'entrenamientos_jugadores','Entrenamientos Jugadores','pi pi-check-square',22),(17,'division','División','pi pi-tags',47),(18,'roles','Roles','pi pi-shield',95),(19,'patrocinadores','Patrocinadores','pi pi-briefcase',97),(20,'categoria_calendario','Jornadas','pi pi-calendar-plus',93),(21,'sanciones','Sanciones','pi pi-ban',99);
 /*!40000 ALTER TABLE `secciones` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -852,9 +710,7 @@ CREATE TABLE `usuario_secciones` (
   `id_usuario` int NOT NULL,
   `id_seccion` int NOT NULL,
   PRIMARY KEY (`id_usuario`,`id_seccion`),
-  KEY `fk_us_seccion` (`id_seccion`),
-  CONSTRAINT `fk_us_seccion` FOREIGN KEY (`id_seccion`) REFERENCES `secciones` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_us_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
+  KEY `fk_us_seccion` (`id_seccion`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

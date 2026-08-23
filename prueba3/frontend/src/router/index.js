@@ -41,12 +41,6 @@ const routes = [
         meta: { seccion: 'partidos' }
       },
       {
-        path: 'partidos-jugadores',
-        name: 'partidos-jugadores',
-        component: () => import('../views/partidosJugadores/PartidosJugadores.vue'),
-        meta: { seccion: 'partidos_jugadores' }
-      },
-      {
         path: 'resultados',
         name: 'resultados',
         component: () => import('../views/resultados/Resultados.vue'),

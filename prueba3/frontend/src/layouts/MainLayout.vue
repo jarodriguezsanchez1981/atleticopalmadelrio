@@ -15,7 +15,6 @@ const ALL_NAV = [
   { label: 'Entrenamientos', icon: 'pi pi-stopwatch', to: '/entrenamientos', seccion: 'entrenamientos' },
   { label: 'Entrenamientos Jugadores', icon: 'pi pi-check-square', to: '/entrenamientos-jugadores', seccion: 'entrenamientos_jugadores' },
   { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
-  { label: 'Convocatorias', icon: 'pi pi-list-check', to: '/partidos-jugadores', seccion: 'partidos_jugadores' },
   { label: 'Resultados', icon: 'pi pi-chart-bar', to: '/resultados', seccion: 'resultados' },
   { label: 'Temporadas', icon: 'pi pi-clock', to: '/temporadas', seccion: 'temporadas' },
   { label: 'Títulos', icon: 'pi pi-graduation-cap', to: '/titulos', seccion: 'titulos' },

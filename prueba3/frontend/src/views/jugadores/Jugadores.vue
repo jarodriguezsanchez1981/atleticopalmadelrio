@@ -1,54 +1,17 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { jugadoresService, categoriasService, temporadasService } from '../../services';
+import { jugadoresService } from '../../services';
 import { validarDNI } from '../../utils/dni';
-
-const categorias = ref([]);
-const temporadas = ref([]);
-
-onMounted(async () => {
-  const [cats, temps] = await Promise.all([
-    categoriasService.listar(),
-    temporadasService.listar()
-  ]);
-  categorias.value = cats;
-  temporadas.value = temps;
-});
-
-const opcionesTemporada = computed(() =>
-  temporadas.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
-
-const opcionesCategoria = computed(() =>
-  categorias.value.map(c => ({
-    label: `${c.nombre} (${c.temporada?.nombre || ''})`,
-    value: c.id
-  })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
 
 const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
-  { field: 'dorsal', header: 'Dorsal', type: 'dorsal', conTalla: true, tallaField: 'talla', min: 1, max: 99 },
-  { field: 'talla', header: 'Talla', type: 'text', maxlength: 10, enForm: false },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
-  { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
-  { field: 'ids_categorias', header: 'Categorías', type: 'multiselect', relation: 'categorias', options: opcionesCategoria.value, required: false }
+  { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') }
 ]);
 
-const emptyItem = { foto: null, dorsal: null, talla: '', nombre: '', apellidos: '', dni: '', id_temporada: null, ids_categorias: [] };
-
-function nombresCategorias(data) {
-  if (data.categorias?.length) return data.categorias.map(c => `${c.nombre} (${c.temporada?.nombre || ''})`).join(', ');
-  const ids = data.ids_categorias || [];
-  return ids.map(id => opcionesCategoria.value.find(o => o.value === id)?.label || id).join(', ') || '—';
-}
-
-function nombreTemporada(id) {
-  return temporadas.value.find(t => t.id === id)?.nombre || '—';
-}
+const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '' };
 
 function formatearFecha(fecha) {
   if (!fecha) return '—';
@@ -63,35 +26,8 @@ function formatearFecha(fecha) {
     :service="jugadoresService"
     :emptyItem="emptyItem"
   >
-    <template #cell-id_temporada="{ data }">
-      {{ data.temporada?.nombre || nombreTemporada(data.id_temporada) }}
-    </template>
-    <template #cell-ids_categorias="{ data }">
-      {{ nombresCategorias(data) }}
-    </template>
-    <template #detail-ids_categorias="{ data }">
-      {{ nombresCategorias(data) }}
-    </template>
-
     <template #detail-extra="{ data }">
       <div class="border-t border-line pt-3 space-y-4">
-        <div>
-          <h3 class="font-display text-sm text-club-green mb-2 flex items-center gap-2">
-            <i class="pi pi-flag"></i> Partidos disputados ({{ (data.convocatorias || []).length }})
-          </h3>
-          <ul v-if="(data.convocatorias || []).length" class="space-y-1 text-sm">
-            <li v-for="c in data.convocatorias" :key="`p-${c.id}`" class="flex gap-2 text-ink-secondary">
-              <span class="font-medium shrink-0">{{ formatearFecha(c.partido?.fecha) }}</span>
-              <span>{{ c.partido?.equipo?.nombre || '—' }}</span>
-              <span class="text-ink-tertiary">·</span>
-              <span>{{ c.partido?.lugar?.nombre || '—' }}</span>
-              <span class="text-ink-tertiary">·</span>
-              <span>{{ c.partido?.categoria?.nombre || '—' }}</span>
-            </li>
-          </ul>
-          <p v-else class="text-sm text-ink-tertiary">Sin partidos registrados.</p>
-        </div>
-
         <div>
           <h3 class="font-display text-sm text-club-green mb-2 flex items-center gap-2">
             <i class="pi pi-stopwatch"></i> Entrenamientos ({{ (data.asistencias || []).length }})

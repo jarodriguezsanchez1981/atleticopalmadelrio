@@ -6,7 +6,6 @@ const SECCION_ORDER = [
   'entrenamientos',
   'entrenamientos_jugadores',
   'partidos',
-  'partidos_jugadores',
   'resultados',
   'temporadas',
   'titulos',

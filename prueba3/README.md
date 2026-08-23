@@ -2,20 +2,21 @@
 
 Intranet de gestión del club con Docker Compose.
 
-**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8
+**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8 · Nginx · n8n
 
 ## Arranque rápido (Docker)
 
 ```bash
-cp .env.example .env   # opcional: ya hay un .env de desarrollo
+cp .env.example .env   # o usar el .existente
 docker compose up -d --build
 ```
 
-| Servicio  | URL |
-|-----------|-----|
-| Frontend  | http://localhost:8080 |
-| API       | http://localhost:4000 |
-| MySQL     | localhost:3306 |
+| Servicio  | URL | Descripción |
+|-----------|-----|-------------|
+| Intranet  | https://localhost | Acceso principal (HTTPS auto-firmado) |
+| API       | https://localhost/api | REST API (proxied por Nginx) |
+| MySQL     | 127.0.0.1:3306 | Base de datos (solo localhost) |
+| n8n       | http://localhost:5678 | Automatización de workflows |
 
 **Login inicial:** `admin` / `Admin#2026` (cámbiala en Administración)
 
@@ -31,130 +32,177 @@ docker compose down -v          # parar y borrar datos MySQL
 prueba3/
 ├── docker-compose.yml
 ├── .env / .env.example
+├── nginx/
+│   ├── proxy.conf              # Reverse proxy HTTPS + security headers
+│   └── certs/                  # Certificados TLS auto-firmados
 ├── database/
-│   ├── init.sql                 # DDL + secciones + categorías demo (Docker)
-│   └── schema.sql               # Instalación manual MySQL
-├── backend/                     # Express + Sequelize + JWT + bcrypt
-│   ├── Dockerfile
+│   ├── init.sql                # DDL + datos iniciales (Docker)
+│   └── schema.sql              # Instalación manual MySQL
+├── backend/                    # Express + Sequelize + JWT + bcrypt
+│   ├── Dockerfile              # Multi-stage, non-root user
 │   └── src/
-│       ├── models/              # usuarios, secciones, categorias, equipos, jugadores...
-│       ├── controllers/ routes/ middlewares/
-│       └── utils/               # bcrypt, AES-256-GCM, JWT, seedAdmin
-└── frontend/                    # Vue 3 + Pinia + PrimeVue + FullCalendar
-    ├── Dockerfile + nginx.conf  # build estático + proxy /api → backend
-    └── src/views/
-        ├── auth/Login.vue
-        ├── admin/Usuarios.vue   # solo administrador
-        ├── calendario/          # solo lectura (mes/semana/año)
-        ├── entrenamientos/ partidos/ categorias/ equipos/ jugadores/
+│       ├── models/             # 28 tablas: usuarios, equipos, categorías, partidos, sanciones...
+│       ├── controllers/        # Lógica CRUD con validación
+│       ├── routes/             # REST API con auth + autorización
+│       ├── middlewares/        # JWT, roles, rate limiting, error handling
+│       └── utils/              # bcrypt, AES-256-GCM, JWT, validación SSRF
+├── frontend/                   # Vue 3 + Pinia + PrimeVue + FullCalendar
+│   ├── Dockerfile              # Build estático + nginx interno
+│   ├── tailwind.config.js      # Sistema de diseño escandinavo
+│   └── src/
+│       ├── components/
+│       │   ├── CrudDataTable.vue    # Tabla CRUD genérica
+│       │   ├── EventosCalendario.vue
+│       │   ├── FooterSponsors.vue   # Footer compartido
+│       │   └── ...
+│       ├── views/
+│       │   ├── auth/Login.vue
+│       │   ├── admin/Usuarios.vue
+│       │   ├── calendario/
+│       │   ├── sanciones/
+│       │   └── ...
+│       └── utils/
+│           ├── pdfPartidos.js       # Generación PDF agrupado
+│           └── pdfEntrenamientos.js
+└── .agents/skills/             # Skills de opencode
+    └── scandinavian-design/    # Sistema de diseño nórdico
 ```
 
 ## Secciones y permisos
 
-| Sección        | CRUD | Acceso                         |
-|----------------|------|--------------------------------|
-| Administración | Sí   | Solo `administrador`           |
-| Calendario     | No   | Todos (solo lectura)           |
-| Entrenamientos | Sí   | Todos                          |
-| Partidos       | Sí   | Todos (+ filtros temporada/categoría/rival) |
-| Categorías     | Sí   | Todos                          |
-| Equipos        | Sí   | Todos                          |
-| Jugadores      | Sí   | Todos                          |
+| Sección        | CRUD | Nivel | Descripción |
+|----------------|------|-------|-------------|
+| Administración | Sí   | write | Gestión de usuarios y permisos |
+| Calendario     | No   | read  | Vista calendario (mes/semana/año) |
+| Entrenamientos | Sí   | write | Gestión de entrenamientos |
+| Partidos       | Sí   | write | Partidos con filtros temporada/categoría |
+| Convocatorias  | Sí   | write | Asignación de jugadores a partidos |
+| Resultados     | Sí   | write | Resultados de partidos |
+| Categorías     | Sí   | write | Categorías del club |
+| Equipos        | Sí   | write | Equipos del club |
+| Jugadores      | Sí   | write | Jugadores del club |
+| Jornadas       | Sí   | write | Jornadas deportivas |
+| Sanciones      | Sí   | write | Sanciones a jugadores |
+| Incidencias    | Sí   | write | Incidencias de partidos |
+| Roles          | Sí   | write | Roles de usuario |
+| Patrocinadores | Sí   | write | Patrocinadores del club |
 
-**Permisos:** el acceso se gestiona por secciones asignadas a cada usuario. Un usuario con la sección `administración` es administrador.
+**Permisos:** el acceso se gestiona por secciones asignadas a cada usuario. Niveles de rol: `read` (solo lectura) y `write` (CRUD completo).
 
-## Seguridad de contraseñas
+## Seguridad
 
-- Política: mín. 8 caracteres + mayúscula + minúscula + número + especial
-- Almacenamiento: **bcrypt** (12 rondas)
-- AES-256-GCM disponible para datos sensibles recuperables (p.ej. DNI), no para passwords
-- Sesión: JWT + rate-limit en login
+### Protección de la aplicación
+- **SSRF protection**: proxy de imágenes bloquea IPs privadas, loopback y DNS rebinding
+- **Rate limiting**: 100 req/15min globales + 10 req/15min en login
+- **Body limit**: 2MB máximo por petición
+- **JWT**: tokens de 8h con secrets generados por entorno
+- **bcrypt**: hashing de contraseñas con 12 rondas
+- **Política de contraseñas**: mín. 8 caracteres + mayúscula + minúscula + número + símbolo
+- **Autorización**: `requireNivel()` en rutas de escritura, `authorize()` por sección
+- **Error handling**: mensajes genéricos en producción, sin leak de detalles
 
-## Tablas MySQL
+### Protección de la infraestructura
+- **Nginx**: security headers (CSP, X-Frame-Options DENY, nosniff, Referrer-Policy)
+- **TLS**: cifrados ECDHE fuertes, TLS 1.2/1.3
+- **Docker**: containers non-root, `cap_drop: ALL`, límites de recursos
+- **MySQL**: puerto solo expuesto a `127.0.0.1`
+- **Secrets**: backend se niega a arrancar con valores por defecto en producción
 
-- `usuarios` (id, usuario, password, nombre, apellidos)
-- `titulo` (id, nombre)
-- `delegados` (id, nombre, apellidos, dni, foto, tipo, id_categoria, id_temporada)
-- `entrenadores` (id, nombre, apellidos, dni, foto, id_temporada) + `entrenador_categorias` + `entrenador_titulos`
-- `categorias` (id, nombre, temporada, id_entrenador, id_delegado)
-- `equipos` (id, nombre, id_categoria)
-- `jugadores` (id, nombre, apellidos, dni, foto, id_temporada) + `jugador_categorias`
-- `secciones` (id, clave, nombre, icono, orden) + `usuario_secciones`
-- `entrenamientos` (id, id_categoria, fecha, lugar, incidencias)
-- `partidos` (id, id_categoria, fecha, lugar, equipo_rival, incidencias)
+## Diseño visual
 
-> Tablas puente: `entrenador_categorias`/`jugador_categorias` (un entrenador/jugador en varias categorías), `entrenador_titulos` (un entrenador con varios títulos) y `usuario_secciones` (un usuario puede ver varias secciones).
+Sistema de diseño escandinavo aplicado:
+- **Paleta neutra**: tinta alpha-black sobre fondo blanco
+- **Color de marca**: verde institucional `#0B3D2E` como único accent
+- **Tipografía**: Inter (Google Fonts)
+- **Componentes**: PrimeVue con theme neutro
+- **Footer**: tabla compartida (FooterSponsors.vue) en todo el proyecto
 
-> `equipo_rival` se añade a partidos para poder filtrar por rival.
+## Tablas MySQL (28 tablas)
 
-## Desarrollo local (sin Docker del frontend/backend)
+### Principales
+- `usuarios` — Usuarios del sistema con roles
+- `categorias` — Categorías del club (Benjamin, Infantil, Juvenil, Senior...)
+- `equipos` — 104 equipos con escudo y datos geográficos
+- `jugadores` — Jugadores del club
+- `partidos` — 133 partidos con jornadas
+- `jornadas` — 124 jornadas deportivas
+- `sanciones` — Sanciones a jugadores
+- `patrocinadores` — 17 patrocinadores con logos
+
+### Relaciones
+- `entrenador_categorias` / `jugador_categorias` — Muchos a muchos
+- `usuario_secciones` — Permisos por sección
+- `partidos_jugadores` — Convocatorias
+- `entrenamientos_semanales` / `entrenamientos_jugadores`
+
+## n8n (Automatización)
+
+Workflow automation incluido para automatizar tareas del club:
+
+- **URL**: http://localhost:5678
+- **Usuario**: `admin` / **Contraseña**: `n8n_admin_2026`
+- **Conexión**: MySQL existente (`atletico_palma_intranet`)
+- **Datos**: persistidos en volumen `apr_n8n_data`
+
+### Configuración
+```yaml
+# docker-compose.yml
+n8n:
+  image: n8nio/n8n:latest
+  ports: ["5678:5678"]
+  environment:
+    DB_TYPE: mysqldb
+    N8N_BASIC_AUTH_ACTIVE: "true"
+```
+
+## Desarrollo local
 
 ```bash
 # Solo MySQL
 docker compose up -d db
 
 # Backend
-cd backend && cp .env.example .env && npm install && npm run seed:admin && npm run dev
+cd backend && npm install && npm run dev
 
 # Frontend
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
-## Entornos dev / pro
-
-Cada capa tiene ficheros de entorno por sufijo (`.development` / `.production`); el fichero real está en `.gitignore` y su plantilla versionable termina en `.example`.
-
-### Docker Compose (raíz)
-
-```bash
-# Desarrollo
-docker compose --env-file .env.development up -d --build
-
-# Producción
-docker compose --env-file .env.production up -d --build
-
-# Validar la configuración de un entorno sin arrancar
-docker compose --env-file .env.production config
-```
-
-`DB_NAME` separa las bases (`atletico_palma_intranet_dev` en dev, `atletico_palma_intranet` en pro), y `FRONTEND_PORT`/`BACKEND_PORT`/`CORS_ORIGIN`/`NODE_ENV` cambian según el entorno.
-
-### Backend (local)
-
-El backend carga automáticamente `.env.development` o `.env.production` según `NODE_ENV` (`backend/src/config/env.js`).
+## Tests
 
 ```bash
 cd backend
-NODE_ENV=development npm run dev
-NODE_ENV=production  npm start
-```
-
-Plantillas: `backend/.env.development.example`, `backend/.env.production.example`.
-
-### Frontend (Vite)
-
-`api.js` usa `import.meta.env.VITE_API_BASE_URL` (por defecto `/api`). En desarrollo el proxy de Vite redirige `/api` al backend local (`VITE_PROXY_TARGET`); en producción nginx sirve `/api` en el mismo origen.
-
-```bash
-cd frontend
-npm run dev     # usa .env.development
-npm run build   # usa .env.production
-```
-
-Plantillas: `frontend/.env.development.example`, `frontend/.env.production.example`.
-
-## Tests (Vitest)
-
-Tests unitarios de los controladores de la API (sin base de datos: los modelos se mockean).
-
-```bash
-cd backend
-
 npm test              # ejecución única
-npm run test:watch    # modo watch (en cada cambio)
-npm run test:coverage # informe de cobertura (v8) de src/controllers
+npm run test:watch    # modo watch
+npm run test:coverage # cobertura
 ```
 
-- **Docker (CI/por demanda):** `docker compose run --rm test` ejecuta los tests en un contenedor con las dependencias de desarrollo; requiere la base de datos (`docker compose up -d db`).
-- **Hook de pre-commit:** hay un hook local en `.git/hooks/pre-commit` que ejecuta `npm test` en el backend cuando hay cambios en `backend/` y bloquea el commit si fallan.
-- Los tests viven en `backend/tests/` (`*.controller.test.js`). El interceptor de módulos está en `backend/tests/setup.js` y los mocks de los modelos en `backend/tests/helpers/`.
+Tests unitarios de controladores (270 tests, 22 archivos). Mocks en `backend/tests/helpers/`.
+
+## Entornos
+
+| Variable | Dev | Production |
+|----------|-----|------------|
+| `NODE_ENV` | development | production |
+| `DB_NAME` | atletico_palma_intranet_dev | atletico_palma_intranet |
+| `CORS_ORIGIN` | http://localhost:5173 | https://intranet.atleticopalmadelrio.com |
+| `JWT_SECRET` | (desarrollo) | (generado por entorno) |
+
+## Comandos útiles
+
+```bash
+# Ver logs de un servicio
+docker compose logs -f backend
+
+# Reconstruir un servicio específico
+docker compose up -d --build backend
+
+# Acceder a MySQL
+docker exec -it apr_mysql mysql -uroot -prootpass atletico_palma_intranet
+
+# Ejecutar tests en Docker
+docker compose run --rm test
+
+# Verificar health de la API
+curl -k https://localhost/api/health
+```

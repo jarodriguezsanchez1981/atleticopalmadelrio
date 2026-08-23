@@ -33,7 +33,6 @@ export const entrenamientosService = {
 };
 export const entrenamientosJugadoresService = crudService('entrenamientos-jugadores');
 export const partidosService = crudService('partidos');
-export const partidosJugadoresService = crudService('partidos-jugadores');
 export const equiposService = crudService('equipos');
 export const incidenciasService = crudService('incidencias');
 export const resultadosService = crudService('resultados');

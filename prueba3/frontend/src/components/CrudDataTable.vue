@@ -111,13 +111,6 @@ function formatHora(value) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function nombreCamiseta(nombre) {
-  if (!nombre) return '';
-  const partes = nombre.trim().split(/\s+/);
-  const nombreCorto = partes.length > 2 ? partes[0] : nombre.trim();
-  return nombreCorto.length > 10 ? nombreCorto.slice(0, 10) + '…' : nombreCorto;
-}
-
 function setDatePickerRef(field, el) {
   if (el) datePickerRefs[field] = el;
   else delete datePickerRefs[field];
@@ -314,7 +307,7 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'convocados', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
     delete payload[k];
   });
   for (const col of props.columns) {
@@ -392,11 +385,9 @@ function valorDetalle(col, data) {
   if (!data) return '—';
 
   if (col.field === 'id_categoria' && data.categoria) {
-    const t = data.categoria.temporada?.nombre;
-    return t ? `${data.categoria.nombre} (${t})` : data.categoria.nombre;
+    return data.categoria.nombre;
   }
   if (col.field === 'id_lugar' && data.lugar) return data.lugar.nombre;
-  if (col.field === 'id_temporada' && data.temporada) return data.temporada.nombre;
   if (col.field === 'id_entrenador' && data.entrenador) {
     return `${data.entrenador.nombre} ${data.entrenador.apellidos || ''}`.trim();
   }
@@ -655,11 +646,21 @@ watch(
 
       <form @submit.prevent="guardar" class="space-y-4 pt-1">
         <div v-for="col in columns.filter(c => !c.soloTabla && c.enForm !== false)" :key="col.field" class="flex flex-col gap-1.5">
-          <label v-if="col.type !== 'dorsal'" :for="col.field" class="text-sm font-medium text-ink-secondary">
+          <label :for="col.field" class="text-sm font-medium text-ink-secondary">
             {{ col.header }} <span v-if="col.required" class="text-club-garnet">*</span>
           </label>
 
           <InputText v-if="col.type === 'text' && !col.readonly" :id="col.field" v-model="form[col.field]" class="w-full" />
+
+          <Password
+            v-else-if="col.type === 'password'"
+            :id="col.field"
+            v-model="form[col.field]"
+            :feedback="false"
+            toggleMask
+            inputClass="w-full"
+            class="w-full"
+          />
 
           <InputNumber
             v-else-if="col.type === 'number'"
@@ -672,46 +673,6 @@ watch(
             :maxFractionDigits="0"
             class="w-full"
           />
-
-          <div v-else-if="col.type === 'dorsal'" class="flex items-center justify-center gap-6 py-1">
-            <div class="relative shrink-0" style="width: 176px; height: 235px;">
-              <img
-                src="/jersey.png"
-                alt="Camiseta"
-                class="w-full h-full object-contain"
-                draggable="false"
-              />
-              <span
-                class="absolute left-0 right-0 text-center font-bold"
-                style="top: 42%; transform: translateY(-50%); color: #003d93; font-size: 60px;"
-              >
-                <template v-if="form[col.field] != null && form[col.field] !== ''">{{ form[col.field] }}</template>
-              </span>
-            </div>
-            <div class="flex items-start justify-center gap-5">
-              <div class="flex flex-col gap-1.5 items-center">
-                <label :for="col.field" class="text-xs font-medium text-ink-tertiary">Dorsal</label>
-                <InputNumber
-                  :id="col.field"
-                  v-model="form[col.field]"
-                  inputClass="w-20 text-center"
-                  :min="col.min ?? 0"
-                  :max="col.max"
-                  :minFractionDigits="0"
-                  :maxFractionDigits="0"
-                />
-              </div>
-              <div v-if="col.conTalla" class="flex flex-col gap-1.5 items-center">
-                <label :for="col.tallaField" class="text-xs font-medium text-ink-tertiary">Talla</label>
-                <InputText
-                  :id="col.tallaField"
-                  v-model="form[col.tallaField]"
-                  maxlength="10"
-                  class="w-20 text-center"
-                />
-              </div>
-            </div>
-          </div>
 
           <div v-else-if="col.type === 'image'" class="flex flex-wrap items-center gap-3">
             <img v-if="form[col.field]" :src="form[col.field]" alt="Foto" class="ar-foto-mini border border-line" />

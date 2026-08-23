@@ -19,9 +19,7 @@ export function createModelMock() {
     scope: vi.fn(),
     count: vi.fn(),
     setSecciones: vi.fn(),
-    setCategorias: vi.fn(),
     setTitulos: vi.fn(),
-    setEntrenadores: vi.fn(),
     setTiposFutbol: vi.fn(),
     bulkCreate: vi.fn()
   };
@@ -63,7 +61,6 @@ export function createModelsMock() {
     Equipo: createModelMock(),
     Incidencia: createModelMock(),
     Resultado: createModelMock(),
-    PartidoJugador: createModelMock(),
     EntrenamientoJugador: createModelMock(),
     Patrocinador: createModelMock()
   };
@@ -97,7 +94,6 @@ export const Partido = models.Partido;
 export const Equipo = models.Equipo;
 export const Incidencia = models.Incidencia;
 export const Resultado = models.Resultado;
-export const PartidoJugador = models.PartidoJugador;
 export const EntrenamientoJugador = models.EntrenamientoJugador;
 export const Patrocinador = models.Patrocinador;
 

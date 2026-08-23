@@ -38,7 +38,7 @@ const auth = useAuthStore();
 
 const opcionesCategoria = computed(() => [
   { label: 'Todas las categorías', value: null },
-  ...categorias.value.map(c => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
+  ...categorias.value.map(c => ({ label: c.nombre, value: c.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 ]);
 

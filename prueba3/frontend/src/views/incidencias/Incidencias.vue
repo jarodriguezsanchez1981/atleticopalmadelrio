@@ -23,19 +23,13 @@ onMounted(async () => {
 
 const opcionesCategoria = computed(() =>
   categorias.value.map(c => ({
-    label: `${c.nombre} (${c.temporada?.nombre || ''})`,
+    label: c.nombre,
     value: c.id
   })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
-function jugadoresDeCategoria(idCategoria) {
-  if (!idCategoria) {
-    return jugadores.value.map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
-  }
-  return jugadores.value
-    .filter(j => (j.ids_categorias || []).includes(idCategoria))
-    .map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
+function jugadoresDeCategoria() {
+  return jugadores.value.map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 }
 
@@ -60,7 +54,7 @@ const emptyItem = { id_categoria: null, id_jugador: null, id_entrenador: null, i
 
 function nombreCategoria(id) {
   const c = categorias.value.find(c => c.id === id);
-  return c ? `${c.nombre} (${c.temporada?.nombre || ''})` : '—';
+  return c ? c.nombre : '—';
 }
 
 function nombreJugador(id) {
@@ -92,7 +86,7 @@ function formatearFecha(fecha) {
     :emptyItem="emptyItem"
   >
     <template #cell-id_categoria="{ data }">
-      {{ data.categoria ? `${data.categoria.nombre} (${data.categoria.temporada?.nombre || ''})` : nombreCategoria(data.id_categoria) }}
+      {{ data.categoria?.nombre || nombreCategoria(data.id_categoria) }}
     </template>
     <template #cell-id_jugador="{ data }">
       {{ data.jugador ? `${data.jugador.nombre} ${data.jugador.apellidos}` : nombreJugador(data.id_jugador) }}

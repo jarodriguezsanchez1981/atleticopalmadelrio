@@ -91,7 +91,6 @@ function resetForm() {
     hasta: null,
     id_equipo: null,
     es_local: props.tipo === 'partido' ? 1 : null,
-    ids_jugadores: [],
     incidencias: '',
     resultado: '',
     resultado_incidencias: ''
@@ -101,9 +100,9 @@ function resetForm() {
   asistenciaTipo.value = 'total';
 }
 
-function jugadoresDeCategoria(idCat) {
-  if (!idCat) return [];
-  return jugadores.value.filter((j) => (j.ids_categorias || []).includes(idCat))
+function jugadoresDeCategoria() {
+  return jugadores.value
+    .slice()
     .sort((a, b) => `${a.apellidos}, ${a.nombre}`.localeCompare(`${b.apellidos}, ${b.nombre}`, 'es'));
 }
 
@@ -146,7 +145,6 @@ async function cargarRegistro() {
       hasta: item.hasta ? new Date(item.hasta) : null,
       id_equipo: props.tipo === 'partido' ? item.id_equipo ?? item.equipo?.id ?? null : null,
       es_local: props.tipo === 'partido' ? (item.es_local ? 1 : 0) : null,
-      ids_jugadores: item.ids_jugadores || [],
       incidencias: item.incidencias || '',
       resultado: item.resultado_valor || '',
       resultado_incidencias: item.resultado_incidencias || ''
@@ -210,12 +208,12 @@ const opcionesCategoria = computed(() => {
     );
     return categorias.value
       .filter((c) => !ocupadas.has(c.id))
-      .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
+      .map((c) => ({ label: c.nombre, value: c.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   if (props.tipo !== 'partido') {
     return categorias.value
-      .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
+      .map((c) => ({ label: c.nombre, value: c.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   const recientes = new Set(
@@ -223,7 +221,7 @@ const opcionesCategoria = computed(() => {
   );
   return categorias.value
     .filter((c) => !recientes.has(c.id))
-    .map((c) => ({ label: `${c.nombre} (${c.temporada?.nombre || ''})`, value: c.id }))
+    .map((c) => ({ label: c.nombre, value: c.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 });
 
@@ -278,16 +276,6 @@ const opcionesLocalVisitante = [
   { label: 'Local', value: 1, icon: 'pi pi-home' },
   { label: 'Visitante', value: 0, icon: 'pi pi-arrow-right-arrow-left' }
 ];
-
-const opcionesJugadores = computed(() => {
-  const idCat = form.value.id_categoria;
-  const lista = idCat
-    ? jugadores.value.filter((j) => (j.ids_categorias || []).includes(idCat))
-    : jugadores.value;
-  return lista
-    .map((j) => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
-});
 
 function duracionCategoria(idCat) {
   const cat = categorias.value.find((c) => c.id === idCat);
@@ -471,9 +459,6 @@ async function guardar() {
       payload.incidencias = form.value.incidencias;
       payload.resultado = form.value.resultado;
       payload.resultado_incidencias = form.value.resultado_incidencias || null;
-      if (form.value.ids_jugadores && form.value.ids_jugadores.length) {
-        payload.ids_jugadores = form.value.ids_jugadores;
-      }
     }
     const service = props.tipo === 'entrenamiento' ? entrenamientosService : partidosService;
     if (props.registroId) {
@@ -668,11 +653,6 @@ async function guardar() {
             <i class="pi pi-flag text-ink-tertiary"></i>
           </div>
           <p class="text-xs text-ink-tertiary">El resultado quedará guardado en la sección Resultados.</p>
-        </div>
-        <div v-if="registroId" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Jugadores convocados</label>
-          <MultiSelect v-model="form.ids_jugadores" :options="opcionesJugadores" optionLabel="label" optionValue="value"
-                       display="chip" filter placeholder="Selecciona jugadores" class="w-full" />
         </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Incidencias</label>

@@ -20,8 +20,7 @@ async function eventos(req, res, next) {
       {
         model: Categoria,
         as: 'categoria',
-        attributes: ['id', 'nombre', 'alias', 'id_temporada'],
-        include: [{ association: 'temporada', attributes: ['id', 'nombre'] }]
+        attributes: ['id', 'nombre', 'alias']
       },
       { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
     ];

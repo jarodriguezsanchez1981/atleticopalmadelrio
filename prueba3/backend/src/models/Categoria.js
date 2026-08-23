@@ -6,10 +6,7 @@ const Categoria = sequelize.define('Categoria', {
   nombre: { type: DataTypes.STRING(100), allowNull: false, unique: true },
   alias: { type: DataTypes.STRING(100), allowNull: true },
   id_tipofutbol: { type: DataTypes.INTEGER, allowNull: false },
-  id_temporada: { type: DataTypes.INTEGER, allowNull: false },
-  id_division: { type: DataTypes.INTEGER, allowNull: true },
   id_entrenador: { type: DataTypes.INTEGER, allowNull: true },
-  id_delegado: { type: DataTypes.INTEGER, allowNull: true },
   tiempopartido: { type: DataTypes.INTEGER, allowNull: true },
   tiempoentrenamiento: { type: DataTypes.INTEGER, allowNull: true }
 }, {

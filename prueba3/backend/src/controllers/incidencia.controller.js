@@ -1,11 +1,10 @@
-const { Incidencia, Jugador, Entrenador, Delegado, Categoria, Temporada, Usuario } = require('../models');
+const { Incidencia, Jugador, Entrenador, Delegado, Categoria, Usuario } = require('../models');
 
 const includes = [
   {
     model: Categoria,
     as: 'categoria',
-    attributes: ['id', 'nombre', 'id_temporada'],
-    include: [{ model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }]
+    attributes: ['id', 'nombre']
   },
   { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'dni'] },
   { model: Entrenador, as: 'entrenador', attributes: ['id', 'nombre', 'apellidos', 'dni'] },
