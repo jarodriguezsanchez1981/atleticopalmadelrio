@@ -8,6 +8,28 @@ const PORT = process.env.PORT || 4000;
 const MAX_RETRIES = 30;
 const RETRY_MS = 2000;
 
+// Secrets conocidos que deben cambiarse en producción
+const INSECURE_SECRETS = [
+  'apr_jwt_secret_dev_change_me_2026_palma_del_rio',
+  'cambia_esto_por_un_secreto_largo_y_aleatorio_en_produccion',
+  'dev_secret_change_me',
+];
+
+function validateSecrets() {
+  if (process.env.NODE_ENV === 'production') {
+    const jwtSecret = process.env.JWT_SECRET || '';
+    if (!jwtSecret || INSECURE_SECRETS.includes(jwtSecret)) {
+      console.error('❌ JWT_SECRET no está configurado o usa un valor por defecto. Define un secreto seguro en producción.');
+      process.exit(1);
+    }
+    const dbPass = process.env.DB_PASSWORD || '';
+    if (!dbPass || dbPass === 'apr_pass') {
+      console.error('❌ DB_PASSWORD usa el valor por defecto. Define una contraseña segura en producción.');
+      process.exit(1);
+    }
+  }
+}
+
 async function waitForDb() {
   for (let i = 1; i <= MAX_RETRIES; i++) {
     try {
@@ -43,7 +65,7 @@ async function seedAdminIfNeeded() {
       apellidos: 'Sistema',
       activo: true
     });
-    console.log(`✅ Usuario administrador "${usuario}" creado (password: ${password}).`);
+    console.log(`✅ Usuario administrador "${usuario}" creado.`);
   } else {
     console.log(`ℹ️  Usuario admin "${usuario}" ya existe.`);
   }
@@ -64,6 +86,7 @@ async function seedAdminIfNeeded() {
 
 async function start() {
   try {
+    validateSecrets();
     await waitForDb();
 
     // La BD se gestiona con database/schema.sql + init.sql. NO se usa

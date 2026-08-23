@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('./config/env');
 
 const apiRoutes = require('./routes');
@@ -14,7 +15,19 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') || '*', credentials: true }));
-app.use(express.json({ limit: '10mb' }));
+
+// Rate limiting global: 100 peticiones por 15 minutos por IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Demasiadas peticiones. Inténtalo de nuevo más tarde.' }
+});
+app.use('/api', globalLimiter);
+
+// Body parser con límite reducido (2mb en vez de 10mb)
+app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (req, res) => res.json({ status: 'ok', club: 'Atlético Palma del Río' }));
 
