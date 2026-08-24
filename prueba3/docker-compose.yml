@@ -1,16 +1,5 @@
 services:
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: apr_cloudflared
-    restart: unless-stopped
-    command: tunnel run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - nginx
-    networks:
-      - apr_net
   db:
     image: mysql:8.0
     container_name: apr_mysql
@@ -114,8 +103,10 @@ services:
       - backend
     ports:
       - "127.0.0.1:${NGINX_HTTP_PORT:-80}:80"
+      - "127.0.0.1:${NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
     cap_drop:
       - ALL
     cap_add:
