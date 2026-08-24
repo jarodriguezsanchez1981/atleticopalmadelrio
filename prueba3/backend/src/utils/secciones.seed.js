@@ -13,6 +13,7 @@ const SECCIONES = [
   { clave: 'equipos', nombre: 'Equipos', icono: 'pi pi-trophy', orden: 65 },
   { clave: 'incidencias', nombre: 'Incidencias', icono: 'pi pi-exclamation-triangle', orden: 68 },
   { clave: 'jugadores', nombre: 'Jugadores', icono: 'pi pi-users', orden: 70 },
+  { clave: 'plantillas', nombre: 'Plantillas', icono: 'pi pi-table', orden: 75 },
   { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80 },
   { clave: 'roles', nombre: 'Roles', icono: 'pi pi-shield', orden: 95 },
   { clave: 'patrocinadores', nombre: 'Patrocinadores', icono: 'pi pi-briefcase', orden: 90 },

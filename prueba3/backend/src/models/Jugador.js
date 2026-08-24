@@ -6,6 +6,7 @@ const Jugador = sequelize.define('Jugador', {
   nombre: { type: DataTypes.STRING(100), allowNull: false },
   apellidos: { type: DataTypes.STRING(150), allowNull: false },
   dni: { type: DataTypes.STRING(15), allowNull: false, unique: true },
+  fecha_nacimiento: { type: DataTypes.DATEONLY, allowNull: true },
   foto: { type: DataTypes.TEXT('long'), allowNull: true }
 }, {
   tableName: 'jugadores'

@@ -22,6 +22,7 @@ const TipoFutbol = require('./TipoFutbol');
 const Patrocinador = require('./Patrocinador');
 const Jornada = require('./Jornada');
 const Sancion = require('./Sancion');
+const Plantilla = require('./Plantilla');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -128,17 +129,33 @@ TipoFutbol.belongsToMany(Lugar, {
   timestamps: false
 });
 
-Categoria.hasMany(Jornada, { foreignKey: 'id_categoria', sourceKey: 'id' });
-Jornada.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
-
-Temporada.hasMany(Jornada, { foreignKey: 'id_temporada', sourceKey: 'id' });
-Jornada.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+Plantilla.hasMany(Jornada, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'jornadas' });
+Jornada.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Equipo.hasMany(Jornada, { foreignKey: 'id_equipo_local', sourceKey: 'id', as: 'jornadasLocal' });
 Jornada.belongsTo(Equipo, { foreignKey: 'id_equipo_local', targetKey: 'id', as: 'equipoLocal', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Equipo.hasMany(Jornada, { foreignKey: 'id_equipo_visitante', sourceKey: 'id', as: 'jornadasVisitante' });
 Jornada.belongsTo(Equipo, { foreignKey: 'id_equipo_visitante', targetKey: 'id', as: 'equipoVisitante', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+// ---- Plantillas ----
+Plantilla.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria' });
+Categoria.hasMany(Plantilla, { foreignKey: 'id_categoria', sourceKey: 'id', as: 'plantillas' });
+
+Plantilla.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada' });
+Temporada.hasMany(Plantilla, { foreignKey: 'id_temporada', sourceKey: 'id', as: 'plantillas' });
+
+Plantilla.belongsTo(Division, { foreignKey: 'id_division', targetKey: 'id', as: 'division' });
+Division.hasMany(Plantilla, { foreignKey: 'id_division', sourceKey: 'id', as: 'plantillas' });
+
+Plantilla.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
+Jugador.hasMany(Plantilla, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'plantillas' });
+
+Plantilla.belongsTo(Entrenador, { foreignKey: 'id_entrenador', targetKey: 'id', as: 'entrenador' });
+Entrenador.hasMany(Plantilla, { foreignKey: 'id_entrenador', sourceKey: 'id', as: 'plantillas' });
+
+Plantilla.belongsTo(Delegado, { foreignKey: 'id_delegado', targetKey: 'id', as: 'delegado' });
+Delegado.hasMany(Plantilla, { foreignKey: 'id_delegado', sourceKey: 'id', as: 'plantillas' });
 
 module.exports = {
   sequelize,
@@ -163,5 +180,6 @@ module.exports = {
   TipoFutbol,
   Patrocinador,
   Jornada,
-  Sancion
+  Sancion,
+  Plantilla
 };

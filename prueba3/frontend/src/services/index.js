@@ -11,7 +11,8 @@ export function crudService(resource) {
     obtener: (id) => api.get(`/${resource}/${id}`).then(r => r.data),
     crear: (payload) => api.post(`/${resource}`, payload).then(r => r.data),
     actualizar: (id, payload) => api.put(`/${resource}/${id}`, payload).then(r => r.data),
-    eliminar: (id) => api.delete(`/${resource}/${id}`)
+    eliminar: (id) => api.delete(`/${resource}/${id}`),
+    importar: (filas) => api.post(`/import/${resource}`, { filas }).then(r => r.data)
   };
 }
 
@@ -39,6 +40,10 @@ export const resultadosService = crudService('resultados');
 export const patrocinadoresService = crudService('patrocinadores');
 export const categoriaCalendarioService = crudService('jornadas');
 export const sancionesService = crudService('sanciones');
+export const plantillasService = {
+  ...crudService('plantillas'),
+  crearTemporada: (payload) => api.post('/plantillas/temporada', payload).then(r => r.data)
+};
 
 export const authService = {
   login: (usuario, password) => api.post('/auth/login', { usuario, password }).then(r => r.data),

@@ -15,6 +15,7 @@ const SECCION_ORDER = [
   'equipos',
   'incidencias',
   'jugadores',
+  'plantillas',
   'entrenadores',
   'division',
   'roles',

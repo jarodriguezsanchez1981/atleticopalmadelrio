@@ -24,6 +24,8 @@ const utilRoutes = require('./util.routes');
 const patrocinadorRoutes = require('./patrocinador.routes');
 const categoriaCalendarioRoutes = require('./jornada.routes');
 const sancionRoutes = require('./sancion.routes');
+const plantillaRoutes = require('./plantilla.routes');
+const importRoutes = require('./import.routes');
 
 const router = Router();
 
@@ -50,6 +52,8 @@ router.use('/tipos-futbol', tipofutbolRoutes);
 router.use('/patrocinadores', patrocinadorRoutes);
 router.use('/jornadas', categoriaCalendarioRoutes);
 router.use('/sanciones', sancionRoutes);
+router.use('/plantillas', plantillaRoutes);
+router.use('/import', importRoutes);
 router.use('/util', utilRoutes);
 
 module.exports = router;

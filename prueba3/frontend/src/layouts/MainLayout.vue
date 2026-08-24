@@ -25,6 +25,7 @@ const ALL_NAV = [
   { label: 'Equipos', icon: 'pi pi-trophy', to: '/equipos', seccion: 'equipos' },
   { label: 'Incidencias', icon: 'pi pi-exclamation-triangle', to: '/incidencias', seccion: 'incidencias' },
   { label: 'Jugadores', icon: 'pi pi-users', to: '/jugadores', seccion: 'jugadores' },
+  { label: 'Plantillas', icon: 'pi pi-table', to: '/plantillas', seccion: 'plantillas' },
   { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
   { label: 'Roles', icon: 'pi pi-shield', to: '/roles', seccion: 'roles' },
   { label: 'Patrocinadores', icon: 'pi pi-briefcase', to: '/patrocinadores', seccion: 'patrocinadores' },

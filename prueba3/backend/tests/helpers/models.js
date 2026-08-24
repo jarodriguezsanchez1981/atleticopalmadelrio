@@ -62,7 +62,8 @@ export function createModelsMock() {
     Incidencia: createModelMock(),
     Resultado: createModelMock(),
     EntrenamientoJugador: createModelMock(),
-    Patrocinador: createModelMock()
+    Patrocinador: createModelMock(),
+    Plantilla: createModelMock()
   };
   return models;
 }
@@ -96,6 +97,7 @@ export const Incidencia = models.Incidencia;
 export const Resultado = models.Resultado;
 export const EntrenamientoJugador = models.EntrenamientoJugador;
 export const Patrocinador = models.Patrocinador;
+export const Plantilla = models.Plantilla;
 
 /**
  * Mocks de las utilidades de password y JWT que cargan los controladores

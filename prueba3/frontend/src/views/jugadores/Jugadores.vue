@@ -8,10 +8,11 @@ const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') }
+  { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
+  { field: 'fecha_nacimiento', header: 'F. Nacimiento', type: 'date' }
 ]);
 
-const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '' };
+const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', fecha_nacimiento: null };
 
 function formatearFecha(fecha) {
   if (!fecha) return '—';

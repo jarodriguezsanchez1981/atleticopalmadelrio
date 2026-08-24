@@ -101,6 +101,12 @@ const routes = [
         meta: { seccion: 'jugadores' }
       },
       {
+        path: 'plantillas',
+        name: 'plantillas',
+        component: () => import('../views/plantillas/Plantillas.vue'),
+        meta: { seccion: 'plantillas' }
+      },
+      {
         path: 'entrenadores',
         name: 'entrenadores',
         component: () => import('../views/entrenadores/Entrenadores.vue'),

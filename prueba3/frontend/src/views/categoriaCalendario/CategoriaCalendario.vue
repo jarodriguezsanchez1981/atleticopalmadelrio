@@ -1,22 +1,25 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { categoriaCalendarioService, categoriasService, equiposService } from '../../services';
+import { categoriaCalendarioService, plantillasService, equiposService } from '../../services';
 
-const categorias = ref([]);
+const plantillas = ref([]);
 const equipos = ref([]);
 
 onMounted(async () => {
-  const [cats, eqs] = await Promise.all([
-    categoriasService.listar(),
+  const [plants, eqs] = await Promise.all([
+    plantillasService.listar(),
     equiposService.listar()
   ]);
-  categorias.value = cats;
+  plantillas.value = plants;
   equipos.value = eqs;
 });
 
-const opcionesCategoria = computed(() =>
-  categorias.value.map(c => ({ label: c.nombre, value: c.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
+const opcionesPlantilla = computed(() =>
+  plantillas.value.map(p => ({
+    label: `${p.categoria?.nombre || '—'} / ${p.temporada?.nombre || '—'}`,
+    value: p.id
+  })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesEquipo = computed(() =>
@@ -24,7 +27,7 @@ const opcionesEquipo = computed(() =>
 );
 
 const columns = computed(() => [
-  { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoria.value, required: true },
+  { field: 'id_plantilla', header: 'Plantilla', type: 'select', options: opcionesPlantilla.value, required: true },
   { field: 'id_equipo_local', header: 'Equipo Local', type: 'select', options: opcionesEquipo.value, required: true },
   { field: 'id_equipo_visitante', header: 'Equipo Visitante', type: 'select', options: opcionesEquipo.value, required: true },
   { field: 'jornada', header: 'Jornada', type: 'number', required: true },
@@ -32,10 +35,11 @@ const columns = computed(() => [
   { field: 'hora', header: 'Hora', type: 'text', required: false }
 ]);
 
-const emptyItem = { id_categoria: null, id_temporada: null, id_equipo_local: null, id_equipo_visitante: null, jornada: null, fecha: null, hora: null };
+const emptyItem = { id_plantilla: null, id_equipo_local: null, id_equipo_visitante: null, jornada: null, fecha: null, hora: null };
 
-function nombreCategoria(id) {
-  return categorias.value.find(c => c.id === id)?.nombre || '—';
+function nombrePlantilla(id) {
+  const p = plantillas.value.find(pl => pl.id === id);
+  return p ? `${p.categoria?.nombre || '—'} / ${p.temporada?.nombre || '—'}` : '—';
 }
 
 function nombreEquipo(id) {
@@ -56,8 +60,8 @@ function formatDate(fecha) {
     :service="categoriaCalendarioService"
     :emptyItem="emptyItem"
   >
-    <template #cell-id_categoria="{ data }">
-      {{ data.categoria?.nombre || nombreCategoria(data.id_categoria) }}
+    <template #cell-id_plantilla="{ data }">
+      {{ data.plantilla ? (data.plantilla.categoria?.nombre + ' / ' + data.plantilla.temporada?.nombre) : nombrePlantilla(data.id_plantilla) }}
     </template>
     <template #cell-id_equipo_local="{ data }">
       {{ data.equipoLocal?.nombre || nombreEquipo(data.id_equipo_local) }}
@@ -68,8 +72,8 @@ function formatDate(fecha) {
     <template #cell-fecha="{ data }">
       {{ formatDate(data.fecha) }}
     </template>
-    <template #detail-id_categoria="{ data }">
-      {{ data.categoria?.nombre || nombreCategoria(data.id_categoria) }}
+    <template #detail-id_plantilla="{ data }">
+      {{ data.plantilla ? (data.plantilla.categoria?.nombre + ' / ' + data.plantilla.temporada?.nombre) : nombrePlantilla(data.id_plantilla) }}
     </template>
     <template #detail-id_equipo_local="{ data }">
       {{ data.equipoLocal?.nombre || nombreEquipo(data.id_equipo_local) }}

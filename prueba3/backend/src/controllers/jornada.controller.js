@@ -1,33 +1,31 @@
-const { Jornada, Categoria, Equipo, Temporada } = require('../models');
+const { Jornada, Equipo, Plantilla, Categoria, Temporada } = require('../models');
 
 const includes = [
   {
-    model: Categoria,
-    as: 'categoria',
-    attributes: ['id', 'nombre']
-  },
-  {
-    model: Temporada,
-    as: 'temporada',
-    attributes: ['id', 'nombre']
+    model: Plantilla,
+    as: 'plantilla',
+    include: [
+      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] },
+      { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
+    ]
   },
   {
     model: Equipo,
     as: 'equipoLocal',
-    attributes: ['id', 'nombre']
+    attributes: ['id', 'nombre', 'escudo', 'localidad']
   },
   {
     model: Equipo,
     as: 'equipoVisitante',
-    attributes: ['id', 'nombre']
+    attributes: ['id', 'nombre', 'escudo', 'localidad']
   }
 ];
 
 async function listar(req, res, next) {
   try {
-    const { id_categoria, jornada } = req.query;
+    const { id_plantilla, jornada } = req.query;
     const where = {};
-    if (id_categoria) where.id_categoria = id_categoria;
+    if (id_plantilla) where.id_plantilla = id_plantilla;
     if (jornada) where.jornada = jornada;
     const items = await Jornada.findAll({
       where,
@@ -51,17 +49,15 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, id_temporada, id_equipo_local, id_equipo_visitante, jornada, fecha, hora } = req.body;
-    if (!id_categoria || !id_temporada || !id_equipo_local || !id_equipo_visitante || !jornada || !fecha) {
-      return res.status(400).json({ message: 'Temporada, categoría, equipo local, equipo visitante, jornada y fecha son obligatorios.' });
+    const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora } = req.body;
+    if (!id_plantilla || !id_equipo_local || !id_equipo_visitante || !jornada || !fecha) {
+      return res.status(400).json({ message: 'Plantilla, equipo local, equipo visitante, jornada y fecha son obligatorios.' });
     }
     if (id_equipo_local === id_equipo_visitante) {
       return res.status(400).json({ message: 'El equipo local y el visitante no pueden ser el mismo.' });
     }
-    const categoria = await Categoria.findOne({ where: { id: id_categoria } });
-    if (!categoria) return res.status(400).json({ message: 'La categoría indicada no existe.' });
-    const temporada = await Temporada.findOne({ where: { id: id_temporada } });
-    if (!temporada) return res.status(400).json({ message: 'La temporada indicada no existe.' });
+    const plantilla = await Plantilla.findOne({ where: { id: id_plantilla } });
+    if (!plantilla) return res.status(400).json({ message: 'La plantilla indicada no existe.' });
     const local = await Equipo.findOne({ where: { id: id_equipo_local } });
     if (!local) return res.status(400).json({ message: 'El equipo local indicado no existe.' });
     const visitante = await Equipo.findOne({ where: { id: id_equipo_visitante } });
@@ -70,7 +66,7 @@ async function crear(req, res, next) {
       return res.status(400).json({ message: 'La jornada debe ser un número entero positivo.' });
     }
     const creado = await Jornada.create({
-      id_temporada, id_categoria, id_equipo_local, id_equipo_visitante, jornada, fecha, hora: hora || null
+      id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora: hora || null
     });
     const respuesta = await Jornada.findOne({ where: { id: creado.id }, include: includes });
     res.status(201).json(respuesta);
@@ -81,19 +77,14 @@ async function actualizar(req, res, next) {
   try {
     const item = await Jornada.findOne({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
-    const { id_categoria, id_temporada, id_equipo_local, id_equipo_visitante, jornada, fecha, hora } = req.body;
+    const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora } = req.body;
     if (id_equipo_local && id_equipo_visitante && id_equipo_local === id_equipo_visitante) {
       return res.status(400).json({ message: 'El equipo local y el visitante no pueden ser el mismo.' });
     }
-    if (id_temporada !== undefined) {
-      const temporada = await Temporada.findOne({ where: { id: id_temporada } });
-      if (!temporada) return res.status(400).json({ message: 'La temporada indicada no existe.' });
-      item.id_temporada = id_temporada;
-    }
-    if (id_categoria !== undefined) {
-      const categoria = await Categoria.findOne({ where: { id: id_categoria } });
-      if (!categoria) return res.status(400).json({ message: 'La categoría indicada no existe.' });
-      item.id_categoria = id_categoria;
+    if (id_plantilla !== undefined) {
+      const plantilla = await Plantilla.findOne({ where: { id: id_plantilla } });
+      if (!plantilla) return res.status(400).json({ message: 'La plantilla indicada no existe.' });
+      item.id_plantilla = id_plantilla;
     }
     if (id_equipo_local !== undefined) {
       const local = await Equipo.findOne({ where: { id: id_equipo_local } });

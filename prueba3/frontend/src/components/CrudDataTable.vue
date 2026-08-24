@@ -18,12 +18,14 @@ import Password from 'primevue/password';
 import DatePicker from 'primevue/datepicker';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
+import ProgressBar from 'primevue/progressbar';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { mapaFestivosAnio, nombreFestivoNacional } from '../utils/festivosEspana';
 import { emitirCambio } from '../utils/cambioBus';
 import { useAuthStore } from '../stores/auth.store';
+import * as XLSX from 'xlsx';
 
 const auth = useAuthStore();
 
@@ -55,6 +57,13 @@ const form = reactive({ ...props.emptyItem });
 const detalle = ref(null);
 const datePickerRefs = {};
 const timeDrafts = reactive({});
+
+const importDialogVisible = ref(false);
+const importando = ref(false);
+const importProgress = ref(0);
+const importInputRef = ref(null);
+const importPreview = ref([]);
+const importErrores = ref([]);
 
 const columnas = ref([]);
 const storageKey = `ar_col_order_${props.title}`;
@@ -284,6 +293,48 @@ function resolveOptions(col) {
   return col.options || [];
 }
 
+/** Texto de filtro actual por campo (para selects con filterMinLength). */
+const filtrosSelect = ref({});
+
+function onFilterSelect(field) {
+  return (e) => { filtrosSelect.value[field] = e.value || ''; };
+}
+
+/**
+ * Para selects con búsqueda: solo muestra opciones cuando el usuario
+ * escribe al menos `filterMinLength` letras; el filtrado es por
+ * prefijo/subcadena sobre el label (nombre + apellidos). Siempre incluye
+ * la opción seleccionada para conservar su etiqueta.
+ */
+function opcionesFiltradas(col) {
+  const base = resolveOptions(col);
+  if (!col.filterMinLength) return base;
+  const q = (filtrosSelect.value[col.field] || '').trim().toLowerCase();
+  if (q.length < col.filterMinLength) {
+    return base.filter((o) => o.value === form.value?.[col.field]);
+  }
+  return base.filter((o) =>
+    o.label.toLowerCase().includes(q) ||
+    o.label.toLowerCase().split(', ').reverse().join(' ').includes(q)
+  );
+}
+
+watch(dialogVisible, (v) => {
+  if (!v) filtrosSelect.value = {};
+});
+
+/** Si una columna con options dinámicas deja de ofrecer el valor actual, se limpia. */
+watch(form, () => {
+  for (const col of props.columns) {
+    if (typeof col.options === 'function' && form[col.field] != null) {
+      const opts = resolveOptions(col);
+      if (opts.length && !opts.some((o) => o.value === form[col.field])) {
+        form[col.field] = null;
+      }
+    }
+  }
+});
+
 function prepareFormData(item) {
   const data = { ...props.emptyItem, ...item };
   for (const col of props.columns) {
@@ -359,6 +410,66 @@ function abrirNuevo() {
   Object.assign(form, prepareFormData(props.emptyItem));
   editando.value = false;
   dialogVisible.value = true;
+}
+
+/* ---------- Importación Excel ---------- */
+
+function abrirImport() {
+  importPreview.value = [];
+  importErrores.value = [];
+  importProgress.value = 0;
+  importDialogVisible.value = true;
+}
+
+function onImportFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  importando.value = true;
+  importProgress.value = 10;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      importPreview.value = rows;
+      importProgress.value = 100;
+    } catch {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo leer el archivo Excel.', life: 4000 });
+      importPreview.value = [];
+    } finally {
+      importando.value = false;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function confirmarImport() {
+  if (!importPreview.value.length) return;
+  importando.value = true;
+  importProgress.value = 30;
+  try {
+    const res = await props.service.importar(importPreview.value);
+    importProgress.value = 100;
+    toast.add({
+      severity: 'success',
+      summary: 'Importación completada',
+      detail: `${res.insertados} filas importadas${res.errores.length ? `, ${res.errores.length} errores` : ''}.`,
+      life: 5000
+    });
+    importDialogVisible.value = false;
+    await cargar();
+    emit('changed');
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error de importación',
+      detail: err.response?.data?.message || 'No se pudo completar la importación.',
+      life: 5000
+    });
+  } finally {
+    importando.value = false;
+  }
 }
 
 function abrirEdicion(item) {
@@ -567,6 +678,10 @@ watch(
             <InputIcon class="pi pi-search" />
             <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
           </IconField>
+          <slot name="acciones" />
+          <Button v-if="permisoCrear" label="Importar" icon="pi pi-file-import" outlined
+                  class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
+                  @click="abrirImport" />
           <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
                   class="!bg-club-green !border-club-green hover:!bg-club-greenLight !" />
         </div>
@@ -686,8 +801,14 @@ watch(
           </div>
 
           <Select v-else-if="col.type === 'select'" :id="col.field" v-model="form[col.field]"
-                  :options="resolveOptions(col)" optionLabel="label" optionValue="value" class="w-full"
-                  placeholder="Selecciona una opción" showClear />
+                  :options="col.filterMinLength ? opcionesFiltradas(col) : resolveOptions(col)"
+                  optionLabel="label" optionValue="value" class="w-full"
+                  placeholder="Selecciona una opción" showClear
+                  :filter="col.filter === true"
+                  autoFilterFocus
+                  filterFields="label"
+                  :filterPlaceholder="col.filterPlaceholder || 'Buscar…'"
+                  @filter="onFilterSelect(col.field)" />
 
           <DatePicker v-else-if="col.type === 'date'" :id="col.field" v-model="form[col.field]"
                       dateFormat="dd/mm/yy" class="w-full"
@@ -753,6 +874,55 @@ watch(
                   class="!bg-club-green !border-club-green" />
         </div>
       </div>
+    </Dialog>
+
+    <!-- Diálogo de importación Excel -->
+    <Dialog v-model:visible="importDialogVisible" modal header="Importar desde Excel"
+            :style="{ width: '42rem' }" :closable="!importando">
+      <div class="space-y-4">
+        <p class="text-sm text-ink-secondary">
+          Selecciona un archivo <strong>.xlsx</strong> cuyas columnas
+          coincidan con los campos de la tabla (sin la columna <code>id</code>).
+          Las filas se insertarán una a una; las que falten validación se
+          reportarán como error pero no detienen el resto.
+        </p>
+
+        <input ref="importInputRef" type="file" accept=".xlsx,.xls"
+               class="hidden"
+               @change="onImportFile" />
+
+        <div v-if="!importPreview.length" class="flex justify-center">
+          <Button label="Seleccionar archivo" icon="pi pi-upload"
+                  :loading="importando"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                  @click="importInputRef?.click()" />
+        </div>
+
+        <div v-else class="space-y-3">
+          <div class="text-sm font-medium text-ink-primary">
+            {{ importPreview.length }} filas detectadas
+          </div>
+          <DataTable :value="importPreview.slice(0, 10)" class="ar-datatable text-sm" scrollable scrollHeight="200px">
+            <Column v-for="key of Object.keys(importPreview[0] || {})" :key="key"
+                    :field="key" :header="key" />
+          </DataTable>
+          <p v-if="importPreview.length > 10" class="text-xs text-ink-tertiary">
+            Mostrando las 10 primeras filas de {{ importPreview.length }}.
+          </p>
+        </div>
+
+        <ProgressBar v-if="importando" :value="importProgress" />
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <Button label="Cancelar" text @click="importDialogVisible = false" :disabled="importando" />
+          <Button v-if="importPreview.length" label="Importar" icon="pi pi-check"
+                  :loading="importando"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                  @click="confirmarImport" />
+        </div>
+      </template>
     </Dialog>
   </div>
 </template>

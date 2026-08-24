@@ -32,6 +32,7 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('equipos', 'Equipos', 'pi pi-trophy', 65),
   ('incidencias', 'Incidencias', 'pi pi-exclamation-triangle', 68),
   ('jugadores', 'Jugadores', 'pi pi-users', 70),
+  ('plantillas', 'Plantillas', 'pi pi-table', 75),
   ('entrenadores', 'Entrenadores', 'pi pi-id-card', 80),
   ('roles', 'Roles', 'pi pi-shield', 95),
   ('patrocinadores', 'Patrocinadores', 'pi pi-briefcase', 97),
@@ -151,8 +152,7 @@ CREATE TABLE IF NOT EXISTS equipos (
 
 CREATE TABLE IF NOT EXISTS jornadas (
   id                INT AUTO_INCREMENT,
-  id_temporada      INT NOT NULL,
-  id_categoria      INT NOT NULL,
+  id_plantilla      INT NOT NULL,
   id_equipo_local   INT NOT NULL,
   id_equipo_visitante INT NOT NULL,
   jornada           INT NOT NULL,
@@ -168,10 +168,30 @@ CREATE TABLE IF NOT EXISTS jugadores (
   nombre        VARCHAR(100) NOT NULL,
   apellidos     VARCHAR(150) NOT NULL,
   dni           VARCHAR(15)  NOT NULL UNIQUE,
+  fecha_nacimiento DATE NULL,
   foto          LONGTEXT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS plantillas (
+  id            INT AUTO_INCREMENT,
+  id_categoria  INT NOT NULL,
+  id_jugador    INT NULL,
+  id_entrenador INT NULL,
+  id_delegado   INT NULL,
+  id_division   INT NULL,
+  id_temporada  INT NOT NULL,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_plantillas_categoria (id_categoria),
+  KEY idx_plantillas_temporada (id_temporada),
+  KEY idx_plantillas_jugador (id_jugador),
+  KEY idx_plantillas_entrenador (id_entrenador),
+  KEY idx_plantillas_delegado (id_delegado),
+  KEY idx_plantillas_division (id_division)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS entrenadores (

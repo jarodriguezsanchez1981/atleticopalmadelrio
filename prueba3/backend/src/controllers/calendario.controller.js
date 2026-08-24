@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { EntrenamientoSemanal, Entrenamiento, Partido, Categoria, Lugar, Equipo, Jornada, Resultado } = require('../models');
+const { EntrenamientoSemanal, Entrenamiento, Partido, Categoria, Lugar, Equipo, Jornada, Resultado, Plantilla, Temporada } = require('../models');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos (desde
@@ -66,6 +66,10 @@ async function eventos(req, res, next) {
         ...includesCategoria,
         { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
         { model: Jornada, as: 'jornada', attributes: ['id', 'jornada'], include: [
+          { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [
+            { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] },
+            { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
+          ]},
           { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
           { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] }
         ] },
