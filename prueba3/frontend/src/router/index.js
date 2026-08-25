@@ -41,10 +41,6 @@ const routes = [
         meta: { seccion: 'partidos' }
       },
       {
-        path: 'resultados',
-        name: 'resultados',
-        component: () => import('../views/resultados/Resultados.vue'),
-        meta: { seccion: 'resultados' }
       },
       {
         path: 'temporadas',
