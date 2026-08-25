@@ -15,7 +15,7 @@ const includesBase = [
     model: Plantilla,
     as: 'plantilla',
     attributes: ['id', 'id_categoria', 'id_temporada'],
-    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] }]
+    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }]
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },
@@ -52,7 +52,7 @@ async function listar(req, res, next) {
           model: Plantilla,
           as: 'plantilla',
           attributes: ['id', 'id_categoria', 'id_temporada'],
-          include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] }]
+          include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }]
         },
         { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
         { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },

@@ -1,7 +1,7 @@
 const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado } = require('../models');
 
 const includes = [
-  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] },
+  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] },
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
   { model: Division, as: 'division', attributes: ['id', 'nombre'] },
   { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] },

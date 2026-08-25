@@ -4,7 +4,7 @@ const { Entrenamiento, Plantilla, Categoria, Lugar } = require('../models');
 const DURACION_ENTRENAMIENTO_DEFECTO = 60;
 
 const includes = [
-  { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol', 'tiempoentrenamiento'] }] },
+  { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }] },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
 ];
 

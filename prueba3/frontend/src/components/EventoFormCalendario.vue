@@ -192,7 +192,7 @@ const opcionesLugar = computed(() => {
   const pl = plantillas.value.find((p) => p.id === idPl);
   const idCat = pl?.id_categoria;
   const cat = pl?.categoria;
-  const filtradas = idCat && cat
+  const filtradas = idCat && cat && cat.id_tipofutbol
     ? lugares.value.filter((l) => (l.ids_tipos_futbol || []).includes(cat.id_tipofutbol))
     : lugares.value;
 

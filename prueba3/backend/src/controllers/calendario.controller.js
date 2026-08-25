@@ -20,7 +20,7 @@ async function eventos(req, res, next) {
         model: Plantilla,
         as: 'plantilla',
         attributes: ['id', 'id_categoria', 'id_temporada'],
-        include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] }]
+        include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }]
       },
       { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
     ];
