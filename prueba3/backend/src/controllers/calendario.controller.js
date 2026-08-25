@@ -1,9 +1,8 @@
 const { Op } = require('sequelize');
-const { EntrenamientoSemanal, Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Resultado, Temporada } = require('../models');
+const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Resultado, Temporada } = require('../models');
 
 /**
- * Endpoint de SOLO LECTURA. Devuelve entrenamientos (desde
- * entrenamientos_semanales) y partidos normalizados como eventos
+ * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados como eventos
  * para FullCalendar.
  */
 async function eventos(req, res, next) {
@@ -30,25 +29,19 @@ async function eventos(req, res, next) {
     const promesas = [];
 
     if (incluirEntrenamientos) {
-      const whereSemanal = {};
-      if (fechaDesde || fechaHasta) {
-        whereSemanal.fecha_entrenamiento = {};
-        if (fechaDesde) whereSemanal.fecha_entrenamiento[Op.gte] = fechaDesde;
-        if (fechaHasta) whereSemanal.fecha_entrenamiento[Op.lte] = fechaHasta;
-      }
       const whereEntrenamiento = { id_usuario: req.user?.id };
       if (id_plantilla) whereEntrenamiento.id_plantilla = id_plantilla;
+      if (fechaDesde || fechaHasta) {
+        whereEntrenamiento.fecha = {};
+        if (fechaDesde) whereEntrenamiento.fecha[Op.gte] = fechaDesde;
+        if (fechaHasta) whereEntrenamiento.fecha[Op.lte] = fechaHasta;
+      }
 
       promesas.push(
-        EntrenamientoSemanal.findAll({
-          where: whereSemanal,
-          include: [{
-            model: Entrenamiento,
-            as: 'entrenamiento',
-            where: whereEntrenamiento,
-            attributes: ['id', 'id_plantilla', 'id_lugar', 'fecha', 'recurrente'],
-            include: includesPlantilla
-          }]
+        Entrenamiento.findAll({
+          where: whereEntrenamiento,
+          include: includesPlantilla,
+          order: [['fecha', 'ASC']]
         })
       );
     } else {
@@ -83,23 +76,22 @@ async function eventos(req, res, next) {
       promesas.push(Promise.resolve([]));
     }
 
-    const [semanales, partidos] = await Promise.all(promesas);
+    const [entrenamientos, partidos] = await Promise.all(promesas);
 
     // ---- Eventos ----
-    const eventosEntrenamiento = semanales.map((s) => {
-      const b = s.entrenamiento;
+    const eventosEntrenamiento = entrenamientos.map((e) => {
       return {
-        id: `entrenamiento-${s.id}`,
+        id: `entrenamiento-${e.id}`,
         tipo: 'entrenamiento',
-        base_id: b?.id,
-        titulo: `Entrenamiento · ${b?.plantilla?.categoria?.nombre ?? ''}`,
-        inicio: s.fecha_entrenamiento,
-        lugar: b?.lugar?.nombre ?? null,
-        id_lugar: b?.id_lugar,
-        incidencias: s.incidencias,
-        plantilla: b?.plantilla,
-        categoria: b?.plantilla?.categoria,
-        recurrente: b?.recurrente ? true : false
+        base_id: e.id,
+        titulo: `Entrenamiento · ${e.plantilla?.categoria?.nombre ?? ''}`,
+        inicio: e.fecha,
+        lugar: e.lugar?.nombre ?? null,
+        id_lugar: e.id_lugar,
+        incidencias: null,
+        plantilla: e.plantilla,
+        categoria: e.plantilla?.categoria,
+        recurrente: e.recurrente ? true : false
       };
     });
 

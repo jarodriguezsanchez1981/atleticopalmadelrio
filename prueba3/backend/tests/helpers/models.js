@@ -56,12 +56,9 @@ export function createModelsMock() {
     Jugador: createModelMock(),
     Entrenador: createModelMock(),
     Entrenamiento: createModelMock(),
-    EntrenamientoSemanal: createModelMock(),
     Partido: createModelMock(),
     Equipo: createModelMock(),
-    Incidencia: createModelMock(),
     Resultado: createModelMock(),
-    EntrenamientoJugador: createModelMock(),
     Patrocinador: createModelMock(),
     Plantilla: createModelMock(),
     Jornada: createModelMock(),
@@ -92,12 +89,9 @@ export const Categoria = models.Categoria;
 export const Jugador = models.Jugador;
 export const Entrenador = models.Entrenador;
 export const Entrenamiento = models.Entrenamiento;
-export const EntrenamientoSemanal = models.EntrenamientoSemanal;
 export const Partido = models.Partido;
 export const Equipo = models.Equipo;
-export const Incidencia = models.Incidencia;
 export const Resultado = models.Resultado;
-export const EntrenamientoJugador = models.EntrenamientoJugador;
 export const Patrocinador = models.Patrocinador;
 export const Plantilla = models.Plantilla;
 export const Jornada = models.Jornada;
