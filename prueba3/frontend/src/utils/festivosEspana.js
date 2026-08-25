@@ -40,6 +40,7 @@ function festivosDeAnio(year) {
   const fijos = [
     [1, 1, 'Año Nuevo'],
     [1, 6, 'Epifanía del Señor'],
+    [2, 28, 'Día de la Comunidad de Andalucía'],
     [5, 1, 'Fiesta del Trabajo'],
     [8, 15, 'Asunción de la Virgen'],
     [10, 12, 'Fiesta Nacional de España'],
@@ -55,6 +56,7 @@ function festivosDeAnio(year) {
   }));
 
   lista.push(
+    { fecha: ymd(addDays(easter, -3)), nombre: 'Jueves Santo' },
     { fecha: ymd(addDays(easter, -2)), nombre: 'Viernes Santo' }
   );
 

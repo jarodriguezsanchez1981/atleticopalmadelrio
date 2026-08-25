@@ -1,11 +1,12 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
 import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
+import { suscribirseCambio } from '../../utils/cambioBus';
 
 const crudRef = ref(null);
 const toast = useToast();
@@ -16,12 +17,13 @@ const jugadores = ref([]);
 const entrenadores = ref([]);
 const delegados = ref([]);
 const plantillasExistentes = ref([]);
+let unsubCambio = null;
 
 const dialogTemporadaVisible = ref(false);
 const temporadaSeleccionada = ref(null);
 const creandoTemporada = ref(false);
 
-onMounted(async () => {
+async function cargarOpciones() {
   const [cats, temps, divs, jug, ents, dels, plants] = await Promise.all([
     categoriasService.listar(),
     temporadasService.listar(),
@@ -38,6 +40,14 @@ onMounted(async () => {
   entrenadores.value = ents;
   delegados.value = dels;
   plantillasExistentes.value = plants;
+}
+
+onMounted(async () => {
+  await cargarOpciones();
+  unsubCambio = suscribirseCambio(cargarOpciones);
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
 });
 
 /** Refresca la lista de plantillas tras crear/editar/borrar. */
@@ -121,18 +131,9 @@ const columns = computed(() => [
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false },
-  {
-    field: 'id_entrenador', header: 'Entrenador', type: 'select', options: opcionesEntrenador.value, required: false,
-    filter: true, filterMinLength: 3, filterPlaceholder: 'Escribe al menos 3 letras…'
-  },
-  {
-    field: 'id_delegado', header: 'Delegado', type: 'select', options: opcionesDelegado.value, required: false,
-    filter: true, filterMinLength: 3, filterPlaceholder: 'Escribe al menos 3 letras…'
-  },
-  {
-    field: 'id_jugador', header: 'Jugador', type: 'select', options: opcionesJugador.value, required: false,
-    filter: true, filterMinLength: 3, filterPlaceholder: 'Escribe al menos 3 letras…'
-  }
+  { field: 'id_entrenador', header: 'Entrenador', type: 'select', options: opcionesEntrenador.value, required: false },
+  { field: 'id_delegado', header: 'Delegado', type: 'select', options: opcionesDelegado.value, required: false },
+  { field: 'id_jugador', header: 'Jugador', type: 'select', options: opcionesJugador.value, required: false }
 ]);
 
 const emptyItem = {

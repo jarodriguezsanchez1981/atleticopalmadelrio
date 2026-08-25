@@ -13,11 +13,13 @@ const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
+  { field: 'dni', header: 'DNI', type: 'text', validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
+  { field: 'email', header: 'Email', type: 'text' },
+  { field: 'fecha_nacimiento', header: 'F. Nacimiento', type: 'date' },
   { field: 'tipo', header: 'Tipo', type: 'select', options: opcionesTipo, required: true }
 ]);
 
-const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', tipo: 'campo' };
+const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', fecha_nacimiento: null, tipo: 'campo' };
 </script>
 
 <template>

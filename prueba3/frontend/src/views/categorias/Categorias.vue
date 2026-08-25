@@ -1,12 +1,22 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { categoriasService, tiposFutbolService } from '../../services';
+import { suscribirseCambio } from '../../utils/cambioBus';
 
 const tiposFutbol = ref([]);
+let unsubCambio = null;
+
+async function cargarOpciones() {
+  tiposFutbol.value = await tiposFutbolService.listar();
+}
 
 onMounted(async () => {
-  tiposFutbol.value = await tiposFutbolService.listar();
+  await cargarOpciones();
+  unsubCambio = suscribirseCambio(cargarOpciones);
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
 });
 
 const opcionesTipoFutbol = computed(() =>

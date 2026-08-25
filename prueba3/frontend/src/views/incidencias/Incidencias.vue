@@ -1,14 +1,16 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { incidenciasService, jugadoresService, entrenadoresService, delegadosService, categoriasService } from '../../services';
+import { suscribirseCambio } from '../../utils/cambioBus';
 
 const jugadores = ref([]);
 const entrenadores = ref([]);
 const delegados = ref([]);
 const categorias = ref([]);
+let unsubCambio = null;
 
-onMounted(async () => {
+async function cargarOpciones() {
   const [jugs, ents, dels, cats] = await Promise.all([
     jugadoresService.listar(),
     entrenadoresService.listar(),
@@ -19,6 +21,14 @@ onMounted(async () => {
   entrenadores.value = ents;
   delegados.value = dels;
   categorias.value = cats;
+}
+
+onMounted(async () => {
+  await cargarOpciones();
+  unsubCambio = suscribirseCambio(cargarOpciones);
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
 });
 
 const opcionesCategoria = computed(() =>

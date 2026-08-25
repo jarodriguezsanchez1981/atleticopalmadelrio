@@ -1,18 +1,28 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { categoriaCalendarioService, plantillasService, equiposService } from '../../services';
+import { suscribirseCambio } from '../../utils/cambioBus';
 
 const plantillas = ref([]);
 const equipos = ref([]);
+let unsubCambio = null;
 
-onMounted(async () => {
+async function cargarOpciones() {
   const [plants, eqs] = await Promise.all([
     plantillasService.listar(),
     equiposService.listar()
   ]);
   plantillas.value = plants;
   equipos.value = eqs;
+}
+
+onMounted(async () => {
+  await cargarOpciones();
+  unsubCambio = suscribirseCambio(cargarOpciones);
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
 });
 
 const opcionesPlantilla = computed(() =>

@@ -1,13 +1,23 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import Message from 'primevue/message';
 import { rolesService, usuariosService } from '../../services';
+import { suscribirseCambio } from '../../utils/cambioBus';
 
 const usuarios = ref([]);
+let unsubCambio = null;
+
+async function cargarOpciones() {
+  usuarios.value = await usuariosService.listar();
+}
 
 onMounted(async () => {
-  usuarios.value = await usuariosService.listar();
+  await cargarOpciones();
+  unsubCambio = suscribirseCambio(cargarOpciones);
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
 });
 
 const opcionesUsuario = computed(() =>

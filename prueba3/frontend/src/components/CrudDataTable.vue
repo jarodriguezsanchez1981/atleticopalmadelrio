@@ -311,7 +311,7 @@ function opcionesFiltradas(col) {
   if (!col.filterMinLength) return base;
   const q = (filtrosSelect.value[col.field] || '').trim().toLowerCase();
   if (q.length < col.filterMinLength) {
-    return base.filter((o) => o.value === form.value?.[col.field]);
+    return base.filter((o) => o.value === form[col.field]);
   }
   return base.filter((o) =>
     o.label.toLowerCase().includes(q) ||
@@ -517,8 +517,9 @@ function valorDetalle(col, data) {
       hour12: false
     });
   }
-  if (col.type === 'select' && col.options?.length) {
-    const opt = col.options.find((o) => o.value === raw);
+  const opts = resolveOptions(col);
+  if (col.type === 'select' && opts?.length) {
+    const opt = opts.find((o) => o.value === raw);
     if (opt) return opt.label;
   }
   if (col.type === 'multiselect') {
@@ -526,9 +527,9 @@ function valorDetalle(col, data) {
     if (!ids.length && data.secciones?.length) {
       return data.secciones.map((s) => s.nombre).join(', ');
     }
-    if (col.options?.length) {
+    if (opts?.length) {
       return ids
-        .map((id) => col.options.find((o) => o.value === id)?.label || id)
+        .map((id) => opts.find((o) => o.value === id)?.label || id)
         .join(', ') || '—';
     }
     return ids.join(', ') || '—';

@@ -1,13 +1,23 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { entrenadoresService, titulosService } from '../../services';
 import { validarDNI } from '../../utils/dni';
+import { suscribirseCambio } from '../../utils/cambioBus';
 
 const titulos = ref([]);
+let unsubCambio = null;
+
+async function cargarOpciones() {
+  titulos.value = await titulosService.listar();
+}
 
 onMounted(async () => {
-  titulos.value = await titulosService.listar();
+  await cargarOpciones();
+  unsubCambio = suscribirseCambio(cargarOpciones);
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
 });
 
 const opcionesTitulo = computed(() =>
@@ -18,11 +28,12 @@ const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'dni', header: 'DNI', type: 'text', required: true, validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
+  { field: 'dni', header: 'DNI', type: 'text', validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
+  { field: 'email', header: 'Email', type: 'text' },
   { field: 'ids_titulos', header: 'Títulos', type: 'multiselect', relation: 'titulos', options: opcionesTitulo.value, required: false }
 ]);
 
-const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', ids_titulos: [] };
+const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', ids_titulos: [] };
 
 function nombresTitulos(data) {
   if (data.titulos?.length) return data.titulos.map(t => t.nombre).join(', ');
