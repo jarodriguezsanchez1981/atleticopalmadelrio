@@ -4,15 +4,13 @@ import Dialog from 'primevue/dialog';
 import Textarea from 'primevue/textarea';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
-import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
 import SelectButton from 'primevue/selectbutton';
-import Checkbox from 'primevue/checkbox';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import {
-  entrenamientosService, partidosService, categoriasService,
-  lugaresService, equiposService, jugadoresService, calendarioService
+  entrenamientosService, partidosService, plantillasService,
+  lugaresService, equiposService, calendarioService
 } from '../services';
 
 const props = defineProps({
@@ -26,17 +24,13 @@ const emit = defineEmits(['update:visible', 'saved']);
 
 const toast = useToast();
 
-const categorias = ref([]);
+const plantillas = ref([]);
 const lugares = ref([]);
 const equipos = ref([]);
-const jugadores = ref([]);
 const cargandoCatalogo = ref(false);
 const guardando = ref(false);
 
 const form = ref({});
-const asistencias = ref({});
-const incidenciasJugador = ref({});
-const asistenciaTipo = ref('total');
 const partidosDelDia = ref([]);
 const partidosRecientes = ref([]);
 const entrenamientosDelDia = ref([]);
@@ -84,10 +78,9 @@ async function cargarEntrenamientosDelDia() {
 
 function resetForm() {
   form.value = {
-    id_categoria: null,
+    id_plantilla: null,
     fecha: props.fechaDefecto ? new Date(props.fechaDefecto) : null,
     id_lugar: null,
-    recurrente: 0,
     hasta: null,
     id_equipo: null,
     es_local: props.tipo === 'partido' ? 1 : null,
@@ -95,35 +88,16 @@ function resetForm() {
     resultado: '',
     resultado_incidencias: ''
   };
-  asistencias.value = {};
-  incidenciasJugador.value = {};
-  asistenciaTipo.value = 'total';
-}
-
-function jugadoresDeCategoria() {
-  return jugadores.value
-    .slice()
-    .sort((a, b) => `${a.apellidos}, ${a.nombre}`.localeCompare(`${b.apellidos}, ${b.nombre}`, 'es'));
-}
-
-function iniciarAsistencias(idCat) {
-  asistencias.value = {};
-  incidenciasJugador.value = {};
-  jugadoresDeCategoria(idCat).forEach((j) => {
-    asistencias.value[j.id] = true;
-    incidenciasJugador.value[j.id] = '';
-  });
 }
 
 async function cargarCatalogo() {
   cargandoCatalogo.value = true;
   try {
-    const promesas = [categoriasService.listar(), lugaresService.listar(), jugadoresService.listar()];
+    const promesas = [plantillasService.listar(), lugaresService.listar()];
     if (props.tipo === 'partido') promesas.push(equiposService.listar());
-    const [cats, lugs, jugs, eqs] = await Promise.all(promesas);
-    categorias.value = cats;
+    const [pls, lugs, eqs] = await Promise.all(promesas);
+    plantillas.value = pls;
     lugares.value = lugs;
-    jugadores.value = jugs;
     if (eqs) equipos.value = eqs;
   } finally {
     cargandoCatalogo.value = false;
@@ -138,10 +112,9 @@ async function cargarRegistro() {
       ? await entrenamientosService.obtener(props.registroId)
       : await partidosService.obtener(props.registroId);
     form.value = {
-      id_categoria: item.id_categoria ?? item.categoria?.id ?? null,
+      id_plantilla: item.id_plantilla ?? item.plantilla?.id ?? null,
       fecha: item.fecha ? new Date(item.fecha) : null,
       id_lugar: item.id_lugar ?? item.lugar?.id ?? null,
-      recurrente: item.recurrente ? 1 : 0,
       hasta: item.hasta ? new Date(item.hasta) : null,
       id_equipo: props.tipo === 'partido' ? item.id_equipo ?? item.equipo?.id ?? null : null,
       es_local: props.tipo === 'partido' ? (item.es_local ? 1 : 0) : null,
@@ -149,14 +122,6 @@ async function cargarRegistro() {
       resultado: item.resultado_valor || '',
       resultado_incidencias: item.resultado_incidencias || ''
     };
-    if (props.tipo === 'entrenamiento') {
-      asistencias.value = {};
-      incidenciasJugador.value = {};
-      (item.ids_presentes || []).forEach((id) => { asistencias.value[id] = true; });
-      (item.ids_ausentes || []).forEach((id) => { asistencias.value[id] = false; });
-      (item.asistencias || []).forEach((a) => { incidenciasJugador.value[a.id_jugador] = a.incidencias || ''; });
-      asistenciaTipo.value = (item.asistencias || []).length ? 'parcial' : 'total';
-    }
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el registro.', life: 4000 });
     cerrar();
@@ -180,7 +145,6 @@ watch(
 watch(
   () => form.value?.fecha,
   (nueva, anterior) => {
-    // Al crear un entrenamiento, si cambia la fecha se reinicia el lugar elegido
     if (props.tipo === 'entrenamiento' && !props.registroId && nueva && anterior) {
       form.value.id_lugar = null;
     }
@@ -190,10 +154,8 @@ watch(
 );
 
 watch(
-  () => form.value.id_categoria,
-  (idCat) => {
-    if (!props.registroId && idCat != null) iniciarAsistencias(idCat);
-    // Si el lugar seleccionado ya no corresponde al tipo de fútbol de la categoría, se limpia
+  () => form.value.id_plantilla,
+  () => {
     if (form.value.id_lugar != null) {
       const sigue = opcionesLugar.value.some((o) => o.value === form.value.id_lugar);
       if (!sigue) form.value.id_lugar = null;
@@ -201,33 +163,35 @@ watch(
   }
 );
 
-const opcionesCategoria = computed(() => {
+const opcionesPlantilla = computed(() => {
   if (props.tipo === 'entrenamiento') {
     const ocupadas = new Set(
-      entrenamientosDelDia.value.map((e) => e.id_categoria ?? e.categoria?.id ?? null).filter(Boolean)
+      entrenamientosDelDia.value.map((e) => e.id_plantilla ?? e.plantilla?.id ?? null).filter(Boolean)
     );
-    return categorias.value
-      .filter((c) => !ocupadas.has(c.id))
-      .map((c) => ({ label: c.nombre, value: c.id }))
+    return plantillas.value
+      .filter((p) => !ocupadas.has(p.id))
+      .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   if (props.tipo !== 'partido') {
-    return categorias.value
-      .map((c) => ({ label: c.nombre, value: c.id }))
+    return plantillas.value
+      .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   const recientes = new Set(
-    partidosRecientes.value.map((p) => p.id_categoria ?? p.categoria?.id ?? null).filter(Boolean)
+    partidosRecientes.value.map((p) => p.id_plantilla ?? p.plantilla?.id ?? null).filter(Boolean)
   );
-  return categorias.value
-    .filter((c) => !recientes.has(c.id))
-    .map((c) => ({ label: c.nombre, value: c.id }))
+  return plantillas.value
+    .filter((p) => !recientes.has(p.id))
+    .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 });
 
 const opcionesLugar = computed(() => {
-  const idCat = form.value.id_categoria;
-  const cat = categorias.value.find((c) => c.id === idCat);
+  const idPl = form.value.id_plantilla;
+  const pl = plantillas.value.find((p) => p.id === idPl);
+  const idCat = pl?.id_categoria;
+  const cat = pl?.categoria;
   const filtradas = idCat && cat
     ? lugares.value.filter((l) => (l.ids_tipos_futbol || []).includes(cat.id_tipofutbol))
     : lugares.value;
@@ -244,11 +208,11 @@ const lugaresOcupadosEntrenamiento = computed(() => {
   if (props.tipo !== 'entrenamiento' || !form.value.fecha) return set;
   const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(inicio.getTime())) return set;
-  const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_categoria) * 60000;
+  const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_plantilla) * 60000;
   entrenamientosDelDia.value.forEach((e) => {
     const eInicio = new Date(e.fecha);
     if (Number.isNaN(eInicio.getTime())) return;
-    const eFin = eInicio.getTime() + ((e.categoria?.tiempoentrenamiento) || 60) * 60000;
+    const eFin = eInicio.getTime() + ((e.plantilla?.categoria?.tiempoentrenamiento) || 60) * 60000;
     if (inicio.getTime() < eFin && eInicio.getTime() < fin && e.id_lugar != null) {
       set.add(e.id_lugar);
     }
@@ -262,37 +226,27 @@ const opcionesEquipo = computed(() =>
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
-const opcionesRecurrente = [
-  { label: 'No (solo este día)', value: 0 },
-  { label: 'Sí (todas las semanas)', value: 1 }
-];
-
-const opcionesAsistencia = [
-  { label: 'Total', value: 'total' },
-  { label: 'Parcial', value: 'parcial' }
-];
-
 const opcionesLocalVisitante = [
   { label: 'Local', value: 1, icon: 'pi pi-home' },
   { label: 'Visitante', value: 0, icon: 'pi pi-arrow-right-arrow-left' }
 ];
 
-function duracionCategoria(idCat) {
-  const cat = categorias.value.find((c) => c.id === idCat);
-  return (cat && cat.tiempopartido) || 90;
+function duracionPlantilla(idPl) {
+  const pl = plantillas.value.find((p) => p.id === idPl);
+  return (pl?.categoria?.tiempopartido) || 90;
 }
 
 function partidoEnConflicto() {
   if (props.tipo !== 'partido' || !form.value.es_local || form.value.id_lugar == null || !form.value.fecha) return null;
   const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(inicio.getTime())) return null;
-  const fin = inicio.getTime() + duracionCategoria(form.value.id_categoria) * 60000;
+  const fin = inicio.getTime() + duracionPlantilla(form.value.id_plantilla) * 60000;
   return partidosDelDia.value.find((p) => {
     if (p.id_lugar != null && String(p.id_lugar) !== String(form.value.id_lugar)) return false;
     if (p.lugar?.id != null && String(p.lugar.id) !== String(form.value.id_lugar)) return false;
     const pInicio = new Date(p.fecha).getTime();
     if (Number.isNaN(pInicio)) return false;
-    const pFin = pInicio + ((p.categoria?.tiempopartido) || 90) * 60000;
+    const pFin = pInicio + ((p.plantilla?.categoria?.tiempopartido) || 90) * 60000;
     return inicio.getTime() < pFin && pInicio < fin;
   }) || null;
 }
@@ -300,42 +254,42 @@ function partidoEnConflicto() {
 function textoConflicto() {
   const p = partidoEnConflicto();
   if (!p) return null;
-  const cat = p.categoria?.nombre || nombreCategoria(p.id_categoria);
+  const cat = p.plantilla?.categoria?.nombre || nombrePlantilla(p.id_plantilla);
   return `Ese lugar ya está ocupado a esa hora por otro partido (${cat}, ${formatHora(p.fecha)}).`;
 }
 
-function nombreCategoria(idCat) {
-  return categorias.value.find((c) => c.id === idCat)?.nombre || '?';
+function nombrePlantilla(idPl) {
+  return plantillas.value.find((p) => p.id === idPl)?.categoria?.nombre || '?';
 }
 
-function categoriaJugoRecientemente() {
-  if (props.tipo !== 'partido' || form.value.id_categoria == null || !form.value.fecha) return null;
+function plantillaJugoRecientemente() {
+  if (props.tipo !== 'partido' || form.value.id_plantilla == null || !form.value.fecha) return null;
   const fecha = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(fecha.getTime())) return null;
   return partidosRecientes.value.find((p) => {
-    const pCat = p.id_categoria ?? p.categoria?.id ?? null;
-    return pCat != null && String(pCat) === String(form.value.id_categoria);
+    const pPl = p.id_plantilla ?? p.plantilla?.id ?? null;
+    return pPl != null && String(pPl) === String(form.value.id_plantilla);
   }) || null;
 }
 
 function entrenamientoEnConflicto() {
-  if (props.tipo !== 'entrenamiento' || form.value.id_categoria == null || !form.value.fecha) return null;
+  if (props.tipo !== 'entrenamiento' || form.value.id_plantilla == null || !form.value.fecha) return null;
   const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(inicio.getTime())) return null;
-  const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_categoria) * 60000;
+  const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_plantilla) * 60000;
   return entrenamientosDelDia.value.find((e) => {
-    const eCat = e.id_categoria ?? e.categoria?.id ?? null;
-    if (eCat == null || String(eCat) !== String(form.value.id_categoria)) return false;
+    const ePl = e.id_plantilla ?? e.plantilla?.id ?? null;
+    if (ePl == null || String(ePl) !== String(form.value.id_plantilla)) return false;
     const eInicio = new Date(e.fecha);
     if (Number.isNaN(eInicio.getTime())) return false;
-    const eFin = eInicio.getTime() + ((e.categoria?.tiempoentrenamiento) || 60) * 60000;
+    const eFin = eInicio.getTime() + ((e.plantilla?.categoria?.tiempoentrenamiento) || 60) * 60000;
     return inicio.getTime() < eFin && eInicio.getTime() < fin;
   }) || null;
 }
 
-function duracionEntrenamiento(idCat) {
-  const cat = categorias.value.find((c) => c.id === idCat);
-  return (cat && cat.tiempoentrenamiento) || 60;
+function duracionEntrenamiento(idPl) {
+  const pl = plantillas.value.find((p) => p.id === idPl);
+  return (pl?.categoria?.tiempoentrenamiento) || 60;
 }
 
 function cerrar() {
@@ -383,8 +337,8 @@ function onFechaChange(campo, value) {
 }
 
 function validar() {
-  if (!form.value.id_categoria || !form.value.fecha) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Categoría y fecha son obligatorias.', life: 4000 });
+  if (!form.value.id_plantilla || !form.value.fecha) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Plantilla y fecha son obligatorias.', life: 4000 });
     return false;
   }
   if (props.tipo === 'entrenamiento' && !form.value.id_lugar) {
@@ -400,7 +354,7 @@ function validar() {
     toast.add({
       severity: 'error',
       summary: 'Lugar ocupado',
-      detail: `Ese lugar ya está ocupado a esa hora por otro partido (${conflicto.categoria?.nombre || nombreCategoria(conflicto.id_categoria)}, ${formatHora(conflicto.fecha)}).`,
+      detail: `Ese lugar ya está ocupado a esa hora por otro partido (${conflicto.plantilla?.categoria?.nombre || nombrePlantilla(conflicto.id_plantilla)}, ${formatHora(conflicto.fecha)}).`,
       life: 5000
     });
     return false;
@@ -410,17 +364,17 @@ function validar() {
     toast.add({
       severity: 'error',
       summary: 'Entrenamiento duplicado',
-      detail: `Esta categoría ya tiene un entrenamiento a esa hora (${formatHora(conflictoEntrenamiento.fecha)}).`,
+      detail: `Esta plantilla ya tiene un entrenamiento a esa hora (${formatHora(conflictoEntrenamiento.fecha)}).`,
       life: 5000
     });
     return false;
   }
-  const reciente = props.tipo === 'partido' ? categoriaJugoRecientemente() : null;
+  const reciente = props.tipo === 'partido' ? plantillaJugoRecientemente() : null;
   if (reciente) {
     toast.add({
       severity: 'error',
-      summary: 'Categoría ocupada',
-      detail: 'Esta categoría jugó hace menos de 72 horas.',
+      summary: 'Plantilla ocupada',
+      detail: 'Esta plantilla jugó hace menos de 72 horas.',
       life: 5000
     });
     return false;
@@ -433,24 +387,12 @@ async function guardar() {
   guardando.value = true;
   try {
     const payload = {
-      id_categoria: form.value.id_categoria,
+      id_plantilla: form.value.id_plantilla,
       fecha: form.value.fecha.toISOString()
     };
     if (props.tipo === 'entrenamiento') {
       payload.id_lugar = form.value.id_lugar;
-      payload.recurrente = form.value.recurrente ? 1 : 0;
       payload.hasta = form.value.hasta ? form.value.hasta.toISOString() : null;
-      if (asistenciaTipo.value === 'total') {
-        payload.asistencia = 'total';
-      } else {
-        payload.asistencia = 'parcial';
-        const detalle = jugadoresDeCategoria(form.value.id_categoria).map((j) => ({
-          id_jugador: j.id,
-          asistencia: asistencias.value[j.id] !== false,
-          incidencias: incidenciasJugador.value[j.id] || null
-        }));
-        if (detalle.length) payload.asistencias = detalle;
-      }
     } else {
       const esLocal = !!form.value.es_local;
       payload.es_local = esLocal ? 1 : 0;
@@ -496,9 +438,9 @@ async function guardar() {
 
     <form @submit.prevent="guardar" class="space-y-4 pt-1">
       <div class="flex flex-col gap-1.5">
-        <label class="text-sm font-medium text-ink-secondary">Categoría <span class="text-club-garnet">*</span></label>
-        <Select v-model="form.id_categoria" :options="opcionesCategoria" optionLabel="label" optionValue="value"
-                filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona una opción"
+        <label class="text-sm font-medium text-ink-secondary">Plantilla <span class="text-club-garnet">*</span></label>
+        <Select v-model="form.id_plantilla" :options="opcionesPlantilla" optionLabel="label" optionValue="value"
+                class="w-full" placeholder="Selecciona una plantilla"
                 showClear :loading="cargandoCatalogo" />
       </div>
 
@@ -522,7 +464,7 @@ async function guardar() {
         </div>
         <p v-if="tipo === 'entrenamiento' && entrenamientoEnConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
           <i class="pi pi-exclamation-circle"></i>
-          Esta categoría ya tiene un entrenamiento a esa hora.
+          Esta plantilla ya tiene un entrenamiento a esa hora.
         </p>
       </div>
 
@@ -530,16 +472,11 @@ async function guardar() {
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Lugar <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
-                  filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un lugar"
+                  class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
         </div>
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Repetir cada semana</label>
-          <Select v-model="form.recurrente" :options="opcionesRecurrente" optionLabel="label" optionValue="value"
-                  class="w-full" />
-        </div>
-        <div v-if="form.recurrente" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Fecha límite (si repetir)</label>
+          <label class="text-sm font-medium text-ink-secondary">Fecha límite (repetir)</label>
           <div class="flex gap-2">
             <DatePicker
               :model-value="form.hasta"
@@ -557,49 +494,13 @@ async function guardar() {
             />
           </div>
         </div>
-        <div v-if="registroId" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Asistencia</label>
-          <Select v-model="asistenciaTipo" :options="opcionesAsistencia" optionLabel="label" optionValue="value"
-                  class="w-full" />
-        </div>
-        <template v-if="asistenciaTipo === 'parcial'">
-          <div v-if="jugadoresDeCategoria(form.id_categoria).length" class="border border-line rounded-lg p-2 space-y-2">
-            <div
-              v-for="j in jugadoresDeCategoria(form.id_categoria)"
-              :key="j.id"
-              class="border-b border-line last:border-0 pb-2 space-y-1"
-            >
-              <div class="flex items-center justify-between px-1">
-                <span class="text-sm text-ink-secondary">{{ j.apellidos }}, {{ j.nombre }}</span>
-                <div class="flex items-center gap-2">
-                  <Checkbox
-                    :model-value="asistencias[j.id] !== false"
-                    :binary="true"
-                    @update:model-value="(v) => { asistencias[j.id] = !!v; if (v) incidenciasJugador[j.id] = ''; }"
-                  />
-                  <span class="text-xs text-ink-tertiary">Asistió</span>
-                </div>
-              </div>
-              <div class="flex items-center gap-2 px-1">
-                <i class="pi pi-exclamation-circle text-ink-tertiary"></i>
-                <InputText
-                  v-model="incidenciasJugador[j.id]"
-                  :disabled="asistencias[j.id] !== false"
-                  placeholder="Causa de la ausencia"
-                  class="w-full !py-1.5 !text-sm"
-                />
-              </div>
-            </div>
-          </div>
-          <p v-else class="text-xs text-ink-tertiary">Sin jugadores en la categoría seleccionada.</p>
-        </template>
       </template>
 
       <template v-if="tipo === 'partido'">
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Equipo <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_equipo" :options="opcionesEquipo" optionLabel="label" optionValue="value"
-                  filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un equipo"
+                  class="w-full" placeholder="Selecciona un equipo"
                   showClear :loading="cargandoCatalogo">
             <template #option="{ option }">
               <div class="flex items-center gap-2">
@@ -640,7 +541,7 @@ async function guardar() {
         <div v-if="form.es_local" class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Lugar</label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
-                  filter filterPlaceholder="Busca por nombre..." class="w-full" placeholder="Selecciona un lugar"
+                  class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
           <p v-if="textoConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
             <i class="pi pi-exclamation-circle"></i> {{ textoConflicto() }}

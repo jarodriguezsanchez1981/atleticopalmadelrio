@@ -28,14 +28,9 @@ export const delegadosService = crudService('delegados');
 export const categoriasService = crudService('categorias');
 export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
-export const entrenamientosService = {
-  ...crudService('entrenamientos'),
-  eliminarSemanal: (id) => api.delete(`/entrenamientos/semanal/${id}`)
-};
-export const entrenamientosJugadoresService = crudService('entrenamientos-jugadores');
+export const entrenamientosService = crudService('entrenamientos');
 export const partidosService = crudService('partidos');
 export const equiposService = crudService('equipos');
-export const incidenciasService = crudService('incidencias');
 export const resultadosService = crudService('resultados');
 export const patrocinadoresService = crudService('patrocinadores');
 export const categoriaCalendarioService = crudService('jornadas');

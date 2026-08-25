@@ -29,12 +29,6 @@ const routes = [
         meta: { seccion: 'entrenamientos' }
       },
       {
-        path: 'entrenamientos-jugadores',
-        name: 'entrenamientos-jugadores',
-        component: () => import('../views/entrenamientosJugadores/EntrenamientosJugadores.vue'),
-        meta: { seccion: 'entrenamientos_jugadores' }
-      },
-      {
         path: 'partidos',
         name: 'partidos',
         component: () => import('../views/partidos/Partidos.vue'),
@@ -81,12 +75,6 @@ const routes = [
         name: 'equipos',
         component: () => import('../views/equipos/Equipos.vue'),
         meta: { seccion: 'equipos' }
-      },
-      {
-        path: 'incidencias',
-        name: 'incidencias',
-        component: () => import('../views/incidencias/Incidencias.vue'),
-        meta: { seccion: 'incidencias' }
       },
       {
         path: 'jugadores',

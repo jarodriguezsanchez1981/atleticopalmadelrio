@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { EntrenamientoSemanal, Entrenamiento, Partido, Categoria, Lugar, Equipo, Jornada, Resultado, Plantilla, Temporada } = require('../models');
+const { EntrenamientoSemanal, Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Resultado, Temporada } = require('../models');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos (desde
@@ -8,7 +8,7 @@ const { EntrenamientoSemanal, Entrenamiento, Partido, Categoria, Lugar, Equipo, 
  */
 async function eventos(req, res, next) {
   try {
-    const { desde, hasta, id_categoria, tipo } = req.query;
+    const { desde, hasta, id_plantilla, tipo } = req.query;
 
     const fechaDesde = desde ? new Date(desde) : null;
     const fechaHasta = hasta ? new Date(hasta) : null;
@@ -16,11 +16,12 @@ async function eventos(req, res, next) {
     const incluirEntrenamientos = !tipo || tipo === 'entrenamiento';
     const incluirPartidos = !tipo || tipo === 'partido';
 
-    const includesCategoria = [
+    const includesPlantilla = [
       {
-        model: Categoria,
-        as: 'categoria',
-        attributes: ['id', 'nombre', 'alias']
+        model: Plantilla,
+        as: 'plantilla',
+        attributes: ['id', 'id_categoria', 'id_temporada'],
+        include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] }]
       },
       { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
     ];
@@ -36,7 +37,7 @@ async function eventos(req, res, next) {
         if (fechaHasta) whereSemanal.fecha_entrenamiento[Op.lte] = fechaHasta;
       }
       const whereEntrenamiento = { id_usuario: req.user?.id };
-      if (id_categoria) whereEntrenamiento.id_categoria = id_categoria;
+      if (id_plantilla) whereEntrenamiento.id_plantilla = id_plantilla;
 
       promesas.push(
         EntrenamientoSemanal.findAll({
@@ -45,8 +46,8 @@ async function eventos(req, res, next) {
             model: Entrenamiento,
             as: 'entrenamiento',
             where: whereEntrenamiento,
-            attributes: ['id', 'id_categoria', 'id_lugar', 'fecha', 'recurrente'],
-            include: includesCategoria
+            attributes: ['id', 'id_plantilla', 'id_lugar', 'fecha', 'recurrente'],
+            include: includesPlantilla
           }]
         })
       );
@@ -56,14 +57,14 @@ async function eventos(req, res, next) {
 
     if (incluirPartidos) {
       const wherePartido = { id_usuario: req.user?.id };
-      if (id_categoria) wherePartido.id_categoria = id_categoria;
+      if (id_plantilla) wherePartido.id_plantilla = id_plantilla;
       if (fechaDesde || fechaHasta) {
         wherePartido.fecha = {};
         if (fechaDesde) wherePartido.fecha[Op.gte] = fechaDesde;
         if (fechaHasta) wherePartido.fecha[Op.lte] = fechaHasta;
       }
       const includesPartido = [
-        ...includesCategoria,
+        ...includesPlantilla,
         { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
         { model: Jornada, as: 'jornada', attributes: ['id', 'jornada'], include: [
           { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [
@@ -91,19 +92,20 @@ async function eventos(req, res, next) {
         id: `entrenamiento-${s.id}`,
         tipo: 'entrenamiento',
         base_id: b?.id,
-        titulo: `Entrenamiento · ${b?.categoria?.nombre ?? ''}`,
+        titulo: `Entrenamiento · ${b?.plantilla?.categoria?.nombre ?? ''}`,
         inicio: s.fecha_entrenamiento,
         lugar: b?.lugar?.nombre ?? null,
         id_lugar: b?.id_lugar,
         incidencias: s.incidencias,
-        categoria: b?.categoria,
+        plantilla: b?.plantilla,
+        categoria: b?.plantilla?.categoria,
         recurrente: b?.recurrente ? true : false
       };
     });
 
     const eventosPartido = partidos.map((p) => {
       const esLocal = p.es_local;
-      const nombreCat = p.categoria?.nombre ?? '';
+      const nombreCat = p.plantilla?.categoria?.nombre ?? '';
       const nombreEquipo = p.equipo?.nombre ?? '';
       const titulo = esLocal
         ? `${nombreCat} vs ${nombreEquipo}`
@@ -119,7 +121,8 @@ async function eventos(req, res, next) {
         es_local: esLocal,
         equipo: p.equipo,
         incidencias: p.incidencias,
-        categoria: p.categoria,
+        plantilla: p.plantilla,
+        categoria: p.plantilla?.categoria,
         jornada: p.jornada ? p.jornada.jornada : null,
         equipoLocal: p.jornada?.equipoLocal || null,
         equipoVisitante: p.jornada?.equipoVisitante || null,

@@ -67,10 +67,11 @@ async function actualizar(req, res, next) {
   try {
     const entrenador = await Entrenador.findOne({ where: { id: req.params.id } });
     if (!entrenador) return res.status(404).json({ message: 'Entrenador no encontrado.' });
-    const { nombre, apellidos, dni, foto } = req.body;
+    const { nombre, apellidos, dni, foto, email } = req.body;
     const idsTitulos = normalizeTitulosIds(req.body);
     if (nombre !== undefined) entrenador.nombre = nombre;
     if (apellidos !== undefined) entrenador.apellidos = apellidos;
+    if (email !== undefined) entrenador.email = email || null;
     if (dni !== undefined && dni !== entrenador.dni) {
       if (!validarDNI(dni)) {
         return res.status(400).json({ message: 'El DNI introducido no es válido.' });

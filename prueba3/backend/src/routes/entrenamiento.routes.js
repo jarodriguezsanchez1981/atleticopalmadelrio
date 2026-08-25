@@ -12,7 +12,6 @@ router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
 router.post('/', requireNivel(), ctrl.crear);
 router.put('/:id', requireNivel(), ctrl.actualizar);
-router.delete('/semanal/:id', requireNivel(), ctrl.eliminarSemanal);
 router.delete('/:id', requireNivel(), ctrl.eliminar);
 
 module.exports = router;

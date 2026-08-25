@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Categoria, Lugar, Equipo, Resultado, Jornada } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada } = require('../models');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 
@@ -12,9 +12,10 @@ async function guardarResultado(idPartido, resultado, incidencias) {
 
 const includesBase = [
   {
-    model: Categoria,
-    as: 'categoria',
-    attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido']
+    model: Plantilla,
+    as: 'plantilla',
+    attributes: ['id', 'id_categoria', 'id_temporada'],
+    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] }]
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },
@@ -33,9 +34,9 @@ function serialize(partido) {
 
 async function listar(req, res, next) {
   try {
-    const { id_categoria, id_lugar, id_equipo, desde, hasta } = req.query;
+    const { id_plantilla, id_lugar, id_equipo, desde, hasta } = req.query;
     const where = {};
-    if (id_categoria) where.id_categoria = id_categoria;
+    if (id_plantilla) where.id_plantilla = id_plantilla;
     if (id_lugar) where.id_lugar = id_lugar;
     if (id_equipo) where.id_equipo = id_equipo;
     if (desde || hasta) {
@@ -48,9 +49,10 @@ async function listar(req, res, next) {
       where,
       include: [
         {
-          model: Categoria,
-          as: 'categoria',
-          attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido']
+          model: Plantilla,
+          as: 'plantilla',
+          attributes: ['id', 'id_categoria', 'id_temporada'],
+          include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] }]
         },
         { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
         { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },
@@ -77,12 +79,12 @@ function ctrlDia(fecha) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function existePartidoDia(idCategoria, fecha, omitirId = null) {
+async function existePartidoDia(idPlantilla, fecha, omitirId = null) {
   const dia = ctrlDia(fecha);
-  if (!idCategoria || !dia) return false;
+  if (!idPlantilla || !dia) return false;
   const inicio = new Date(`${dia}T00:00:00`);
   const fin = new Date(`${dia}T23:59:59.999`);
-  const where = { id_categoria: idCategoria, fecha: { [Op.gte]: inicio, [Op.lte]: fin } };
+  const where = { id_plantilla: idPlantilla, fecha: { [Op.gte]: inicio, [Op.lte]: fin } };
   if (omitirId) where.id = { [Op.ne]: omitirId };
   const contados = await Partido.count({ where });
   return contados > 0;
@@ -90,12 +92,12 @@ async function existePartidoDia(idCategoria, fecha, omitirId = null) {
 
 const HORAS_DESCANSO_ENTRE_PARTIDOS = 72;
 
-async function existePartidoReciente(idCategoria, fecha, omitirId = null) {
-  if (!idCategoria || !fecha) return false;
+async function existePartidoReciente(idPlantilla, fecha, omitirId = null) {
+  if (!idPlantilla || !fecha) return false;
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return false;
   const inicio = new Date(d.getTime() - HORAS_DESCANSO_ENTRE_PARTIDOS * 60 * 60 * 1000);
-  const where = { id_categoria: idCategoria, fecha: { [Op.gte]: inicio, [Op.lte]: d } };
+  const where = { id_plantilla: idPlantilla, fecha: { [Op.gte]: inicio, [Op.lte]: d } };
   if (omitirId) where.id = { [Op.ne]: omitirId };
   const contados = await Partido.count({ where });
   return contados > 0;
@@ -103,7 +105,7 @@ async function existePartidoReciente(idCategoria, fecha, omitirId = null) {
 
 function seSolapan(partido, inicioNuevo, finNuevo) {
   const inicioEx = new Date(partido.fecha).getTime();
-  const finEx = inicioEx + (partido.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO) * 60000;
+  const finEx = inicioEx + (partido.plantilla?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO) * 60000;
   return inicioNuevo < finEx && inicioEx < finNuevo;
 }
 
@@ -118,7 +120,7 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
       id_lugar: idLugar,
       fecha: { [Op.gte]: new Date(inicio.getTime() - margen), [Op.lte]: new Date(finNuevo) }
     },
-    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }]
+    include: [{ model: Plantilla, as: 'plantilla', attributes: ['id'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] }]
   });
   if (omitirId) return partidos.some((p) => String(p.id) !== String(omitirId) && seSolapan(p, inicio.getTime(), finNuevo));
   return partidos.some((p) => seSolapan(p, inicio.getTime(), finNuevo));
@@ -126,24 +128,24 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
     const esLocal = es_local !== undefined ? !!es_local : true;
-    if (!id_categoria || !fecha || !id_equipo) {
-      return res.status(400).json({ message: 'Categoría, fecha y equipo son obligatorios.' });
+    if (!id_plantilla || !fecha || !id_equipo) {
+      return res.status(400).json({ message: 'Plantilla, fecha y equipo son obligatorios.' });
     }
-    if (await existePartidoDia(id_categoria, fecha)) {
-      return res.status(409).json({ message: 'Esta categoría ya tiene un partido ese día.' });
+    if (await existePartidoDia(id_plantilla, fecha)) {
+      return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
     }
-    if (await existePartidoReciente(id_categoria, fecha)) {
-      return res.status(409).json({ message: 'Esta categoría jugó hace menos de 72 horas.' });
+    if (await existePartidoReciente(id_plantilla, fecha)) {
+      return res.status(409).json({ message: 'Esta plantilla jugó hace menos de 72 horas.' });
     }
-    const categoria = await Categoria.findOne({ where: { id: id_categoria }, attributes: ['id', 'tiempopartido'] });
-    const minutosPartido = categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
+    const plantilla = await Plantilla.findOne({ where: { id: id_plantilla }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });
+    const minutosPartido = plantilla?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
     if (esLocal && id_lugar && await existePartidoLugar(id_lugar, fecha, minutosPartido)) {
       return res.status(409).json({ message: 'Ese lugar ya está ocupado a esa hora por otro partido.' });
     }
     const partido = await Partido.create({
-      id_categoria, fecha, id_lugar: id_lugar || null, id_jornada: id_jornada || null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
+      id_plantilla, fecha, id_lugar: id_lugar || null, id_jornada: id_jornada || null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
     });
     await guardarResultado(partido.id, req.body.resultado, req.body.resultado_incidencias);
     const creado = await Partido.findByPk(partido.id, { include: includesBase });
@@ -155,33 +157,33 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_categoria, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
     const esLocalFinal = es_local !== undefined ? !!es_local : !!partido.es_local;
     const idLugarFinal = esLocalFinal
       ? (id_lugar !== undefined ? id_lugar : partido.id_lugar)
       : null;
-    const idCategoriaFinal = id_categoria !== undefined ? id_categoria : partido.id_categoria;
+    const idPlantillaFinal = id_plantilla !== undefined ? id_plantilla : partido.id_plantilla;
     const fechaFinal = fecha !== undefined ? fecha : partido.fecha;
 
-    const cambiaCatOFecha = id_categoria !== undefined || fecha !== undefined;
+    const cambiaCatOFecha = id_plantilla !== undefined || fecha !== undefined;
     const cambiaUbicacion = es_local !== undefined && !!es_local !== !!partido.es_local
       || (id_lugar !== undefined && idLugarFinal !== partido.id_lugar)
       || fecha !== undefined;
 
-    if (cambiaCatOFecha && (await existePartidoDia(idCategoriaFinal, fechaFinal, partido.id))) {
-      return res.status(409).json({ message: 'Esta categoría ya tiene un partido ese día.' });
+    if (cambiaCatOFecha && (await existePartidoDia(idPlantillaFinal, fechaFinal, partido.id))) {
+      return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
     }
-    if (cambiaCatOFecha && (await existePartidoReciente(idCategoriaFinal, fechaFinal, partido.id))) {
-      return res.status(409).json({ message: 'Esta categoría jugó hace menos de 72 horas.' });
+    if (cambiaCatOFecha && (await existePartidoReciente(idPlantillaFinal, fechaFinal, partido.id))) {
+      return res.status(409).json({ message: 'Esta plantilla jugó hace menos de 72 horas.' });
     }
     if (esLocalFinal && idLugarFinal && cambiaUbicacion) {
-      const categoria = await Categoria.findOne({ where: { id: idCategoriaFinal }, attributes: ['id', 'tiempopartido'] });
-      const minutosPartido = categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
+      const plantilla = await Plantilla.findOne({ where: { id: idPlantillaFinal }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });
+      const minutosPartido = plantilla?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
       if (await existePartidoLugar(idLugarFinal, fechaFinal, minutosPartido, partido.id)) {
         return res.status(409).json({ message: 'Ese lugar ya está ocupado a esa hora por otro partido.' });
       }
     }
-    if (id_categoria !== undefined) partido.id_categoria = id_categoria;
+    if (id_plantilla !== undefined) partido.id_plantilla = id_plantilla;
     if (fecha !== undefined) partido.fecha = fecha;
     if (es_local !== undefined) {
       partido.es_local = es_local ? 1 : 0;

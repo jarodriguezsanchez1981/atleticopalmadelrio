@@ -293,35 +293,7 @@ function resolveOptions(col) {
   return col.options || [];
 }
 
-/** Texto de filtro actual por campo (para selects con filterMinLength). */
-const filtrosSelect = ref({});
 
-function onFilterSelect(field) {
-  return (e) => { filtrosSelect.value[field] = e.value || ''; };
-}
-
-/**
- * Para selects con búsqueda: solo muestra opciones cuando el usuario
- * escribe al menos `filterMinLength` letras; el filtrado es por
- * prefijo/subcadena sobre el label (nombre + apellidos). Siempre incluye
- * la opción seleccionada para conservar su etiqueta.
- */
-function opcionesFiltradas(col) {
-  const base = resolveOptions(col);
-  if (!col.filterMinLength) return base;
-  const q = (filtrosSelect.value[col.field] || '').trim().toLowerCase();
-  if (q.length < col.filterMinLength) {
-    return base.filter((o) => o.value === form[col.field]);
-  }
-  return base.filter((o) =>
-    o.label.toLowerCase().includes(q) ||
-    o.label.toLowerCase().split(', ').reverse().join(' ').includes(q)
-  );
-}
-
-watch(dialogVisible, (v) => {
-  if (!v) filtrosSelect.value = {};
-});
 
 /** Si una columna con options dinámicas deja de ofrecer el valor actual, se limpia. */
 watch(form, () => {
@@ -375,7 +347,8 @@ function payloadFromForm() {
 async function cargar() {
   cargando.value = true;
   try {
-    items.value = await props.service.listar(props.listParams);
+    const data = await props.service.listar(props.listParams);
+    items.value = data.map(item => ({ ...item }));
     emit('changed');
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los datos.', life: 4000 });
@@ -802,14 +775,9 @@ watch(
           </div>
 
           <Select v-else-if="col.type === 'select'" :id="col.field" v-model="form[col.field]"
-                  :options="col.filterMinLength ? opcionesFiltradas(col) : resolveOptions(col)"
+                  :options="resolveOptions(col)"
                   optionLabel="label" optionValue="value" class="w-full"
-                  placeholder="Selecciona una opción" showClear
-                  :filter="col.filter === true"
-                  autoFilterFocus
-                  filterFields="label"
-                  :filterPlaceholder="col.filterPlaceholder || 'Buscar…'"
-                  @filter="onFilterSelect(col.field)" />
+                  placeholder="Selecciona una opción" showClear />
 
           <DatePicker v-else-if="col.type === 'date'" :id="col.field" v-model="form[col.field]"
                       dateFormat="dd/mm/yy" class="w-full"
@@ -826,7 +794,6 @@ watch(
             optionLabel="label"
             optionValue="value"
             display="chip"
-            filter
             placeholder="Selecciona jugadores"
             class="w-full"
           />
