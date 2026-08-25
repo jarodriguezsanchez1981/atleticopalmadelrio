@@ -65,7 +65,6 @@ prueba3/
 │           ├── pdfPartidos.js       # Generación PDF agrupado
 │           └── pdfEntrenamientos.js
 └── .agents/skills/             # Skills de opencode
-    └── scandinavian-design/    # Sistema de diseño nórdico
 ```
 
 ## Secciones y permisos

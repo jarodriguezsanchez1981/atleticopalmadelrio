@@ -5,6 +5,15 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [vue()],
+    build: {
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: false,
+          drop_debugger: true
+        }
+      }
+    },
     server: {
       host: '0.0.0.0',
       port: 5173,
