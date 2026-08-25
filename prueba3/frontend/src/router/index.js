@@ -41,8 +41,6 @@ const routes = [
         meta: { seccion: 'partidos' }
       },
       {
-      },
-      {
         path: 'temporadas',
         name: 'temporadas',
         component: () => import('../views/temporadas/Temporadas.vue'),
