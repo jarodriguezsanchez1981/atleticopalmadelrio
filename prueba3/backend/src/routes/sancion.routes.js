@@ -1,11 +1,12 @@
 const { Router } = require('express');
 const ctrl = require('../controllers/sancion.controller');
 const authenticate = require('../middlewares/auth.middleware');
+const authorize = require('../middlewares/role.middleware');
 const requireNivel = require('../middlewares/nivel.middleware');
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate, authorize('sanciones'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);

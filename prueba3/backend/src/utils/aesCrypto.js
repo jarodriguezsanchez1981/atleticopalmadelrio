@@ -1,6 +1,5 @@
 /**
- * Cifrado simétrico AES-256-GCM para datos sensibles en reposo
- * (por ejemplo, el DNI de los jugadores).
+ * Cifrado simétrico AES-256-GCM para datos sensibles en reposo.
  *
  * IMPORTANTE sobre las contraseñas de usuario:
  * Las contraseñas de acceso a la intranet NO se cifran con AES (el cifrado
@@ -9,9 +8,12 @@
  * con salt aleatorio incorporado), que es el estándar de la industria para
  * credenciales. Ver password.utils.js.
  *
- * AES-256 sí se usa aquí, según lo solicitado, para cifrar en reposo otros
- * datos sensibles del club (ej. DNI de jugadores) que en algún momento
- * deban poder descifrarse para mostrarse a un usuario autorizado.
+ * La utilidad `encrypt`/`decrypt` y `hashForLookup` están listas para
+ * proteger PII como el DNI de jugadores, entrenadores y delegados. Su
+ * aplicación en los modelos requiere una migración de esquema
+ * (ver dniCrypto.mixin.js) y por tanto se deja documentada para una
+ * siguiente fase de hardening; el resto de vulnerabilidades conocidas
+ * (dependencias, control de acceso, validaciones) se han corregido aquí.
  */
 const crypto = require('crypto');
 require('../config/env');
@@ -19,9 +21,11 @@ require('../config/env');
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // recomendado para GCM
 
+const HEX64_RE = /^[0-9a-fA-F]{64}$/;
+
 function getKey() {
   const key = process.env.AES_SECRET_KEY;
-  if (!key || key.length !== 64) {
+  if (!key || !HEX64_RE.test(key)) {
     throw new Error(
       'AES_SECRET_KEY debe ser una cadena hexadecimal de 64 caracteres (32 bytes / AES-256).'
     );
@@ -54,4 +58,12 @@ function decrypt(payload) {
   return decrypted.toString('utf8');
 }
 
-module.exports = { encrypt, decrypt };
+/**
+ * Hash determinista (HMAC-SHA256) para poder buscar un DNI cifrado
+ * sin revelar su valor real. Usa AES_SECRET_KEY como clave HMAC.
+ */
+function hashForLookup(plainText) {
+  return crypto.createHmac('sha256', getKey()).update(String(plainText).toUpperCase().trim()).digest('hex');
+}
+
+module.exports = { encrypt, decrypt, hashForLookup };

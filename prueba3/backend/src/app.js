@@ -14,7 +14,12 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') || '*', credentials: true }));
+
+const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).filter(Boolean);
+if (process.env.NODE_ENV === 'production' && (!corsOrigins || !corsOrigins.length)) {
+  throw new Error('CORS_ORIGIN debe estar configurado en producción.');
+}
+app.use(cors({ origin: corsOrigins || '*', credentials: true }));
 
 // Rate limiting global: 100 peticiones por 15 minutos por IP
 const globalLimiter = rateLimit({

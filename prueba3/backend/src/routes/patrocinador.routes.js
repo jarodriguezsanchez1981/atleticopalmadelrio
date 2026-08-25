@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const ctrl = require('../controllers/patrocinador.controller');
 const authenticate = require('../middlewares/auth.middleware');
+const authorize = require('../middlewares/role.middleware');
 const requireNivel = require('../middlewares/nivel.middleware');
 
 const router = Router();

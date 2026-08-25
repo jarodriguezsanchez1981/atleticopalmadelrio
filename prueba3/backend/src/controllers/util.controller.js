@@ -135,4 +135,4 @@ async function imagen(req, res) {
   }
 }
 
-module.exports = { imagen };
+module.exports = { imagen, descargar, esDireccionPrivada };

@@ -1,11 +1,12 @@
 const { Router } = require('express');
 const ctrl = require('../controllers/entrenamientoJugador.controller');
 const authenticate = require('../middlewares/auth.middleware');
+const authorize = require('../middlewares/role.middleware');
 const requireNivel = require('../middlewares/nivel.middleware');
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate, authorize('entrenamientos_jugadores'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);

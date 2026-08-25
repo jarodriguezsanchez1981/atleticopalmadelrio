@@ -7,14 +7,16 @@ const { verifyToken } = require('../utils/jwt.utils');
  */
 function authenticate(req, res, next) {
   const header = req.headers.authorization || '';
-  const [scheme, token] = header.split(' ');
+  const parts = header.split(' ').filter(Boolean);
 
-  if (scheme !== 'Bearer' || !token) {
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
     return res.status(401).json({ message: 'No autenticado. Falta el token de acceso.' });
   }
 
+  const token = parts[1];
+
   try {
-    req.user = verifyToken(token); // { id, usuario, secciones }
+    req.user = verifyToken(token); // { id, usuario, secciones, roles }
     return next();
   } catch (err) {
     return res.status(401).json({ message: 'Token inválido o caducado.' });

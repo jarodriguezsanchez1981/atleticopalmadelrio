@@ -1,12 +1,13 @@
 const { Router } = require('express');
 const ctrl = require('../controllers/categoria.controller');
 const authenticate = require('../middlewares/auth.middleware');
+const authorize = require('../middlewares/role.middleware');
 const requireNivel = require('../middlewares/nivel.middleware');
 
 const router = Router();
 
 // Todos los roles autenticados pueden ver y gestionar categorías
-router.use(authenticate);
+router.use(authenticate, authorize('categorias'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);

@@ -25,7 +25,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import { mapaFestivosAnio, nombreFestivoNacional } from '../utils/festivosEspana';
 import { emitirCambio } from '../utils/cambioBus';
 import { useAuthStore } from '../stores/auth.store';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 
 const auth = useAuthStore();
 

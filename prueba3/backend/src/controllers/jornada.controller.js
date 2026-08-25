@@ -1,4 +1,4 @@
-const { Jornada, Equipo, Plantilla, Categoria, Temporada } = require('../models');
+const { Jornada, Equipo, Plantilla, Categoria, Temporada, Partido } = require('../models');
 
 const includes = [
   {
