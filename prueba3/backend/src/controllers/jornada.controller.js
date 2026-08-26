@@ -69,7 +69,10 @@ async function crear(req, res, next) {
       id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora: hora || null
     });
 
-    // AUTOMÁTICO: Crear partidos correspondientes para esta jornada
+    // AUTOMÁTICO: Borrar partidos anteriores de esta plantilla (solo 1 jornada activa por plantilla)
+    await Partido.destroy({ where: { id_plantilla } });
+
+    // Crear partidos correspondientes para esta jornada
     const idUsuario = req.user?.id;
     // Crear partido para el equipo local
     await Partido.create({
@@ -142,13 +145,15 @@ async function eliminar(req, res, next) {
   try {
     const jornadaId = req.params.id;
 
-    // Primero eliminar todos los partidos asociados a esta jornada
-    // Nota: ya no existe id_jornada en Partido, se eliminan por id_plantilla y fecha si necesario
-    // Aquí se asume que los partidos se gestionan independientemente
+    // Obtener la jornada para saber id_plantilla y fecha
+    const jornada = await Jornada.findOne({ where: { id: jornadaId } });
+    if (!jornada) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
 
-    // Luego eliminar la jornada
-    const eliminado = await Jornada.destroy({ where: { id: jornadaId } });
-    if (!eliminado) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
+    // Eliminar partidos asociados a esta jornada (por plantilla y fecha)
+    await Partido.destroy({ where: { id_plantilla: jornada.id_plantilla, fecha: jornada.fecha } });
+
+    // Eliminar la jornada
+    await jornada.destroy();
     res.status(204).send();
   } catch (err) { next(err); }
 }

@@ -13,6 +13,7 @@ describe('Sección Jornadas · jornada.controller', () => {
     Plantilla.findOne.mockReset();
     Equipo.findOne.mockReset();
     Partido.create.mockReset();
+    Partido.destroy.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -73,6 +74,7 @@ describe('Sección Jornadas · jornada.controller', () => {
   it('crea jornada y sus dos partidos', async () => {
     Plantilla.findOne.mockResolvedValue({ id: 1, id_categoria: 7 });
     Equipo.findOne.mockResolvedValue({ id: 2 });
+    Partido.destroy.mockResolvedValue(0);
     Jornada.create.mockResolvedValue({ id: 10 });
     Jornada.findOne.mockResolvedValue({ id: 10, jornada: 1 });
 
@@ -81,6 +83,7 @@ describe('Sección Jornadas · jornada.controller', () => {
     });
     await promesa;
 
+    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
     expect(Jornada.create).toHaveBeenCalled();
     expect(Partido.create).toHaveBeenCalledTimes(2);
     expect(res._status).toBe(201);
@@ -104,11 +107,21 @@ describe('Sección Jornadas · jornada.controller', () => {
     expect(item.save).toHaveBeenCalled();
   });
 
-  it('eliminar borra la jornada', async () => {
-    Jornada.destroy.mockResolvedValue(1);
+  it('eliminar borra partidos asociados y la jornada', async () => {
+    const jornada = { id: 1, id_plantilla: 5, fecha: '2026-01-01', destroy: vi.fn().mockResolvedValue() };
+    Jornada.findOne.mockResolvedValue(jornada);
+    Partido.destroy.mockResolvedValue(2);
     const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
     await promesa;
-    expect(Jornada.destroy).toHaveBeenCalledWith({ where: { id: '1' } });
+    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
+    expect(jornada.destroy).toHaveBeenCalled();
     expect(res._status).toBe(204);
+  });
+
+  it('eliminar devuelve 404 si no existe', async () => {
+    Jornada.findOne.mockResolvedValue(null);
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '99' } });
+    await promesa;
+    expect(res._status).toBe(404);
   });
 });

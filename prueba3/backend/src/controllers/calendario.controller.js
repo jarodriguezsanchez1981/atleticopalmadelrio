@@ -1,9 +1,10 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado } = require('../models');
+const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada } = require('../models');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados como eventos
  * para FullCalendar.
+ * Solo se muestran partidos que tengan una jornada asociada (misma plantilla y fecha).
  */
 async function eventos(req, res, next) {
   try {
@@ -48,22 +49,54 @@ async function eventos(req, res, next) {
       promesas.push(Promise.resolve([]));
     }
 
+    // Para partidos: buscar jornadas existentes y filtrar partidos por ellas
     if (incluirPartidos) {
-      const wherePartido = { id_usuario: req.user?.id };
-      if (id_plantilla) wherePartido.id_plantilla = id_plantilla;
+      // Buscar jornadas en el rango de fechas
+      const whereJornada = {};
+      if (id_plantilla) whereJornada.id_plantilla = id_plantilla;
       if (fechaDesde || fechaHasta) {
-        wherePartido.fecha = {};
-        if (fechaDesde) wherePartido.fecha[Op.gte] = fechaDesde;
-        if (fechaHasta) wherePartido.fecha[Op.lte] = fechaHasta;
+        whereJornada.fecha = {};
+        if (fechaDesde) whereJornada.fecha[Op.gte] = fechaDesde;
+        if (fechaHasta) whereJornada.fecha[Op.lte] = fechaHasta;
       }
-      const includesPartido = [
-        ...includesPlantilla,
-        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-        { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
-      ];
-      promesas.push(
-        Partido.findAll({ where: wherePartido, include: includesPartido })
+
+      const jornadas = await Jornada.findAll({
+        where: whereJornada,
+        attributes: ['id_plantilla', 'fecha'],
+        raw: true
+      });
+
+      // Crear set de claves válidas (id_plantilla:fecha)
+      const clavesJornadas = new Set(
+        jornadas.map(j => `${j.id_plantilla}:${new Date(j.fecha).toISOString().split('T')[0]}`)
       );
+
+      if (clavesJornadas.size === 0) {
+        // No hay jornadas → no hay partidos
+        promesas.push(Promise.resolve([]));
+      } else {
+        const wherePartido = { id_usuario: req.user?.id };
+        if (id_plantilla) wherePartido.id_plantilla = id_plantilla;
+        if (fechaDesde || fechaHasta) {
+          wherePartido.fecha = {};
+          if (fechaDesde) wherePartido.fecha[Op.gte] = fechaDesde;
+          if (fechaHasta) wherePartido.fecha[Op.lte] = fechaHasta;
+        }
+        const includesPartido = [
+          ...includesPlantilla,
+          { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
+          { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
+        ];
+        promesas.push(
+          Partido.findAll({ where: wherePartido, include: includesPartido })
+            .then(partidos =>
+              partidos.filter(p => {
+                const fechaStr = new Date(p.fecha).toISOString().split('T')[0];
+                return clavesJornadas.has(`${p.id_plantilla}:${fechaStr}`);
+              })
+            )
+        );
+      }
     } else {
       promesas.push(Promise.resolve([]));
     }
