@@ -57,7 +57,7 @@ describe('Sección Delegados · delegado.controller', () => {
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Nombre, apellidos y DNI son obligatorios.');
+    expect(res._json.message).toBe('Nombre y apellidos son obligatorios.');
     expect(Delegado.create).not.toHaveBeenCalled();
   });
 

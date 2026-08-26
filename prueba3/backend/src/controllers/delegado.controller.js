@@ -21,15 +21,17 @@ async function obtener(req, res, next) {
 async function crear(req, res, next) {
   try {
     const { nombre, apellidos, dni, foto, tipo, telefono } = req.body;
-    if (!nombre || !apellidos || !dni) {
-      return res.status(400).json({ message: 'Nombre, apellidos y DNI son obligatorios.' });
+    if (!nombre || !apellidos) {
+      return res.status(400).json({ message: 'Nombre y apellidos son obligatorios.' });
     }
-    if (!validarDNI(dni)) {
-      return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+    if (dni) {
+      if (!validarDNI(dni)) {
+        return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+      }
+      const existe = await Delegado.findOne({ where: { dni } });
+      if (existe) return res.status(409).json({ message: 'Ya existe un delegado con ese DNI.' });
     }
-    const existe = await Delegado.findOne({ where: { dni } });
-    if (existe) return res.status(409).json({ message: 'Ya existe un delegado con ese DNI.' });
-    const delegado = await Delegado.create({ nombre, apellidos, dni, foto: foto || null, tipo: tipo || 'campo', telefono: telefono || null });
+    const delegado = await Delegado.create({ nombre, apellidos, dni: dni || null, foto: foto || null, tipo: tipo || 'campo', telefono: telefono || null });
     res.status(201).json(delegado);
   } catch (err) { next(err); }
 }
@@ -42,12 +44,14 @@ async function actualizar(req, res, next) {
     if (nombre !== undefined) delegado.nombre = nombre;
     if (apellidos !== undefined) delegado.apellidos = apellidos;
     if (dni !== undefined && dni !== delegado.dni) {
-      if (!validarDNI(dni)) {
-        return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+      if (dni) {
+        if (!validarDNI(dni)) {
+          return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+        }
+        const existe = await Delegado.findOne({ where: { dni, id: { ne: delegado.id } } });
+        if (existe) return res.status(409).json({ message: 'Ya existe otro delegado con ese DNI.' });
       }
-      const existe = await Delegado.findOne({ where: { dni, id: { ne: delegado.id } } });
-      if (existe) return res.status(409).json({ message: 'Ya existe otro delegado con ese DNI.' });
-      delegado.dni = dni;
+      delegado.dni = dni || null;
     }
     if (foto !== undefined) delegado.foto = foto || null;
     if (tipo !== undefined) delegado.tipo = tipo;

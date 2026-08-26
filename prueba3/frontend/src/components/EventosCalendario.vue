@@ -450,7 +450,7 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
         es_local: p.es_local,
         equipo: p.equipo || null,
         lugar: p.lugar || null,
-        categoria: p.categoria || null
+        categoria: p.plantilla?.categoria || p.categoria || null
       }));
     await generarPdfPartidos(mapeados, fechaTitulo, tipoFutbol);
   } catch (err) {

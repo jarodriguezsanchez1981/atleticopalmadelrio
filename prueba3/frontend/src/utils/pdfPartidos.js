@@ -12,8 +12,8 @@ const anchoA4 = 210;
 const altoA4 = 297;
 const margen = 14;
 
-// Columnas de cada fila: Lugar | Hora | Categoría | Visitante
-const ANCHO_COLUMNAS = [28, 18, 30, 104];
+// Columnas de cada fila: Lugar | Hora | Categoría | Local | Visitante
+const ANCHO_COLUMNAS = [26, 16, 26, 60, 60];
 const ALTO_FILA = 10;
 
 function aDate(inicio) {
@@ -198,7 +198,7 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
-  const headers = ['Lugar', 'Hora', 'Categoría', 'Visitante'];
+  const headers = ['Lugar', 'Hora', 'Categoría', 'Local', 'Visitante'];
   let x = margen;
   headers.forEach((h, i) => {
     const align = i <= 1 ? 'left' : 'center';
@@ -211,16 +211,15 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
   // --- Filas ---
   let fila = 0;
   for (const p of grupo.partidos) {
-    const esLocal = p.es_local;
     const rival = p.equipo?.nombre || '—';
     const escudoRival = p.equipo?.escudo ? (imagenes[p.equipo.escudo] || null) : null;
     const cat = p.categoria?.nombre || '—';
-    const lugar = esLocal ? (p.lugar?.nombre || '—') : (p.equipo?.localidad || '—');
+    const lugar = p.es_local ? (p.lugar?.nombre || '—') : (p.equipo?.localidad || '—');
 
-    const localNombre = esLocal ? NOMBRE_CLUB : rival;
-    const visitanteNombre = esLocal ? rival : NOMBRE_CLUB;
-    const localImg = esLocal ? escudoClub : escudoRival;
-    const visitImg = esLocal ? escudoRival : escudoClub;
+    const localNombre = NOMBRE_CLUB;
+    const visitanteNombre = rival;
+    const localImg = escudoClub;
+    const visitImg = escudoRival;
 
     if (y + ALTO_FILA > altoA4 - 16) {
       doc.addPage();
@@ -262,17 +261,28 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
     doc.text(catTexto, x + ANCHO_COLUMNAS[2] / 2, mitadV, { align: 'center' });
     x += ANCHO_COLUMNAS[2];
 
-    // --- Visitante (escudo + nombre, centrado) ---
-    const anchoNombre = ANCHO_COLUMNAS[3] - escudoTamanio - 5;
-    const visitanteAjustado = ajustarTexto(doc, visitanteNombre, 8, anchoNombre);
-    doc.setFontSize(8);
-    const anchoCombo = escudoTamanio + 2 + doc.getTextWidth(visitanteAjustado);
-    const xCentrado = x + (ANCHO_COLUMNAS[3] - anchoCombo) / 2;
-    dibujarEscudo(doc, visitImg, xCentrado, mitadV - escudoTamanio / 2, escudoTamanio);
+    // --- Local (escudo + nombre, centrado) ---
+    const anchoNombreLocal = ANCHO_COLUMNAS[3] - escudoTamanio - 5;
+    const localAjustado = ajustarTexto(doc, localNombre, 8, anchoNombreLocal);
+    const anchoComboLocal = escudoTamanio + 2 + doc.getTextWidth(localAjustado);
+    const xCentradoLocal = x + (ANCHO_COLUMNAS[3] - anchoComboLocal) / 2;
+    dibujarEscudo(doc, localImg, xCentradoLocal, mitadV - escudoTamanio / 2, escudoTamanio);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(20, 26, 32);
-    doc.text(visitanteAjustado, xCentrado + escudoTamanio + 2, mitadV);
+    doc.text(localAjustado, xCentradoLocal + escudoTamanio + 2, mitadV);
+    x += ANCHO_COLUMNAS[3];
+
+    // --- Visitante (escudo + nombre, centrado) ---
+    const anchoNombreVisitante = ANCHO_COLUMNAS[4] - escudoTamanio - 5;
+    const visitanteAjustado = ajustarTexto(doc, visitanteNombre, 8, anchoNombreVisitante);
+    const anchoComboVisitante = escudoTamanio + 2 + doc.getTextWidth(visitanteAjustado);
+    const xCentradoVisitante = x + (ANCHO_COLUMNAS[4] - anchoComboVisitante) / 2;
+    dibujarEscudo(doc, visitImg, xCentradoVisitante, mitadV - escudoTamanio / 2, escudoTamanio);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(20, 26, 32);
+    doc.text(visitanteAjustado, xCentradoVisitante + escudoTamanio + 2, mitadV);
 
     y += ALTO_FILA + 0.5;
     fila++;
