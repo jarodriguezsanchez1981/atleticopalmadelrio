@@ -53,7 +53,7 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Nombre, apellidos y DNI son obligatorios.');
+    expect(res._json.message).toBe('Nombre y apellidos son obligatorios.');
     expect(Entrenador.create).not.toHaveBeenCalled();
   });
 

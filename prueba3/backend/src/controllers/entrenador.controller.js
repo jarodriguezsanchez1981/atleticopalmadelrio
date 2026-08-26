@@ -46,16 +46,18 @@ async function crear(req, res, next) {
   try {
     const { nombre, apellidos, dni, foto, email, telefono } = req.body;
     const idsTitulos = normalizeTitulosIds(req.body) || [];
-    if (!nombre || !apellidos || !dni) {
-      return res.status(400).json({ message: 'Nombre, apellidos y DNI son obligatorios.' });
+    if (!nombre || !apellidos) {
+      return res.status(400).json({ message: 'Nombre y apellidos son obligatorios.' });
     }
-    if (!validarDNI(dni)) {
-      return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+    if (dni) {
+      if (!validarDNI(dni)) {
+        return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+      }
+      const existe = await Entrenador.findOne({ where: { dni } });
+      if (existe) return res.status(409).json({ message: 'Ya existe un entrenador con ese DNI.' });
     }
-    const existe = await Entrenador.findOne({ where: { dni } });
-    if (existe) return res.status(409).json({ message: 'Ya existe un entrenador con ese DNI.' });
     const entrenador = await Entrenador.create({
-      nombre, apellidos, dni, foto: foto || null, email: email || null, telefono: telefono || null
+      nombre, apellidos, dni: dni || null, foto: foto || null, email: email || null, telefono: telefono || null
     });
     if (idsTitulos.length) await entrenador.setTitulos(idsTitulos);
     const completo = await Entrenador.findOne({ where: { id: entrenador.id }, include: includeEntrenador });
@@ -74,12 +76,14 @@ async function actualizar(req, res, next) {
     if (email !== undefined) entrenador.email = email || null;
     if (telefono !== undefined) entrenador.telefono = telefono || null;
     if (dni !== undefined && dni !== entrenador.dni) {
-      if (!validarDNI(dni)) {
-        return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+      if (dni) {
+        if (!validarDNI(dni)) {
+          return res.status(400).json({ message: 'El DNI introducido no es válido.' });
+        }
+        const existe = await Entrenador.findOne({ where: { dni, id: { ne: entrenador.id } } });
+        if (existe) return res.status(409).json({ message: 'Ya existe otro entrenador con ese DNI.' });
       }
-      const existe = await Entrenador.findOne({ where: { dni, id: { ne: entrenador.id } } });
-      if (existe) return res.status(409).json({ message: 'Ya existe otro entrenador con ese DNI.' });
-      entrenador.dni = dni;
+      entrenador.dni = dni || null;
     }
     if (foto !== undefined) entrenador.foto = foto || null;
     await entrenador.save();
