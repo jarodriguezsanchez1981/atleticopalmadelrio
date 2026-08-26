@@ -8,7 +8,7 @@ import MultiSelect from 'primevue/multiselect';
 import { useToast } from 'primevue/usetoast';
 import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
-import PlantillaJugadoresManager from '../../components/PlantillaJugadoresManager.vue';
+
 
 const crudRef = ref(null);
 const toast = useToast();
@@ -217,14 +217,8 @@ function prepareJugadoresPayload(data) {
       </span>
       <span v-else>—</span>
     </template>
-    <template #cell-jugadores="scope">
-      <PlantillaJugadoresManager
-        :value="scope.data.jugadores || []"
-        :jugadores="jugadores"
-        @update:modelValue="val => scope.data.jugadores = val"
         :readonly="false"
       />
-    </template>
   </CrudDataTable>
 
   <Dialog v-model:visible="dialogTemporadaVisible" modal header="Crear plantilla temporada"

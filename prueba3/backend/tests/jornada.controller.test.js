@@ -104,12 +104,10 @@ describe('Sección Jornadas · jornada.controller', () => {
     expect(item.save).toHaveBeenCalled();
   });
 
-  it('eliminar borra partidos asociados y la jornada', async () => {
-    Partido.destroy.mockResolvedValue(0);
+  it('eliminar borra la jornada', async () => {
     Jornada.destroy.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
     await promesa;
-    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_jornada: '1' } });
     expect(Jornada.destroy).toHaveBeenCalledWith({ where: { id: '1' } });
     expect(res._status).toBe(204);
   });

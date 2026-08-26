@@ -194,7 +194,7 @@ describe('Sección Partidos · partido.controller', () => {
     await promesa;
 
     expect(Partido.create).toHaveBeenCalledWith({
-      id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_jornada: null, id_equipo: 6, es_local: 1, id_usuario: 7, incidencias: undefined
+      id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6, es_local: 1, id_usuario: 7, incidencias: undefined
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, id_equipo: 6, plantilla: null, lugar: null, equipo: null });

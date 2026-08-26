@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado } from './helpers/models.js';
+import { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/plantilla.controller.js';
@@ -20,6 +20,12 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Jugador.count.mockReset();
     Entrenador.count.mockReset();
     Delegado.count.mockReset();
+    PlantillaJugador.bulkCreate.mockReset();
+    PlantillaJugador.destroy.mockReset();
+    PlantillaEntrenador.bulkCreate.mockReset();
+    PlantillaEntrenador.destroy.mockReset();
+    PlantillaDelegado.bulkCreate.mockReset();
+    PlantillaDelegado.destroy.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -128,7 +134,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Temporada.findOne
       .mockResolvedValueOnce({ id: 2 })                // referencia temporada
       .mockResolvedValueOnce({ nombre: '2024/25' });   // temporada previa para el mensaje
-    Jugador.findOne.mockResolvedValue({ id: 5 });
+    Jugador.count.mockResolvedValue(1);
     Plantilla.findOne.mockResolvedValue({ id: 7, id_temporada: 9 }); // otra temporada encontrada
     const { promesa, res } = llamar(ctrl.crear, { body: { id_categoria: 1, id_temporada: 2, jugadores: [{ id_jugador: 5 }] } });
 
@@ -185,7 +191,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
       .mockResolvedValueOnce({ id: 1 })               // referencia categoría
       .mockResolvedValueOnce({ nombre: 'Senior' });   // nombre para el mensaje
     Temporada.findOne.mockResolvedValueOnce({ id: 2 }); // referencia temporada
-    Jugador.findOne.mockResolvedValue({ id: 5 });
+    Jugador.count.mockResolvedValue(1);
     Plantilla.findOne.mockResolvedValue({ id: 7, id_temporada: 2 }); // ya registrada en esa temporada
     const { promesa, res } = llamar(ctrl.crear, { body: { id_categoria: 1, id_temporada: 2, jugadores: [{ id_jugador: 5 }] } });
 
@@ -199,7 +205,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
   it('crear permite al mismo jugador en otra categoría', async () => {
     Categoria.findOne.mockResolvedValue({ id: 2 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
-    Jugador.findOne.mockResolvedValue({ id: 5 });
+    Jugador.count.mockResolvedValue(1);
     const completa = { id: 12, id_categoria: 2, id_temporada: 1, jugador: { id: 5 } };
     Plantilla.findOne
       .mockResolvedValueOnce(null)
@@ -250,6 +256,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
       .mockResolvedValueOnce(plantilla)    // buscar fila
       .mockResolvedValueOnce(null)         // duplicado jugador: ninguno
       .mockResolvedValueOnce(actualizada); // fila completa tras save
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
     Jugador.count.mockResolvedValue(2);
     PlantillaJugador.destroy.mockResolvedValue(0);
     PlantillaJugador.bulkCreate.mockResolvedValue([]);
