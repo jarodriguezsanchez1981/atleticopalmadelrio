@@ -168,10 +168,12 @@ function contenidoEvento(arg) {
       ? '<span class="fc-liga-badge">Liga</span>'
       : '<span class="fc-amistoso-badge">Amistoso</span>';
     return {
-      html: `<span class="fc-partido-hora">${hora}</span>&nbsp;&nbsp;` +
-        icono + '&nbsp;&nbsp;' +
-        `<span class="fc-partido-alias">${alias}</span>&nbsp;&nbsp;` +
-        badge
+      html: `<div class="fc-evento-contenido">` +
+        `<span class="fc-partido-hora">${hora}</span>` +
+        icono +
+        `<span class="fc-partido-alias">${alias}</span>` +
+        badge +
+        `</div>`
     };
   }
   if (e?.tipo === 'entrenamiento') {
@@ -179,9 +181,11 @@ function contenidoEvento(arg) {
     const lugar = escapeHtml(e.lugar || '—');
     const categoria = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
     return {
-      html: `<span class="fc-partido-hora">${hora}</span>&nbsp;&nbsp;` +
-        `<span class="fc-partido-lugar">${lugar}</span>&nbsp;&nbsp;` +
-        `<span class="fc-partido-alias">${categoria}</span>`
+      html: `<div class="fc-evento-contenido">` +
+        `<span class="fc-partido-hora">${hora}</span>` +
+        `<span class="fc-partido-lugar">${lugar}</span>` +
+        `<span class="fc-partido-alias">${categoria}</span>` +
+        `</div>`
     };
   }
   return { html: escapeHtml(arg.event?.title) };
@@ -646,7 +650,7 @@ onBeforeUnmount(() => {
 
       <div v-if="eventoSeleccionado" class="space-y-3">
         <template v-if="eventoSeleccionado.tipo === 'partido'">
-          <div class="grid grid-cols-4 gap-2 text-center pb-2 border-b border-line">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2 border-b border-line">
             <div>
               <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
               <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
@@ -673,20 +677,20 @@ onBeforeUnmount(() => {
           v-if="eventoSeleccionado.tipo === 'partido'"
           class="flex flex-col gap-2 py-3"
         >
-          <div class="grid grid-cols-[80px_1fr_60px] items-center gap-3">
+          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
             <div class="flex justify-center">
-              <img :src="escudoLocal" alt="Escudo" class="w-16 h-16 object-contain" />
+              <img :src="escudoLocal" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
             </div>
-            <span class="text-sm font-medium text-ink-secondary text-left">{{ nombreLocal }}</span>
-            <span class="text-center text-lg font-bold text-club-green">{{ golesLocal }}</span>
+            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreLocal }}</span>
+            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesLocal }}</span>
           </div>
 
-          <div class="grid grid-cols-[80px_1fr_60px] items-center gap-3">
+          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
             <div class="flex justify-center">
-              <img :src="escudoVisitante" alt="Escudo" class="w-16 h-16 object-contain" />
+              <img :src="escudoVisitante" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
             </div>
-            <span class="text-sm font-medium text-ink-secondary text-left">{{ nombreVisitante }}</span>
-            <span class="text-center text-lg font-bold text-club-green">{{ golesVisitante }}</span>
+            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreVisitante }}</span>
+            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesVisitante }}</span>
           </div>
         </div>
 
@@ -813,5 +817,55 @@ onBeforeUnmount(() => {
 .calendario-club .fc-col-header-cell-cushion,
 .calendario-club .fc-daygrid-day-number {
   text-transform: capitalize;
+}
+.calendario-club .fc-evento-contenido {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  line-height: 1.2;
+}
+@media (max-width: 639px) {
+  .calendario-club .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .calendario-club .fc-toolbar-chunk {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .calendario-club .fc-toolbar-title {
+    font-size: 0.95rem !important;
+    order: -1;
+    width: 100%;
+    text-align: center;
+    padding: 4px 0;
+  }
+  .calendario-club .fc-button {
+    padding: 4px 8px !important;
+    font-size: 0.7rem !important;
+  }
+  .calendario-club .fc-daygrid-day {
+    min-width: 0;
+  }
+  .calendario-club .fc-col-header-cell {
+    padding: 4px 0;
+    font-size: 0.7rem;
+  }
+  .calendario-club .fc-event {
+    padding: 1px 2px;
+  }
+  .calendario-club .fc-partido-hora {
+    font-size: 0.6rem;
+  }
+  .calendario-club .fc-partido-alias {
+    font-size: 0.6rem;
+  }
+  .calendario-club .fc-liga-badge,
+  .calendario-club .fc-amistoso-badge {
+    font-size: 0.5rem;
+    padding: 0 3px;
+  }
 }
 </style>
