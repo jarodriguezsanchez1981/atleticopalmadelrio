@@ -66,40 +66,21 @@ async function crear(req, res, next) {
       return res.status(400).json({ message: 'La jornada debe ser un número entero positivo.' });
     }
 
-    // VALIDAR: No se puede repetir plantilla + fecha
-    const existe = await Partido.findOne({ where: { id_plantilla, fecha } });
-    if (existe) {
-      return res.status(409).json({ message: 'Esta plantilla ya tiene partidos programados para esa fecha.' });
+    // VALIDAR: Solo 1 jornada por plantilla por fecha
+    const duplicada = await Jornada.findOne({ where: { id_plantilla, fecha } });
+    if (duplicada) {
+      return res.status(409).json({ message: 'Esta plantilla ya tiene una jornada programada para esa fecha.' });
     }
 
     const creado = await Jornada.create({
       id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora: hora || null
     });
 
-    // AUTOMÁTICO: Borrar partidos anteriores de esta plantilla (solo 1 jornada activa por plantilla)
-    await Partido.destroy({ where: { id_plantilla } });
-
-    // Crear partidos correspondientes para esta jornada
+    // Crear partido correspondiente para esta jornada
     const idUsuario = req.user?.id;
-    // Crear partido para el equipo local
     await Partido.create({
-      id_plantilla: id_plantilla,
-      fecha,
-      id_lugar: null,
-      id_equipo: id_equipo_local,
-      es_local: true,
-      id_usuario: idUsuario,
-      incidencias: null
-    });
-    // Crear partido para el equipo visitante
-    await Partido.create({
-      id_plantilla: id_plantilla,
-      fecha,
-      id_lugar: null,
-      id_equipo: id_equipo_visitante,
-      es_local: false,
-      id_usuario: idUsuario,
-      incidencias: null
+      id_plantilla, fecha, id_lugar: null, id_equipo: id_equipo_local,
+      es_local: true, id_usuario: idUsuario, incidencias: null
     });
 
     const respuesta = await Jornada.findOne({ where: { id: creado.id }, include: includes });
@@ -156,8 +137,8 @@ async function eliminar(req, res, next) {
     const jornada = await Jornada.findOne({ where: { id: jornadaId } });
     if (!jornada) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
 
-    // Eliminar partidos asociados a esta plantilla (solo 1 fecha por plantilla)
-    await Partido.destroy({ where: { id_plantilla: jornada.id_plantilla } });
+    // Eliminar partidos de esta jornada (misma plantilla + fecha)
+    await Partido.destroy({ where: { id_plantilla: jornada.id_plantilla, fecha: jornada.fecha } });
 
     // Eliminar la jornada
     await jornada.destroy();

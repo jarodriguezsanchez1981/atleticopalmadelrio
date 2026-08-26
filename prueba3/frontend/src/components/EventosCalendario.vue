@@ -155,19 +155,23 @@ function escapeHtml(s) {
   }[c]));
 }
 
-/** Contenido HTML del evento: hora + icono local/visitante + alias para partidos. */
+/** Contenido HTML del evento: hora + icono local/visitante + alias + badge para partidos. */
 function contenidoEvento(arg) {
   const e = arg.event?.extendedProps;
   if (e?.tipo === 'partido') {
     const hora = escapeHtml(formatearHora(e.inicio));
     const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
-    const esLocal = !!e.es_local;
-    const icono = esLocal ? 'pi pi-home' : 'pi pi-arrow-right-arrow-left';
-    const etiquetaIcono = esLocal ? 'Local' : 'Visitante';
+    const icono = e.es_local
+      ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
+      : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+    const badge = e.jornada
+      ? '<span class="fc-liga-badge">Liga</span>'
+      : '<span class="fc-amistoso-badge">Amistoso</span>';
     return {
       html: `<span class="fc-partido-hora">${hora}</span>&nbsp;&nbsp;` +
-        `<i class="${icono} fc-local-icon" data-lv="${etiquetaIcono}"></i>&nbsp;&nbsp;` +
-        `<span class="fc-partido-alias">${alias}</span>`
+        icono + '&nbsp;&nbsp;' +
+        `<span class="fc-partido-alias">${alias}</span>&nbsp;&nbsp;` +
+        badge
     };
   }
   if (e?.tipo === 'entrenamiento') {
@@ -617,6 +621,11 @@ onBeforeUnmount(() => {
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
           <span class="font-display text-club-green text-lg">{{ eventoSeleccionado?.categoria?.nombre || 'Detalle del evento' }}</span>
+          <span v-if="eventoSeleccionado?.tipo === 'partido'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+                :class="eventoSeleccionado?.jornada ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
+            <i :class="eventoSeleccionado?.jornada ? 'pi pi-star-fill' : 'pi pi-handshake'"></i>
+            {{ eventoSeleccionado?.jornada ? 'Liga' : 'Amistoso' }}
+          </span>
         </div>
       </template>
 
@@ -749,26 +758,38 @@ onBeforeUnmount(() => {
   font-size: 1.15rem;
   font-weight: 600;
 }
-.calendario-club .fc-local-icon {
-  font-size: 0.7rem;
-  vertical-align: middle;
-  margin: 0 0.1rem;
-}
 .calendario-club .fc-partido-hora {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
+.calendario-club .fc-lv-icon {
+  font-size: 0.65rem;
+  vertical-align: middle;
+}
+.calendario-club .fc-lv-local {
+  color: rgb(16 185 129);
+}
+.calendario-club .fc-lv-visitante {
+  color: rgb(79 70 229);
+}
 .calendario-club .fc-partido-alias {
   font-weight: 500;
 }
+.calendario-club .fc-liga-badge,
 .calendario-club .fc-amistoso-badge {
-  background: rgb(0 0 0 / 5%);
-  color: rgb(0 0 0 / 64%);
-  font-size: 0.65rem;
-  font-weight: 500;
+  font-size: 0.6rem;
+  font-weight: 600;
   padding: 1px 5px;
   border-radius: 4px;
+}
+.calendario-club .fc-liga-badge {
+  background: rgb(16 185 129 / 15%);
+  color: rgb(6 95 70);
+}
+.calendario-club .fc-amistoso-badge {
+  background: rgb(217 119 6 / 15%);
+  color: rgb(146 64 14);
 }
 .calendario-club .fc-partido-lugar {
   font-weight: 400;

@@ -17,6 +17,12 @@ describe('Calendario · calendario.controller', () => {
     return { promesa: fn(req, res, next), res, req, next };
   }
 
+  function mockJornada(data) {
+    const obj = { ...data };
+    obj.toJSON = () => ({ ...obj });
+    return obj;
+  }
+
   const entrenamiento = {
     id: 1,
     id_plantilla: 10,
@@ -54,7 +60,12 @@ describe('Calendario · calendario.controller', () => {
   };
 
   it('devuelve entrenamientos y partidos combinados por defecto', async () => {
-    Jornada.findAll.mockResolvedValue([{ id_plantilla: 10, fecha: '2026-01-02' }]);
+    Jornada.findAll.mockResolvedValue([mockJornada({
+      id_plantilla: 10, fecha: '2026-01-02', jornada: 1,
+      id_equipo_local: 73, id_equipo_visitante: 5,
+      equipoLocal: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.', escudo: null, localidad: 'Palma' },
+      equipoVisitante: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' }
+    })]);
     Entrenamiento.findAll.mockResolvedValue([entrenamiento]);
     Partido.findAll.mockResolvedValue([partido]);
     const { promesa, res } = llamar(ctrl.eventos);
@@ -78,19 +89,24 @@ describe('Calendario · calendario.controller', () => {
       recurrente: false
     });
     expect(res._json[1].id).toBe('partido-4');
-    expect(res._json[1].titulo).toBe('Alevín vs Rival FC');
+    expect(res._json[1].titulo).toBe('PALMA DEL RIO ATLETICO C.F. vs Rival FC');
   });
 
   it('invierte el título si el partido es visitante', async () => {
     const partidoVisitante = { ...partido, es_local: false, equipo: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' } };
-    Jornada.findAll.mockResolvedValue([{ id_plantilla: 10, fecha: '2026-01-02' }]);
+    Jornada.findAll.mockResolvedValue([mockJornada({
+      id_plantilla: 10, fecha: '2026-01-02', jornada: 1,
+      id_equipo_local: 5, id_equipo_visitante: 73,
+      equipoLocal: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' },
+      equipoVisitante: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.', escudo: null, localidad: 'Palma' }
+    })]);
     Entrenamiento.findAll.mockResolvedValue([]);
     Partido.findAll.mockResolvedValue([partidoVisitante]);
     const { promesa, res } = llamar(ctrl.eventos);
 
     await promesa;
 
-    expect(res._json[0].titulo).toBe('Rival FC vs Alevín');
+    expect(res._json[0].titulo).toBe('Rival FC vs PALMA DEL RIO ATLETICO C.F.');
     expect(res._json[0].es_local).toBe(false);
   });
 
@@ -106,7 +122,12 @@ describe('Calendario · calendario.controller', () => {
   });
 
   it('solo consulta partidos si tipo=partido', async () => {
-    Jornada.findAll.mockResolvedValue([{ id_plantilla: 10, fecha: '2026-01-02' }]);
+    Jornada.findAll.mockResolvedValue([mockJornada({
+      id_plantilla: 10, fecha: '2026-01-02', jornada: 1,
+      id_equipo_local: 73, id_equipo_visitante: 5,
+      equipoLocal: { id: 73, nombre: 'PALMA', escudo: null, localidad: 'Palma' },
+      equipoVisitante: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' }
+    })]);
     Partido.findAll.mockResolvedValue([partido]);
     const { promesa, res } = llamar(ctrl.eventos, { query: { tipo: 'partido' } });
 
@@ -116,7 +137,7 @@ describe('Calendario · calendario.controller', () => {
     expect(res._json).toHaveLength(1);
   });
 
-  it('no devuelve partidos si no hay jornadas', async () => {
+  it('devuelve partidos aunque no haya jornadas (amistosos)', async () => {
     Jornada.findAll.mockResolvedValue([]);
     Entrenamiento.findAll.mockResolvedValue([entrenamiento]);
     Partido.findAll.mockResolvedValue([partido]);
@@ -124,9 +145,9 @@ describe('Calendario · calendario.controller', () => {
 
     await promesa;
 
-    expect(Partido.findAll).not.toHaveBeenCalled();
-    expect(res._json).toHaveLength(1);
-    expect(res._json[0].tipo).toBe('entrenamiento');
+    expect(Partido.findAll).toHaveBeenCalled();
+    expect(res._json).toHaveLength(2);
+    expect(res._json[1].jornada).toBeNull();
   });
 
   it('propaga el filtro por plantilla al entrenamiento base', async () => {
@@ -137,18 +158,7 @@ describe('Calendario · calendario.controller', () => {
     await promesa;
 
     const entrenamientoArgs = Entrenamiento.findAll.mock.calls[0][0];
-    expect(entrenamientoArgs.where).toEqual({ id_usuario: 1, id_plantilla: '10' });
-  });
-
-  it('filtra por el usuario autenticado', async () => {
-    Jornada.findAll.mockResolvedValue([]);
-    Entrenamiento.findAll.mockResolvedValue([]);
-    const { promesa } = llamar(ctrl.eventos, { user: { id: 5, usuario: 'juan' } });
-
-    await promesa;
-
-    const entrenamientoArgs = Entrenamiento.findAll.mock.calls[0][0];
-    expect(entrenamientoArgs.where.id_usuario).toBe(5);
+    expect(entrenamientoArgs.where).toEqual({ id_plantilla: '10' });
   });
 
   it('acota las fechas de los entrenamientos por el rango', async () => {

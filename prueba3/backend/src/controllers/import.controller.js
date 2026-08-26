@@ -151,54 +151,16 @@ async function importar(req, res, next) {
 
 /**
  * Importación especial para jornadas: resuelve nombres a IDs
- * Solo crea partidos para la última jornada de cada plantilla.
+ * Crea jornada + partidos para cada fila. Valida duplicados plantilla+fecha.
  */
 async function importarJornadas(filas, res) {
   let insertados = 0;
   const errores = [];
-  
-  // Agrupar filas por plantilla para saber cuál es la última jornada de cada una
-  const porPlantilla = {};
-  for (let i = 0; i < filas.length; i++) {
-    const fila = filas[i];
-    try {
-      const datosFila = {};
-      for (const [columna, valor] of Object.entries(fila)) {
-        const campo = JORNADAS_COLUMN_MAP[columna];
-        if (!campo) continue;
-        if (campo === 'id_plantilla') {
-          datosFila[campo] = await buscarPlantillaPorNombre(valor);
-          if (!datosFila[campo]) throw new Error(`Plantilla no encontrada: "${valor}"`);
-        } else if (campo === 'id_equipo_local' || campo === 'id_equipo_visitante') {
-          datosFila[campo] = await buscarEquipoPorNombre(valor);
-          if (!datosFila[campo]) throw new Error(`Equipo no encontrado: "${valor}"`);
-        } else if (campo === 'fecha') {
-          datosFila[campo] = convertirFecha(valor);
-        } else if (campo === 'hora') {
-          datosFila[campo] = convertirHora(valor);
-        } else {
-          datosFila[campo] = valor;
-        }
-      }
-      if (!porPlantilla[datosFila.id_plantilla]) porPlantilla[datosFila.id_plantilla] = [];
-      porPlantilla[datosFila.id_plantilla].push({ filaNum: i + 2, datos: datosFila });
-    } catch (err) {
-      errores.push({ fila: i + 2, mensaje: err.message });
-    }
-  }
 
-  // Para cada plantilla, encontrar la última jornada
-  const ultimasJornadas = {};
-  for (const [plId, entradas] of Object.entries(porPlantilla)) {
-    entradas.sort((a, b) => a.datos.jornada - b.datos.jornada);
-    ultimasJornadas[plId] = entradas[entradas.length - 1].datos.jornada;
-  }
-
-  // Crear todas las jornadas
   for (let i = 0; i < filas.length; i++) {
     const fila = filas[i];
     const filaNum = i + 2;
-    
+
     try {
       const datos = {};
       for (const [columna, valor] of Object.entries(fila)) {
@@ -218,53 +180,41 @@ async function importarJornadas(filas, res) {
           datos[campo] = valor;
         }
       }
-      
+
       if (!Object.keys(datos).length) {
         errores.push({ fila: filaNum, mensaje: 'Sin datos válidos.' });
         continue;
       }
-      
+
       const obligatorios = ['id_plantilla', 'id_equipo_local', 'id_equipo_visitante', 'jornada', 'fecha'];
       const faltantes = obligatorios.filter(c => !datos[c]);
       if (faltantes.length) {
         errores.push({ fila: filaNum, mensaje: `Faltan campos obligatorios: ${faltantes.join(', ')}` });
         continue;
       }
-      
+
+      // VALIDAR: Solo 1 jornada por plantilla por fecha
+      const duplicada = await models.Jornada.findOne({ where: { id_plantilla: datos.id_plantilla, fecha: datos.fecha } });
+      if (duplicada) {
+        errores.push({ fila: filaNum, mensaje: `Esta plantilla ya tiene una jornada programada para el ${datos.fecha}.` });
+        continue;
+      }
+
       // Crear jornada
       await models.Jornada.create(datos);
-      
-      // Solo crear partidos si es la última jornada de esta plantilla
-      if (datos.jornada === ultimasJornadas[datos.id_plantilla]) {
-        await models.Partido.destroy({ where: { id_plantilla: datos.id_plantilla } });
-        
-        await models.Partido.create({
-          id_plantilla: datos.id_plantilla,
-          fecha: datos.fecha,
-          id_lugar: null,
-          id_equipo: datos.id_equipo_local,
-          es_local: true,
-          id_usuario: 1,
-          incidencias: null
-        });
-        
-        await models.Partido.create({
-          id_plantilla: datos.id_plantilla,
-          fecha: datos.fecha,
-          id_lugar: null,
-          id_equipo: datos.id_equipo_visitante,
-          es_local: false,
-          id_usuario: 1,
-          incidencias: null
-        });
-      }
-      
+
+      // Crear partido correspondiente
+      await models.Partido.create({
+        id_plantilla: datos.id_plantilla, fecha: datos.fecha, id_lugar: null,
+        id_equipo: datos.id_equipo_local, es_local: true, id_usuario: 1, incidencias: null
+      });
+
       insertados++;
     } catch (err) {
       errores.push({ fila: filaNum, mensaje: err.message });
     }
   }
-  
+
   res.json({ insertados, errores });
 }
 

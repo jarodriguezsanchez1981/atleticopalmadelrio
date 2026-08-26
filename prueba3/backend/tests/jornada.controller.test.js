@@ -72,22 +72,21 @@ describe('Sección Jornadas · jornada.controller', () => {
     expect(res._status).toBe(400);
   });
 
-  it('crea jornada y sus dos partidos', async () => {
+  it('crea jornada y su partido', async () => {
     Plantilla.findOne.mockResolvedValue({ id: 1, id_categoria: 7 });
     Equipo.findOne.mockResolvedValue({ id: 2 });
-    Partido.findOne.mockResolvedValue(null);
-    Partido.destroy.mockResolvedValue(0);
+    Jornada.findOne
+      .mockResolvedValueOnce(null)   // duplicado: ninguno
+      .mockResolvedValueOnce({ id: 10, jornada: 1 }); // respuesta
     Jornada.create.mockResolvedValue({ id: 10 });
-    Jornada.findOne.mockResolvedValue({ id: 10, jornada: 1 });
 
     const { promesa, res } = llamar(ctrl.crear, {
       body: { id_plantilla: 1, id_equipo_local: 2, id_equipo_visitante: 3, jornada: 1, fecha: '2026-01-01' }
     });
     await promesa;
 
-    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
     expect(Jornada.create).toHaveBeenCalled();
-    expect(Partido.create).toHaveBeenCalledTimes(2);
+    expect(Partido.create).toHaveBeenCalledTimes(1);
     expect(res._status).toBe(201);
   });
 
@@ -115,7 +114,7 @@ describe('Sección Jornadas · jornada.controller', () => {
     Partido.destroy.mockResolvedValue(2);
     const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
     await promesa;
-    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 5 } });
+    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
     expect(jornada.destroy).toHaveBeenCalled();
     expect(res._status).toBe(204);
   });
