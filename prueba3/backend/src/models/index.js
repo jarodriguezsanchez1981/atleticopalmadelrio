@@ -20,6 +20,9 @@ const Patrocinador = require('./Patrocinador');
 const Jornada = require('./Jornada');
 const Sancion = require('./Sancion');
 const Plantilla = require('./Plantilla');
+const PlantillaJugador = require('./PlantillaJugador');
+const PlantillaEntrenador = require('./PlantillaEntrenador');
+const PlantillaDelegado = require('./PlantillaDelegado');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -55,6 +58,7 @@ Entrenamiento.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id'
 
 Plantilla.hasMany(Partido, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'partidos' });
 Partido.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
 Lugar.hasMany(Entrenamiento, { foreignKey: 'id_lugar', sourceKey: 'id' });
 Entrenamiento.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'lugar', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
@@ -63,9 +67,6 @@ Partido.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'lugar',
 
 Equipo.hasMany(Partido, { foreignKey: 'id_equipo', sourceKey: 'id' });
 Partido.belongsTo(Equipo, { foreignKey: 'id_equipo', targetKey: 'id', as: 'equipo', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
-
-Jornada.hasOne(Partido, { foreignKey: 'id_jornada', sourceKey: 'id' });
-Partido.belongsTo(Jornada, { foreignKey: 'id_jornada', targetKey: 'id', as: 'jornada', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
 Partido.hasMany(Sancion, { foreignKey: 'id_partido', sourceKey: 'id', onDelete: 'CASCADE', as: 'sanciones' });
 Sancion.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
@@ -121,14 +122,53 @@ Temporada.hasMany(Plantilla, { foreignKey: 'id_temporada', sourceKey: 'id', as: 
 Plantilla.belongsTo(Division, { foreignKey: 'id_division', targetKey: 'id', as: 'division' });
 Division.hasMany(Plantilla, { foreignKey: 'id_division', sourceKey: 'id', as: 'plantillas' });
 
-Plantilla.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
-Jugador.hasMany(Plantilla, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'plantillas' });
+// ---- Plantilla <-> Jugador (Muchos a Muchos) ----
+Plantilla.belongsToMany(Jugador, {
+  through: PlantillaJugador,
+  foreignKey: 'id_plantilla',
+  otherKey: 'id_jugador',
+  as: 'jugadores',
+  timestamps: false
+});
+Jugador.belongsToMany(Plantilla, {
+  through: PlantillaJugador,
+  foreignKey: 'id_jugador',
+  otherKey: 'id_plantilla',
+  as: 'plantillas',
+  timestamps: false
+});
 
-Plantilla.belongsTo(Entrenador, { foreignKey: 'id_entrenador', targetKey: 'id', as: 'entrenador' });
-Entrenador.hasMany(Plantilla, { foreignKey: 'id_entrenador', sourceKey: 'id', as: 'plantillas' });
+// ---- Plantilla <-> Entrenador (Muchos a Muchos) ----
+Plantilla.belongsToMany(Entrenador, {
+  through: PlantillaEntrenador,
+  foreignKey: 'id_plantilla',
+  otherKey: 'id_entrenador',
+  as: 'entrenadores',
+  timestamps: false
+});
+Entrenador.belongsToMany(Plantilla, {
+  through: PlantillaEntrenador,
+  foreignKey: 'id_entrenador',
+  otherKey: 'id_plantilla',
+  as: 'plantillas',
+  timestamps: false
+});
 
-Plantilla.belongsTo(Delegado, { foreignKey: 'id_delegado', targetKey: 'id', as: 'delegado' });
-Delegado.hasMany(Plantilla, { foreignKey: 'id_delegado', sourceKey: 'id', as: 'plantillas' });
+// ---- Plantilla <-> Delegado (Muchos a Muchos) ----
+Plantilla.belongsToMany(Delegado, {
+  through: PlantillaDelegado,
+  foreignKey: 'id_plantilla',
+  otherKey: 'id_delegado',
+  as: 'delegados',
+  timestamps: false
+});
+Delegado.belongsToMany(Plantilla, {
+  through: PlantillaDelegado,
+  foreignKey: 'id_delegado',
+  otherKey: 'id_plantilla',
+  as: 'plantillas',
+  timestamps: false
+});
 
 module.exports = {
   sequelize,
@@ -151,5 +191,8 @@ module.exports = {
   Patrocinador,
   Jornada,
   Sancion,
-  Plantilla
+  Plantilla,
+  PlantillaJugador,
+  PlantillaEntrenador,
+  PlantillaDelegado
 };

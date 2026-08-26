@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Resultado, Temporada } = require('../models');
+const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado } = require('../models');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados como eventos
@@ -59,14 +59,6 @@ async function eventos(req, res, next) {
       const includesPartido = [
         ...includesPlantilla,
         { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-        { model: Jornada, as: 'jornada', attributes: ['id', 'jornada'], include: [
-          { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [
-            { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] },
-            { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
-          ]},
-          { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-          { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] }
-        ] },
         { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
       ];
       promesas.push(
@@ -115,9 +107,6 @@ async function eventos(req, res, next) {
         incidencias: p.incidencias,
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
-        jornada: p.jornada ? p.jornada.jornada : null,
-        equipoLocal: p.jornada?.equipoLocal || null,
-        equipoVisitante: p.jornada?.equipoVisitante || null,
         resultado: p.Resultados?.[0]?.resultado || null
       };
     });

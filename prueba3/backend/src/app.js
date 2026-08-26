@@ -21,10 +21,10 @@ if (process.env.NODE_ENV === 'production' && (!corsOrigins || !corsOrigins.lengt
 }
 app.use(cors({ origin: corsOrigins || '*', credentials: true }));
 
-// Rate limiting global: 100 peticiones por 15 minutos por IP
+// Rate limiting global: 10000 peticiones por 15 minutos por IP (prácticamente ilimitado)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 10000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Demasiadas peticiones. Inténtalo de nuevo más tarde.' }

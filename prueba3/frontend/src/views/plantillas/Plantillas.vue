@@ -4,9 +4,11 @@ import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
 import { useToast } from 'primevue/usetoast';
 import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
+import PlantillaJugadoresManager from '../../components/PlantillaJugadoresManager.vue';
 
 const crudRef = ref(null);
 const toast = useToast();
@@ -112,11 +114,6 @@ const opcionesDivision = computed(() =>
   divisiones.value.map(d => ({ label: d.nombre, value: d.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
-const opcionesJugador = computed(() =>
-  jugadores.value.map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
-
 const opcionesEntrenador = computed(() =>
   entrenadores.value.map(e => ({ label: `${e.apellidos}, ${e.nombre}`, value: e.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
@@ -131,18 +128,18 @@ const columns = computed(() => [
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false },
-  { field: 'id_entrenador', header: 'Entrenador', type: 'select', options: opcionesEntrenador.value, required: false },
-  { field: 'id_delegado', header: 'Delegado', type: 'select', options: opcionesDelegado.value, required: false },
-  { field: 'id_jugador', header: 'Jugador', type: 'select', options: opcionesJugador.value, required: false }
+  { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores' },
+  { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados' },
+  { field: 'jugadores', header: 'Jugadores', type: 'custom', soloTabla: true }
 ]);
 
 const emptyItem = {
   id_temporada: null,
   id_categoria: null,
   id_division: null,
-  id_entrenador: null,
-  id_delegado: null,
-  id_jugador: null
+  ids_entrenadores: [],
+  ids_delegados: [],
+  jugadores: []
 };
 
 function nombrePersona(id, lista) {
@@ -162,11 +159,26 @@ function nombreDivision(id) {
   return divisiones.value.find(d => d.id === id)?.nombre || '—';
 }
 
-function tipoMiembro(data) {
-  if (data.jugador) return 'Jugador';
-  if (data.entrenador) return 'Entrenador';
-  if (data.delegado) return 'Delegado';
-  return '—';
+function formatoMiembros(data) {
+  const parts = [];
+  if (data.entrenadores?.length) parts.push(`👨‍🏫 ${data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join(', ')}`);
+  if (data.delegados?.length) parts.push(`📋 ${data.delegados.map(d => `${d.apellidos}, ${d.nombre}`).join(', ')}`);
+  if (data.jugadores?.length) parts.push(`⚽ ${data.jugadores.map(j => `${j.apellidos}, ${j.nombre}`).join(', ')}`);
+  return parts.join('\n') || '—';
+}
+
+function formatearJugador(j) {
+  const jp = j.PlantillaJugador || {};
+  return {
+    id_jugador: j.id,
+    dorsal: jp.dorsal,
+    talla: jp.talla
+  };
+}
+
+function prepareJugadoresPayload(data) {
+  if (!data.jugadores?.length) return [];
+  return data.jugadores.map(j => formatearJugador(j));
 }
 </script>
 
@@ -193,37 +205,25 @@ function tipoMiembro(data) {
     <template #cell-id_division="{ data }">
       {{ data.division?.nombre || nombreDivision(data.id_division) }}
     </template>
-    <template #cell-id_entrenador="{ data }">
-      <span v-if="data.entrenador">{{ data.entrenador.apellidos }}, {{ data.entrenador.nombre }}</span>
+    <template #cell-ids_entrenadores="{ data }">
+      <span v-if="data.entrenadores?.length">
+        {{ data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join(', ') }}
+      </span>
       <span v-else>—</span>
     </template>
-    <template #cell-id_delegado="{ data }">
-      <span v-if="data.delegado">{{ data.delegado.apellidos }}, {{ data.delegado.nombre }}</span>
+    <template #cell-ids_delegados="{ data }">
+      <span v-if="data.delegados?.length">
+        {{ data.delegados.map(d => `${d.apellidos}, ${d.nombre}`).join(', ') }}
+      </span>
       <span v-else>—</span>
     </template>
-    <template #cell-id_jugador="{ data }">
-      <span v-if="data.jugador">{{ data.jugador.apellidos }}, {{ data.jugador.nombre }}</span>
-      <span v-else>—</span>
-    </template>
-
-    <template #detail-extra="{ data }">
-      <div class="border-t border-line pt-3 space-y-2 text-sm">
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <span class="text-ink-tertiary block">Rol en la plantilla</span>
-            <span class="font-medium">{{ tipoMiembro(data) }}</span>
-          </div>
-          <div>
-            <span class="text-ink-tertiary block">Miembro</span>
-            <span class="font-medium">
-              <template v-if="data.jugador">{{ data.jugador.nombre }} {{ data.jugador.apellidos }}</template>
-              <template v-else-if="data.entrenador">{{ data.entrenador.nombre }} {{ data.entrenador.apellidos }}</template>
-              <template v-else-if="data.delegado">{{ data.delegado.nombre }} {{ data.delegado.apellidos }}</template>
-              <template v-else>—</template>
-            </span>
-          </div>
-        </div>
-      </div>
+    <template #cell-jugadores="scope">
+      <PlantillaJugadoresManager
+        :value="scope.data.jugadores || []"
+        :jugadores="jugadores"
+        @update:modelValue="val => scope.data.jugadores = val"
+        :readonly="false"
+      />
     </template>
   </CrudDataTable>
 

@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado } = require('../models');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 
@@ -19,7 +19,6 @@ const includesBase = [
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad'] },
-  { model: Jornada, as: 'jornada', attributes: ['id', 'jornada', 'fecha'] },
   { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
 ];
 function serialize(partido) {
@@ -128,7 +127,7 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
     const esLocal = es_local !== undefined ? !!es_local : true;
     if (!id_plantilla || !fecha || !id_equipo) {
       return res.status(400).json({ message: 'Plantilla, fecha y equipo son obligatorios.' });
@@ -145,7 +144,7 @@ async function crear(req, res, next) {
       return res.status(409).json({ message: 'Ese lugar ya está ocupado a esa hora por otro partido.' });
     }
     const partido = await Partido.create({
-      id_plantilla, fecha, id_lugar: id_lugar || null, id_jornada: id_jornada || null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
+      id_plantilla, fecha, id_lugar: id_lugar || null, id_equipo, es_local: esLocal ? 1 : 0, id_usuario: req.user?.id || null, incidencias
     });
     await guardarResultado(partido.id, req.body.resultado, req.body.resultado_incidencias);
     const creado = await Partido.findByPk(partido.id, { include: includesBase });
@@ -157,7 +156,7 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, id_jornada, id_equipo, es_local, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo, es_local, incidencias } = req.body;
     const esLocalFinal = es_local !== undefined ? !!es_local : !!partido.es_local;
     const idLugarFinal = esLocalFinal
       ? (id_lugar !== undefined ? id_lugar : partido.id_lugar)
@@ -190,7 +189,6 @@ async function actualizar(req, res, next) {
       if (!es_local) partido.id_lugar = null;
     }
     if (id_lugar !== undefined && esLocalFinal) partido.id_lugar = id_lugar;
-    if (id_jornada !== undefined) partido.id_jornada = id_jornada || null;
     if (id_equipo !== undefined) partido.id_equipo = id_equipo;
     if (incidencias !== undefined) partido.incidencias = incidencias;
     await partido.save();

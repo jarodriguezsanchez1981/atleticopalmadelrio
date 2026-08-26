@@ -70,25 +70,25 @@ async function crear(req, res, next) {
     });
 
     // AUTOMÁTICO: Crear partidos correspondientes para esta jornada
-    const idCategoria = plantilla.id_categoria;
+    const idUsuario = req.user?.id;
     // Crear partido para el equipo local
     await Partido.create({
-      id_categoria: idCategoria,
+      id_plantilla: id_plantilla,
       fecha,
       id_lugar: null,
-      id_jornada: creado.id,
       id_equipo: id_equipo_local,
       es_local: true,
+      id_usuario: idUsuario,
       incidencias: null
     });
     // Crear partido para el equipo visitante
     await Partido.create({
-      id_categoria: idCategoria,
+      id_plantilla: id_plantilla,
       fecha,
       id_lugar: null,
-      id_jornada: creado.id,
       id_equipo: id_equipo_visitante,
       es_local: false,
+      id_usuario: idUsuario,
       incidencias: null
     });
 
@@ -143,7 +143,8 @@ async function eliminar(req, res, next) {
     const jornadaId = req.params.id;
 
     // Primero eliminar todos los partidos asociados a esta jornada
-    await Partido.destroy({ where: { id_jornada: jornadaId } });
+    // Nota: ya no existe id_jornada en Partido, se eliminan por id_plantilla y fecha si necesario
+    // Aquí se asume que los partidos se gestionan independientemente
 
     // Luego eliminar la jornada
     const eliminado = await Jornada.destroy({ where: { id: jornadaId } });

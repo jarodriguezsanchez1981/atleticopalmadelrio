@@ -13,18 +13,15 @@ const route = useRoute();
 const CLUB_SECTIONS = [
   'plantillas', 'jugadores', 'entrenadores', 'delegados',
   'categorias', 'division', 'titulos', 'temporadas',
-  'lugares', 'patrocinadores'
+  'lugares', 'patrocinadores', 'entrenamientos'
 ];
+
+const COMPETICION_SECTIONS = ['categoria_calendario', 'equipos', 'partidos', 'sanciones'];
 
 const ADMIN_SECTIONS = ['administracion', 'roles'];
 
 const ALL_NAV = [
   { label: 'Calendario', icon: 'pi pi-calendar', to: '/calendario', seccion: 'calendario' },
-  { label: 'Entrenamientos', icon: 'pi pi-stopwatch', to: '/entrenamientos', seccion: 'entrenamientos' },
-  { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
-  { label: 'Equipos', icon: 'pi pi-trophy', to: '/equipos', seccion: 'equipos' },
-  { label: 'Jornadas', icon: 'pi pi-calendar-plus', to: '/categoria-calendario', seccion: 'categoria_calendario' },
-  { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' }
 ];
 
 const clubNavItems = computed(() => {
@@ -38,7 +35,18 @@ const clubNavItems = computed(() => {
     { label: 'Títulos', icon: 'pi pi-graduation-cap', to: '/titulos', seccion: 'titulos' },
     { label: 'Temporadas', icon: 'pi pi-clock', to: '/temporadas', seccion: 'temporadas' },
     { label: 'Lugares', icon: 'pi pi-map-marker', to: '/lugares', seccion: 'lugares' },
-    { label: 'Patrocinadores', icon: 'pi pi-briefcase', to: '/patrocinadores', seccion: 'patrocinadores' }
+    { label: 'Patrocinadores', icon: 'pi pi-briefcase', to: '/patrocinadores', seccion: 'patrocinadores' },
+    { label: 'Entrenamientos', icon: 'pi pi-stopwatch', to: '/entrenamientos', seccion: 'entrenamientos' }
+  ];
+  return items.filter((item) => auth.puedeVer(item.seccion));
+});
+
+const competicionNavItems = computed(() => {
+  const items = [
+    { label: 'Jornadas', icon: 'pi pi-calendar-plus', to: '/categoria-calendario', seccion: 'categoria_calendario' },
+    { label: 'Equipos', icon: 'pi pi-trophy', to: '/equipos', seccion: 'equipos' },
+    { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
+    { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' }
   ];
   return items.filter((item) => auth.puedeVer(item.seccion));
 });
@@ -66,16 +74,18 @@ const userMenuItems = [
 ];
 
 const tituloPagina = computed(() => {
-  const allItems = [...navItems.value, ...clubNavItems.value, ...adminNavItems.value];
+  const allItems = [...navItems.value, ...clubNavItems.value, ...competicionNavItems.value, ...adminNavItems.value];
   const activo = allItems.find((i) => i.to === route.path);
   return activo?.label || 'Intranet';
 });
 
 const clubOpen = ref(false);
 const adminOpen = ref(false);
+const competicionOpen = ref(false);
 
 const isClubActive = computed(() => CLUB_SECTIONS.some(s => route.path === '/' + s));
 const isAdminActive = computed(() => ADMIN_SECTIONS.some(s => route.path === '/' + s));
+const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.path === '/' + s));
 </script>
 
 <template>
@@ -121,6 +131,31 @@ const isAdminActive = computed(() => ADMIN_SECTIONS.some(s => route.path === '/'
           <div v-show="clubOpen" class="ml-4 mt-1 space-y-0.5">
             <router-link
               v-for="item in clubNavItems"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
+              active-class="!bg-club-green !text-white"
+            >
+              <i :class="item.icon" class="text-[0.85rem]" />
+              <span>{{ item.label }}</span>
+            </router-link>
+          </div>
+        </div>
+
+        <!-- Sección Competición -->
+        <div v-if="competicionNavItems.length" class="mt-4 pt-3 border-t border-line">
+          <button
+            @click="competicionOpen = !competicionOpen"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
+            :class="{ '!bg-club-green !text-white': isCompeticionActive }"
+          >
+            <i class="pi pi-trophy text-[0.85rem]" />
+            <span class="flex-1 text-left">Competición</span>
+            <i :class="competicionOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
+          </button>
+          <div v-show="competicionOpen" class="ml-4 mt-1 space-y-0.5">
+            <router-link
+              v-for="item in competicionNavItems"
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"

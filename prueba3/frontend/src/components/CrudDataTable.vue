@@ -794,6 +794,8 @@ watch(
             optionLabel="label"
             optionValue="value"
             display="chip"
+            :filter="col.filter === true"
+            :filterMinLength="col.filterMinLength || 0"
             placeholder="Selecciona jugadores"
             class="w-full"
           />
