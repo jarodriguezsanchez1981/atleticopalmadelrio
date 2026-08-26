@@ -41,7 +41,8 @@ const props = defineProps({
   detailMaxWidth: { type: String, default: 'max-w-lg' },
   formMaxWidth: { type: String, default: 'max-w-lg' },
   prepareEdit: { type: Function, default: null },
-  canExport: { type: Boolean, default: false }
+  canExport: { type: Boolean, default: false },
+  validateForm: { type: Function, default: null }
 });
 
 const emit = defineEmits(['changed', 'data-loaded']);
@@ -532,6 +533,13 @@ async function guardar() {
       }
     }
     const payload = payloadFromForm();
+    if (typeof props.validateForm === 'function') {
+      const err = props.validateForm(form);
+      if (err) {
+        toast.add({ severity: 'error', summary: 'Error de validación', detail: err, life: 5000 });
+        return;
+      }
+    }
     if (editando.value) {
       await props.service.actualizar(form.id, payload);
       toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Registro actualizado correctamente.', life: 3000 });

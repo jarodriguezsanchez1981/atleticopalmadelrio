@@ -9,6 +9,7 @@ import InputNumber from 'primevue/inputnumber';
 import { useToast } from 'primevue/usetoast';
 import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
+import CamisetaDorsal from '../../components/CamisetaDorsal.vue';
 
 
 const crudRef = ref(null);
@@ -164,6 +165,13 @@ function formatearJugador(j) {
 
 function prepareEdit(item) {
   const jugadoresSimples = (item.jugadores || []).map(j => formatearJugador(j));
+  jugadoresSimples.sort((a, b) => {
+    const na = jugadorInfo(a.id_jugador);
+    const nb = jugadorInfo(b.id_jugador);
+    const nombreA = na ? `${na.apellidos} ${na.nombre}` : '';
+    const nombreB = nb ? `${nb.apellidos} ${nb.nombre}` : '';
+    return nombreA.localeCompare(nombreB, 'es');
+  });
   return { jugadores: jugadoresSimples };
 }
 
@@ -172,6 +180,9 @@ const nuevoDelegado = ref(null);
 const nuevoJugador = ref(null);
 const nuevoDorsal = ref(null);
 const nuevaTalla = ref(null);
+const keySelectJugador = ref(0);
+const ordenJugadores = ref({ campo: 'nombre', asc: true });
+const ordenJugadoresDetalle = ref({ campo: 'nombre', asc: true });
 
 function entrenadorInfo(id) {
   return entrenadores.value.find(e => e.id === id);
@@ -225,14 +236,89 @@ function addJugador(form) {
       dorsal: nuevoDorsal.value ?? null,
       talla: nuevaTalla.value || null
     });
+    if (nuevoDorsal.value != null) comprobarDorsalDuplicado(form, nuevoJugador.value, nuevoDorsal.value);
   }
   nuevoJugador.value = null;
   nuevoDorsal.value = null;
   nuevaTalla.value = null;
+  keySelectJugador.value++;
+  ordenarJugadores(form);
+}
+
+function ordenarJugadores(form) {
+  if (!form.jugadores) return;
+  const { campo, asc } = ordenJugadores.value;
+  form.jugadores.sort((a, b) => {
+    let cmp = 0;
+    if (campo === 'nombre') {
+      const na = jugadorInfo(a.id_jugador);
+      const nb = jugadorInfo(b.id_jugador);
+      const nombreA = na ? `${na.apellidos} ${na.nombre}` : '';
+      const nombreB = nb ? `${nb.apellidos} ${nb.nombre}` : '';
+      cmp = nombreA.localeCompare(nombreB, 'es');
+    } else if (campo === 'dorsal') {
+      cmp = (a.dorsal ?? 999) - (b.dorsal ?? 999);
+    }
+    return asc ? cmp : -cmp;
+  });
+}
+
+function toggleOrdenJugadores(campo, form) {
+  if (ordenJugadores.value.campo === campo) {
+    ordenJugadores.value.asc = !ordenJugadores.value.asc;
+  } else {
+    ordenJugadores.value.campo = campo;
+    ordenJugadores.value.asc = true;
+  }
+  ordenarJugadores(form);
+}
+
+function iconoOrden(campo) {
+  if (ordenJugadores.value.campo !== campo) return 'pi pi-sort';
+  return ordenJugadores.value.asc ? 'pi pi-sort-amount-up' : 'pi pi-sort-amount-down';
+}
+
+function toggleOrdenDetalle(campo) {
+  if (ordenJugadoresDetalle.value.campo === campo) {
+    ordenJugadoresDetalle.value.asc = !ordenJugadoresDetalle.value.asc;
+  } else {
+    ordenJugadoresDetalle.value.campo = campo;
+    ordenJugadoresDetalle.value.asc = true;
+  }
+}
+
+function iconoOrdenDetalle(campo) {
+  if (ordenJugadoresDetalle.value.campo !== campo) return 'pi pi-sort';
+  return ordenJugadoresDetalle.value.asc ? 'pi pi-sort-amount-up' : 'pi pi-sort-amount-down';
+}
+
+function jugadoresOrdenados(data) {
+  const arr = [...(data.jugadores || [])];
+  const { campo, asc } = ordenJugadoresDetalle.value;
+  arr.sort((a, b) => {
+    let cmp = 0;
+    if (campo === 'nombre') {
+      cmp = `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`, 'es');
+    } else if (campo === 'dorsal') {
+      cmp = (a.PlantillaJugador?.dorsal ?? 999) - (b.PlantillaJugador?.dorsal ?? 999);
+    }
+    return asc ? cmp : -cmp;
+  });
+  return arr;
 }
 
 function removeJugador(form, idJugador) {
   form.jugadores = (form.jugadores || []).filter(j => j.id_jugador !== idJugador);
+}
+
+function comprobarDorsalDuplicado(form, idJugadorActual, dorsal) {
+  if (dorsal == null || dorsal === '') return;
+  const duplicado = (form.jugadores || []).find(j => j.id_jugador !== idJugadorActual && j.dorsal === dorsal);
+  if (duplicado) {
+    const nombre = jugadorInfo(duplicado.id_jugador);
+    const texto = nombre ? `${nombre.apellidos}, ${nombre.nombre} (nº ${dorsal})` : `nº ${dorsal}`;
+    toast.add({ severity: 'warn', summary: 'Dorsal duplicado', detail: `El dorsal ${dorsal} ya está asignado a ${texto}.`, life: 5000 });
+  }
 }
 
 function opcionesEntrenadorDisponibles(form) {
@@ -249,6 +335,18 @@ function opcionesJugadorDisponibles(form) {
   const usados = new Set((form?.jugadores || []).map(j => j.id_jugador));
   return opcionesJugador.value.filter(o => !usados.has(o.value));
 }
+
+function validarPlantilla(form) {
+  const dorsales = (form?.jugadores || []).map(j => j.dorsal).filter(d => d != null);
+  const vistos = new Set();
+  for (const d of dorsales) {
+    if (vistos.has(d)) {
+      return `El dorsal ${d} está duplicado en la plantilla.`;
+    }
+    vistos.add(d);
+  }
+  return null;
+}
 </script>
 
 <template>
@@ -260,6 +358,7 @@ function opcionesJugadorDisponibles(form) {
     :emptyItem="emptyItem"
     detailMaxWidth="max-w-4xl"
     formMaxWidth="max-w-4xl"
+    :validateForm="validarPlantilla"
     :prepareEdit="prepareEdit"
     @changed="onPlantillasChanged"
   >
@@ -358,8 +457,14 @@ function opcionesJugadorDisponibles(form) {
             <thead>
               <tr class="bg-club-green/5">
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
-                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
-                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Dorsal</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary cursor-pointer select-none hover:bg-club-green/10"
+                    @click="toggleOrdenJugadores('nombre', form)">
+                  <span class="inline-flex items-center gap-1">Nombre <i :class="['pi', iconoOrden('nombre'), 'text-[10px]']"></i></span>
+                </th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary cursor-pointer select-none hover:bg-club-green/10"
+                    @click="toggleOrdenJugadores('dorsal', form)">
+                  <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrden('dorsal'), 'text-[10px]']"></i></span>
+                </th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
               </tr>
@@ -372,7 +477,11 @@ function opcionesJugadorDisponibles(form) {
                 </td>
                 <td class="text-center border border-line p-2 text-sm">{{ jugadorInfo(j.id_jugador)?.apellidos }}, {{ jugadorInfo(j.id_jugador)?.nombre }}</td>
                 <td class="text-center border border-line p-2">
-                  <InputNumber v-model="j.dorsal" :min="0" :max="99" inputClass="!w-16 !text-center" class="!w-16" />
+                  <div class="flex items-center justify-center gap-1">
+                    <CamisetaDorsal :numero="j.dorsal" :size="50" />
+                    <InputNumber v-model="j.dorsal" :min="0" :max="99" inputClass="!w-12 !text-center" class="!w-12"
+                      @blur="comprobarDorsalDuplicado(form, j.id_jugador, j.dorsal)" />
+                  </div>
                 </td>
                 <td class="text-center border border-line p-2">
                   <InputText v-model="j.talla" class="!w-16 !text-center" />
@@ -384,7 +493,7 @@ function opcionesJugadorDisponibles(form) {
             </tbody>
           </table>
           <div class="flex gap-2 mt-2 items-center">
-            <Select v-model="nuevoJugador" :options="opcionesJugadorDisponibles(form)" optionLabel="label" optionValue="value"
+            <Select :key="keySelectJugador" v-model="nuevoJugador" :options="opcionesJugadorDisponibles(form)" optionLabel="label" optionValue="value"
                     placeholder="Seleccionar jugador" class="flex-1" filter showClear />
             <InputNumber v-model="nuevoDorsal" placeholder="Dorsal" :min="0" :max="99" class="w-20" inputClass="!w-20" />
             <InputText v-model="nuevaTalla" placeholder="Talla" class="w-20" />
@@ -472,19 +581,28 @@ function opcionesJugadorDisponibles(form) {
           <thead>
             <tr class="bg-club-green/5">
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Dorsal</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary cursor-pointer select-none hover:bg-club-green/10"
+                  @click="toggleOrdenDetalle('nombre')">
+                <span class="inline-flex items-center gap-1">Nombre <i :class="['pi', iconoOrdenDetalle('nombre'), 'text-[10px]']"></i></span>
+              </th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary cursor-pointer select-none hover:bg-club-green/10"
+                  @click="toggleOrdenDetalle('dorsal')">
+                <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrdenDetalle('dorsal'), 'text-[10px]']"></i></span>
+              </th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="j in data.jugadores" :key="j.id">
+            <tr v-for="j in jugadoresOrdenados(data)" :key="j.id">
               <td class="text-center border border-line p-2">
                 <img v-if="j.foto" :src="j.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
               <td class="text-center border border-line p-2 text-sm">{{ j.apellidos }}, {{ j.nombre }}</td>
-              <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.dorsal ?? '—' }}</td>
+              <td class="text-center border border-line p-2">
+                <CamisetaDorsal v-if="j.PlantillaJugador?.dorsal != null" :numero="j.PlantillaJugador.dorsal" :size="50" />
+                <span v-else class="text-ink-tertiary">—</span>
+              </td>
               <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
             </tr>
           </tbody>
