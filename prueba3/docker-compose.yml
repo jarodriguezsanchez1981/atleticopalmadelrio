@@ -36,7 +36,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 4000
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://intranet.atleticopalmadelrio.com,https://intranet.atleticopalmadelrio.com,https://localhost}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://intranetatleticopalmadelrio.com,https://intranetatleticopalmadelrio.com,https://localhost}
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}

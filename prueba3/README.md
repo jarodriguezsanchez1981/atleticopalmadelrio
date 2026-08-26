@@ -184,7 +184,7 @@ Tests unitarios de controladores (270 tests, 22 archivos). Mocks en `backend/tes
 |----------|-----|------------|
 | `NODE_ENV` | development | production |
 | `DB_NAME` | atletico_palma_intranet_dev | atletico_palma_intranet |
-| `CORS_ORIGIN` | http://localhost:5173 | https://intranet.atleticopalmadelrio.com |
+| `CORS_ORIGIN` | http://localhost:5173 | https://intranetatleticopalmadelrio.com |
 | `JWT_SECRET` | (desarrollo) | (generado por entorno) |
 
 ## Comandos útiles
