@@ -69,6 +69,7 @@ function formatDate(fecha) {
     :columns="columns"
     :service="categoriaCalendarioService"
     :emptyItem="emptyItem"
+    :canExport="true"
   >
     <template #cell-id_plantilla="{ data }">
       {{ data.plantilla ? (data.plantilla.categoria?.nombre + ' / ' + data.plantilla.temporada?.nombre) : nombrePlantilla(data.id_plantilla) }}

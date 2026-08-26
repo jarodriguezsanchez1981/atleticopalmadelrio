@@ -40,7 +40,8 @@ const props = defineProps({
   listParams: { type: Object, default: () => ({}) },
   detailMaxWidth: { type: String, default: 'max-w-lg' },
   formMaxWidth: { type: String, default: 'max-w-lg' },
-  prepareEdit: { type: Function, default: null }
+  prepareEdit: { type: Function, default: null },
+  canExport: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['changed']);
@@ -616,6 +617,29 @@ function eliminarSeleccionados() {
   });
 }
 
+function exportarExcel() {
+  const headers = columnas.value.map(c => c.header);
+  const rows = items.value.map(item => {
+    return columnas.value.map(col => {
+      if (col.field === 'id') return item.id;
+      if (col.type === 'select' && col.options) {
+        const opts = typeof col.options === 'function' ? col.options(form) : col.options;
+        const opt = opts?.find(o => o.value === item[col.field]);
+        return opt ? opt.label : item[col.field] ?? '';
+      }
+      if (col.type === 'date' && item[col.field]) {
+        const d = toDateValue(item[col.field]);
+        return d ? d.toLocaleDateString('es-ES') : '';
+      }
+      return item[col.field] ?? '';
+    });
+  });
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, props.title);
+  XLSX.writeFile(wb, `${props.title.toLowerCase().replace(/\s+/g, '_')}.xlsx`);
+}
+
 defineExpose({ cargar });
 onMounted(() => {
   restaurarOrden();
@@ -660,6 +684,9 @@ watch(
             <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
           </IconField>
           <slot name="acciones" />
+          <Button v-if="canExport" label="Exportar" icon="pi pi-file-export" outlined
+                  class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
+                  @click="exportarExcel" />
           <Button v-if="permisoCrear" label="Importar" icon="pi pi-file-import" outlined
                   class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
                   @click="abrirImport" />

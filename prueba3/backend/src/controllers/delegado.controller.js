@@ -20,7 +20,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, dni, foto, tipo } = req.body;
+    const { nombre, apellidos, dni, foto, tipo, telefono } = req.body;
     if (!nombre || !apellidos || !dni) {
       return res.status(400).json({ message: 'Nombre, apellidos y DNI son obligatorios.' });
     }
@@ -29,7 +29,7 @@ async function crear(req, res, next) {
     }
     const existe = await Delegado.findOne({ where: { dni } });
     if (existe) return res.status(409).json({ message: 'Ya existe un delegado con ese DNI.' });
-    const delegado = await Delegado.create({ nombre, apellidos, dni, foto: foto || null, tipo: tipo || 'campo' });
+    const delegado = await Delegado.create({ nombre, apellidos, dni, foto: foto || null, tipo: tipo || 'campo', telefono: telefono || null });
     res.status(201).json(delegado);
   } catch (err) { next(err); }
 }
@@ -38,7 +38,7 @@ async function actualizar(req, res, next) {
   try {
     const delegado = await Delegado.findOne({ where: { id: req.params.id } });
     if (!delegado) return res.status(404).json({ message: 'Delegado no encontrado.' });
-    const { nombre, apellidos, dni, foto, tipo } = req.body;
+    const { nombre, apellidos, dni, foto, tipo, telefono } = req.body;
     if (nombre !== undefined) delegado.nombre = nombre;
     if (apellidos !== undefined) delegado.apellidos = apellidos;
     if (dni !== undefined && dni !== delegado.dni) {
@@ -51,6 +51,7 @@ async function actualizar(req, res, next) {
     }
     if (foto !== undefined) delegado.foto = foto || null;
     if (tipo !== undefined) delegado.tipo = tipo;
+    if (telefono !== undefined) delegado.telefono = telefono || null;
     await delegado.save();
     res.json(delegado);
   } catch (err) { next(err); }

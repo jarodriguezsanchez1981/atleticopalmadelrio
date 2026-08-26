@@ -25,6 +25,7 @@ import { generarPdfPartidos } from '../utils/pdfPartidos';
 import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
+import * as XLSX from '@e965/xlsx';
 
 const props = defineProps({
   tipo: {
@@ -380,6 +381,48 @@ async function generarPdfSemana() {
   pdfDialogVisible.value = false;
 }
 
+async function exportarExcel() {
+  const semana = semanaDe(new Date());
+  if (!semana) return;
+  const hasta = new Date(semana.fin);
+  hasta.setHours(23, 59, 59, 999);
+  const desdeISO = semana.inicio.toISOString();
+  const hastaISO = hasta.toISOString();
+
+  let eventos = [];
+  let nombreHoja = 'Calendario';
+
+  if (props.tipo === 'entrenamiento') {
+    eventos = await entrenamientosService.listar({ desde: desdeISO, hasta: hastaISO });
+    nombreHoja = 'Entrenamientos';
+  } else if (props.tipo === 'partido') {
+    eventos = await partidosService.listar({ desde: desdeISO, hasta: hastaISO });
+    nombreHoja = 'Partidos';
+  }
+
+  if (!eventos.length) {
+    toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos en esta semana para exportar.', life: 3000 });
+    return;
+  }
+
+  const headers = ['Fecha', 'Hora', 'Categoría', 'Lugar', 'Tipo'];
+  const rows = eventos.map(e => {
+    const d = new Date(e.fecha || e.inicio);
+    return [
+      d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      e.categoria?.nombre || '—',
+      e.lugar || '—',
+      e.tipo === 'partido' ? 'Partido' : 'Entrenamiento'
+    ];
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, nombreHoja);
+  XLSX.writeFile(wb, `${nombreHoja.toLowerCase().replace(/\s+/g, '_')}.xlsx`);
+}
+
 async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   generandoPdf.value = true;
   try {
@@ -553,6 +596,14 @@ onBeforeUnmount(() => {
           text
           :loading="generandoPdf"
           @click="abrirPdfSemana"
+        />
+        <Button
+          v-if="tipo"
+          label="Excel"
+          icon="pi pi-file-export"
+          size="small"
+          text
+          @click="exportarExcel"
         />
       </div>
     </div>

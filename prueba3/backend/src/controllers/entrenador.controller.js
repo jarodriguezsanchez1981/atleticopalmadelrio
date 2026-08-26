@@ -44,7 +44,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, dni, foto } = req.body;
+    const { nombre, apellidos, dni, foto, email, telefono } = req.body;
     const idsTitulos = normalizeTitulosIds(req.body) || [];
     if (!nombre || !apellidos || !dni) {
       return res.status(400).json({ message: 'Nombre, apellidos y DNI son obligatorios.' });
@@ -55,7 +55,7 @@ async function crear(req, res, next) {
     const existe = await Entrenador.findOne({ where: { dni } });
     if (existe) return res.status(409).json({ message: 'Ya existe un entrenador con ese DNI.' });
     const entrenador = await Entrenador.create({
-      nombre, apellidos, dni, foto: foto || null
+      nombre, apellidos, dni, foto: foto || null, email: email || null, telefono: telefono || null
     });
     if (idsTitulos.length) await entrenador.setTitulos(idsTitulos);
     const completo = await Entrenador.findOne({ where: { id: entrenador.id }, include: includeEntrenador });
@@ -67,11 +67,12 @@ async function actualizar(req, res, next) {
   try {
     const entrenador = await Entrenador.findOne({ where: { id: req.params.id } });
     if (!entrenador) return res.status(404).json({ message: 'Entrenador no encontrado.' });
-    const { nombre, apellidos, dni, foto, email } = req.body;
+    const { nombre, apellidos, dni, foto, email, telefono } = req.body;
     const idsTitulos = normalizeTitulosIds(req.body);
     if (nombre !== undefined) entrenador.nombre = nombre;
     if (apellidos !== undefined) entrenador.apellidos = apellidos;
     if (email !== undefined) entrenador.email = email || null;
+    if (telefono !== undefined) entrenador.telefono = telefono || null;
     if (dni !== undefined && dni !== entrenador.dni) {
       if (!validarDNI(dni)) {
         return res.status(400).json({ message: 'El DNI introducido no es válido.' });

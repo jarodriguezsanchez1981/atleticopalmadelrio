@@ -39,7 +39,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, dni, fecha_nacimiento, foto } = req.body;
+    const { nombre, apellidos, dni, fecha_nacimiento, foto, telefono } = req.body;
     if (!nombre || !apellidos || !dni) {
       return res.status(400).json({ message: 'Nombre, apellidos y DNI son obligatorios.' });
     }
@@ -53,7 +53,8 @@ async function crear(req, res, next) {
       apellidos,
       dni,
       fecha_nacimiento: fecha_nacimiento || null,
-      foto: foto || null
+      foto: foto || null,
+      telefono: telefono || null
     });
     res.status(201).json(serializeJugador(jugador));
   } catch (err) { next(err); }
@@ -63,7 +64,7 @@ async function actualizar(req, res, next) {
   try {
     const jugador = await Jugador.findOne({ where: { id: req.params.id } });
     if (!jugador) return res.status(404).json({ message: 'Jugador no encontrado.' });
-    const { nombre, apellidos, dni, fecha_nacimiento, foto } = req.body;
+    const { nombre, apellidos, dni, fecha_nacimiento, foto, telefono } = req.body;
     if (nombre !== undefined) jugador.nombre = nombre;
     if (apellidos !== undefined) jugador.apellidos = apellidos;
     if (dni !== undefined && dni !== jugador.dni) {
@@ -76,6 +77,7 @@ async function actualizar(req, res, next) {
     }
     if (fecha_nacimiento !== undefined) jugador.fecha_nacimiento = fecha_nacimiento || null;
     if (foto !== undefined) jugador.foto = foto || null;
+    if (telefono !== undefined) jugador.telefono = telefono || null;
     await jugador.save();
     res.json(serializeJugador(jugador));
   } catch (err) { next(err); }

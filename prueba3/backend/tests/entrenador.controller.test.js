@@ -94,7 +94,7 @@ describe('Sección Entrenadores · entrenador.controller', () => {
     await promesa;
 
     expect(Entrenador.create).toHaveBeenCalledWith({
-      nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678Z', foto: null
+      nombre: 'Carlos', apellidos: 'Díaz', dni: '12345678Z', foto: null, email: null, telefono: null
     });
     expect(creado.setTitulos).toHaveBeenCalledWith([1]);
     expect(res._status).toBe(201);

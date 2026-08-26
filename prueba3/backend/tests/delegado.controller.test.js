@@ -97,7 +97,7 @@ describe('Sección Delegados · delegado.controller', () => {
     await promesa;
 
     expect(Delegado.create).toHaveBeenCalledWith({
-      nombre: 'Ana', apellidos: 'López', dni: '12345678Z', foto: null, tipo: 'campo'
+      nombre: 'Ana', apellidos: 'López', dni: '12345678Z', foto: null, tipo: 'campo', telefono: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(creado);

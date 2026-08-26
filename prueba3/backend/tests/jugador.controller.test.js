@@ -109,7 +109,7 @@ describe('Sección Jugadores · jugador.controller', () => {
     await promesa;
 
     expect(Jugador.create).toHaveBeenCalledWith({
-      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', fecha_nacimiento: null, foto: null
+      nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', fecha_nacimiento: null, foto: null, telefono: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z' });

@@ -30,10 +30,11 @@ const columns = computed(() => [
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
   { field: 'dni', header: 'DNI', type: 'text', validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
   { field: 'email', header: 'Email', type: 'text' },
+  { field: 'telefono', header: 'Teléfono', type: 'text' },
   { field: 'ids_titulos', header: 'Títulos', type: 'multiselect', relation: 'titulos', options: opcionesTitulo.value, required: false }
 ]);
 
-const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', ids_titulos: [] };
+const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', telefono: '', ids_titulos: [] };
 
 function nombresTitulos(data) {
   if (data.titulos?.length) return data.titulos.map(t => t.nombre).join(', ');
@@ -48,6 +49,7 @@ function nombresTitulos(data) {
     :columns="columns"
     :service="entrenadoresService"
     :emptyItem="emptyItem"
+    :canExport="true"
   >
     <template #cell-ids_titulos="{ data }">
       {{ nombresTitulos(data) }}
