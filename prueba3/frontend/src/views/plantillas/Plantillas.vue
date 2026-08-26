@@ -278,15 +278,11 @@ function opcionesJugadorDisponibles(form) {
       {{ data.division?.nombre || nombreDivision(data.id_division) }}
     </template>
     <template #cell-ids_entrenadores="{ data }">
-      <span v-if="data.entrenadores?.length">
-        {{ data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join(', ') }}
-      </span>
+      <span v-if="data.entrenadores?.length" v-html="data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join('<br>')"></span>
       <span v-else>—</span>
     </template>
     <template #cell-ids_delegados="{ data }">
-      <span v-if="data.delegados?.length">
-        {{ data.delegados.map(d => `${d.apellidos}, ${d.nombre}`).join(', ') }}
-      </span>
+      <span v-if="data.delegados?.length" v-html="data.delegados.map(d => `${d.apellidos}, ${d.nombre}`).join('<br>')"></span>
       <span v-else>—</span>
     </template>
 

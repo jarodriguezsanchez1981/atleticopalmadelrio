@@ -9,6 +9,7 @@ const router = Router();
 router.use(authenticate, authorize('equipos'));
 
 router.get('/', ctrl.listar);
+router.get('/descargar-escudos', ctrl.descargarEscudos);
 router.get('/:id', ctrl.obtener);
 router.post('/', requireNivel(), ctrl.crear);
 router.put('/:id', requireNivel(), ctrl.actualizar);

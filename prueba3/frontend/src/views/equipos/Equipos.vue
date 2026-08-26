@@ -1,10 +1,12 @@
 <script setup>
+import { ref } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { equiposService } from '../../services';
 
 const toast = useToast();
+const dtRef = ref();
 
 const columns = [
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
@@ -16,6 +18,20 @@ const columns = [
 ];
 
 const emptyItem = { nombre: '', escudo: null, direccion: '', codigopostal: '', localidad: '', provincia: '' };
+
+async function descargarEscudosExternos(data) {
+  const tieneExternos = (data || []).some(e => e.escudo && /^https?:\/\//i.test(e.escudo));
+  if (!tieneExternos) return;
+  try {
+    const resultado = await equiposService.descargarEscudos();
+    if (resultado.descargados > 0) {
+      toast.add({ severity: 'success', summary: 'Escudos', detail: `${resultado.descargados} escudos descargados y guardados.`, life: 4000 });
+      dtRef.value?.cargar?.();
+    }
+  } catch {
+    /* silently ignore */
+  }
+}
 
 function direccionCompleta(data) {
   return [data.direccion, data.codigopostal, data.localidad, data.provincia].filter(Boolean).join(', ');
@@ -46,10 +62,12 @@ async function copiarDireccion(parte) {
 
 <template>
   <CrudDataTable
+    ref="dtRef"
     title="Equipos"
     :columns="columns"
     :service="equiposService"
     :emptyItem="emptyItem"
+    @data-loaded="descargarEscudosExternos"
   >
     <template #cell-direccion="{ data }">
       <a

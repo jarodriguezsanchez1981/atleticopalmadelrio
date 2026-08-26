@@ -30,7 +30,10 @@ export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
 export const entrenamientosService = crudService('entrenamientos');
 export const partidosService = crudService('partidos');
-export const equiposService = crudService('equipos');
+export const equiposService = {
+  ...crudService('equipos'),
+  descargarEscudos: () => api.get('/equipos/descargar-escudos').then(r => r.data)
+};
 export const resultadosService = crudService('resultados');
 export const patrocinadoresService = crudService('patrocinadores');
 export const categoriaCalendarioService = crudService('jornadas');

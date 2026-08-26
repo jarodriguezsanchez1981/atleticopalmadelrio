@@ -1,4 +1,5 @@
 const { Equipo } = require('../models');
+const { descargar } = require('./util.controller');
 
 async function listar(req, res, next) {
   try {
@@ -55,4 +56,28 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+async function descargarEscudos(req, res, next) {
+  try {
+    const equipos = await Equipo.findAll();
+    const externos = equipos.filter(e => e.escudo && /^https?:\/\//i.test(e.escudo));
+    if (!externos.length) return res.json({ message: 'No hay escudos externos para descargar.', descargados: 0 });
+
+    res.json({ message: `Descargando ${externos.length} escudos en segundo plano.`, total: externos.length });
+
+    const CONCURRENCY = 3;
+    for (let i = 0; i < externos.length; i += CONCURRENCY) {
+      const lote = externos.slice(i, i + CONCURRENCY);
+      await Promise.allSettled(
+        lote.map(async (equipo) => {
+          try {
+            const { tipo, buffer } = await descargar(equipo.escudo);
+            const dataUrl = `data:${tipo};base64,${buffer.toString('base64')}`;
+            await Equipo.update({ escudo: dataUrl }, { where: { id: equipo.id } });
+          } catch { /* skip */ }
+        })
+      );
+    }
+  } catch (err) { /* background task - don't crash */ }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, descargarEscudos };

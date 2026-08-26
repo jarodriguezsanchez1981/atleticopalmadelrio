@@ -443,15 +443,30 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
     }
 
     const partidos = await partidosService.listar({ desde: desdeISO, hasta: hastaISO });
+
+    // Buscar jornadas del rango para resolver local/visitante correctamente
+    let jornadasMap = new Map();
+    try {
+      const calendario = await calendarioService.eventos({ desde: desdeISO, hasta: hastaISO, tipo: 'partido' });
+      for (const ev of calendario) {
+        if (ev.id) jornadasMap.set(ev.id, ev);
+      }
+    } catch { /* sin jornadas */ }
+
     const mapeados = partidos
       .filter((p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || 0) === tipoFutbol)
-      .map((p) => ({
-        inicio: p.fecha,
-        es_local: p.es_local,
-        equipo: p.equipo || null,
-        lugar: p.lugar || null,
-        categoria: p.plantilla?.categoria || p.categoria || null
-      }));
+      .map((p) => {
+        const evCal = jornadasMap.get(`partido-${p.id}`);
+        return {
+          inicio: p.fecha,
+          es_local: evCal?.es_local ?? !!p.es_local,
+          equipo: p.equipo || null,
+          equipoLocal: evCal?.equipoLocal || (p.es_local ? p.equipo : null),
+          equipoVisitante: evCal?.equipoVisitante || (!p.es_local ? p.equipo : null),
+          lugar: p.lugar || null,
+          categoria: p.plantilla?.categoria || p.categoria || null
+        };
+      });
     await generarPdfPartidos(mapeados, fechaTitulo, tipoFutbol);
   } catch (err) {
     toast.add({

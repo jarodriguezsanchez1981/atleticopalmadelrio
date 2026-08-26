@@ -44,7 +44,7 @@ const props = defineProps({
   canExport: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['changed']);
+const emit = defineEmits(['changed', 'data-loaded']);
 
 const permisoCrear = computed(() => props.canCreate && auth.puedeCrear());
 const permisoEditar = computed(() => props.canEdit && auth.puedeEditar());
@@ -354,6 +354,7 @@ async function cargar() {
     const data = await props.service.listar(props.listParams);
     items.value = data.map(item => ({ ...item }));
     emit('changed');
+    emit('data-loaded', items.value);
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar los datos.', life: 4000 });
   } finally {

@@ -119,6 +119,8 @@ export async function generarPdfPartidos(partidos, semana = '', tipoFutbol = nul
   const fuentes = new Set([ESCUDO_CLUB]);
   partidosFiltrados.forEach((p) => {
     if (p.equipo?.escudo) fuentes.add(p.equipo.escudo);
+    if (p.equipoLocal?.escudo) fuentes.add(p.equipoLocal.escudo);
+    if (p.equipoVisitante?.escudo) fuentes.add(p.equipoVisitante.escudo);
   });
   const imagenes = {};
   await Promise.all([...fuentes].map(async (src) => {
@@ -211,15 +213,15 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
   // --- Filas ---
   let fila = 0;
   for (const p of grupo.partidos) {
-    const rival = p.equipo?.nombre || '—';
-    const escudoRival = p.equipo?.escudo ? (imagenes[p.equipo.escudo] || null) : null;
     const cat = p.categoria?.nombre || '—';
-    const lugar = p.es_local ? (p.lugar?.nombre || '—') : (p.equipo?.localidad || '—');
+    const lugar = p.equipoLocal?.localidad || p.lugar?.nombre || '—';
 
-    const localNombre = NOMBRE_CLUB;
-    const visitanteNombre = rival;
-    const localImg = escudoClub;
-    const visitImg = escudoRival;
+    const localNombre = p.equipoLocal?.nombre || NOMBRE_CLUB;
+    const visitanteNombre = p.equipoVisitante?.nombre || p.equipo?.nombre || '—';
+    const localImgSrc = p.equipoLocal?.escudo || null;
+    const visitImgSrc = p.equipoVisitante?.escudo || p.equipo?.escudo || null;
+    const localImg = localImgSrc ? (imagenes[localImgSrc] || null) : escudoClub;
+    const visitImg = visitImgSrc ? (imagenes[visitImgSrc] || null) : null;
 
     if (y + ALTO_FILA > altoA4 - 16) {
       doc.addPage();
@@ -262,25 +264,25 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
     x += ANCHO_COLUMNAS[2];
 
     // --- Local (escudo + nombre, centrado) ---
-    const anchoNombreLocal = ANCHO_COLUMNAS[3] - escudoTamanio - 5;
+    const anchoNombreLocal = ANCHO_COLUMNAS[3] - escudoTamanio - 4;
     const localAjustado = ajustarTexto(doc, localNombre, 8, anchoNombreLocal);
-    const anchoComboLocal = escudoTamanio + 2 + doc.getTextWidth(localAjustado);
-    const xCentradoLocal = x + (ANCHO_COLUMNAS[3] - anchoComboLocal) / 2;
-    dibujarEscudo(doc, localImg, xCentradoLocal, mitadV - escudoTamanio / 2, escudoTamanio);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
+    const anchoComboLocal = escudoTamanio + 2 + doc.getTextWidth(localAjustado);
+    const xCentradoLocal = Math.max(x + 1, x + (ANCHO_COLUMNAS[3] - anchoComboLocal) / 2);
+    dibujarEscudo(doc, localImg, xCentradoLocal, mitadV - escudoTamanio / 2, escudoTamanio);
     doc.setTextColor(20, 26, 32);
     doc.text(localAjustado, xCentradoLocal + escudoTamanio + 2, mitadV);
     x += ANCHO_COLUMNAS[3];
 
     // --- Visitante (escudo + nombre, centrado) ---
-    const anchoNombreVisitante = ANCHO_COLUMNAS[4] - escudoTamanio - 5;
+    const anchoNombreVisitante = ANCHO_COLUMNAS[4] - escudoTamanio - 4;
     const visitanteAjustado = ajustarTexto(doc, visitanteNombre, 8, anchoNombreVisitante);
-    const anchoComboVisitante = escudoTamanio + 2 + doc.getTextWidth(visitanteAjustado);
-    const xCentradoVisitante = x + (ANCHO_COLUMNAS[4] - anchoComboVisitante) / 2;
-    dibujarEscudo(doc, visitImg, xCentradoVisitante, mitadV - escudoTamanio / 2, escudoTamanio);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
+    const anchoComboVisitante = escudoTamanio + 2 + doc.getTextWidth(visitanteAjustado);
+    const xCentradoVisitante = Math.max(x + 1, x + (ANCHO_COLUMNAS[4] - anchoComboVisitante) / 2);
+    dibujarEscudo(doc, visitImg, xCentradoVisitante, mitadV - escudoTamanio / 2, escudoTamanio);
     doc.setTextColor(20, 26, 32);
     doc.text(visitanteAjustado, xCentradoVisitante + escudoTamanio + 2, mitadV);
 
