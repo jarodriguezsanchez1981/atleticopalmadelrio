@@ -37,7 +37,10 @@ const props = defineProps({
   canCreate: { type: Boolean, default: true },
   canEdit: { type: Boolean, default: true },
   canDelete: { type: Boolean, default: true },
-  listParams: { type: Object, default: () => ({}) }
+  listParams: { type: Object, default: () => ({}) },
+  detailMaxWidth: { type: String, default: 'max-w-lg' },
+  formMaxWidth: { type: String, default: 'max-w-lg' },
+  prepareEdit: { type: Function, default: null }
 });
 
 const emit = defineEmits(['changed']);
@@ -330,7 +333,7 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'delegados', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
     delete payload[k];
   });
   for (const col of props.columns) {
@@ -449,6 +452,10 @@ function abrirEdicion(item) {
   limpiarDraftsFecha();
   Object.keys(form).forEach((k) => delete form[k]);
   Object.assign(form, prepareFormData(item));
+  if (typeof props.prepareEdit === 'function') {
+    const extra = props.prepareEdit(item) || {};
+    Object.assign(form, extra);
+  }
   editando.value = true;
   dialogVisible.value = true;
 }
@@ -721,7 +728,7 @@ watch(
     <Dialog
       v-model:visible="dialogVisible"
       modal
-      class="w-full max-w-lg"
+      :class="['w-full', formMaxWidth]"
       :pt="{ header: { class: 'items-center' } }"
     >
       <template #header>
@@ -801,6 +808,8 @@ watch(
           />
         </div>
 
+        <slot name="form-extra" :form="form" />
+
         <div class="flex justify-end gap-2 pt-3">
           <Button type="button" label="Cancelar" text @click="dialogVisible = false" />
           <Button type="submit" label="Guardar" icon="pi pi-check"
@@ -810,7 +819,7 @@ watch(
     </Dialog>
 
     <!-- Detalle (lupa) -->
-    <Dialog v-model:visible="detalleVisible" modal class="w-full max-w-lg">
+    <Dialog v-model:visible="detalleVisible" modal :class="['w-full', detailMaxWidth]">
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -820,7 +829,7 @@ watch(
 
       <div v-if="detalle" class="space-y-3 pt-1">
         <div
-          v-for="col in columns.filter(c => !c.soloTabla)"
+          v-for="col in columns.filter(c => !c.soloTabla && c.enDetalle !== false)"
           :key="`d-${col.field}`"
           class="flex gap-3 border-b border-line pb-2 last:border-0"
         >

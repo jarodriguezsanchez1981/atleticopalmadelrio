@@ -4,7 +4,8 @@ import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
-import MultiSelect from 'primevue/multiselect';
+import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import { useToast } from 'primevue/usetoast';
 import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
@@ -52,7 +53,6 @@ onBeforeUnmount(() => {
   if (unsubCambio) unsubCambio();
 });
 
-/** Refresca la lista de plantillas tras crear/editar/borrar. */
 function onPlantillasChanged() {
   plantillasService.listar().then((rows) => { plantillasExistentes.value = rows; });
 }
@@ -92,11 +92,6 @@ const opcionesTemporada = computed(() =>
   temporadas.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
-/**
- * En el combo no aparecen las categorías ya registradas en plantillas
- * (una categoría solo puede registrarse una vez, en su temporada).
- * Al editar se excluye la propia fila para conservar su categoría.
- */
 function opcionesCategoriaDisponibles(form) {
   const editandoId = form?.id ?? null;
   const ocupadas = new Set(
@@ -124,13 +119,17 @@ const opcionesDelegado = computed(() =>
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
+const opcionesJugador = computed(() =>
+  jugadores.value.map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
 const columns = computed(() => [
-  { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true },
-  { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true },
-  { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false },
-  { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores' },
-  { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados' },
-  { field: 'jugadores', header: 'Jugadores', type: 'custom', soloTabla: true }
+  { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true, enDetalle: false },
+  { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
+  { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false, enDetalle: false },
+  { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
+  { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
 ]);
 
 const emptyItem = {
@@ -141,11 +140,6 @@ const emptyItem = {
   ids_delegados: [],
   jugadores: []
 };
-
-function nombrePersona(id, lista) {
-  const p = lista.value.find(x => x.value === id);
-  return p ? p.label : id || '—';
-}
 
 function nombreTemporada(id) {
   return temporadas.value.find(t => t.id === id)?.nombre || '—';
@@ -159,14 +153,6 @@ function nombreDivision(id) {
   return divisiones.value.find(d => d.id === id)?.nombre || '—';
 }
 
-function formatoMiembros(data) {
-  const parts = [];
-  if (data.entrenadores?.length) parts.push(`👨‍🏫 ${data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join(', ')}`);
-  if (data.delegados?.length) parts.push(`📋 ${data.delegados.map(d => `${d.apellidos}, ${d.nombre}`).join(', ')}`);
-  if (data.jugadores?.length) parts.push(`⚽ ${data.jugadores.map(j => `${j.apellidos}, ${j.nombre}`).join(', ')}`);
-  return parts.join('\n') || '—';
-}
-
 function formatearJugador(j) {
   const jp = j.PlantillaJugador || {};
   return {
@@ -176,9 +162,92 @@ function formatearJugador(j) {
   };
 }
 
-function prepareJugadoresPayload(data) {
-  if (!data.jugadores?.length) return [];
-  return data.jugadores.map(j => formatearJugador(j));
+function prepareEdit(item) {
+  const jugadoresSimples = (item.jugadores || []).map(j => formatearJugador(j));
+  return { jugadores: jugadoresSimples };
+}
+
+const nuevoEntrenador = ref(null);
+const nuevoDelegado = ref(null);
+const nuevoJugador = ref(null);
+const nuevoDorsal = ref(null);
+const nuevaTalla = ref(null);
+
+function entrenadorInfo(id) {
+  return entrenadores.value.find(e => e.id === id);
+}
+
+function delegadoInfo(id) {
+  return delegados.value.find(d => d.id === id);
+}
+
+function jugadorInfo(id) {
+  return jugadores.value.find(j => j.id === id);
+}
+
+function entrenadorTitulo(e) {
+  if (e?.titulos?.length) return e.titulos.map(t => t.nombre).join(', ');
+  return e?.PlantillaEntrenador?.rol || '—';
+}
+
+function addEntrenador(form) {
+  if (!nuevoEntrenador.value) return;
+  if (!form.ids_entrenadores) form.ids_entrenadores = [];
+  if (!form.ids_entrenadores.includes(nuevoEntrenador.value)) {
+    form.ids_entrenadores.push(nuevoEntrenador.value);
+  }
+  nuevoEntrenador.value = null;
+}
+
+function removeEntrenador(form, id) {
+  form.ids_entrenadores = (form.ids_entrenadores || []).filter(i => i !== id);
+}
+
+function addDelegado(form) {
+  if (!nuevoDelegado.value) return;
+  if (!form.ids_delegados) form.ids_delegados = [];
+  if (!form.ids_delegados.includes(nuevoDelegado.value)) {
+    form.ids_delegados.push(nuevoDelegado.value);
+  }
+  nuevoDelegado.value = null;
+}
+
+function removeDelegado(form, id) {
+  form.ids_delegados = (form.ids_delegados || []).filter(i => i !== id);
+}
+
+function addJugador(form) {
+  if (!nuevoJugador.value) return;
+  if (!form.jugadores) form.jugadores = [];
+  if (!form.jugadores.some(j => j.id_jugador === nuevoJugador.value)) {
+    form.jugadores.push({
+      id_jugador: nuevoJugador.value,
+      dorsal: nuevoDorsal.value ?? null,
+      talla: nuevaTalla.value || null
+    });
+  }
+  nuevoJugador.value = null;
+  nuevoDorsal.value = null;
+  nuevaTalla.value = null;
+}
+
+function removeJugador(form, idJugador) {
+  form.jugadores = (form.jugadores || []).filter(j => j.id_jugador !== idJugador);
+}
+
+function opcionesEntrenadorDisponibles(form) {
+  const usados = new Set(form?.ids_entrenadores || []);
+  return opcionesEntrenador.value.filter(o => !usados.has(o.value));
+}
+
+function opcionesDelegadoDisponibles(form) {
+  const usados = new Set(form?.ids_delegados || []);
+  return opcionesDelegado.value.filter(o => !usados.has(o.value));
+}
+
+function opcionesJugadorDisponibles(form) {
+  const usados = new Set((form?.jugadores || []).map(j => j.id_jugador));
+  return opcionesJugador.value.filter(o => !usados.has(o.value));
 }
 </script>
 
@@ -189,6 +258,9 @@ function prepareJugadoresPayload(data) {
     :columns="columns"
     :service="plantillasService"
     :emptyItem="emptyItem"
+    detailMaxWidth="max-w-4xl"
+    formMaxWidth="max-w-4xl"
+    :prepareEdit="prepareEdit"
     @changed="onPlantillasChanged"
   >
     <template #acciones>
@@ -217,8 +289,212 @@ function prepareJugadoresPayload(data) {
       </span>
       <span v-else>—</span>
     </template>
-        :readonly="false"
-      />
+
+    <template #form-extra="{ form }">
+      <div class="space-y-4 pt-2">
+        <div>
+          <h3 class="text-sm font-semibold text-club-green mb-2">Entrenadores</h3>
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-club-green/5">
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Título</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="id in (form.ids_entrenadores || [])" :key="id">
+                <td class="text-center border border-line p-2">
+                  <img v-if="entrenadorInfo(id)?.foto" :src="entrenadorInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                  <span v-else class="text-ink-tertiary">—</span>
+                </td>
+                <td class="text-center border border-line p-2 text-sm">{{ entrenadorInfo(id)?.apellidos }}, {{ entrenadorInfo(id)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ entrenadorTitulo(entrenadorInfo(id)) }}</td>
+                <td class="text-center border border-line p-2">
+                  <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeEntrenador(form, id)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="flex gap-2 mt-2">
+            <Select v-model="nuevoEntrenador" :options="opcionesEntrenadorDisponibles(form)" optionLabel="label" optionValue="value"
+                    placeholder="Seleccionar entrenador" class="flex-1" filter showClear />
+            <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addEntrenador(form)" />
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-club-green mb-2">Delegados</h3>
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-club-green/5">
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Tipo</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="id in (form.ids_delegados || [])" :key="id">
+                <td class="text-center border border-line p-2">
+                  <img v-if="delegadoInfo(id)?.foto" :src="delegadoInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                  <span v-else class="text-ink-tertiary">—</span>
+                </td>
+                <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.apellidos }}, {{ delegadoInfo(id)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.tipo || '—' }}</td>
+                <td class="text-center border border-line p-2">
+                  <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeDelegado(form, id)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="flex gap-2 mt-2">
+            <Select v-model="nuevoDelegado" :options="opcionesDelegadoDisponibles(form)" optionLabel="label" optionValue="value"
+                    placeholder="Seleccionar delegado" class="flex-1" filter showClear />
+            <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addDelegado(form)" />
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores</h3>
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-club-green/5">
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Dorsal</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="j in (form.jugadores || [])" :key="j.id_jugador">
+                <td class="text-center border border-line p-2">
+                  <img v-if="jugadorInfo(j.id_jugador)?.foto" :src="jugadorInfo(j.id_jugador).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                  <span v-else class="text-ink-tertiary">—</span>
+                </td>
+                <td class="text-center border border-line p-2 text-sm">{{ jugadorInfo(j.id_jugador)?.apellidos }}, {{ jugadorInfo(j.id_jugador)?.nombre }}</td>
+                <td class="text-center border border-line p-2">
+                  <InputNumber v-model="j.dorsal" :min="0" :max="99" inputClass="!w-16 !text-center" class="!w-16" />
+                </td>
+                <td class="text-center border border-line p-2">
+                  <InputText v-model="j.talla" class="!w-16 !text-center" />
+                </td>
+                <td class="text-center border border-line p-2">
+                  <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeJugador(form, j.id_jugador)" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="flex gap-2 mt-2 items-center">
+            <Select v-model="nuevoJugador" :options="opcionesJugadorDisponibles(form)" optionLabel="label" optionValue="value"
+                    placeholder="Seleccionar jugador" class="flex-1" filter showClear />
+            <InputNumber v-model="nuevoDorsal" placeholder="Dorsal" :min="0" :max="99" class="w-20" inputClass="!w-20" />
+            <InputText v-model="nuevaTalla" placeholder="Talla" class="w-20" />
+            <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addJugador(form)" />
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template #detail-extra="{ data }">
+      <table class="w-full border-collapse mb-6">
+        <tr>
+          <td class="text-center border border-line p-3 bg-club-green text-white">
+            <div class="text-sm font-medium">Temporada</div>
+          </td>
+          <td class="text-center border border-line p-3 bg-club-green text-white">
+            <div class="text-sm font-medium">Categoría</div>
+          </td>
+          <td class="text-center border border-line p-3 bg-club-green text-white">
+            <div class="text-sm font-medium">División</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-center border border-line p-3">
+            <div class="text-sm text-ink-primary font-semibold">{{ data.temporada?.nombre || '—' }}</div>
+          </td>
+          <td class="text-center border border-line p-3">
+            <div class="text-sm text-ink-primary font-semibold">{{ data.categoria?.nombre || '—' }}</div>
+          </td>
+          <td class="text-center border border-line p-3">
+            <div class="text-sm text-ink-primary font-semibold">{{ data.division?.nombre || '—' }}</div>
+          </td>
+        </tr>
+      </table>
+
+      <div v-if="data.entrenadores?.length" class="mb-6">
+        <h3 class="text-sm font-semibold text-club-green mb-2">Entrenadores</h3>
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Título</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="e in data.entrenadores" :key="e.id">
+              <td class="text-center border border-line p-2">
+                <img v-if="e.foto" :src="e.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                <span v-else class="text-ink-tertiary">—</span>
+              </td>
+              <td class="text-center border border-line p-2 text-sm">{{ e.apellidos }}, {{ e.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ e.titulos?.map(t => t.nombre).join(', ') || e.PlantillaEntrenador?.rol || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="data.delegados?.length" class="mb-6">
+        <h3 class="text-sm font-semibold text-club-green mb-2">Delegados</h3>
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Tipo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="d in data.delegados" :key="d.id">
+              <td class="text-center border border-line p-2">
+                <img v-if="d.foto" :src="d.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                <span v-else class="text-ink-tertiary">—</span>
+              </td>
+              <td class="text-center border border-line p-2 text-sm">{{ d.apellidos }}, {{ d.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ d.tipo || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="data.jugadores?.length" class="mb-6">
+        <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores</h3>
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Dorsal</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="j in data.jugadores" :key="j.id">
+              <td class="text-center border border-line p-2">
+                <img v-if="j.foto" :src="j.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                <span v-else class="text-ink-tertiary">—</span>
+              </td>
+              <td class="text-center border border-line p-2 text-sm">{{ j.apellidos }}, {{ j.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.dorsal ?? '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
   </CrudDataTable>
 
   <Dialog v-model:visible="dialogTemporadaVisible" modal header="Crear plantilla temporada"

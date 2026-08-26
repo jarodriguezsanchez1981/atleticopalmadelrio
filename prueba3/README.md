@@ -2,7 +2,7 @@
 
 Intranet de gestión del club con Docker Compose.
 
-**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8 · Nginx · n8n
+**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8 · Nginx
 
 ## Arranque rápido (Docker)
 
@@ -13,10 +13,12 @@ docker compose up -d --build
 
 | Servicio  | URL | Descripción |
 |-----------|-----|-------------|
-| Intranet  | https://localhost | Acceso principal (HTTPS auto-firmado) |
+| Intranet  | https://intranetatleticopalmadelrio.com | Acceso principal (HTTPS auto-firmado) |
+| Intranet  | https://localhost | Acceso local alternativo |
 | API       | https://localhost/api | REST API (proxied por Nginx) |
 | MySQL     | 127.0.0.1:3306 | Base de datos (solo localhost) |
-| n8n       | http://localhost:5678 | Automatización de workflows |
+
+> **Nota:** añade `127.0.0.1 intranetatleticopalmadelrio.com` a `/etc/hosts` para resolver el dominio en local.
 
 **Login inicial:** `admin` / `Admin#2026` (cámbiala en Administración)
 
@@ -41,7 +43,7 @@ prueba3/
 ├── backend/                    # Express + Sequelize + JWT + bcrypt
 │   ├── Dockerfile              # Multi-stage, non-root user
 │   └── src/
-│       ├── models/             # 28 tablas: usuarios, equipos, categorías, partidos, sanciones...
+│       ├── models/             # Modelos Sequelize + asociaciones
 │       ├── controllers/        # Lógica CRUD con validación
 │       ├── routes/             # REST API con auth + autorización
 │       ├── middlewares/        # JWT, roles, rate limiting, error handling
@@ -59,7 +61,7 @@ prueba3/
 │       │   ├── auth/Login.vue
 │       │   ├── admin/Usuarios.vue
 │       │   ├── calendario/
-│       │   ├── sanciones/
+│       │   ├── plantillas/
 │       │   └── ...
 │       └── utils/
 │           ├── pdfPartidos.js       # Generación PDF agrupado
@@ -71,20 +73,26 @@ prueba3/
 
 | Sección        | CRUD | Nivel | Descripción |
 |----------------|------|-------|-------------|
-| Administración | Sí   | write | Gestión de usuarios y permisos |
 | Calendario     | No   | read  | Vista calendario (mes/semana/año) |
 | Entrenamientos | Sí   | write | Gestión de entrenamientos |
+| Entren. Jugadores | Sí | write | Asignación de jugadores a entrenamientos |
 | Partidos       | Sí   | write | Partidos con filtros temporada/categoría |
-| Convocatorias  | Sí   | write | Asignación de jugadores a partidos |
-| Resultados     | Sí   | write | Resultados de partidos |
+| Temporadas     | Sí   | write | Temporadas del club |
+| Títulos        | Sí   | write | Títulos de entrenadores |
+| División       | Sí   | write | Divisiones deportivas |
+| Lugares        | Sí   | write | Lugares de entrenamiento/partido |
+| Delegados      | Sí   | write | Delegados del club |
 | Categorías     | Sí   | write | Categorías del club |
 | Equipos        | Sí   | write | Equipos del club |
-| Jugadores      | Sí   | write | Jugadores del club |
-| Jornadas       | Sí   | write | Jornadas deportivas |
-| Sanciones      | Sí   | write | Sanciones a jugadores |
 | Incidencias    | Sí   | write | Incidencias de partidos |
+| Jugadores      | Sí   | write | Jugadores del club |
+| Plantillas     | Sí   | write | Plantillas por categoría y temporada |
+| Entrenadores   | Sí   | write | Entrenadores del club |
+| Jornadas       | Sí   | write | Jornadas deportivas (calendario por categoría) |
+| Sanciones      | Sí   | write | Sanciones a jugadores |
 | Roles          | Sí   | write | Roles de usuario |
 | Patrocinadores | Sí   | write | Patrocinadores del club |
+| Administración | Sí   | write | Gestión de usuarios y permisos |
 
 **Permisos:** el acceso se gestiona por secciones asignadas a cada usuario. Niveles de rol: `read` (solo lectura) y `write` (CRUD completo).
 
@@ -116,43 +124,25 @@ Sistema de diseño escandinavo aplicado:
 - **Componentes**: PrimeVue con theme neutro
 - **Footer**: tabla compartida (FooterSponsors.vue) en todo el proyecto
 
-## Tablas MySQL (28 tablas)
+## Tablas MySQL
 
 ### Principales
 - `usuarios` — Usuarios del sistema con roles
 - `categorias` — Categorías del club (Benjamin, Infantil, Juvenil, Senior...)
-- `equipos` — 104 equipos con escudo y datos geográficos
+- `equipos` — Equipos con escudo y datos geográficos
 - `jugadores` — Jugadores del club
-- `partidos` — 133 partidos con jornadas
-- `jornadas` — 124 jornadas deportivas
+- `partidos` — Partidos con fecha, lugar y equipo
+- `jornadas` — Jornadas deportivas con equipos local/visitante
 - `sanciones` — Sanciones a jugadores
-- `patrocinadores` — 17 patrocinadores con logos
+- `patrocinadores` — Patrocinadores con logos
+- `plantillas` — Plantillas por categoría y temporada
 
 ### Relaciones
-- `entrenador_categorias` / `jugador_categorias` — Muchos a muchos
+- `plantilla_jugadores` / `plantilla_entrenadores` / `plantilla_delegados` — Muchos a muchos
 - `usuario_secciones` — Permisos por sección
-- `partidos_jugadores` — Convocatorias
-- `entrenamientos_semanales` / `entrenamientos_jugadores`
-
-## n8n (Automatización)
-
-Workflow automation incluido para automatizar tareas del club:
-
-- **URL**: http://localhost:5678
-- **Usuario**: `admin` / **Contraseña**: `n8n_admin_2026`
-- **Conexión**: MySQL existente (`atletico_palma_intranet`)
-- **Datos**: persistidos en volumen `apr_n8n_data`
-
-### Configuración
-```yaml
-# docker-compose.yml
-n8n:
-  image: n8nio/n8n:latest
-  ports: ["5678:5678"]
-  environment:
-    DB_TYPE: mysqldb
-    N8N_BASIC_AUTH_ACTIVE: "true"
-```
+- `entrenador_titulos` — Muchos a muchos
+- `lugar_tipofutbol` — Muchos a muchos
+- `entrenamientos_jugadores` — Asignación de jugadores a entrenamientos
 
 ## Desarrollo local
 
@@ -170,13 +160,18 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
+# Backend
 cd backend
 npm test              # ejecución única
 npm run test:watch    # modo watch
 npm run test:coverage # cobertura
+
+# Frontend
+cd frontend
+npm test              # ejecución única
 ```
 
-Tests unitarios de controladores (270 tests, 22 archivos). Mocks en `backend/tests/helpers/`.
+Tests unitarios de controladores (292 tests, 30 archivos) y utilidades frontend (21 tests, 4 archivos). Mocks en `backend/tests/helpers/`.
 
 ## Entornos
 
@@ -195,6 +190,12 @@ docker compose logs -f backend
 
 # Reconstruir un servicio específico
 docker compose up -d --build backend
+
+# Reconstruir todas las imágenes
+docker compose build && docker compose up -d
+
+# Recargar config de Nginx sin reiniciar
+docker exec apr_nginx nginx -s reload
 
 # Acceder a MySQL
 docker exec -it apr_mysql mysql -uroot -prootpass atletico_palma_intranet

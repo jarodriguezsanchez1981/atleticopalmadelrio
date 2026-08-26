@@ -1,12 +1,12 @@
-const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo } = require('../models');
 
 const includes = [
   { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] },
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
   { model: Division, as: 'division', attributes: ['id', 'nombre'] },
-  { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'dni'], through: { attributes: ['dorsal', 'talla', 'titular'] } },
-  { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos'], through: { attributes: ['rol'] } },
-  { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos'], through: { attributes: ['rol'] } }
+  { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['dorsal', 'talla', 'titular'] } },
+  { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['rol'] }, include: [{ model: Titulo, as: 'titulos', attributes: ['id', 'nombre'], through: { attributes: [] } }] },
+  { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } }
 ];
 
 function serializePlantilla(plantilla) {
