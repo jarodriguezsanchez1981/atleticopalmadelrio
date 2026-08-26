@@ -14,6 +14,7 @@ describe('Sección Jornadas · jornada.controller', () => {
     Equipo.findOne.mockReset();
     Partido.create.mockReset();
     Partido.destroy.mockReset();
+    Partido.findOne.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -74,6 +75,7 @@ describe('Sección Jornadas · jornada.controller', () => {
   it('crea jornada y sus dos partidos', async () => {
     Plantilla.findOne.mockResolvedValue({ id: 1, id_categoria: 7 });
     Equipo.findOne.mockResolvedValue({ id: 2 });
+    Partido.findOne.mockResolvedValue(null);
     Partido.destroy.mockResolvedValue(0);
     Jornada.create.mockResolvedValue({ id: 10 });
     Jornada.findOne.mockResolvedValue({ id: 10, jornada: 1 });
@@ -113,7 +115,7 @@ describe('Sección Jornadas · jornada.controller', () => {
     Partido.destroy.mockResolvedValue(2);
     const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
     await promesa;
-    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
+    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 5 } });
     expect(jornada.destroy).toHaveBeenCalled();
     expect(res._status).toBe(204);
   });

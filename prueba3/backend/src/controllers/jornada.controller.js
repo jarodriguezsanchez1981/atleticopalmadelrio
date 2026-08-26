@@ -65,6 +65,13 @@ async function crear(req, res, next) {
     if (!Number.isInteger(jornada) || jornada <= 0) {
       return res.status(400).json({ message: 'La jornada debe ser un número entero positivo.' });
     }
+
+    // VALIDAR: No se puede repetir plantilla + fecha
+    const existe = await Partido.findOne({ where: { id_plantilla, fecha } });
+    if (existe) {
+      return res.status(409).json({ message: 'Esta plantilla ya tiene partidos programados para esa fecha.' });
+    }
+
     const creado = await Jornada.create({
       id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora: hora || null
     });
@@ -149,8 +156,8 @@ async function eliminar(req, res, next) {
     const jornada = await Jornada.findOne({ where: { id: jornadaId } });
     if (!jornada) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
 
-    // Eliminar partidos asociados a esta jornada (por plantilla y fecha)
-    await Partido.destroy({ where: { id_plantilla: jornada.id_plantilla, fecha: jornada.fecha } });
+    // Eliminar partidos asociados a esta plantilla (solo 1 fecha por plantilla)
+    await Partido.destroy({ where: { id_plantilla: jornada.id_plantilla } });
 
     // Eliminar la jornada
     await jornada.destroy();
