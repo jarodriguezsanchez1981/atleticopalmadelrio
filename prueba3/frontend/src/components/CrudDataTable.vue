@@ -731,6 +731,7 @@ watch(
           <slot :name="`cell-${col.field}`" :data="data">
             <img v-if="col.type === 'image' && data[col.field]" :src="data[col.field]" alt="Foto" class="ar-foto-mini" />
             <span v-else-if="col.type === 'image'">—</span>
+            <template v-else-if="typeof col.format === 'function'">{{ col.format(data[col.field], data) }}</template>
             <template v-else>{{ data[col.field] }}</template>
           </slot>
         </template>

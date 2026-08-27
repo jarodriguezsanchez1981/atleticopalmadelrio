@@ -11,7 +11,7 @@ const columns = computed(() => [
   { field: 'dni', header: 'DNI', type: 'text', validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
   { field: 'email', header: 'Email', type: 'text' },
   { field: 'telefono', header: 'Teléfono', type: 'text' },
-  { field: 'fecha_nacimiento', header: 'F. Nacimiento', type: 'date' }
+  { field: 'fecha_nacimiento', header: 'F. Nacimiento', type: 'date', format: (v) => v ? new Date(v).toLocaleDateString('es-ES') : '—' }
 ]);
 
 const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', telefono: '', fecha_nacimiento: null };
@@ -19,6 +19,22 @@ const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', t
 function formatearFecha(fecha) {
   if (!fecha) return '—';
   return new Date(fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function formatearPlantilla(p) {
+  const parts = [];
+  if (p.categoria?.alias) parts.push(p.categoria.alias);
+  else if (p.categoria?.nombre) parts.push(p.categoria.nombre);
+  if (p.temporada?.nombre) parts.push(p.temporada.nombre);
+  if (p.division?.nombre) parts.push(p.division.nombre);
+  return parts.join(' / ') || '—';
+}
+
+function formatearPartido(p) {
+  const local = p.equipoLocal?.nombre || '—';
+  const visitante = p.equipoVisitante?.nombre || '—';
+  const fecha = formatearFecha(p.fecha);
+  return { local, visitante, fecha };
 }
 </script>
 
@@ -34,20 +50,58 @@ function formatearFecha(fecha) {
       <div class="border-t border-line pt-3 space-y-4">
         <div>
           <h3 class="font-display text-sm text-club-green mb-2 flex items-center gap-2">
-            <i class="pi pi-stopwatch"></i> Entrenamientos ({{ (data.asistencias || []).length }})
+            <i class="pi pi-table"></i> Plantillas ({{ (data.plantillas || []).length }})
           </h3>
-          <ul v-if="(data.asistencias || []).length" class="space-y-1 text-sm">
-            <li v-for="a in data.asistencias" :key="`e-${a.id}`" class="flex gap-2 text-ink-secondary">
-              <span class="font-medium shrink-0">{{ formatearFecha(a.entrenamiento?.fecha) }}</span>
-              <span :class="a.asistencia ? 'text-club-green' : 'text-red-500'">
-                {{ a.asistencia ? 'Presente' : 'Ausente' }}
-              </span>
-              <span class="text-ink-tertiary">·</span>
-              <span>{{ a.entrenamiento?.lugar?.nombre || '—' }}</span>
-              <span v-if="a.incidencias" class="text-ink-tertiary">· {{ a.incidencias }}</span>
-            </li>
-          </ul>
-          <p v-else class="text-sm text-ink-tertiary">Sin entrenamientos registrados.</p>
+          <div v-if="(data.plantillas || []).length" class="overflow-x-auto">
+            <table class="w-full border-collapse text-sm">
+              <thead>
+                <tr class="bg-club-green/5">
+                  <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Plantilla</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Dorsal</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in data.plantillas" :key="p.id" class="hover:bg-club-cream/50">
+                  <td class="border border-line p-2 text-ink-secondary">{{ formatearPlantilla(p) }}</td>
+                  <td class="border border-line p-2 text-center text-ink-secondary">{{ p.PlantillaJugador?.dorsal || '—' }}</td>
+                  <td class="border border-line p-2 text-center text-ink-secondary">{{ p.PlantillaJugador?.talla || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="text-sm text-ink-tertiary">Sin plantillas asignadas.</p>
+        </div>
+
+        <div>
+          <h3 class="font-display text-sm text-club-green mb-2 flex items-center gap-2">
+            <i class="pi pi-flag"></i> Partidos ({{ (data.plantillas || []).reduce((acc, p) => acc + (p.partidos?.length || 0), 0) }})
+          </h3>
+          <div v-if="(data.plantillas || []).some(p => p.partidos?.length)" class="overflow-x-auto">
+            <table class="w-full border-collapse text-sm">
+              <thead>
+                <tr class="bg-club-green/5">
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Fecha</th>
+                  <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Local</th>
+                  <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Visitante</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Plantilla</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in data.plantillas" :key="p.id">
+                  <template v-for="partido in (p.partidos || [])" :key="partido.id">
+                    <tr class="hover:bg-club-cream/50">
+                      <td class="border border-line p-2 text-center text-ink-secondary">{{ formatearFecha(partido.fecha) }}</td>
+                      <td class="border border-line p-2 text-ink-secondary">{{ partido.equipoLocal?.nombre || '—' }}</td>
+                      <td class="border border-line p-2 text-ink-secondary">{{ partido.equipoVisitante?.nombre || '—' }}</td>
+                      <td class="border border-line p-2 text-center text-ink-tertiary text-xs">{{ formatearPlantilla(p) }}</td>
+                    </tr>
+                  </template>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="text-sm text-ink-tertiary">Sin partidos registrados.</p>
         </div>
       </div>
     </template>

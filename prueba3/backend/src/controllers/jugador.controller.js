@@ -1,18 +1,29 @@
-const { Jugador, Categoria, Lugar, Entrenamiento, EntrenamientoJugador } = require('../models');
+const { Jugador, Categoria, Lugar, Entrenamiento, EntrenamientoJugador, Plantilla, PlantillaJugador, Temporada, Division, Partido, Equipo } = require('../models');
 const { validarDNI } = require('../utils/dni.utils');
 
 const includeDetalle = [
   {
-    model: EntrenamientoJugador,
-    as: 'asistencias',
-    include: [{
-      model: Entrenamiento,
-      as: 'entrenamiento',
-      include: [
-        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] },
-        { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
-      ]
-    }]
+    model: Plantilla,
+    as: 'plantillas',
+    through: {
+      model: PlantillaJugador,
+      as: 'PlantillaJugador',
+      attributes: ['dorsal', 'talla']
+    },
+    include: [
+      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] },
+      { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
+      { model: Division, as: 'division', attributes: ['id', 'nombre'] },
+      {
+        model: Partido,
+        as: 'partidos',
+        include: [
+          { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
+          { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
+          { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
+        ]
+      }
+    ]
   }
 ];
 
@@ -40,18 +51,20 @@ async function obtener(req, res, next) {
 async function crear(req, res, next) {
   try {
     const { nombre, apellidos, dni, fecha_nacimiento, foto, telefono } = req.body;
-    if (!nombre || !apellidos || !dni) {
-      return res.status(400).json({ message: 'Nombre, apellidos y DNI son obligatorios.' });
+    if (!nombre || !apellidos) {
+      return res.status(400).json({ message: 'Nombre y apellidos son obligatorios.' });
     }
-    if (!validarDNI(dni)) {
+    if (dni && !validarDNI(dni)) {
       return res.status(400).json({ message: 'El DNI introducido no es válido.' });
     }
-    const existe = await Jugador.findOne({ where: { dni } });
-    if (existe) return res.status(409).json({ message: 'Ya existe un jugador con ese DNI.' });
+    if (dni) {
+      const existe = await Jugador.findOne({ where: { dni } });
+      if (existe) return res.status(409).json({ message: 'Ya existe un jugador con ese DNI.' });
+    }
     const jugador = await Jugador.create({
       nombre,
       apellidos,
-      dni,
+      dni: dni || null,
       fecha_nacimiento: fecha_nacimiento || null,
       foto: foto || null,
       telefono: telefono || null

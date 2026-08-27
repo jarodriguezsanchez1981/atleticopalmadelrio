@@ -5,7 +5,7 @@ const Jugador = sequelize.define('Jugador', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   nombre: { type: DataTypes.STRING(100), allowNull: false },
   apellidos: { type: DataTypes.STRING(150), allowNull: false },
-  dni: { type: DataTypes.STRING(15), allowNull: false, unique: true },
+  dni: { type: DataTypes.STRING(15), allowNull: true, unique: true },
   fecha_nacimiento: { type: DataTypes.DATEONLY, allowNull: true },
   foto: { type: DataTypes.TEXT('long'), allowNull: true },
   telefono: { type: DataTypes.STRING(20), allowNull: true }
