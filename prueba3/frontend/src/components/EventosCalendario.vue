@@ -435,7 +435,7 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
 
     if (props.tipo === 'entrenamiento') {
       const entrenamientos = await entrenamientosService.listar({ desde: desdeISO, hasta: hastaISO });
-      await generarPdfEntrenamientos(entrenamientos, `Entrenamientos · ${fechaTitulo}`, tipoFutbol);
+      await generarPdfEntrenamientos(entrenamientos, fechaTitulo, tipoFutbol);
       return;
     }
 
@@ -574,22 +574,6 @@ onBeforeUnmount(() => {
         <p v-if="subtitle" class="text-sm text-ink-tertiary">{{ subtitle }}</p>
       </div>
       <div class="flex items-center gap-2">
-        <template v-if="!tipo || tipo === 'entrenamiento'">
-          <span class="w-3 h-3 rounded-full inline-block" :style="{ background: COLOR_ENTRENAMIENTO }"></span>
-          Entrenamiento
-        </template>
-        <template v-if="!tipo || tipo === 'partido'">
-          <span
-            class="w-3 h-3 rounded-full inline-block"
-            :class="{ 'ml-2': !tipo }"
-            :style="{ background: COLOR_PARTIDO }"
-          ></span>
-          Partido
-        </template>
-        <template v-if="showFestivos">
-          <span class="w-3 h-3 rounded-full inline-block ml-2" :style="{ background: COLOR_FESTIVO }"></span>
-          Festivo
-        </template>
         <Button
           v-if="tipo"
           label="PDF"
@@ -649,6 +633,28 @@ onBeforeUnmount(() => {
                 <i class="pi pi-handshake"></i> Amistoso
               </span>
             </div>
+          </div>
+        </template>
+
+        <template v-if="eventoSeleccionado.tipo === 'entrenamiento'">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center pb-2 border-b border-line">
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
+              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
+              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Lugar</p>
+              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.lugar || '—' }}</p>
+            </div>
+          </div>
+          <div v-if="eventoSeleccionado.recurrente" class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+              <i class="pi pi-sync"></i> Recurrente
+            </span>
           </div>
         </template>
 

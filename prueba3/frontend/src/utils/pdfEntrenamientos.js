@@ -4,25 +4,25 @@ const ESCUDO_CLUB = '/escudo.png';
 const NOMBRE_CLUB = 'Atlético Palma del Río';
 
 const VERDE = '#0B3D2E';
-const GRANATE = '#7A1E2B';
 const GRIS = '#64748B';
 
 const anchoA4 = 210;
 const altoA4 = 297;
 const margen = 14;
 
-const ANCHO_COLUMNAS_CON_FECHA = [50, 30, 24, 28, 50];
-const ANCHO_COLUMNAS_SIN_FECHA = [56, 32, 34, 60];
-const ALTO_FILA = 12;
+// Columnas: Lugar | Hora | Categoría | Local | Visitante
+const ANCHO_COLUMNAS = [26, 16, 26, 57, 57];
+const ALTO_FILA = 10;
 
 function aDate(inicio) {
   const d = new Date(inicio);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function formatearFechaCorta(d) {
+function formatearFechaLarga(d) {
   if (!d) return '—';
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dia = d.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  return dia.charAt(0).toUpperCase() + dia.slice(1);
 }
 
 function formatearHora(d) {
@@ -30,16 +30,10 @@ function formatearHora(d) {
   return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-function claveDia(fecha) {
-  const d = aDate(fecha);
+function claveFecha(inicio) {
+  const d = aDate(inicio);
   if (!d) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function formatearDia(fecha) {
-  const d = aDate(fecha);
-  if (!d) return '—';
-  return `${d.toLocaleDateString('es-ES', { weekday: 'long' }).toUpperCase()} · ${formatearFechaCorta(d)}`;
 }
 
 async function cargarEscudoClub() {
@@ -73,85 +67,115 @@ function ajustarTexto(doc, texto, size, anchoMax) {
   return `${recortado}…`;
 }
 
+function agruparPorFecha(items) {
+  const grupos = [];
+  const mapa = new Map();
+  for (const item of items) {
+    const clave = claveFecha(item.inicio);
+    if (!mapa.has(clave)) {
+      const grupo = { clave, items: [] };
+      mapa.set(clave, grupo);
+      grupos.push(grupo);
+    }
+    mapa.get(clave).items.push(item);
+  }
+  return grupos;
+}
+
+function dibujarBannerFecha(doc, texto, y) {
+  doc.setFillColor(215, 119, 6);
+  doc.rect(margen, y, anchoA4 - 2 * margen, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text(texto, margen + 3, y + 5);
+  return y + 9;
+}
+
+function dibujarCabecera(doc, headers, anchos, y) {
+  doc.setFillColor(11, 61, 46);
+  doc.rect(margen, y, anchoA4 - 2 * margen, 6, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  let x = margen;
+  headers.forEach((h, i) => {
+    const align = i <= 1 ? 'left' : 'center';
+    const offset = i <= 1 ? 1.5 : anchos[i] / 2;
+    doc.text(h, x + offset, y + 4.2, { align });
+    x += anchos[i];
+  });
+  return y + 8;
+}
+
 /**
- * Genera el PDF semanal de entrenamientos en secciones según el tipo de
- * fútbol de la categoría (Futbol 7 / Futbol 11), ordenado por
- * Fecha y hora, Categoría y Lugar.
+ * Genera el PDF de entrenamientos con la misma estructura que el calendario:
+ * agrupado por fecha, columnas Lugar | Hora | Categoría (Local y Visitante vacías).
  * @param {Array} entrenamientos
- * @param {string} titulo
- * @param {number|null} tipoFutbol 1 = solo Futbol 7, 2 = solo Futbol 11, null/undefined = ambos
+ * @param {string} titulo  Texto del rango de fechas (ej: "22/09/2026 al 28/09/2026").
+ * @param {number|null} tipoFutbol 1 = solo Futbol 7, 2 = solo Futbol 11, null/undefined = ambos.
  */
-export async function generarPdfEntrenamientos(entrenamientos, titulo = 'Calendario de entrenamientos', tipoFutbol = null, mostrarFechaColumna = true) {
+export async function generarPdfEntrenamientos(entrenamientos, titulo = '', tipoFutbol = null) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const ordenar = (a, b) => {
-    const fA = new Date(a.fecha || a.inicio).getTime();
-    const fB = new Date(b.fecha || b.inicio).getTime();
-    if (fA !== fB) return fA - fB;
-    const catA = (a.categoria?.nombre || a.categoria || '').toLowerCase();
-    const catB = (b.categoria?.nombre || b.categoria || '').toLowerCase();
-    if (catA !== catB) return catA.localeCompare(catB, 'es');
-    return ((a.lugar?.nombre || a.lugar || '')).localeCompare((b.lugar?.nombre || b.lugar || ''), 'es');
-  };
+  const filtrar = (e) => tipoFutbol == null
+    || (e.categoria?.id_tipofutbol || e.plantilla?.categoria?.id_tipofutbol || 0) === tipoFutbol;
 
-  const tipoFutbolDe = (e) => e.categoria?.id_tipofutbol;
-  const listaF7 = entrenamientos.filter((e) => tipoFutbolDe(e) === 1).sort(ordenar);
-  const listaF11 = entrenamientos.filter((e) => tipoFutbolDe(e) === 2).sort(ordenar);
+  const lista = entrenamientos
+    .filter(filtrar)
+    .map((e) => ({
+      inicio: e.fecha || e.inicio,
+      lugar: e.lugar?.nombre || e.lugar || '—',
+      categoria: e.categoria?.nombre || e.plantilla?.categoria?.nombre || e.categoria || '—'
+    }))
+    .sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
 
   const escudoClub = await cargarEscudoClub();
 
-  let y = 10;
+  let y = 12;
 
   // ---- Encabezado ----
-  dibujarEscudo(doc, escudoClub, (anchoA4 - 30) / 2, y, 30);
-  y += 42;
-
+  const escudoHeader = 22;
+  dibujarEscudo(doc, escudoClub, margen, y, escudoHeader);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  doc.setFontSize(13);
   doc.setTextColor(VERDE);
-  doc.text(NOMBRE_CLUB, anchoA4 / 2, y, { align: 'center' });
-  y += 7;
+  doc.text('Entrenamientos', anchoA4 / 2, y + escudoHeader / 2 + 2, { align: 'center' });
+  y += escudoHeader + 6;
 
-  doc.setFontSize(12);
-  doc.setTextColor(GRANATE);
-  doc.text(titulo, anchoA4 / 2, y, { align: 'center' });
-  y += 5.5;
-
-  if (entrenamientos.length) {
-    const todas = [...entrenamientos].sort((a, b) => new Date(a.fecha || a.inicio) - new Date(b.fecha || b.inicio));
-    const desde = formatearFechaCorta(aDate(todas[0].fecha || todas[0].inicio));
-    const hasta = formatearFechaCorta(aDate(todas[todas.length - 1].fecha || todas[todas.length - 1].inicio));
+  if (titulo) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(GRIS);
-    doc.text(`${desde} al ${hasta}`, anchoA4 / 2, y, { align: 'center' });
-    y += 4;
+    doc.text(titulo, anchoA4 / 2, y, { align: 'center' });
+    y += 6;
   }
-  doc.setDrawColor(200, 205, 212);
-  doc.setLineWidth(0.3);
-  doc.line(margen, y + 4, anchoA4 - margen, y + 4);
-  y += 10;
 
-  if (!entrenamientos.length) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(GRIS);
-    doc.text('No hay entrenamientos en el periodo seleccionado.', anchoA4 / 2, y, { align: 'center' });
-  } else {
-    const mostrarF7 = tipoFutbol == null || tipoFutbol === 1;
-    const mostrarF11 = tipoFutbol == null || tipoFutbol === 2;
-
-    if (mostrarF7) {
-      y = dibujarBloque(doc, 'FUTBOL 7', listaF7, y, mostrarFechaColumna);
+  // ---- Agrupar por fecha ----
+  for (const grupo of agruparPorFecha(lista)) {
+    const fechaTexto = formatearFechaLarga(aDate(grupo.items[0].inicio));
+    if (y + 20 > altoA4 - 16) {
+      doc.addPage();
+      y = 14;
     }
-    // Salto de página para que cada tipo de fútbol empiece en página nueva
-    if (mostrarF11) {
-      if (mostrarF7) {
+    y = dibujarBannerFecha(doc, fechaTexto, y);
+    y = dibujarCabecera(doc, ['Lugar', 'Hora', 'Categoría', 'Local', 'Visitante'], ANCHO_COLUMNAS, y);
+
+    let fila = 0;
+    for (const e of grupo.items) {
+      if (y + ALTO_FILA > altoA4 - 16) {
         doc.addPage();
         y = 14;
+        y = dibujarCabecera(doc, ['Lugar', 'Hora', 'Categoría', 'Local', 'Visitante'], ANCHO_COLUMNAS, y);
       }
-      y = dibujarBloque(doc, 'FUTBOL 11', listaF11, y, mostrarFechaColumna);
+      if (fila % 2 === 1) {
+        doc.setFillColor(245, 247, 249);
+        doc.rect(margen, y - 0.5, anchoA4 - 2 * margen, ALTO_FILA, 'F');
+      }
+      y = dibujarFila(doc, e, y);
+      fila++;
     }
+    y += 3;
   }
 
   // ---- Pie ----
@@ -161,7 +185,7 @@ export async function generarPdfEntrenamientos(entrenamientos, titulo = 'Calenda
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(GRIS);
-    doc.text(`${NOMBRE_CLUB} · ${titulo}`, margen, altoA4 - 8);
+    doc.text(`${NOMBRE_CLUB} · Entrenamientos`, margen, altoA4 - 8);
     doc.text(`Página ${p} de ${totalPaginas}`, anchoA4 - margen, altoA4 - 8, { align: 'right' });
   }
 
@@ -169,136 +193,34 @@ export async function generarPdfEntrenamientos(entrenamientos, titulo = 'Calenda
   return doc;
 }
 
-function dibujarBloque(doc, tituloBloque, lista, yIni, mostrarFechaColumna = true) {
-  let y = yIni;
+function dibujarFila(doc, e, y) {
+  const inicio = aDate(e.inicio);
+  const cat = e.categoria || '—';
+  const lugar = e.lugar || '—';
+  const horaTexto = inicio ? formatearHora(inicio) : '—';
 
-  const ANCHO_COLUMNAS = mostrarFechaColumna ? ANCHO_COLUMNAS_CON_FECHA : ANCHO_COLUMNAS_SIN_FECHA;
+  const mitadV = y + ALTO_FILA / 2 + 0.5;
+  let x = margen;
 
-  // Título del bloque
-  doc.setFillColor(GRANATE);
-  doc.rect(margen, y, anchoA4 - 2 * margen, 9, 'F');
+  // Lugar
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(20, 26, 32);
+  const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[0] - 2);
+  doc.text(lugarTexto, x + 1.5, mitadV);
+  x += ANCHO_COLUMNAS[0];
+
+  // Hora
+  doc.setFontSize(8.5);
+  doc.text(horaTexto, x + 2, mitadV, { align: 'left' });
+  x += ANCHO_COLUMNAS[1];
+
+  // Categoría
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  doc.text(tituloBloque, anchoA4 / 2, y + 6, { align: 'center' });
-  y += 12;
+  doc.setFontSize(9);
+  doc.setTextColor(VERDE);
+  const catTexto = ajustarTexto(doc, cat, 9, ANCHO_COLUMNAS[2] - 2);
+  doc.text(catTexto, x + ANCHO_COLUMNAS[2] / 2, mitadV, { align: 'center' });
 
-  if (!lista.length) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(GRIS);
-    doc.text('No hay entrenamientos de este tipo de fútbol.', margen, y + 3);
-    return y + 8;
-  }
-
-  // Agrupar por día (dentro de un bloque la lista ya viene ordenada por fecha/hora)
-  const grupos = [];
-  let diaActual = null;
-  for (const e of lista) {
-    const dia = claveDia(e.fecha || e.inicio);
-    if (dia !== diaActual) {
-      grupos.push({ dia, items: [] });
-      diaActual = dia;
-    }
-    grupos[grupos.length - 1].items.push(e);
-  }
-
-  for (const grupo of grupos) {
-    if (y + 10 > altoA4 - 16) {
-      doc.addPage();
-      y = 14;
-    }
-
-    // Cabecera del día
-    doc.setFillColor(215, 119, 6);
-    doc.rect(margen, y, anchoA4 - 2 * margen, 8, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.setTextColor(255, 255, 255);
-    doc.text(formatearDia(grupo.items[0].fecha || grupo.items[0].inicio), margen + 2, y + 5.5);
-    y += 10;
-
-    // Cabecera de columnas
-    doc.setFillColor(11, 61, 46);
-    doc.rect(margen, y, anchoA4 - 2 * margen, 8, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(255, 255, 255);
-    const headers = mostrarFechaColumna
-      ? ['Categoría', 'Fecha', 'Inicio', 'Fin', 'Lugar']
-      : ['Categoría', 'Inicio', 'Fin', 'Lugar'];
-    let x = margen;
-    headers.forEach((h, i) => {
-      doc.text(h, x + ANCHO_COLUMNAS[i] / 2, y + 5.5, { align: 'center' });
-      x += ANCHO_COLUMNAS[i];
-    });
-    y += 11;
-
-    let fila = 0;
-    for (const e of grupo.items) {
-      const inicio = aDate(e.fecha || e.inicio);
-      const cat = e.categoria?.nombre || e.categoria || '—';
-      const lugar = e.lugar?.nombre || e.lugar || '—';
-      const fecha = inicio ? formatearFechaCorta(inicio) : '—';
-      const horaInicio = inicio ? formatearHora(inicio) : '—';
-      const minutos = e.categoria?.tiempoentrenamiento || 60;
-      const horaFin = inicio ? formatearHora(new Date(inicio.getTime() + minutos * 60000)) : '—';
-
-      if (y + ALTO_FILA > altoA4 - 16) {
-        doc.addPage();
-        y = 14;
-      }
-
-      if (fila % 2 === 1) {
-        doc.setFillColor(245, 247, 249);
-        doc.rect(margen, y, anchoA4 - 2 * margen, ALTO_FILA, 'F');
-      }
-
-      const mitadV = y + ALTO_FILA / 2 + 1;
-      const inicioCol0 = margen;
-      const centro = (i) => inicioCol0 + ANCHO_COLUMNAS.slice(0, i).reduce((a, b) => a + b, 0) + ANCHO_COLUMNAS[i] / 2;
-
-      // Categoría
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(GRANATE);
-      const catTexto = ajustarTexto(doc, cat, 9, ANCHO_COLUMNAS[0] - 4);
-      doc.text(catTexto, centro(0), mitadV, { align: 'center' });
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(20, 26, 32);
-
-      if (mostrarFechaColumna) {
-        // Fecha
-        const fechaTexto = ajustarTexto(doc, fecha, 9, ANCHO_COLUMNAS[1] - 4);
-        doc.text(fechaTexto, centro(1), mitadV, { align: 'center' });
-
-        // Inicio
-        doc.text(horaInicio, centro(2), mitadV, { align: 'center' });
-
-        // Fin
-        doc.text(horaFin, centro(3), mitadV, { align: 'center' });
-
-        // Lugar
-        const lugarTexto = ajustarTexto(doc, lugar, 9, ANCHO_COLUMNAS[4] - 4);
-        doc.text(lugarTexto, centro(4), mitadV, { align: 'center' });
-      } else {
-        // Inicio
-        doc.text(horaInicio, centro(1), mitadV, { align: 'center' });
-
-        // Fin
-        doc.text(horaFin, centro(2), mitadV, { align: 'center' });
-
-        // Lugar
-        const lugarTexto = ajustarTexto(doc, lugar, 9, ANCHO_COLUMNAS[3] - 4);
-        doc.text(lugarTexto, centro(3), mitadV, { align: 'center' });
-      }
-
-      y += ALTO_FILA;
-      fila++;
-    }
-    y += 2;
-  }
-
-  return y;
+  return y + ALTO_FILA;
 }

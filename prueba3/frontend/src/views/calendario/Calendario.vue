@@ -10,6 +10,7 @@ import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Select from 'primevue/select';
+import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import ConfirmDialog from 'primevue/confirmdialog';
@@ -19,6 +20,7 @@ import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
 import { calendarioService, categoriasService, entrenamientosService, partidosService } from '../../services';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
 import { tituloCalendario } from '../../utils/tituloCalendario';
+import { generarPdfCalendario } from '../../utils/pdfCalendario';
 import { useAuthStore } from '../../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../../utils/cambioBus';
 
@@ -35,6 +37,66 @@ const formFechaDefecto = ref(null);
 const confirm = useConfirm();
 const toast = useToast();
 const auth = useAuthStore();
+
+const generandoPdf = ref(false);
+const pdfDialogVisible = ref(false);
+const pdfSemana = ref(new Date());
+const pdfTipoFutbol = ref(null);
+
+const OPCIONES_TIPO_FUTBOL = [
+  { label: 'Todos (Futbol 7 y Futbol 11)', value: null },
+  { label: 'Futbol 7', value: 1 },
+  { label: 'Futbol 11', value: 2 }
+];
+
+function semanaDe(fecha) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  const dia = (d.getDay() + 6) % 7; // lunes = 0
+  const lunes = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dia);
+  const domingo = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 6);
+  return { inicio: lunes, fin: domingo };
+}
+
+function abrirPdfSemana() {
+  pdfSemana.value = new Date();
+  pdfTipoFutbol.value = null;
+  pdfDialogVisible.value = true;
+}
+
+async function generarPdfSemana() {
+  const semana = semanaDe(pdfSemana.value);
+  if (!semana) return;
+  await genarPdfRango(semana.inicio, semana.fin, pdfTipoFutbol.value);
+  pdfDialogVisible.value = false;
+}
+
+async function genarPdfRango(inicio, fin, tipoFutbol = null) {
+  generandoPdf.value = true;
+  try {
+    const hasta = new Date(fin);
+    hasta.setHours(23, 59, 59, 999);
+    const eventos = await calendarioService.eventos({
+      desde: new Date(inicio).toISOString(),
+      hasta: hasta.toISOString()
+    });
+    const fechaTitulo = `${inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })} al ${fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    if (!eventos.length) {
+      toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos en esta semana.', life: 3000 });
+      return;
+    }
+    await generarPdfCalendario(eventos, fechaTitulo, tipoFutbol);
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo generar el PDF.',
+      life: 5000
+    });
+  } finally {
+    generandoPdf.value = false;
+  }
+}
 
 const opcionesCategoria = computed(() => [
   { label: 'Todas las categorías', value: null },
@@ -320,11 +382,6 @@ onMounted(async () => {
       </div>
 
       <div class="flex items-center gap-3 flex-wrap">
-        <div class="flex items-center gap-2 text-xs text-ink-tertiary">
-          <span class="w-3 h-3 rounded-full inline-block" style="background:#0B3D2E"></span> Entrenamiento
-          <span class="w-3 h-3 rounded-full inline-block ml-2" style="background:#7A1E2B"></span> Partido
-          <span class="w-3 h-3 rounded-full inline-block ml-2" style="background:#D97706"></span> Festivo
-        </div>
         <Select
           v-model="filtroCategoria"
           :options="opcionesCategoria"
@@ -332,6 +389,14 @@ onMounted(async () => {
           optionValue="value"
           class="w-full sm:w-64"
           @change="refrescar"
+        />
+        <Button
+          label="PDF"
+          icon="pi pi-print"
+          size="small"
+          text
+          :loading="generandoPdf"
+          @click="abrirPdfSemana"
         />
       </div>
     </div>
@@ -375,6 +440,28 @@ onMounted(async () => {
                 <i class="pi pi-handshake"></i> Amistoso
               </span>
             </div>
+          </div>
+        </template>
+
+        <template v-if="eventoSeleccionado.tipo === 'entrenamiento'">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center pb-2 border-b border-line">
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
+              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
+              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Lugar</p>
+              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.lugar || '—' }}</p>
+            </div>
+          </div>
+          <div v-if="eventoSeleccionado.recurrente" class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+              <i class="pi pi-sync"></i> Recurrente
+            </span>
           </div>
         </template>
 
@@ -452,6 +539,38 @@ onMounted(async () => {
       :fechaDefecto="formFechaDefecto"
       @saved="onFormSaved"
     />
+
+    <Dialog v-model:visible="pdfDialogVisible" modal class="w-full max-w-sm">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
+          <span class="font-display text-club-green text-lg">Generar PDF calendario</span>
+        </div>
+      </template>
+      <div class="flex flex-col gap-4 py-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Elige la semana</label>
+          <DatePicker v-model="pdfSemana" dateFormat="dd/mm/yy" showIcon iconDisplay="input"
+                      :manualInput="true" class="w-full" inputClass="w-full" />
+        </div>
+        <p class="text-xs text-ink-tertiary">
+          Se generará el PDF con los entrenamientos y partidos de la semana (lunes a domingo) que contiene la fecha elegida:
+          <span class="font-medium text-ink-secondary">
+            {{ pdfSemana ? `${semanaDe(pdfSemana)?.inicio.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} al ${semanaDe(pdfSemana)?.fin.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '—' }}
+          </span>
+        </p>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Tipo de fútbol</label>
+          <Select v-model="pdfTipoFutbol" :options="OPCIONES_TIPO_FUTBOL" optionLabel="label" optionValue="value"
+                  placeholder="Elige el tipo de fútbol" class="w-full" />
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <Button type="button" label="Cancelar" text severity="secondary" @click="pdfDialogVisible = false" />
+          <Button type="button" label="Generar PDF" icon="pi pi-print" :loading="generandoPdf"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight" @click="generarPdfSemana" />
+        </div>
+      </div>
+    </Dialog>
 
     <ConfirmDialog />
   </div>

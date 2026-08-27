@@ -3,6 +3,7 @@ import { utilService } from '../services';
 
 const ESCUDO_CLUB = '/escudo.png';
 const NOMBRE_CLUB = 'ATLÉTICO PALMA DEL RÍO';
+const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
 const VERDE = '#0B3D2E';
 const GRANATE = '#7A1E2B';
@@ -13,7 +14,7 @@ const altoA4 = 297;
 const margen = 14;
 
 // Columnas de cada fila: Lugar | Hora | Categoría | Local | Visitante
-const ANCHO_COLUMNAS = [26, 16, 26, 60, 60];
+const ANCHO_COLUMNAS = [26, 16, 26, 57, 57];
 const ALTO_FILA = 10;
 
 function aDate(inicio) {
@@ -130,7 +131,7 @@ export async function generarPdfPartidos(partidos, semana = '', tipoFutbol = nul
 
   let y = 12;
 
-  // ---- Encabezado: 2 columnas sin borde ----
+  // ---- Encabezado ----
   const escudoHeader = 22;
   dibujarEscudo(doc, escudoClub, margen, y, escudoHeader);
   doc.setFont('helvetica', 'bold');
@@ -138,6 +139,14 @@ export async function generarPdfPartidos(partidos, semana = '', tipoFutbol = nul
   doc.setTextColor(VERDE);
   doc.text('Listado de Partidos', anchoA4 / 2, y + escudoHeader / 2 + 2, { align: 'center' });
   y += escudoHeader + 6;
+
+  if (semana) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(GRIS);
+    doc.text(semana, anchoA4 / 2, y, { align: 'center' });
+    y += 6;
+  }
 
   // ---- Agrupar por fecha ----
   const grupos = [];
@@ -213,7 +222,8 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
   let fila = 0;
   for (const p of grupo.partidos) {
     const cat = p.categoria?.nombre || '—';
-    const lugar = p.equipoLocal?.localidad || p.lugar?.nombre || '—';
+    const esLocalPalma = p.equipoLocal?.nombre === NOMBRE_PALMA;
+    const lugar = esLocalPalma ? (p.lugar?.nombre || '—') : (p.equipoLocal?.localidad || '—');
 
     const localNombre = p.equipoLocal?.nombre || NOMBRE_CLUB;
     const visitanteNombre = p.equipoVisitante?.nombre || '—';
@@ -262,28 +272,26 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
     doc.text(catTexto, x + ANCHO_COLUMNAS[2] / 2, mitadV, { align: 'center' });
     x += ANCHO_COLUMNAS[2];
 
-    // --- Local (escudo + nombre, centrado) ---
-    const anchoNombreLocal = ANCHO_COLUMNAS[3] - escudoTamanio - 4;
+    // --- Local (escudo + nombre, alineado a la izquierda) ---
+    const anchoNombreLocal = ANCHO_COLUMNAS[3] - escudoTamanio - 6;
     const localAjustado = ajustarTexto(doc, localNombre, 8, anchoNombreLocal);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    const anchoComboLocal = escudoTamanio + 2 + doc.getTextWidth(localAjustado);
-    const xCentradoLocal = Math.max(x + 1, x + (ANCHO_COLUMNAS[3] - anchoComboLocal) / 2);
-    dibujarEscudo(doc, localImg, xCentradoLocal, mitadV - escudoTamanio / 2, escudoTamanio);
+    const xLocal = x + 2;
+    dibujarEscudo(doc, localImg, xLocal, mitadV - escudoTamanio / 2, escudoTamanio);
     doc.setTextColor(20, 26, 32);
-    doc.text(localAjustado, xCentradoLocal + escudoTamanio + 2, mitadV);
+    doc.text(localAjustado, xLocal + escudoTamanio + 2, mitadV);
     x += ANCHO_COLUMNAS[3];
 
-    // --- Visitante (escudo + nombre, centrado) ---
-    const anchoNombreVisitante = ANCHO_COLUMNAS[4] - escudoTamanio - 4;
+    // --- Visitante (escudo + nombre, alineado a la izquierda) ---
+    const anchoNombreVisitante = ANCHO_COLUMNAS[4] - escudoTamanio - 6;
     const visitanteAjustado = ajustarTexto(doc, visitanteNombre, 8, anchoNombreVisitante);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    const anchoComboVisitante = escudoTamanio + 2 + doc.getTextWidth(visitanteAjustado);
-    const xCentradoVisitante = Math.max(x + 1, x + (ANCHO_COLUMNAS[4] - anchoComboVisitante) / 2);
-    dibujarEscudo(doc, visitImg, xCentradoVisitante, mitadV - escudoTamanio / 2, escudoTamanio);
+    const xVisitante = x + 2;
+    dibujarEscudo(doc, visitImg, xVisitante, mitadV - escudoTamanio / 2, escudoTamanio);
     doc.setTextColor(20, 26, 32);
-    doc.text(visitanteAjustado, xCentradoVisitante + escudoTamanio + 2, mitadV);
+    doc.text(visitanteAjustado, xVisitante + escudoTamanio + 2, mitadV);
 
     y += ALTO_FILA + 0.5;
     fila++;
