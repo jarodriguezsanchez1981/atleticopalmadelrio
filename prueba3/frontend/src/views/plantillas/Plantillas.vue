@@ -389,6 +389,7 @@ function validarPlantilla(form) {
       <div class="space-y-4 pt-2">
         <div>
           <h3 class="text-sm font-semibold text-club-green mb-2">Entrenadores</h3>
+          <div class="overflow-x-auto">
           <table class="w-full border-collapse">
             <thead>
               <tr class="bg-club-green/5">
@@ -412,6 +413,7 @@ function validarPlantilla(form) {
               </tr>
             </tbody>
           </table>
+          </div>
           <div class="flex gap-2 mt-2">
             <Select v-model="nuevoEntrenador" :options="opcionesEntrenadorDisponibles(form)" optionLabel="label" optionValue="value"
                     placeholder="Seleccionar entrenador" class="flex-1" filter showClear />
@@ -421,6 +423,7 @@ function validarPlantilla(form) {
 
         <div>
           <h3 class="text-sm font-semibold text-club-green mb-2">Delegados</h3>
+          <div class="overflow-x-auto">
           <table class="w-full border-collapse">
             <thead>
               <tr class="bg-club-green/5">
@@ -444,6 +447,7 @@ function validarPlantilla(form) {
               </tr>
             </tbody>
           </table>
+          </div>
           <div class="flex gap-2 mt-2">
             <Select v-model="nuevoDelegado" :options="opcionesDelegadoDisponibles(form)" optionLabel="label" optionValue="value"
                     placeholder="Seleccionar delegado" class="flex-1" filter showClear />
@@ -453,6 +457,7 @@ function validarPlantilla(form) {
 
         <div>
           <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores</h3>
+          <div class="overflow-x-auto">
           <table class="w-full border-collapse">
             <thead>
               <tr class="bg-club-green/5">
@@ -492,6 +497,7 @@ function validarPlantilla(form) {
               </tr>
             </tbody>
           </table>
+          </div>
           <div class="flex gap-2 mt-2 items-center">
             <Select :key="keySelectJugador" v-model="nuevoJugador" :options="opcionesJugadorDisponibles(form)" optionLabel="label" optionValue="value"
                     placeholder="Seleccionar jugador" class="flex-1" filter showClear />
@@ -504,6 +510,7 @@ function validarPlantilla(form) {
     </template>
 
     <template #detail-extra="{ data }">
+      <div class="overflow-x-auto">
       <table class="w-full border-collapse mb-6">
         <tr>
           <td class="text-center border border-line p-3 bg-club-green text-white">
@@ -528,9 +535,11 @@ function validarPlantilla(form) {
           </td>
         </tr>
       </table>
+      </div>
 
       <div v-if="data.entrenadores?.length" class="mb-6">
         <h3 class="text-sm font-semibold text-club-green mb-2">Entrenadores</h3>
+        <div class="overflow-x-auto">
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-club-green/5">
@@ -550,10 +559,12 @@ function validarPlantilla(form) {
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <div v-if="data.delegados?.length" class="mb-6">
         <h3 class="text-sm font-semibold text-club-green mb-2">Delegados</h3>
+        <div class="overflow-x-auto">
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-club-green/5">
@@ -573,10 +584,12 @@ function validarPlantilla(form) {
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <div v-if="data.jugadores?.length" class="mb-6">
         <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores</h3>
+        <div class="overflow-x-auto">
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-club-green/5">
@@ -607,6 +620,7 @@ function validarPlantilla(form) {
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </template>
   </CrudDataTable>

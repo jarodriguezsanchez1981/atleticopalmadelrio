@@ -678,7 +678,7 @@ watch(
           </span>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <Button
             v-if="permisoEliminar && seleccionados.length"
             :label="`Eliminar seleccionados (${seleccionados.length})`"
@@ -714,10 +714,11 @@ watch(
       :globalFilterFields="columns.map(c => c.field)"
       :filters="{ global: { value: filtroGlobal, matchMode: 'contains' } }"
       reorderableColumns
+      scrollable="scroll"
       @column-reorder="onColumnReorder"
       paginator :rows="10" :rowsPerPageOptions="[10, 20, 50]"
       rowHover stripedRows
-      class="ar-datatable bg-white rounded-xl overflow-hidden  border border-line"
+      class="ar-datatable bg-white rounded-xl overflow-x-auto border border-line"
       :pt="{
         header: { class: 'ar-dt-header !bg-white' },
         rowgroupfooter: { class: '!bg-club-cream' },
@@ -737,7 +738,7 @@ watch(
         </template>
       </Column>
 
-      <Column style="width: 150px" :pt="{ bodyCell: { class: 'ar-dt-acciones' } }">
+      <Column frozen style="width: 150px" :pt="{ bodyCell: { class: 'ar-dt-acciones' } }">
         <template #header>
           <div class="text-right">Acciones</div>
         </template>
