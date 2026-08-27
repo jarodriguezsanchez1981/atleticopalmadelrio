@@ -178,7 +178,6 @@ DROP TABLE IF EXISTS `entrenamientos`;
 CREATE TABLE `entrenamientos` (
   `id` int NOT NULL AUTO_INCREMENT,
   `id_plantilla` int NOT NULL,
-  `id_categoria` int NOT NULL,
   `fecha` datetime NOT NULL,
   `hasta` datetime DEFAULT NULL,
   `id_lugar` int NOT NULL,
@@ -187,7 +186,6 @@ CREATE TABLE `entrenamientos` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `fk_entrenamientos_categoria` (`id_categoria`),
   KEY `idx_entrenamientos_fecha` (`fecha`),
   KEY `idx_entrenamientos_lugar` (`id_lugar`),
   KEY `idx_entrenamientos_usuario` (`id_usuario`),

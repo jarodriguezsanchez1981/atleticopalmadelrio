@@ -458,8 +458,8 @@ async function guardar() {
       <div class="flex flex-col gap-1.5">
         <label class="text-sm font-medium text-ink-secondary">Plantilla <span class="text-club-garnet">*</span></label>
         <Select v-model="form.id_plantilla" :options="opcionesPlantilla" optionLabel="label" optionValue="value"
-                class="w-full" placeholder="Selecciona una plantilla"
-                showClear :loading="cargandoCatalogo" />
+                class="w-full" placeholder="Busca una plantilla"
+                showClear filter :loading="cargandoCatalogo" />
       </div>
 
       <div class="flex flex-col gap-1.5">
