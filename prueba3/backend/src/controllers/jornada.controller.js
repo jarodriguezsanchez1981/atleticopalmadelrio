@@ -79,8 +79,8 @@ async function crear(req, res, next) {
     // Crear partido correspondiente para esta jornada
     const idUsuario = req.user?.id;
     await Partido.create({
-      id_plantilla, fecha, id_lugar: null, id_equipo: id_equipo_local,
-      es_local: true, id_usuario: idUsuario, incidencias: null
+      id_plantilla, fecha, id_lugar: null, id_equipo_local, id_equipo_visitante,
+      id_usuario: idUsuario, incidencias: null
     });
 
     const respuesta = await Jornada.findOne({ where: { id: creado.id }, include: includes });

@@ -29,7 +29,7 @@ let unsubCambio = null;
 const opcionesPartido = computed(() =>
   partidos.value
     .map(p => ({
-      label: `${new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} vs ${p.equipo?.nombre || ''}`,
+      label: etiquetaPartido(p),
       value: p.id
     }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
@@ -52,10 +52,17 @@ const emptyItem = {
   amarilla: 0, roja: 0
 };
 
+function etiquetaPartido(p) {
+  const fecha = p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  const local = p.equipoLocal?.nombre || '';
+  const visitante = p.equipoVisitante?.nombre || '';
+  return `${fecha} · ${local} vs ${visitante}`;
+}
+
 function nombrePartido(id) {
   const p = partidos.value.find(x => x.id === id);
   if (!p) return '—';
-  return `${new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} vs ${p.equipo?.nombre || ''}`;
+  return etiquetaPartido(p);
 }
 
 function nombreJugador(id) {
@@ -90,7 +97,7 @@ function nombreJugador(id) {
       <span v-else class="text-ink-tertiary">0</span>
     </template>
     <template #detail-id_partido="{ data }">
-      {{ data.partido?.equipo?.nombre ? `${new Date(data.partido.fecha).toLocaleString('es-ES')} vs ${data.partido.equipo.nombre}` : nombrePartido(data.id_partido) }}
+      {{ data.partido ? etiquetaPartido(data.partido) : nombrePartido(data.id_partido) }}
     </template>
     <template #detail-id_jugador="{ data }">
       {{ data.jugador ? `${data.jugador.apellidos}, ${data.jugador.nombre}` : nombreJugador(data.id_jugador) }}

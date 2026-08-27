@@ -118,7 +118,6 @@ export async function generarPdfPartidos(partidos, semana = '', tipoFutbol = nul
   // Precarga de escudos
   const fuentes = new Set([ESCUDO_CLUB]);
   partidosFiltrados.forEach((p) => {
-    if (p.equipo?.escudo) fuentes.add(p.equipo.escudo);
     if (p.equipoLocal?.escudo) fuentes.add(p.equipoLocal.escudo);
     if (p.equipoVisitante?.escudo) fuentes.add(p.equipoVisitante.escudo);
   });
@@ -217,9 +216,9 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
     const lugar = p.equipoLocal?.localidad || p.lugar?.nombre || '—';
 
     const localNombre = p.equipoLocal?.nombre || NOMBRE_CLUB;
-    const visitanteNombre = p.equipoVisitante?.nombre || p.equipo?.nombre || '—';
+    const visitanteNombre = p.equipoVisitante?.nombre || '—';
     const localImgSrc = p.equipoLocal?.escudo || null;
-    const visitImgSrc = p.equipoVisitante?.escudo || p.equipo?.escudo || null;
+    const visitImgSrc = p.equipoVisitante?.escudo || null;
     const localImg = localImgSrc ? (imagenes[localImgSrc] || null) : escudoClub;
     const visitImg = visitImgSrc ? (imagenes[visitImgSrc] || null) : null;
 

@@ -5,7 +5,6 @@ import Textarea from 'primevue/textarea';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import DatePicker from 'primevue/datepicker';
-import SelectButton from 'primevue/selectbutton';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import {
@@ -23,6 +22,8 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'saved']);
 
 const toast = useToast();
+
+const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
 const plantillas = ref([]);
 const lugares = ref([]);
@@ -82,8 +83,8 @@ function resetForm() {
     fecha: props.fechaDefecto ? new Date(props.fechaDefecto) : null,
     id_lugar: null,
     hasta: null,
-    id_equipo: null,
-    es_local: props.tipo === 'partido' ? 1 : null,
+    id_equipo_local: null,
+    id_equipo_visitante: null,
     incidencias: '',
     resultado: '',
     resultado_incidencias: ''
@@ -116,10 +117,10 @@ async function cargarRegistro() {
       fecha: item.fecha ? new Date(item.fecha) : null,
       id_lugar: item.id_lugar ?? item.lugar?.id ?? null,
       hasta: item.hasta ? new Date(item.hasta) : null,
-      id_equipo: props.tipo === 'partido' ? item.id_equipo ?? item.equipo?.id ?? null : null,
-      es_local: props.tipo === 'partido' ? (item.es_local ? 1 : 0) : null,
+      id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
+      id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
-      resultado: item.resultado_valor || '',
+      resultado: item.resultado || '',
       resultado_incidencias: item.resultado_incidencias || ''
     };
   } catch {
@@ -226,10 +227,19 @@ const opcionesEquipo = computed(() =>
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
-const opcionesLocalVisitante = [
-  { label: 'Local', value: 1, icon: 'pi pi-home' },
-  { label: 'Visitante', value: 0, icon: 'pi pi-arrow-right-arrow-left' }
-];
+const equipoLocalSeleccionado = computed(() =>
+  equipos.value.find((e) => e.id === form.value.id_equipo_local)
+);
+
+const esEquipoLocalPalma = computed(() =>
+  equipoLocalSeleccionado.value?.nombre === NOMBRE_PALMA
+);
+
+const ubicacionEquipoLocal = computed(() => {
+  const eq = equipoLocalSeleccionado.value;
+  if (!eq) return '';
+  return [eq.direccion, eq.localidad, eq.provincia].filter(Boolean).join(', ');
+});
 
 function duracionPlantilla(idPl) {
   const pl = plantillas.value.find((p) => p.id === idPl);
@@ -237,13 +247,14 @@ function duracionPlantilla(idPl) {
 }
 
 function partidoEnConflicto() {
-  if (props.tipo !== 'partido' || !form.value.es_local || form.value.id_lugar == null || !form.value.fecha) return null;
+  if (props.tipo !== 'partido' || !esEquipoLocalPalma.value || form.value.id_lugar == null || !form.value.fecha) return null;
   const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(inicio.getTime())) return null;
   const fin = inicio.getTime() + duracionPlantilla(form.value.id_plantilla) * 60000;
   return partidosDelDia.value.find((p) => {
-    if (p.id_lugar != null && String(p.id_lugar) !== String(form.value.id_lugar)) return false;
-    if (p.lugar?.id != null && String(p.lugar.id) !== String(form.value.id_lugar)) return false;
+    const pLugar = p.id_lugar ?? p.lugar?.id ?? null;
+    if (pLugar == null) return false;
+    if (String(pLugar) !== String(form.value.id_lugar)) return false;
     const pInicio = new Date(p.fecha).getTime();
     if (Number.isNaN(pInicio)) return false;
     const pFin = pInicio + ((p.plantilla?.categoria?.tiempopartido) || 90) * 60000;
@@ -255,7 +266,7 @@ function textoConflicto() {
   const p = partidoEnConflicto();
   if (!p) return null;
   const cat = p.plantilla?.categoria?.nombre || nombrePlantilla(p.id_plantilla);
-  return `Ese lugar ya está ocupado a esa hora por otro partido (${cat}, ${formatHora(p.fecha)}).`;
+  return `En esa fecha y hora hay otro partido planificado (${cat}, ${formatHora(p.fecha)}).`;
 }
 
 function nombrePlantilla(idPl) {
@@ -345,16 +356,24 @@ function validar() {
     toast.add({ severity: 'error', summary: 'Error', detail: 'El lugar es obligatorio.', life: 4000 });
     return false;
   }
-  if (props.tipo === 'partido' && !form.value.id_equipo) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'El equipo es obligatorio.', life: 4000 });
+  if (props.tipo === 'partido' && (!form.value.id_equipo_local || !form.value.id_equipo_visitante)) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'El equipo local y el equipo visitante son obligatorios.', life: 4000 });
+    return false;
+  }
+  if (props.tipo === 'partido' && form.value.id_equipo_local === form.value.id_equipo_visitante) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'El equipo local y el visitante no pueden ser el mismo.', life: 4000 });
+    return false;
+  }
+  if (props.tipo === 'partido' && esEquipoLocalPalma.value && !form.value.id_lugar) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'El lugar es obligatorio cuando el equipo local es PALMA DEL RIO ATLETICO C.F.', life: 4000 });
     return false;
   }
   const conflicto = props.tipo === 'partido' ? partidoEnConflicto() : null;
   if (conflicto) {
     toast.add({
       severity: 'error',
-      summary: 'Lugar ocupado',
-      detail: `Ese lugar ya está ocupado a esa hora por otro partido (${conflicto.plantilla?.categoria?.nombre || nombrePlantilla(conflicto.id_plantilla)}, ${formatHora(conflicto.fecha)}).`,
+      summary: 'Partido planificado',
+      detail: `En esa fecha y hora hay otro partido planificado (${conflicto.plantilla?.categoria?.nombre || nombrePlantilla(conflicto.id_plantilla)}, ${formatHora(conflicto.fecha)}).`,
       life: 5000
     });
     return false;
@@ -394,10 +413,9 @@ async function guardar() {
       payload.id_lugar = form.value.id_lugar;
       payload.hasta = form.value.hasta ? form.value.hasta.toISOString() : null;
     } else {
-      const esLocal = !!form.value.es_local;
-      payload.es_local = esLocal ? 1 : 0;
-      payload.id_lugar = esLocal ? form.value.id_lugar : null;
-      payload.id_equipo = form.value.id_equipo;
+      payload.id_equipo_local = form.value.id_equipo_local;
+      payload.id_equipo_visitante = form.value.id_equipo_visitante;
+      payload.id_lugar = esEquipoLocalPalma.value ? form.value.id_lugar : null;
       payload.incidencias = form.value.incidencias;
       payload.resultado = form.value.resultado;
       payload.resultado_incidencias = form.value.resultado_incidencias || null;
@@ -498,9 +516,9 @@ async function guardar() {
 
       <template v-if="tipo === 'partido'">
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Equipo <span class="text-club-garnet">*</span></label>
-          <Select v-model="form.id_equipo" :options="opcionesEquipo" optionLabel="label" optionValue="value"
-                  class="w-full" placeholder="Selecciona un equipo"
+          <label class="text-sm font-medium text-ink-secondary">Equipo local <span class="text-club-garnet">*</span></label>
+          <Select v-model="form.id_equipo_local" :options="opcionesEquipo" optionLabel="label" optionValue="value"
+                  class="w-full" placeholder="Busca un equipo local"
                   showClear filter :loading="cargandoCatalogo">
             <template #option="{ option }">
               <div class="flex items-center gap-2">
@@ -526,26 +544,39 @@ async function guardar() {
             </template>
           </Select>
         </div>
+
         <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Local / Visitante</label>
-<SelectButton v-model="form.es_local" :options="opcionesLocalVisitante" optionLabel="label" optionValue="value"
-                      class="w-full" allowEmpty>
+          <label class="text-sm font-medium text-ink-secondary">Equipo visitante <span class="text-club-garnet">*</span></label>
+          <Select v-model="form.id_equipo_visitante" :options="opcionesEquipo" optionLabel="label" optionValue="value"
+                  class="w-full" placeholder="Busca un equipo visitante"
+                  showClear filter :loading="cargandoCatalogo">
             <template #option="{ option }">
               <div class="flex items-center gap-2">
-                <i :class="option.icon"></i>
+                <img v-if="option.escudo" :src="option.escudo" alt="" class="w-6 h-6 object-contain" />
+                <span v-else class="w-6 h-6 flex items-center justify-center">
+                  <i class="pi pi-trophy text-sm text-ink-tertiary"></i>
+                </span>
                 <span>{{ option.label }}</span>
               </div>
             </template>
             <template #value="{ value }">
               <div v-if="value != null" class="flex items-center gap-2">
-                <i :class="opcionesLocalVisitante.find(o => o.value === value)?.icon"></i>
-                <span>{{ opcionesLocalVisitante.find(o => o.value === value)?.label }}</span>
+                <img
+                  v-if="opcionesEquipo.find(o => o.value === value)?.escudo"
+                  :src="opcionesEquipo.find(o => o.value === value).escudo"
+                  alt="" class="w-6 h-6 object-contain"
+                />
+                <span v-else class="w-6 h-6 flex items-center justify-center">
+                  <i class="pi pi-trophy text-sm text-ink-tertiary"></i>
+                </span>
+                <span>{{ opcionesEquipo.find(o => o.value === value)?.label }}</span>
               </div>
             </template>
-          </SelectButton>
+          </Select>
         </div>
-        <div v-if="form.es_local" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Lugar</label>
+
+        <div v-if="esEquipoLocalPalma" class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Lugar <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
@@ -553,13 +584,21 @@ async function guardar() {
             <i class="pi pi-exclamation-circle"></i> {{ textoConflicto() }}
           </p>
         </div>
+        <div v-else-if="equipoLocalSeleccionado" class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Ubicación</label>
+          <div class="text-sm text-ink-secondary bg-club-cream/50 rounded-md px-3 py-2 border border-line">
+            <template v-if="ubicacionEquipoLocal">{{ ubicacionEquipoLocal }}</template>
+            <span v-else class="text-ink-tertiary">Sin ubicación registrada</span>
+          </div>
+        </div>
+
         <div v-if="registroId" class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Resultado</label>
           <div class="flex items-center gap-2">
             <InputText v-model="form.resultado" placeholder="Marcador, p. ej. 2-1" class="flex-1" maxlength="30" />
             <i class="pi pi-flag text-ink-tertiary"></i>
           </div>
-          <p class="text-xs text-ink-tertiary">El resultado quedará guardado en la sección Resultados.</p>
+          <p class="text-xs text-ink-tertiary">El resultado quedará guardado en el partido.</p>
         </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Incidencias</label>

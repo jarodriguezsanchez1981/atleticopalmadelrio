@@ -65,8 +65,11 @@ Entrenamiento.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'l
 Lugar.hasMany(Partido, { foreignKey: 'id_lugar', sourceKey: 'id' });
 Partido.belongsTo(Lugar, { foreignKey: 'id_lugar', targetKey: 'id', as: 'lugar', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
-Equipo.hasMany(Partido, { foreignKey: 'id_equipo', sourceKey: 'id' });
-Partido.belongsTo(Equipo, { foreignKey: 'id_equipo', targetKey: 'id', as: 'equipo', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+Equipo.hasMany(Partido, { foreignKey: 'id_equipo_local', sourceKey: 'id', as: 'partidosLocal' });
+Partido.belongsTo(Equipo, { foreignKey: 'id_equipo_local', targetKey: 'id', as: 'equipoLocal', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+
+Equipo.hasMany(Partido, { foreignKey: 'id_equipo_visitante', sourceKey: 'id', as: 'partidosVisitante' });
+Partido.belongsTo(Equipo, { foreignKey: 'id_equipo_visitante', targetKey: 'id', as: 'equipoVisitante', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
 Partido.hasMany(Sancion, { foreignKey: 'id_partido', sourceKey: 'id', onDelete: 'CASCADE', as: 'sanciones' });
 Sancion.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido', onDelete: 'CASCADE', onUpdate: 'CASCADE' });

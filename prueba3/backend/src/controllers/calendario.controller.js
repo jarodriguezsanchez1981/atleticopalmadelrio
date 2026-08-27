@@ -80,7 +80,8 @@ async function eventos(req, res, next) {
       }
       const includesPartido = [
         ...includesPlantilla,
-        { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
         { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
       ];
       promesas.push(Partido.findAll({ where: wherePartido, include: includesPartido }));
@@ -110,26 +111,17 @@ async function eventos(req, res, next) {
     const PALMA_ID = 73;
 
     const eventosPartido = partidos.map((p) => {
-      const nombreCat = p.plantilla?.categoria?.nombre ?? '';
-
       // Buscar jornada correspondiente a este partido
       const jornadaMatch = jornadas.find(j =>
         j.id_plantilla === p.id_plantilla &&
         new Date(j.fecha).toISOString().split('T')[0] === new Date(p.fecha).toISOString().split('T')[0]
       );
 
-      // es_local desde la perspectiva de PALMA DEL RIO
-      const esLocal = jornadaMatch ? jornadaMatch.id_equipo_local === PALMA_ID : p.es_local === 1;
+      // PALMA es local cuando su id coincide con el equipo local del partido
+      const esLocal = (p.equipoLocal?.id ?? p.id_equipo_local) === PALMA_ID;
 
-      // Título: Local vs Visitante siempre desde perspectiva del partido
-      let nombreLocal, nombreVisitante;
-      if (jornadaMatch) {
-        nombreLocal = jornadaMatch.equipoLocal?.nombre ?? '';
-        nombreVisitante = jornadaMatch.equipoVisitante?.nombre ?? '';
-      } else {
-        nombreLocal = esLocal ? 'PALMA DEL RIO ATLETICO C.F.' : (p.equipo?.nombre ?? '');
-        nombreVisitante = esLocal ? (p.equipo?.nombre ?? '') : 'PALMA DEL RIO ATLETICO C.F.';
-      }
+      const nombreLocal = p.equipoLocal?.nombre ?? '';
+      const nombreVisitante = p.equipoVisitante?.nombre ?? '';
       const titulo = `${nombreLocal} vs ${nombreVisitante}`;
 
       return {
@@ -139,15 +131,13 @@ async function eventos(req, res, next) {
         inicio: p.fecha,
         lugar: p.lugar?.nombre ?? null,
         id_lugar: p.id_lugar,
-        id_equipo: p.id_equipo,
         es_local: esLocal,
-        equipo: p.equipo,
-        equipoLocal: jornadaMatch?.equipoLocal ?? (esLocal ? p.equipo : null),
-        equipoVisitante: jornadaMatch?.equipoVisitante ?? (!esLocal ? p.equipo : null),
+        equipoLocal: p.equipoLocal,
+        equipoVisitante: p.equipoVisitante,
         incidencias: p.incidencias,
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
-        resultado: p.Resultados?.[0]?.resultado || null,
+        resultado: p.resultado || p.Resultados?.[0]?.resultado || null,
         jornada: jornadaMatch ? jornadaMatch.jornada : null
       };
     });

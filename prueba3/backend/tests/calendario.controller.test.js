@@ -45,9 +45,11 @@ describe('Calendario · calendario.controller', () => {
     fecha: '2026-01-02',
     incidencias: null,
     id_lugar: 2,
-    id_equipo: 5,
-    es_local: true,
-    equipo: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' },
+    id_equipo_local: 73,
+    id_equipo_visitante: 5,
+    resultado: '2-1',
+    equipoLocal: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.', escudo: null, localidad: 'Palma' },
+    equipoVisitante: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' },
     lugar: { id: 2, nombre: 'Municipal' },
     plantilla: {
       id: 10,
@@ -93,7 +95,13 @@ describe('Calendario · calendario.controller', () => {
   });
 
   it('invierte el título si el partido es visitante', async () => {
-    const partidoVisitante = { ...partido, es_local: false, equipo: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' } };
+    const partidoVisitante = {
+      ...partido,
+      id_equipo_local: 5,
+      id_equipo_visitante: 73,
+      equipoLocal: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' },
+      equipoVisitante: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.', escudo: null, localidad: 'Palma' }
+    };
     Jornada.findAll.mockResolvedValue([mockJornada({
       id_plantilla: 10, fecha: '2026-01-02', jornada: 1,
       id_equipo_local: 5, id_equipo_visitante: 73,

@@ -52,7 +52,7 @@ const golesLocal = computed(() => {
   if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
   const partes = e.resultado.split('-');
   if (partes.length !== 2) return '—';
-  return e.es_local ? partes[0].trim() : partes[1].trim();
+  return partes[0].trim();
 });
 
 const golesVisitante = computed(() => {
@@ -60,44 +60,37 @@ const golesVisitante = computed(() => {
   if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
   const partes = e.resultado.split('-');
   if (partes.length !== 2) return '—';
-  return e.es_local ? partes[1].trim() : partes[0].trim();
+  return partes[1].trim();
 });
 
 const nombreLocal = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '';
-  if (e.equipoLocal?.nombre) return e.equipoLocal.nombre;
-  return e.es_local ? 'PALMA DEL RIO ATLETICO C.F.' : (e.equipo?.nombre || '');
+  return e.equipoLocal?.nombre || '';
 });
 
 const nombreVisitante = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '';
-  if (e.equipoVisitante?.nombre) return e.equipoVisitante.nombre;
-  return e.es_local ? (e.equipo?.nombre || '') : 'PALMA DEL RIO ATLETICO C.F.';
+  return e.equipoVisitante?.nombre || '';
 });
 
 const escudoLocal = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  if (e.equipoLocal?.escudo) return e.equipoLocal.escudo;
-  return e.es_local ? '/escudo.png' : (e.equipo?.escudo || '/escudo.png');
+  return e.equipoLocal?.escudo || '/escudo.png';
 });
 
 const escudoVisitante = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  if (e.equipoVisitante?.escudo) return e.equipoVisitante.escudo;
-  return e.es_local ? (e.equipo?.escudo || '/escudo.png') : '/escudo.png';
+  return e.equipoVisitante?.escudo || '/escudo.png';
 });
 
 const lugarPartido = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '—';
-  if (!e.es_local) {
-    if (e.equipoLocal?.localidad) return e.equipoLocal.localidad;
-    if (e.equipo?.localidad) return e.equipo.localidad;
-  }
+  if (!e.es_local) return e.equipoLocal?.localidad || '—';
   return e.lugar || '—';
 });
 const generandoPdf = ref(false);
@@ -448,29 +441,15 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
 
     const partidos = await partidosService.listar({ desde: desdeISO, hasta: hastaISO });
 
-    // Buscar jornadas del rango para resolver local/visitante correctamente
-    let jornadasMap = new Map();
-    try {
-      const calendario = await calendarioService.eventos({ desde: desdeISO, hasta: hastaISO, tipo: 'partido' });
-      for (const ev of calendario) {
-        if (ev.id) jornadasMap.set(ev.id, ev);
-      }
-    } catch { /* sin jornadas */ }
-
     const mapeados = partidos
-      .filter((p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || 0) === tipoFutbol)
-      .map((p) => {
-        const evCal = jornadasMap.get(`partido-${p.id}`);
-        return {
-          inicio: p.fecha,
-          es_local: evCal?.es_local ?? !!p.es_local,
-          equipo: p.equipo || null,
-          equipoLocal: evCal?.equipoLocal || (p.es_local ? p.equipo : null),
-          equipoVisitante: evCal?.equipoVisitante || (!p.es_local ? p.equipo : null),
-          lugar: p.lugar || null,
-          categoria: p.plantilla?.categoria || p.categoria || null
-        };
-      });
+      .filter((p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || p.plantilla?.categoria?.id_tipofutbol || 0) === tipoFutbol)
+      .map((p) => ({
+        inicio: p.fecha,
+        equipoLocal: p.equipoLocal || null,
+        equipoVisitante: p.equipoVisitante || null,
+        lugar: p.lugar || null,
+        categoria: p.plantilla?.categoria || p.categoria || null
+      }));
     await generarPdfPartidos(mapeados, fechaTitulo, tipoFutbol);
   } catch (err) {
     toast.add({

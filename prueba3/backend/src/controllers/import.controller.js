@@ -206,7 +206,8 @@ async function importarJornadas(filas, res) {
       // Crear partido correspondiente
       await models.Partido.create({
         id_plantilla: datos.id_plantilla, fecha: datos.fecha, id_lugar: null,
-        id_equipo: datos.id_equipo_local, es_local: true, id_usuario: 1, incidencias: null
+        id_equipo_local: datos.id_equipo_local, id_equipo_visitante: datos.id_equipo_visitante,
+        id_usuario: 1, incidencias: null
       });
 
       insertados++;

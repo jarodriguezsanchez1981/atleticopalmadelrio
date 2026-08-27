@@ -25,7 +25,7 @@ describe('Sección Partidos · partido.controller', () => {
   }
 
   it('listar devuelve los partidos sin filtros', async () => {
-    const partidos = [{ id: 1, id_equipo: 5 }];
+    const partidos = [{ id: 1, id_equipo_local: 5, id_equipo_visitante: 6 }];
     Partido.findAll.mockResolvedValue(partidos);
     const { promesa, res } = llamar(ctrl.listar);
 
@@ -34,13 +34,13 @@ describe('Sección Partidos · partido.controller', () => {
     expect(Partido.findAll).toHaveBeenCalledWith(
       expect.objectContaining({ order: [['fecha', 'ASC']], include: expect.any(Array) })
     );
-    expect(res._json[0]).toEqual({ id: 1, id_equipo: 5 });
+    expect(res._json[0]).toEqual({ id: 1, id_equipo_local: 5, id_equipo_visitante: 6 });
   });
 
-  it('listar filtra por plantilla, lugar y equipo', async () => {
+  it('listar filtra por plantilla, lugar y equipos', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa, res } = llamar(ctrl.listar, {
-      query: { id_plantilla: '2', id_lugar: '3', id_equipo: '5' }
+      query: { id_plantilla: '2', id_lugar: '3', id_equipo_local: '5', id_equipo_visitante: '6' }
     });
 
     await promesa;
@@ -50,7 +50,8 @@ describe('Sección Partidos · partido.controller', () => {
         where: {
           id_plantilla: '2',
           id_lugar: '3',
-          id_equipo: '5'
+          id_equipo_local: '5',
+          id_equipo_visitante: '6'
         }
       })
     );
@@ -81,14 +82,14 @@ describe('Sección Partidos · partido.controller', () => {
   });
 
   it('obtener devuelve el partido por id', async () => {
-    const partido = { id: 3, id_equipo: 5 };
+    const partido = { id: 3, id_equipo_local: 5, id_equipo_visitante: 6 };
     Partido.findByPk.mockResolvedValue(partido);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
 
     await promesa;
 
     expect(Partido.findByPk).toHaveBeenCalledWith('3', expect.objectContaining({ include: expect.any(Array) }));
-    expect(res._json).toEqual({ id: 3, id_equipo: 5 });
+    expect(res._json).toEqual(expect.objectContaining({ id: 3, id_equipo_local: 5, id_equipo_visitante: 6 }));
   });
 
   it('crear valida campos obligatorios', async () => {
@@ -97,26 +98,38 @@ describe('Sección Partidos · partido.controller', () => {
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Plantilla, fecha y equipo son obligatorios.');
+    expect(res._json.message).toBe('Plantilla, fecha, equipo local y equipo visitante son obligatorios.');
     expect(Partido.create).not.toHaveBeenCalled();
   });
 
-  it('crear permite local sin lugar (id_lugar opcional)', async () => {
+  it('crear rechaza si local y visitante son el mismo equipo', async () => {
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_plantilla: 1, fecha: '2026-01-01', id_equipo_local: 6, id_equipo_visitante: 6 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El equipo local y el visitante no pueden ser el mismo.');
+    expect(Partido.create).not.toHaveBeenCalled();
+  });
+
+  it('crear permite partido sin lugar (id_lugar opcional)', async () => {
     Partido.count.mockResolvedValue(0);
     Partido.findAll.mockResolvedValue([]);
-    const creado = { id: 5, id_equipo: 6 };
-    const completo = { id: 5, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
+    const creado = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7 };
+    const completo = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.create.mockResolvedValue(creado);
     Partido.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01', id_equipo: 6, es_local: 1 }
+      body: { id_plantilla: 1, fecha: '2026-01-01', id_equipo_local: 6, id_equipo_visitante: 7 }
     });
 
     await promesa;
 
     expect(Partido.create).toHaveBeenCalledWith(
-      expect.objectContaining({ id_lugar: null, es_local: 1 })
+      expect.objectContaining({ id_lugar: null })
     );
     expect(res._status).toBe(201);
   });
@@ -125,7 +138,7 @@ describe('Sección Partidos · partido.controller', () => {
     Partido.count.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
     });
 
     await promesa;
@@ -139,7 +152,7 @@ describe('Sección Partidos · partido.controller', () => {
     Partido.count.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 2, fecha: '2026-01-01', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 2, fecha: '2026-01-01', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
     });
 
     await promesa;
@@ -152,7 +165,7 @@ describe('Sección Partidos · partido.controller', () => {
     Partido.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-03T10:00:00', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 1, fecha: '2026-01-03T10:00:00', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
     });
 
     await promesa;
@@ -165,13 +178,13 @@ describe('Sección Partidos · partido.controller', () => {
   it('crear permite si pasaron más de 72 horas', async () => {
     Partido.count.mockResolvedValue(0);
     Partido.findAll.mockResolvedValue([]);
-    const creado = { id: 5, id_equipo: 6 };
-    const completo = { id: 5, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
+    const creado = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7 };
+    const completo = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.create.mockResolvedValue(creado);
     Partido.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-05T10:00:00', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 1, fecha: '2026-01-05T10:00:00', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
     });
 
     await promesa;
@@ -179,25 +192,32 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._status).toBe(201);
   });
 
-  it('crear crea el partido como local por defecto y devuelve 201', async () => {
+  it('crear crea el partido con equipos y devuelve 201', async () => {
     Partido.count.mockResolvedValue(0);
     Partido.findAll.mockResolvedValue([]);
-    const creado = { id: 5, id_equipo: 6 };
-    const completo = { id: 5, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
+    const creado = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7 };
+    const completo = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.create.mockResolvedValue(creado);
     Partido.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
     });
 
     await promesa;
 
     expect(Partido.create).toHaveBeenCalledWith({
-      id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6, es_local: 1, id_usuario: 7, incidencias: undefined
+      id_plantilla: 1,
+      fecha: '2026-01-01T10:00:00',
+      id_lugar: 2,
+      id_equipo_local: 6,
+      id_equipo_visitante: 7,
+      id_usuario: 7,
+      incidencias: null,
+      resultado: null
     });
     expect(res._status).toBe(201);
-    expect(res._json).toEqual({ id: 5, id_equipo: 6, plantilla: null, lugar: null, equipo: null });
+    expect(res._json).toEqual({ id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
   });
 
   it('crear rechaza si el lugar está ocupado a esa hora', async () => {
@@ -208,27 +228,47 @@ describe('Sección Partidos · partido.controller', () => {
     ]);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo_local: 73, id_equipo_visitante: 7 }
     });
 
     await promesa;
 
     expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Ese lugar ya está ocupado a esa hora por otro partido.');
+    expect(res._json.message).toBe('En esa fecha y hora hay otro partido planificado.');
     expect(Partido.create).not.toHaveBeenCalled();
+  });
+
+  it('crear no comprueba lugar cuando PALMA es visitante', async () => {
+    Partido.count.mockResolvedValue(0);
+    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempopartido: 90 } });
+    Partido.findAll.mockResolvedValue([
+      { id: 30, fecha: new Date('2026-01-01T09:00:00'), plantilla: { categoria: { id: 3, tiempopartido: 90 } } }
+    ]);
+    const creado = { id: 5, id_equipo_local: 6, id_equipo_visitante: 73 };
+    const completo = { id: 5, id_equipo_local: 6, id_equipo_visitante: 73, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.create.mockResolvedValue(creado);
+    Partido.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 73 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(201);
   });
 
   it('crear permite si el lugar está libre aunque haya otro en otro lugar', async () => {
     Partido.count.mockResolvedValue(0);
     Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempopartido: 90 } });
     Partido.findAll.mockResolvedValue([]);
-    const creado = { id: 6, id_equipo: 6 };
-    const completo = { id: 6, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
+    const creado = { id: 6, id_equipo_local: 73, id_equipo_visitante: 7 };
+    const completo = { id: 6, id_equipo_local: 73, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.create.mockResolvedValue(creado);
     Partido.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo_local: 73, id_equipo_visitante: 7 }
     });
 
     await promesa;
@@ -242,13 +282,13 @@ describe('Sección Partidos · partido.controller', () => {
     Partido.findAll.mockResolvedValue([
       { id: 30, fecha: new Date('2026-01-01T08:00:00'), plantilla: { categoria: { id: 3, tiempopartido: 60 } } }
     ]);
-    const creado = { id: 6, id_equipo: 6 };
-    const completo = { id: 6, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
+    const creado = { id: 6, id_equipo_local: 73, id_equipo_visitante: 7 };
+    const completo = { id: 6, id_equipo_local: 73, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.create.mockResolvedValue(creado);
     Partido.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6 }
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo_local: 73, id_equipo_visitante: 7 }
     });
 
     await promesa;
@@ -256,62 +296,24 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._status).toBe(201);
   });
 
-  it('crear como visitante deja el lugar en null', async () => {
+  it('crear guarda el resultado en el partido', async () => {
     Partido.count.mockResolvedValue(0);
-    const creado = { id: 7, id_equipo: 6 };
-    const completo = { id: 7, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
+    Partido.findAll.mockResolvedValue([]);
+    const creado = { id: 10, id_equipo_local: 6, id_equipo_visitante: 7 };
+    const completo = { id: 10, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.create.mockResolvedValue(creado);
     Partido.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01', id_equipo: 6, es_local: 0 }
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7, resultado: '2-1' }
     });
 
     await promesa;
 
     expect(Partido.create).toHaveBeenCalledWith(
-      expect.objectContaining({ id_lugar: null, es_local: 0 })
+      expect.objectContaining({ resultado: '2-1' })
     );
     expect(res._status).toBe(201);
-  });
-
-  it('crear guarda el resultado en la tabla resultados', async () => {
-    Partido.count.mockResolvedValue(0);
-    Partido.findAll.mockResolvedValue([]);
-    const creado = { id: 10, id_equipo: 6 };
-    const completo = { id: 10, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
-    Partido.create.mockResolvedValue(creado);
-    Partido.findByPk.mockResolvedValue(completo);
-    const { promesa, res } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6, resultado: '2-1' }
-    });
-
-    await promesa;
-
-    expect(Resultado.destroy).toHaveBeenCalledWith({ where: { id_partido: 10 } });
-    expect(Resultado.create).toHaveBeenCalledWith({
-      id_partido: 10, resultado: '2-1', incidencias: null
-    });
-    expect(res._status).toBe(201);
-  });
-
-  it('crear sin resultado no crea filas en resultados', async () => {
-    Partido.count.mockResolvedValue(0);
-    Partido.findAll.mockResolvedValue([]);
-    const creado = { id: 11, id_equipo: 6 };
-    const completo = { id: 11, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
-    Partido.create.mockResolvedValue(creado);
-    Partido.findByPk.mockResolvedValue(completo);
-    const { promesa } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo: 6 }
-    });
-
-    await promesa;
-
-    expect(Resultado.destroy).toHaveBeenCalledWith({ where: { id_partido: 11 } });
-    expect(Resultado.create).not.toHaveBeenCalled();
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -324,53 +326,21 @@ describe('Sección Partidos · partido.controller', () => {
   });
 
   it('actualizar guarda los cambios', async () => {
-    const partido = { id: 1, id_equipo: 5, save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, id_equipo: 6, plantilla: null, lugar: null, equipo: null };
+    const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, id_equipo_local: 8, id_equipo_visitante: 6, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
-    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { id_equipo: 6 } });
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { id_equipo_local: 8 } });
 
     await promesa;
 
-    expect(partido.id_equipo).toBe(6);
+    expect(partido.id_equipo_local).toBe(8);
     expect(partido.save).toHaveBeenCalled();
-    expect(res._json).toEqual({ id: 1, id_equipo: 6, plantilla: null, lugar: null, equipo: null });
+    expect(res._json).toEqual({ id: 1, id_equipo_local: 8, id_equipo_visitante: 6, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
   });
 
-  it('actualizar guarda el resultado en la tabla resultados', async () => {
-    const partido = { id: 1, id_equipo: 5, save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, id_equipo: 5, plantilla: null, lugar: null, equipo: null };
-    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
-    const { promesa } = llamar(ctrl.actualizar, {
-      params: { id: '1' },
-      body: { resultado: '3-0', resultado_incidencias: 'Sin novedad' }
-    });
-
-    await promesa;
-
-    expect(Resultado.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
-    expect(Resultado.create).toHaveBeenCalledWith({
-      id_partido: 1, resultado: '3-0', incidencias: 'Sin novedad'
-    });
-  });
-
-  it('actualizar con resultado vacío borra el resultado existente', async () => {
-    const partido = { id: 1, id_equipo: 5, save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, id_equipo: 5, plantilla: null, lugar: null, equipo: null };
-    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
-    const { promesa } = llamar(ctrl.actualizar, {
-      params: { id: '1' },
-      body: { resultado: '' }
-    });
-
-    await promesa;
-
-    expect(Resultado.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
-    expect(Resultado.create).not.toHaveBeenCalled();
-  });
-
-  it('serialize expone resultado_valor y resultado_incidencias desde resultados', async () => {
+  it('serialize expone resultado_incidencias desde resultados', async () => {
     const partido = {
-      id: 1, id_equipo: 5,
+      id: 1, id_equipo_local: 5, id_equipo_visitante: 6, resultado: '2-1',
       Resultados: [{ id: 7, resultado: '2-1', incidencias: null }]
     };
     Partido.findAll.mockResolvedValue([partido]);
@@ -378,12 +348,12 @@ describe('Sección Partidos · partido.controller', () => {
 
     await promesa;
 
-    expect(res._json[0].resultado_valor).toBe('2-1');
+    expect(res._json[0].resultado).toBe('2-1');
     expect(res._json[0].resultado_incidencias).toBeNull();
   });
 
   it('actualizar rechaza si al cambiar de fecha el lugar está ocupado', async () => {
-    const partido = { id: 1, id_equipo: 5, es_local: 1, id_lugar: 2, id_plantilla: 1, fecha: '2026-01-01T09:00:00', save: vi.fn().mockResolvedValue() };
+    const partido = { id: 1, id_equipo_local: 73, id_equipo_visitante: 6, id_lugar: 2, id_plantilla: 1, fecha: '2026-01-01T09:00:00', save: vi.fn().mockResolvedValue() };
     Partido.findByPk.mockResolvedValue(partido);
     Partido.count.mockResolvedValue(0);
     Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempopartido: 90 } });
@@ -398,13 +368,13 @@ describe('Sección Partidos · partido.controller', () => {
     await promesa;
 
     expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Ese lugar ya está ocupado a esa hora por otro partido.');
+    expect(res._json.message).toBe('En esa fecha y hora hay otro partido planificado.');
     expect(partido.save).not.toHaveBeenCalled();
   });
 
   it('actualizar permite mover la fecha si el lugar queda libre', async () => {
-    const partido = { id: 1, id_equipo: 5, es_local: 1, id_lugar: 2, id_plantilla: 1, fecha: '2026-01-01T09:00:00', save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, id_equipo: 5, es_local: 1, id_lugar: 2, plantilla: null, lugar: null, equipo: null };
+    const partido = { id: 1, id_equipo_local: 73, id_equipo_visitante: 6, id_lugar: 2, id_plantilla: 1, fecha: '2026-01-01T09:00:00', save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, id_equipo_local: 73, id_equipo_visitante: 6, id_lugar: 2, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
     Partido.count.mockResolvedValue(0);
     Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempopartido: 90 } });
