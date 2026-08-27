@@ -47,10 +47,14 @@ describe('Sección Jugadores · jugador.controller', () => {
     expect(res._json).toEqual({ id: 3, nombre: 'Ana' });
   });
 
-  it('obtener incluye las asistencias del jugador', async () => {
+  it('obtener incluye plantillas con partidos del jugador', async () => {
     const jugador = {
       id: 3, nombre: 'Ana',
-      asistencias: [{ id: 2, entrenamiento: { fecha: '2026-02-01' }, asistencia: true }]
+      plantillas: [{
+        id: 10, categoria: { nombre: 'Cadete A' }, temporada: { nombre: '2024/25' }, division: { nombre: 'División 1' },
+        PlantillaJugador: { dorsal: 10, talla: 'M' },
+        partidos: [{ id: 100, fecha: '2026-01-15', equipoLocal: { nombre: 'Equipo A' }, equipoVisitante: { nombre: 'Equipo B' } }]
+      }]
     };
     Jugador.findOne.mockResolvedValue(jugador);
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '3' } });
@@ -59,21 +63,38 @@ describe('Sección Jugadores · jugador.controller', () => {
 
     const llamada = Jugador.findOne.mock.calls[0][0];
     const alias = llamada.include.map((i) => i.as);
-    expect(alias).toEqual(expect.arrayContaining(['asistencias']));
-    expect(res._json.asistencias).toHaveLength(1);
+    expect(alias).toEqual(expect.arrayContaining(['plantillas']));
+    expect(res._json.plantillas).toHaveLength(1);
+    expect(res._json.plantillas[0].partidos).toHaveLength(1);
   });
 
-  it('crear valida campos obligatorios', async () => {
+  it('crear valida solo nombre y apellidos obligatorios', async () => {
     const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Luis' } });
 
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Nombre, apellidos y DNI son obligatorios.');
+    expect(res._json.message).toBe('Nombre y apellidos son obligatorios.');
     expect(Jugador.create).not.toHaveBeenCalled();
   });
 
-  it('crear rechaza un DNI no válido', async () => {
+  it('crear permite DNI vacío', async () => {
+    const creado = { id: 5, nombre: 'Luis', apellidos: 'Ruiz', dni: null };
+    Jugador.findOne.mockResolvedValue(null);
+    Jugador.create.mockResolvedValue(creado);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Luis', apellidos: 'Ruiz' }
+    });
+
+    await promesa;
+
+    expect(Jugador.create).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: 'Luis', apellidos: 'Ruiz', dni: null })
+    );
+    expect(res._status).toBe(201);
+  });
+
+  it('crear rechaza un DNI no válido si se proporciona', async () => {
     const { promesa, res } = llamar(ctrl.crear, {
       body: { nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678A' }
     });

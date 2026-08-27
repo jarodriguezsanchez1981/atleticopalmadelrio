@@ -501,7 +501,7 @@ async function guardar() {
           <label class="text-sm font-medium text-ink-secondary">Equipo <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_equipo" :options="opcionesEquipo" optionLabel="label" optionValue="value"
                   class="w-full" placeholder="Selecciona un equipo"
-                  showClear :loading="cargandoCatalogo">
+                  showClear filter :loading="cargandoCatalogo">
             <template #option="{ option }">
               <div class="flex items-center gap-2">
                 <img v-if="option.escudo" :src="option.escudo" alt="" class="w-6 h-6 object-contain" />
@@ -528,12 +528,18 @@ async function guardar() {
         </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Local / Visitante</label>
-          <SelectButton v-model="form.es_local" :options="opcionesLocalVisitante" optionLabel="label" optionValue="value"
-                        class="w-full" allowEmpty>
+<SelectButton v-model="form.es_local" :options="opcionesLocalVisitante" optionLabel="label" optionValue="value"
+                      class="w-full" allowEmpty>
             <template #option="{ option }">
               <div class="flex items-center gap-2">
                 <i :class="option.icon"></i>
                 <span>{{ option.label }}</span>
+              </div>
+            </template>
+            <template #value="{ value }">
+              <div v-if="value != null" class="flex items-center gap-2">
+                <i :class="opcionesLocalVisitante.find(o => o.value === value)?.icon"></i>
+                <span>{{ opcionesLocalVisitante.find(o => o.value === value)?.label }}</span>
               </div>
             </template>
           </SelectButton>
