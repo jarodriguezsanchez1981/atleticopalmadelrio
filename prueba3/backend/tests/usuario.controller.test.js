@@ -51,7 +51,7 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('Todos los campos son obligatorios.');
+    expect(res._json.message).toBe('Faltan los campos obligatorios: contraseña, nombre, apellidos.');
   });
 
   it('crear permite crear un usuario sin secciones', async () => {
@@ -114,6 +114,20 @@ describe('Sección Usuarios · usuario.controller', () => {
 
     expect(Usuario.scope).toHaveBeenCalledWith('withPassword');
     expect(res._json).toEqual({ id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', secciones: [], ids_secciones: [] });
+  });
+
+  it('actualizar permite cambiar el nombre de login (usuario)', async () => {
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'fpalacios', nombre: 'A', apellidos: 'B', secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { usuario: 'fpalacios' }
+    });
+
+    await promesa;
+
+    expect(usuario.usuario).toBe('fpalacios');
+    expect(usuario.save).toHaveBeenCalled();
   });
 
   it('actualizar valida la contraseña si se cambia', async () => {

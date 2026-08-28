@@ -29,7 +29,7 @@ const columns = computed(() => [
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
   { field: 'ids_secciones', header: 'Secciones visibles', type: 'multiselect', options: opcionesSeccion.value },
-  { field: 'password', header: 'Contraseña', type: 'password' }
+  { field: 'password', header: 'Contraseña', type: 'password', requiredOnCreate: true }
 ]);
 
 const emptyItem = {

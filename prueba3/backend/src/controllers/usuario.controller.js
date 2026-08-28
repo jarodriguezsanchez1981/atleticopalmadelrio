@@ -43,8 +43,15 @@ async function crear(req, res, next) {
     const { usuario, password, nombre, apellidos } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body) || [];
 
-    if (!usuario || !password || !nombre || !apellidos) {
-      return res.status(400).json({ message: 'Todos los campos son obligatorios.' });
+    const faltan = [];
+    if (!usuario) faltan.push('usuario');
+    if (!password) faltan.push('contraseña');
+    if (!nombre) faltan.push('nombre');
+    if (!apellidos) faltan.push('apellidos');
+    if (faltan.length) {
+      return res.status(400).json({
+        message: `Faltan los campos obligatorios: ${faltan.join(', ')}.`
+      });
     }
     if (!isPasswordValid(password)) {
       return res.status(400).json({
@@ -66,7 +73,7 @@ async function actualizar(req, res, next) {
     const usuario = await Usuario.scope('withPassword').findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado.' });
 
-    const { nombre, apellidos, activo, password } = req.body;
+    const { usuario: nuevoUsuario, nombre, apellidos, activo, password } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body);
 
     if (password) {
@@ -78,6 +85,7 @@ async function actualizar(req, res, next) {
       usuario.password = await hashPassword(password);
     }
 
+    if (nuevoUsuario !== undefined) usuario.usuario = nuevoUsuario;
     if (nombre !== undefined) usuario.nombre = nombre;
     if (apellidos !== undefined) usuario.apellidos = apellidos;
     if (activo !== undefined) usuario.activo = activo;

@@ -335,9 +335,14 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'delegados', 'titulo', 'titulos', 'secciones', 'usuario', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'delegados', 'titulo', 'titulos', 'secciones', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
     delete payload[k];
   });
+  // `usuario` solo se elimina cuando es la relación anidada (objeto);
+  // en la tabla de usuarios es el nombre de login (string real y editable).
+  if (payload.usuario && typeof payload.usuario === 'object') {
+    delete payload.usuario;
+  }
   for (const col of props.columns) {
     if (col.type === 'date' && payload[col.field] instanceof Date) {
       payload[col.field] = payload[col.field].toISOString();
@@ -523,6 +528,17 @@ function valorDetalle(col, data) {
 
 async function guardar() {
   try {
+    const faltan = props.columns
+      .filter((c) => !c.soloTabla && (c.required || (c.requiredOnCreate && !editando.value)))
+      .filter((c) => {
+        const v = form[c.field];
+        return v == null || v === '' || (Array.isArray(v) && v.length === 0);
+      })
+      .map((c) => c.header);
+    if (faltan.length) {
+      toast.add({ severity: 'warn', summary: 'Faltan campos obligatorios', detail: faltan.join(', '), life: 5000 });
+      return;
+    }
     for (const col of props.columns) {
       if (typeof col.validate === 'function') {
         const err = col.validate(form[col.field]);
