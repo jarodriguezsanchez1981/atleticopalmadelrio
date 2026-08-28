@@ -6,6 +6,7 @@ require('./config/env');
 
 const apiRoutes = require('./routes');
 const errorHandler = require('./middlewares/error.middleware');
+const auditMiddleware = require('./middlewares/audit.middleware');
 
 const app = express();
 
@@ -35,6 +36,9 @@ app.use('/api', globalLimiter);
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (req, res) => res.json({ status: 'ok', club: 'Atlético Palma del Río' }));
+
+// Auditoría automática: intercepta POST/PUT/DELETE y registra cambios
+app.use('/api', auditMiddleware);
 
 app.use('/api', apiRoutes);
 

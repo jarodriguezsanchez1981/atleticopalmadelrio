@@ -23,6 +23,7 @@ const Plantilla = require('./Plantilla');
 const PlantillaJugador = require('./PlantillaJugador');
 const PlantillaEntrenador = require('./PlantillaEntrenador');
 const PlantillaDelegado = require('./PlantillaDelegado');
+const Cambio = require('./Cambio');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -173,6 +174,10 @@ Delegado.belongsToMany(Plantilla, {
   timestamps: false
 });
 
+// ---- Cambios (auditoría) ----
+Cambio.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+Usuario.hasMany(Cambio, { foreignKey: 'id_usuario', sourceKey: 'id', as: 'cambios' });
+
 module.exports = {
   sequelize,
   Usuario,
@@ -197,5 +202,6 @@ module.exports = {
   Plantilla,
   PlantillaJugador,
   PlantillaEntrenador,
-  PlantillaDelegado
+  PlantillaDelegado,
+  Cambio
 };

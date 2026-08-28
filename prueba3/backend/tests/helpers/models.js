@@ -65,7 +65,8 @@ export function createModelsMock() {
     PlantillaEntrenador: createModelMock(),
     PlantillaDelegado: createModelMock(),
     Jornada: createModelMock(),
-    Sancion: createModelMock()
+    Sancion: createModelMock(),
+    Cambio: createModelMock()
   };
   return models;
 }
@@ -102,6 +103,7 @@ export const PlantillaEntrenador = models.PlantillaEntrenador;
 export const PlantillaDelegado = models.PlantillaDelegado;
 export const Jornada = models.Jornada;
 export const Sancion = models.Sancion;
+export const Cambio = models.Cambio;
 
 /**
  * Mocks de las utilidades de password y JWT que cargan los controladores

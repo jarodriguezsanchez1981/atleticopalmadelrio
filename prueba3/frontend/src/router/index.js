@@ -123,6 +123,12 @@ const routes = [
         name: 'sanciones',
         component: () => import('../views/sanciones/Sanciones.vue'),
         meta: { seccion: 'sanciones' }
+      },
+      {
+        path: 'cambios',
+        name: 'cambios',
+        component: () => import('../views/cambios/Cambios.vue'),
+        meta: { seccion: 'cambios' }
       }
     ]
   },

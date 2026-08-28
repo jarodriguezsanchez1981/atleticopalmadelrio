@@ -43,6 +43,11 @@ export const plantillasService = {
   crearTemporada: (payload) => api.post('/plantillas/temporada', payload).then(r => r.data)
 };
 
+export const cambiosService = {
+  listar: (params = {}) => api.get('/cambios', { params }).then(r => r.data),
+  obtener: (id) => api.get(`/cambios/${id}`).then(r => r.data)
+};
+
 export const authService = {
   login: (usuario, password) => api.post('/auth/login', { usuario, password }).then(r => r.data),
   me: () => api.get('/auth/me').then(r => r.data)

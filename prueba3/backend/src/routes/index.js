@@ -25,6 +25,7 @@ const categoriaCalendarioRoutes = require('./jornada.routes');
 const sancionRoutes = require('./sancion.routes');
 const plantillaRoutes = require('./plantilla.routes');
 const importRoutes = require('./import.routes');
+const cambioRoutes = require('./cambio.routes');
 
 const router = Router();
 
@@ -53,5 +54,6 @@ router.use('/sanciones', sancionRoutes);
 router.use('/plantillas', plantillaRoutes);
 router.use('/import', importRoutes);
 router.use('/util', utilRoutes);
+router.use('/cambios', cambioRoutes);
 
 module.exports = router;
