@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nombre        VARCHAR(100) NOT NULL,
   apellidos     VARCHAR(150) NOT NULL,
   activo        TINYINT(1) NOT NULL DEFAULT 1,
-  rol           ENUM('leer', 'editar') NOT NULL DEFAULT 'leer',
+  rol           ENUM('coordinador', 'entrenador') NOT NULL DEFAULT 'coordinador',
+  id_categoria  INT NULL,
+  visibilidad   ENUM('leer', 'editar') NOT NULL DEFAULT 'leer',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

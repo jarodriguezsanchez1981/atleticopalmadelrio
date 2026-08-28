@@ -483,6 +483,11 @@ async function abrirDetalle(item) {
 function valorDetalle(col, data) {
   if (!data) return '—';
 
+  if (typeof col.format === 'function') {
+    const v = col.format(data[col.field], data);
+    return v == null || v === '' ? '—' : v;
+  }
+
   if (col.field === 'id_categoria' && data.categoria) {
     return data.categoria.nombre;
   }
@@ -646,6 +651,7 @@ function exportarExcel() {
   const rows = items.value.map(item => {
     return columnas.value.map(col => {
       if (col.field === 'id') return item.id;
+      if (typeof col.format === 'function') return col.format(item[col.field], item) ?? '';
       if (col.type === 'select' && col.options) {
         const opts = typeof col.options === 'function' ? col.options(form) : col.options;
         const opt = opts?.find(o => o.value === item[col.field]);

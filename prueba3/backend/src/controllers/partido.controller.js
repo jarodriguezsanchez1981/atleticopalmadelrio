@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado } = require('../models');
+const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
@@ -49,7 +50,7 @@ async function listar(req, res, next) {
 
     const partidos = await Partido.findAll({
       where,
-      include: includesBase,
+      include: includesConCategoria(includesBase, categoriaDelUsuario(req)),
       order: [['fecha', 'ASC']]
     });
     res.json(partidos.map(serialize));

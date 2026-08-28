@@ -66,7 +66,7 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(Usuario.create).toHaveBeenCalledWith({
-      usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'leer'
+      usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null, visibilidad: 'leer'
     });
     expect(nuevo.setSecciones).toHaveBeenCalledWith([]);
     expect(res._status).toBe(201);
@@ -96,39 +96,96 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(Usuario.create).toHaveBeenCalledWith({
-      usuario: 'juan', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'leer'
+      usuario: 'juan', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null, visibilidad: 'leer'
     });
     expect(nuevo.setSecciones).toHaveBeenCalledWith([2]);
     expect(res._status).toBe(201);
     expect(res._json.password).toBeUndefined();
   });
 
-  it('crear usa el rol proporcionado o "leer" por defecto', async () => {
+  it('crear usa el rol proporcionado y guarda la categoría del entrenador', async () => {
     const nuevo = { id: 7, setSecciones: vi.fn().mockResolvedValue() };
-    const completo = { id: 7, usuario: 'lore', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'leer', secciones: [] };
+    const completo = { id: 7, usuario: 'lore', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'entrenador', id_categoria: 20, secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { usuario: 'lore', password: 'Clave123!', nombre: 'A', apellidos: 'B', rol: 'leer', ids_secciones: [] }
+      body: { usuario: 'lore', password: 'Clave123!', nombre: 'A', apellidos: 'B', rol: 'entrenador', id_categoria: 20, ids_secciones: [] }
     });
 
     await promesa;
 
     expect(res._status).toBe(201);
-    expect(Usuario.create).toHaveBeenCalledWith(expect.objectContaining({ rol: 'leer' }));
+    expect(Usuario.create).toHaveBeenCalledWith(expect.objectContaining({ rol: 'entrenador', id_categoria: 20 }));
   });
 
-  it('actualizar cambia el rol del usuario', async () => {
-    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
-    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', rol: 'leer', secciones: [] };
-    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
-    const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { rol: 'editar' }
+  it('crear rechaza rol "entrenador" sin categoría', async () => {
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { usuario: 'lore', password: 'Clave123!', nombre: 'A', apellidos: 'B', rol: 'entrenador', ids_secciones: [] }
     });
 
     await promesa;
 
-    expect(usuario.rol).toBe('editar');
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El rol "entrenador" requiere seleccionar una categoría.');
+    expect(Usuario.create).not.toHaveBeenCalled();
+  });
+
+  it('crear usa la visibilidad proporcionada', async () => {
+    const nuevo = { id: 8, setSecciones: vi.fn().mockResolvedValue() };
+    const completo = { id: 8, usuario: 'vis', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null, visibilidad: 'editar', secciones: [] };
+    Usuario.create.mockResolvedValue(nuevo);
+    Usuario.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { usuario: 'vis', password: 'Clave123!', nombre: 'A', apellidos: 'B', visibilidad: 'editar', ids_secciones: [] }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(201);
+    expect(Usuario.create).toHaveBeenCalledWith(expect.objectContaining({ visibilidad: 'editar' }));
+  });
+
+  it('actualizar cambia la visibilidad del usuario', async () => {
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null, visibilidad: 'editar', secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { visibilidad: 'editar' } });
+
+    await promesa;
+
+    expect(usuario.visibilidad).toBe('editar');
+    expect(usuario.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
+  });
+
+  it('actualizar cambia el rol y la categoría del usuario', async () => {
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', rol: 'entrenador', id_categoria: 20, secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { rol: 'entrenador', id_categoria: 20 }
+    });
+
+    await promesa;
+
+    expect(usuario.rol).toBe('entrenador');
+    expect(usuario.id_categoria).toBe(20);
+    expect(usuario.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
+  });
+
+  it('actualizar a "coordinador" limpia la categoría', async () => {
+    const usuario = { id: 1, rol: 'entrenador', id_categoria: 20, save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null, secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { rol: 'coordinador' }
+    });
+
+    await promesa;
+
+    expect(usuario.rol).toBe('coordinador');
+    expect(usuario.id_categoria).toBeNull();
     expect(usuario.save).toHaveBeenCalled();
     expect(res._status).toBe(200);
   });

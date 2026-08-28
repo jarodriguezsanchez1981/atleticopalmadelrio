@@ -14,7 +14,9 @@ function userPayload(user) {
     nombre: user.nombre,
     apellidos: user.apellidos,
     secciones,
-    rol: user.rol
+    rol: user.rol,
+    id_categoria: user.id_categoria || null,
+    visibilidad: user.visibilidad || 'leer'
   };
 }
 
@@ -44,7 +46,9 @@ async function login(req, res, next) {
       id: user.id,
       usuario: user.usuario,
       secciones: payload.secciones,
-      rol: payload.rol
+      rol: payload.rol,
+      id_categoria: payload.id_categoria,
+      visibilidad: payload.visibilidad
     });
 
     return res.json({

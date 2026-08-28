@@ -16,13 +16,13 @@ describe('Permisos · requireEditar', () => {
     return { res, nextLlamado };
   }
 
-  it('permite el paso al rol "editar"', () => {
-    const { nextLlamado } = ejecutar({ rol: 'editar' });
+  it('permite el paso con visibilidad "editar"', () => {
+    const { nextLlamado } = ejecutar({ visibilidad: 'editar' });
     expect(nextLlamado).toBe(true);
   });
 
-  it('bloquea al rol "leer" con 403', () => {
-    const { res, nextLlamado } = ejecutar({ rol: 'leer' });
+  it('bloquea con visibilidad "leer" (403)', () => {
+    const { res, nextLlamado } = ejecutar({ visibilidad: 'leer' });
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(403);
     expect(res._json.message).toBe('No tienes permisos para realizar esta acción.');
@@ -32,6 +32,11 @@ describe('Permisos · requireEditar', () => {
     const { res, nextLlamado } = ejecutar(undefined);
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(401);
+  });
+
+  it('acepta token antiguo con rol "editar" (compatibilidad)', () => {
+    const { nextLlamado } = ejecutar({ rol: 'editar' });
+    expect(nextLlamado).toBe(true);
   });
 
   it('acepta token antiguo con roles: ["write"] (compatibilidad)', () => {
@@ -45,8 +50,8 @@ describe('Permisos · requireEditar', () => {
     expect(res._status).toBe(403);
   });
 
-  it('bloquea sin rol ni roles', () => {
-    const { res, nextLlamado } = ejecutar({ secciones: ['calendario'] });
+  it('bloquea sin visibilidad ni compatibilidad', () => {
+    const { res, nextLlamado } = ejecutar({ rol: 'coordinador' });
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(403);
   });

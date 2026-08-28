@@ -38,9 +38,27 @@ async function obtener(req, res, next) {
   } catch (err) { next(err); }
 }
 
+function rolFinal(rol) {
+  return rol === 'entrenador' ? 'entrenador' : 'coordinador';
+}
+
+function visibilidadFinal(visibilidad) {
+  return visibilidad === 'editar' ? 'editar' : 'leer';
+}
+
+function validaRolCategoria(res, rol, id_categoria) {
+  const rolNormalizado = rolFinal(rol);
+  if (rolNormalizado === 'entrenador' && !id_categoria) {
+    return res.status(400).json({
+      message: 'El rol "entrenador" requiere seleccionar una categoría.'
+    });
+  }
+  return null;
+}
+
 async function crear(req, res, next) {
   try {
-    const { usuario, password, nombre, apellidos, rol } = req.body;
+    const { usuario, password, nombre, apellidos, rol, id_categoria, visibilidad } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body) || [];
 
     const faltan = [];
@@ -59,8 +77,20 @@ async function crear(req, res, next) {
       });
     }
 
+    const rolNormalizado = rolFinal(rol);
+    const errorCategoria = validaRolCategoria(res, rolNormalizado, id_categoria);
+    if (errorCategoria) return errorCategoria;
+
     const hash = await hashPassword(password);
-    const nuevo = await Usuario.create({ usuario, password: hash, nombre, apellidos, rol: rol || 'leer' });
+    const nuevo = await Usuario.create({
+      usuario,
+      password: hash,
+      nombre,
+      apellidos,
+      rol: rolNormalizado,
+      id_categoria: rolNormalizado === 'entrenador' ? id_categoria : null,
+      visibilidad: visibilidadFinal(visibilidad)
+    });
     await nuevo.setSecciones(idsSecciones);
 
     const completo = await Usuario.findByPk(nuevo.id, { include: includeUsuario });
@@ -73,7 +103,7 @@ async function actualizar(req, res, next) {
     const usuario = await Usuario.scope('withPassword').findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado.' });
 
-    const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol } = req.body;
+    const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol, id_categoria, visibilidad } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body);
 
     if (password) {
@@ -89,7 +119,25 @@ async function actualizar(req, res, next) {
     if (nombre !== undefined) usuario.nombre = nombre;
     if (apellidos !== undefined) usuario.apellidos = apellidos;
     if (activo !== undefined) usuario.activo = activo;
-    if (rol !== undefined) usuario.rol = rol;
+    if (visibilidad !== undefined) usuario.visibilidad = visibilidadFinal(visibilidad);
+    if (rol !== undefined) {
+      const rolNormalizado = rolFinal(rol);
+      const idCategoriaFinal = id_categoria !== undefined
+        ? id_categoria
+        : (rolNormalizado === 'entrenador' ? usuario.id_categoria : null);
+      const errorCategoria = validaRolCategoria(res, rolNormalizado, idCategoriaFinal);
+      if (errorCategoria) return errorCategoria;
+      usuario.rol = rolNormalizado;
+      usuario.id_categoria = rolNormalizado === 'entrenador' ? idCategoriaFinal : null;
+    } else if (id_categoria !== undefined) {
+      if (usuario.rol === 'entrenador') {
+        const errorCategoria = validaRolCategoria(res, usuario.rol, id_categoria);
+        if (errorCategoria) return errorCategoria;
+        usuario.id_categoria = id_categoria;
+      } else {
+        usuario.id_categoria = null;
+      }
+    }
 
     await usuario.save();
 

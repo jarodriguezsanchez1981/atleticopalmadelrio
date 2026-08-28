@@ -27,7 +27,9 @@ async function run() {
       password: hash,
       nombre: 'Administrador',
       apellidos: 'Sistema',
-      activo: true
+      activo: true,
+      rol: 'coordinador',
+      visibilidad: 'editar'
     }
   });
 

@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada } = require('../models');
+const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados como eventos
@@ -26,6 +27,9 @@ async function eventos(req, res, next) {
       { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
     ];
 
+    // Restricción por categoría para el rol 'entrenador'
+    const plantillaFiltrada = includesConCategoria(includesPlantilla, categoriaDelUsuario(req));
+
     // ---- Consultas ----
     const promesas = [];
     let jornadas = [];
@@ -42,7 +46,7 @@ async function eventos(req, res, next) {
       promesas.push(
         Entrenamiento.findAll({
           where: whereEntrenamiento,
-          include: includesPlantilla,
+          include: plantillaFiltrada,
           order: [['fecha', 'ASC']]
         })
       );
@@ -79,7 +83,7 @@ async function eventos(req, res, next) {
         if (fechaHasta) wherePartido.fecha[Op.lte] = fechaHasta;
       }
       const includesPartido = [
-        ...includesPlantilla,
+        ...plantillaFiltrada,
         { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
         { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
         { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }

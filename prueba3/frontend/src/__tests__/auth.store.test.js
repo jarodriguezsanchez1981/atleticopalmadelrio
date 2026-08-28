@@ -44,17 +44,17 @@ describe('Auth Store', () => {
     expect(store.puedeVer('administracion')).toBe(false);
   });
 
-  it('rol "editar" permite crear, editar y eliminar', () => {
+  it('visibilidad "editar" permite crear, editar y eliminar', () => {
     const store = useAuthStore();
-    store.user = { secciones: [], rol: 'editar' };
+    store.user = { secciones: [], visibilidad: 'editar' };
     expect(store.puedeCrear()).toBe(true);
     expect(store.puedeEditar()).toBe(true);
     expect(store.puedeEliminar()).toBe(true);
   });
 
-  it('rol "leer" bloquea creación, edición y borrado', () => {
+  it('visibilidad "leer" bloquea creación, edición y borrado', () => {
     const store = useAuthStore();
-    store.user = { secciones: [], rol: 'leer' };
+    store.user = { secciones: [], visibilidad: 'leer' };
     expect(store.puedeCrear()).toBe(false);
     expect(store.puedeEditar()).toBe(false);
     expect(store.puedeEliminar()).toBe(false);

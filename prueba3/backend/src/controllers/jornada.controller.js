@@ -1,4 +1,5 @@
 const { Jornada, Equipo, Plantilla, Categoria, Temporada, Partido } = require('../models');
+const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 const includes = [
   {
@@ -29,7 +30,7 @@ async function listar(req, res, next) {
     if (jornada) where.jornada = jornada;
     const items = await Jornada.findAll({
       where,
-      include: includes,
+      include: includesConCategoria(includes, categoriaDelUsuario(req)),
       order: [['fecha', 'ASC'], ['jornada', 'ASC']]
     });
     res.json(items);

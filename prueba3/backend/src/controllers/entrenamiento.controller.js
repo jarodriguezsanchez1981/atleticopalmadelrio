@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Entrenamiento, Plantilla, Categoria, Lugar } = require('../models');
+const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 const DURACION_ENTRENAMIENTO_DEFECTO = 60;
 
@@ -67,7 +68,7 @@ async function listar(req, res, next) {
     }
     const entrenamientos = await Entrenamiento.findAll({
       where,
-      include: includes,
+      include: includesConCategoria(includes, categoriaDelUsuario(req)),
       order: [['fecha', 'ASC']]
     });
     res.json(entrenamientos.map(serialize));

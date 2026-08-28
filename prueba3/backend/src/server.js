@@ -64,7 +64,8 @@ async function seedAdminIfNeeded() {
       nombre: 'Administrador',
       apellidos: 'Sistema',
       activo: true,
-      rol: 'editar'
+      rol: 'coordinador',
+      visibilidad: 'editar'
     });
     console.log(`✅ Usuario administrador "${usuario}" creado.`);
   } else {

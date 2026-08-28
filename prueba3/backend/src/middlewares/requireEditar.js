@@ -1,7 +1,8 @@
 /**
- * Middleware factory: solo permite crear/editar/eliminar a usuarios con rol 'editar'.
- * Usuarios con rol 'leer' solo pueden acceder a rutas de lectura.
- * Compatibilidad: si el token antiguo no tiene `rol` pero sí `roles: ['write']`,
+ * Middleware factory: permite crear/editar/eliminar a usuarios con
+ * `visibilidad` = 'editar'. Los usuarios con `visibilidad` = 'leer' solo
+ * pueden leer.
+ * Compatibilidad: si el token antiguo trae `rol: 'editar'` o `roles: ['write']`,
  * se acepta como editable (tokens viejos hasta que se re-logueen).
  */
 function requireEditar() {
@@ -10,6 +11,7 @@ function requireEditar() {
       return res.status(401).json({ message: 'No autenticado.' });
     }
     const tieneEditar =
+      req.user.visibilidad === 'editar' ||
       req.user.rol === 'editar' ||
       (Array.isArray(req.user.roles) && req.user.roles.includes('write'));
     if (!tieneEditar) {

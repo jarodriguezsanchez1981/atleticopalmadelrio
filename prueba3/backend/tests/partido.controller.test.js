@@ -37,6 +37,36 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._json[0]).toEqual({ id: 1, id_equipo_local: 5, id_equipo_visitante: 6 });
   });
 
+  it('listar filtra por categoría para un entrenador', async () => {
+    Partido.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, {
+      user: { id: 16, rol: 'entrenador', id_categoria: 20 }
+    });
+
+    await promesa;
+
+    expect(Partido.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.arrayContaining([
+          expect.objectContaining({ as: 'plantilla', required: true, where: { id_categoria: 20 } })
+        ])
+      })
+    );
+  });
+
+  it('listar no filtra por categoría para un coordinador', async () => {
+    Partido.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, {
+      user: { id: 1, rol: 'coordinador', id_categoria: null }
+    });
+
+    await promesa;
+
+    const arg = Partido.findAll.mock.calls[0][0];
+    const plantilla = arg.include.find((i) => i.as === 'plantilla');
+    expect(plantilla.where).toBeUndefined();
+  });
+
   it('listar filtra por plantilla, lugar y equipos', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa, res } = llamar(ctrl.listar, {

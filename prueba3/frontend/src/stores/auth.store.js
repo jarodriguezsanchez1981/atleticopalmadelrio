@@ -33,7 +33,9 @@ export const useAuthStore = defineStore('auth', {
       const set = new Set(state.user?.secciones || []);
       return SECCION_ORDER.find((s) => set.has(s)) || 'calendario';
     },
-    rol: (state) => state.user?.rol || 'leer'
+    rol: (state) => state.user?.rol || 'coordinador',
+    idCategoria: (state) => state.user?.id_categoria || null,
+    visibilidad: (state) => state.user?.visibilidad || 'leer'
   },
 
   actions: {
@@ -44,15 +46,15 @@ export const useAuthStore = defineStore('auth', {
     },
 
     puedeCrear() {
-      return this.rol === 'editar';
+      return this.visibilidad === 'editar';
     },
 
     puedeEditar() {
-      return this.rol === 'editar';
+      return this.visibilidad === 'editar';
     },
 
     puedeEliminar() {
-      return this.rol === 'editar';
+      return this.visibilidad === 'editar';
     },
 
     async login(usuario, password) {
