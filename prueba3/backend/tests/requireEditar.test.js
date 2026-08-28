@@ -33,4 +33,21 @@ describe('Permisos · requireEditar', () => {
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(401);
   });
+
+  it('acepta token antiguo con roles: ["write"] (compatibilidad)', () => {
+    const { nextLlamado } = ejecutar({ roles: ['write'] });
+    expect(nextLlamado).toBe(true);
+  });
+
+  it('bloquea token antiguo con roles: ["read"]', () => {
+    const { res, nextLlamado } = ejecutar({ roles: ['read'] });
+    expect(nextLlamado).toBe(false);
+    expect(res._status).toBe(403);
+  });
+
+  it('bloquea sin rol ni roles', () => {
+    const { res, nextLlamado } = ejecutar({ secciones: ['calendario'] });
+    expect(nextLlamado).toBe(false);
+    expect(res._status).toBe(403);
+  });
 });
