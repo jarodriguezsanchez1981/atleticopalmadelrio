@@ -66,7 +66,7 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(Usuario.create).toHaveBeenCalledWith({
-      usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B'
+      usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'leer'
     });
     expect(nuevo.setSecciones).toHaveBeenCalledWith([]);
     expect(res._status).toBe(201);
@@ -96,11 +96,41 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(Usuario.create).toHaveBeenCalledWith({
-      usuario: 'juan', password: 'hash', nombre: 'A', apellidos: 'B'
+      usuario: 'juan', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'leer'
     });
     expect(nuevo.setSecciones).toHaveBeenCalledWith([2]);
     expect(res._status).toBe(201);
     expect(res._json.password).toBeUndefined();
+  });
+
+  it('crear usa el rol proporcionado o "leer" por defecto', async () => {
+    const nuevo = { id: 7, setSecciones: vi.fn().mockResolvedValue() };
+    const completo = { id: 7, usuario: 'lore', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'leer', secciones: [] };
+    Usuario.create.mockResolvedValue(nuevo);
+    Usuario.findByPk.mockResolvedValue(completo);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { usuario: 'lore', password: 'Clave123!', nombre: 'A', apellidos: 'B', rol: 'leer', ids_secciones: [] }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(201);
+    expect(Usuario.create).toHaveBeenCalledWith(expect.objectContaining({ rol: 'leer' }));
+  });
+
+  it('actualizar cambia el rol del usuario', async () => {
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', rol: 'leer', secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { rol: 'editar' }
+    });
+
+    await promesa;
+
+    expect(usuario.rol).toBe('editar');
+    expect(usuario.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
   });
 
   it('actualizar usa scope withPassword', async () => {

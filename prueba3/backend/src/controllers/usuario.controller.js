@@ -40,7 +40,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { usuario, password, nombre, apellidos } = req.body;
+    const { usuario, password, nombre, apellidos, rol } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body) || [];
 
     const faltan = [];
@@ -60,7 +60,7 @@ async function crear(req, res, next) {
     }
 
     const hash = await hashPassword(password);
-    const nuevo = await Usuario.create({ usuario, password: hash, nombre, apellidos });
+    const nuevo = await Usuario.create({ usuario, password: hash, nombre, apellidos, rol: rol || 'leer' });
     await nuevo.setSecciones(idsSecciones);
 
     const completo = await Usuario.findByPk(nuevo.id, { include: includeUsuario });
@@ -73,7 +73,7 @@ async function actualizar(req, res, next) {
     const usuario = await Usuario.scope('withPassword').findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado.' });
 
-    const { usuario: nuevoUsuario, nombre, apellidos, activo, password } = req.body;
+    const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol } = req.body;
     const idsSecciones = normalizeSeccionesIds(req.body);
 
     if (password) {
@@ -89,6 +89,7 @@ async function actualizar(req, res, next) {
     if (nombre !== undefined) usuario.nombre = nombre;
     if (apellidos !== undefined) usuario.apellidos = apellidos;
     if (activo !== undefined) usuario.activo = activo;
+    if (rol !== undefined) usuario.rol = rol;
 
     await usuario.save();
 

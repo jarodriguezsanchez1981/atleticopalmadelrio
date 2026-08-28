@@ -44,12 +44,20 @@ describe('Auth Store', () => {
     expect(store.puedeVer('administracion')).toBe(false);
   });
 
-  it('permisos de escritura requieren rol write', () => {
+  it('rol "editar" permite crear, editar y eliminar', () => {
     const store = useAuthStore();
-    store.user = { roles: ['write'] };
+    store.user = { secciones: [], rol: 'editar' };
     expect(store.puedeCrear()).toBe(true);
     expect(store.puedeEditar()).toBe(true);
     expect(store.puedeEliminar()).toBe(true);
+  });
+
+  it('rol "leer" bloquea creación, edición y borrado', () => {
+    const store = useAuthStore();
+    store.user = { secciones: [], rol: 'leer' };
+    expect(store.puedeCrear()).toBe(false);
+    expect(store.puedeEditar()).toBe(false);
+    expect(store.puedeEliminar()).toBe(false);
   });
 
   it('login guarda token y usuario', async () => {

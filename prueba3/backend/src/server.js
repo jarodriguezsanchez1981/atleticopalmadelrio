@@ -63,7 +63,8 @@ async function seedAdminIfNeeded() {
       password: hash,
       nombre: 'Administrador',
       apellidos: 'Sistema',
-      activo: true
+      activo: true,
+      rol: 'editar'
     });
     console.log(`✅ Usuario administrador "${usuario}" creado.`);
   } else {
@@ -74,13 +75,6 @@ async function seedAdminIfNeeded() {
   const secciones = await Seccion.findAll();
   if (secciones.length) {
     await user.setSecciones(secciones.map((s) => s.id));
-  }
-
-  // Admin siempre tiene el rol máximo (write) para poder editar y borrar
-  const { Rol } = require('./models');
-  const existeRol = await Rol.findOne({ where: { id_usuario: user.id, nombre: 'write' } });
-  if (!existeRol) {
-    await Rol.create({ id_usuario: user.id, nombre: 'write' });
   }
 }
 

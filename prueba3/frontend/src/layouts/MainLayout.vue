@@ -26,7 +26,7 @@ const CLUB_SECTIONS = [
 
 const COMPETICION_SECTIONS = ['categoria_calendario', 'equipos', 'partidos', 'sanciones'];
 
-const ADMIN_SECTIONS = ['administracion', 'roles', 'cambios'];
+const ADMIN_SECTIONS = ['administracion', 'cambios'];
 
 const ALL_NAV = [
   { label: 'Calendario', icon: 'pi pi-calendar', to: '/calendario', seccion: 'calendario' },
@@ -62,7 +62,6 @@ const competicionNavItems = computed(() => {
 const adminNavItems = computed(() => {
   const items = [
     { label: 'Administración', icon: 'pi pi-cog', to: '/administracion', seccion: 'administracion' },
-    { label: 'Roles', icon: 'pi pi-shield', to: '/roles', seccion: 'roles' },
     { label: 'Cambios', icon: 'pi pi-history', to: '/cambios', seccion: 'cambios' }
   ];
   return items.filter((item) => auth.puedeVer(item.seccion));

@@ -17,7 +17,6 @@ export function crudService(resource) {
 }
 
 export const usuariosService = crudService('usuarios');
-export const rolesService = crudService('roles');
 export const seccionesService = crudService('secciones');
 export const temporadasService = crudService('temporadas');
 export const lugaresService = crudService('lugares');

@@ -34,7 +34,6 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('jugadores', 'Jugadores', 'pi pi-users', 70),
   ('plantillas', 'Plantillas', 'pi pi-table', 75),
   ('entrenadores', 'Entrenadores', 'pi pi-id-card', 80),
-  ('roles', 'Roles', 'pi pi-shield', 95),
   ('patrocinadores', 'Patrocinadores', 'pi pi-briefcase', 97),
   ('categoria_calendario', 'Jornadas', 'pi pi-calendar-plus', 98),
   ('sanciones', 'Sanciones', 'pi pi-ban', 99),
@@ -47,6 +46,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nombre        VARCHAR(100) NOT NULL,
   apellidos     VARCHAR(150) NOT NULL,
   activo        TINYINT(1) NOT NULL DEFAULT 1,
+  rol           ENUM('leer', 'editar') NOT NULL DEFAULT 'leer',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -56,14 +56,6 @@ CREATE TABLE IF NOT EXISTS usuario_secciones (
   id_seccion INT NOT NULL,
   PRIMARY KEY (id_usuario, id_seccion)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS roles (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  id_usuario INT NOT NULL,
-  nombre     ENUM('read', 'write') NOT NULL,
-  UNIQUE KEY uq_roles_usuario_nombre (id_usuario, nombre)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 CREATE TABLE IF NOT EXISTS temporadas (
   id            INT AUTO_INCREMENT,

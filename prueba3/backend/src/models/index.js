@@ -1,7 +1,6 @@
 const sequelize = require('../config/db');
 
 const Usuario = require('./Usuario');
-const Rol = require('./Rol');
 const Seccion = require('./Seccion');
 const Temporada = require('./Temporada');
 const Lugar = require('./Lugar');
@@ -28,8 +27,6 @@ const Cambio = require('./Cambio');
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
 // explícitos para que las FK sigan apuntando a la columna `id`.
-Usuario.hasMany(Rol, { foreignKey: 'id_usuario', sourceKey: 'id', as: 'roles', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
-Rol.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
 Usuario.belongsToMany(Seccion, {
   through: 'usuario_secciones',
@@ -181,7 +178,6 @@ Usuario.hasMany(Cambio, { foreignKey: 'id_usuario', sourceKey: 'id', as: 'cambio
 module.exports = {
   sequelize,
   Usuario,
-  Rol,
   Seccion,
   Temporada,
   Lugar,

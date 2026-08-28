@@ -69,6 +69,7 @@ describe('Autenticación · auth.controller', () => {
       nombre: 'A',
       apellidos: 'B',
       activo: true,
+      rol: 'editar',
       password: 'hash',
       secciones: [{ clave: 'administracion' }, { clave: 'temporadas' }]
     });
@@ -79,11 +80,11 @@ describe('Autenticación · auth.controller', () => {
 
     expect(res._status).toBe(200);
     expect(jwtUtils.signToken).toHaveBeenCalledWith({
-      id: 1, usuario: 'admin', secciones: ['administracion', 'temporadas'], roles: []
+      id: 1, usuario: 'admin', secciones: ['administracion', 'temporadas'], rol: 'editar'
     });
     expect(res._json.token).toBe('token-fake');
     expect(res._json.user).toEqual({
-      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['administracion', 'temporadas'], roles: []
+      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['administracion', 'temporadas'], rol: 'editar'
     });
   });
 
@@ -99,7 +100,7 @@ describe('Autenticación · auth.controller', () => {
 
   it('me devuelve el payload del usuario', async () => {
     Usuario.findByPk.mockResolvedValue({
-      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: [{ clave: 'temporadas' }]
+      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', rol: 'editar', secciones: [{ clave: 'temporadas' }]
     });
     const { promesa, res } = llamar(ctrl.me, { user: { id: 1 } });
 
@@ -107,7 +108,7 @@ describe('Autenticación · auth.controller', () => {
 
     expect(Usuario.findByPk).toHaveBeenCalledWith(1, expect.objectContaining({ include: expect.any(Array) }));
     expect(res._json).toEqual({
-      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['temporadas'], roles: []
+      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: ['temporadas'], rol: 'editar'
     });
   });
 });

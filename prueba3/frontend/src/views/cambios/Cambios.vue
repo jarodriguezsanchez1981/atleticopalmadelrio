@@ -5,7 +5,8 @@ import { cambiosService } from '../../services';
 import Tag from 'primevue/tag';
 
 const ENTIDADES = {
-  usuarios: 'Usuarios', roles: 'Roles', temporadas: 'Temporadas',
+  usuarios: 'Usuarios',
+  temporadas: 'Temporadas',
   lugares: 'Lugares', titulos: 'Títulos', divisiones: 'Divisiones',
   delegados: 'Delegados', categorias: 'Categorías', jugadores: 'Jugadores',
   entrenadores: 'Entrenadores', entrenamientos: 'Entrenamientos',
