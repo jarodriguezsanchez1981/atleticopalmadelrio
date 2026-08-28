@@ -22,7 +22,18 @@ const ACCION_SEVERITY = {
 
 const columns = [
   { field: 'created_at', header: 'Fecha', type: 'text', enForm: false,
-    format: (v) => v ? new Date(v).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : '—' },
+    format: (v) => {
+      if (!v) return '—';
+      const d = new Date(v);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+    }
+  },
   { field: 'entidad', header: 'Entidad', type: 'text', enForm: false,
     format: (v) => ENTIDADES[v] || v },
   { field: 'accion', header: 'Acción', type: 'text', enForm: false },

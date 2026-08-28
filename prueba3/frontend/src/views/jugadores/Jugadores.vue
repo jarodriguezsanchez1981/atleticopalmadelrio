@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { jugadoresService } from '../../services';
 import { validarDNI } from '../../utils/dni';
+import { formatFecha } from '../../utils/formatFecha';
 
 const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
@@ -11,14 +12,13 @@ const columns = computed(() => [
   { field: 'dni', header: 'DNI', type: 'text', validate: (v) => (!v ? false : validarDNI(v) ? null : 'El DNI introducido no es válido.') },
   { field: 'email', header: 'Email', type: 'text' },
   { field: 'telefono', header: 'Teléfono', type: 'text' },
-  { field: 'fecha_nacimiento', header: 'F. Nacimiento', type: 'date', format: (v) => v ? new Date(v).toLocaleDateString('es-ES') : '—' }
+  { field: 'fecha_nacimiento', header: 'F. Nacimiento', type: 'date', format: formatFecha }
 ]);
 
 const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', telefono: '', fecha_nacimiento: null };
 
 function formatearFecha(fecha) {
-  if (!fecha) return '—';
-  return new Date(fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+  return formatFecha(fecha);
 }
 
 function formatearPlantilla(p) {

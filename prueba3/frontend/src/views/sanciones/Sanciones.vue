@@ -53,7 +53,17 @@ const emptyItem = {
 };
 
 function etiquetaPartido(p) {
-  const fecha = p.fecha ? new Date(p.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  let fecha = '—';
+  if (p.fecha) {
+    const d = new Date(p.fecha);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    fecha = `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+  }
   const local = p.equipoLocal?.nombre || '';
   const visitante = p.equipoVisitante?.nombre || '';
   return `${fecha} · ${local} vs ${visitante}`;

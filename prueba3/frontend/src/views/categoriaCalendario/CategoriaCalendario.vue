@@ -59,7 +59,10 @@ function nombreEquipo(id) {
 function formatDate(fecha) {
   if (!fecha) return '—';
   const d = new Date(fecha);
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 </script>
 

@@ -406,12 +406,17 @@ async function exportarExcel() {
     return;
   }
 
-  const headers = ['Fecha', 'Hora', 'Categoría', 'Lugar', 'Tipo'];
+  const headers = ['Fecha', 'Categoría', 'Lugar', 'Tipo'];
   const rows = eventos.map(e => {
     const d = new Date(e.fecha || e.inicio);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
     return [
-      d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-      d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`,
       e.categoria?.nombre || '—',
       e.lugar || '—',
       e.tipo === 'partido' ? 'Partido' : 'Entrenamiento'
@@ -514,30 +519,26 @@ function formatearFecha(fecha) {
   if (!fecha) return '—';
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return String(fecha);
-  if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-    return d.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  }
-  return d.toLocaleString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
 }
 
 function formatearFechaCorta(fecha) {
   if (!fecha) return '—';
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return String(fecha);
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
 }
 
 function etiquetaTipo(tipo) {

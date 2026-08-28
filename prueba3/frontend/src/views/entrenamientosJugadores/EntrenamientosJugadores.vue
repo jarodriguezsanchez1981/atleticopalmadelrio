@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { entrenamientosJugadoresService, entrenamientosService, jugadoresService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
+import { formatFecha } from '../../utils/formatFecha';
 
 const entrenamientos = ref([]);
 const jugadores = ref([]);
@@ -27,10 +28,19 @@ onBeforeUnmount(() => {
 let unsubCambio = null;
 
 const opcionesEntrenamiento = computed(() =>
-  entrenamientos.value.map(e => ({
-    label: `${new Date(e.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} · ${e.categoria?.nombre || ''}`,
-    value: e.id
-  })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  entrenamientos.value.map(e => {
+    const d = new Date(e.fecha);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return {
+      label: `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss} · ${e.categoria?.nombre || ''}`,
+      value: e.id
+    };
+  }).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesJugador = computed(() =>
@@ -55,7 +65,14 @@ const emptyItem = { id_entrenamiento: null, id_jugador: null, asistencia: true, 
 function nombreEntrenamiento(id) {
   const e = entrenamientos.value.find(x => x.id === id);
   if (!e) return '—';
-  return `${new Date(e.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} · ${e.categoria?.nombre || ''}`;
+  const d = new Date(e.fecha);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss} · ${e.categoria?.nombre || ''}`;
 }
 
 function nombreJugador(id) {
@@ -83,7 +100,7 @@ function nombreJugador(id) {
       </span>
     </template>
     <template #detail-id_entrenamiento="{ data }">
-      {{ data.entrenamiento?.categoria?.nombre ? `${new Date(data.entrenamiento.fecha).toLocaleString('es-ES')} · ${data.entrenamiento.categoria.nombre}` : nombreEntrenamiento(data.id_entrenamiento) }}
+      {{ data.entrenamiento?.categoria?.nombre ? `${formatFecha(data.entrenamiento.fecha)} · ${data.entrenamiento.categoria.nombre}` : nombreEntrenamiento(data.id_entrenamiento) }}
     </template>
   </CrudDataTable>
 </template>
