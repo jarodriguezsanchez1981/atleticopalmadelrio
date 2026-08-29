@@ -6,6 +6,7 @@ import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
+import Checkbox from 'primevue/checkbox';
 import { useToast } from 'primevue/usetoast';
 import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
@@ -159,7 +160,8 @@ function formatearJugador(j) {
   return {
     id_jugador: j.id,
     dorsal: jp.dorsal,
-    talla: jp.talla
+    talla: jp.talla,
+    promocion: jp.promocion || false
   };
 }
 
@@ -234,7 +236,8 @@ function addJugador(form) {
     form.jugadores.push({
       id_jugador: nuevoJugador.value,
       dorsal: nuevoDorsal.value ?? null,
-      talla: nuevaTalla.value || null
+      talla: nuevaTalla.value || null,
+      promocion: false
     });
     if (nuevoDorsal.value != null) comprobarDorsalDuplicado(form, nuevoJugador.value, nuevoDorsal.value);
   }
@@ -471,6 +474,7 @@ function validarPlantilla(form) {
                   <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrden('dorsal'), 'text-[10px]']"></i></span>
                 </th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
               </tr>
             </thead>
@@ -490,6 +494,9 @@ function validarPlantilla(form) {
                 </td>
                 <td class="text-center border border-line p-2">
                   <InputText v-model="j.talla" class="!w-16 !text-center" />
+                </td>
+                <td class="text-center border border-line p-2">
+                  <Checkbox v-model="j.promocion" :binary="true" />
                 </td>
                 <td class="text-center border border-line p-2">
                   <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeJugador(form, j.id_jugador)" />
@@ -603,6 +610,7 @@ function validarPlantilla(form) {
                 <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrdenDetalle('dorsal'), 'text-[10px]']"></i></span>
               </th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
             </tr>
           </thead>
           <tbody>
@@ -617,6 +625,10 @@ function validarPlantilla(form) {
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
               <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">
+                <i v-if="j.PlantillaJugador?.promocion" class="pi pi-check-circle text-club-green" />
+                <span v-else class="text-ink-tertiary">—</span>
+              </td>
             </tr>
           </tbody>
         </table>

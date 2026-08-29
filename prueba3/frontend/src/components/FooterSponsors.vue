@@ -19,11 +19,6 @@ const oficiales = computed(() =>
     .filter((p) => p.tipo === 'oficial')
     .sort((a, b) => Number(a.orden) - Number(b.orden))
 );
-const colaboradores = computed(() =>
-  patrocinadores.value
-    .filter((p) => p.tipo === 'colaborador')
-    .sort((a, b) => Number(a.orden) - Number(b.orden))
-);
 
 async function cargarPatrocinadores() {
   try {
@@ -67,22 +62,6 @@ onMounted(() => {
               :src="p.imagen"
               :alt="p.nombre"
               class="h-8 sm:h-12 md:h-[80px] w-auto object-contain max-w-[60px] sm:max-w-[80px] md:max-w-[100px]"
-            />
-          </div>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="2" class="pb-1 sm:pb-2 text-center text-xs sm:text-base font-bold text-black/90">Colaboradores</td>
-      </tr>
-      <tr>
-        <td colspan="2">
-          <div class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-3">
-            <img
-              v-for="p in colaboradores"
-              :key="p.id"
-              :src="p.imagen"
-              :alt="p.nombre"
-              class="h-6 sm:h-8 md:h-[60px] w-auto object-contain max-w-[40px] sm:max-w-[60px] md:max-w-[80px]"
             />
           </div>
         </td>

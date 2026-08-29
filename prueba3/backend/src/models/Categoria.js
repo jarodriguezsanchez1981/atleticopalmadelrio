@@ -8,7 +8,8 @@ const Categoria = sequelize.define('Categoria', {
   id_tipofutbol: { type: DataTypes.INTEGER, allowNull: false },
   id_entrenador: { type: DataTypes.INTEGER, allowNull: true },
   tiempopartido: { type: DataTypes.INTEGER, allowNull: true },
-  tiempoentrenamiento: { type: DataTypes.INTEGER, allowNull: true }
+  tiempoentrenamiento: { type: DataTypes.INTEGER, allowNull: true },
+  orden: { type: DataTypes.INTEGER, allowNull: true }
 }, {
   tableName: 'categorias'
 });

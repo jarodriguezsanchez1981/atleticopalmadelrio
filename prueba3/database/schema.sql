@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS categorias (
   id_entrenador INT NULL,
   tiempopartido         INT NULL,
   tiempoentrenamiento   INT NULL,
+  orden                 INT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -142,6 +143,17 @@ CREATE TABLE IF NOT EXISTS equipos (
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_equipos_nombre (nombre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS equipos_jugadores (
+  id            INT AUTO_INCREMENT,
+  id_equipo     INT NOT NULL,
+  id_categoria  INT NOT NULL,
+  nombre        VARCHAR(100) NOT NULL,
+  apellidos     VARCHAR(150) NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_equipos_jugadores_equipo (id_equipo),
+  KEY idx_equipos_jugadores_categoria (id_categoria)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS jornadas (
@@ -186,6 +198,18 @@ CREATE TABLE IF NOT EXISTS plantillas (
   KEY idx_plantillas_entrenador (id_entrenador),
   KEY idx_plantillas_delegado (id_delegado),
   KEY idx_plantillas_division (id_division)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS promociones (
+  id            INT AUTO_INCREMENT,
+  id_plantilla  INT NOT NULL,
+  id_categoria  INT NOT NULL,
+  id_jugador    INT NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_promociones_plantilla_jugador (id_plantilla, id_jugador),
+  KEY idx_promociones_plantilla (id_plantilla),
+  KEY idx_promociones_categoria (id_categoria),
+  KEY idx_promociones_jugador (id_jugador)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS entrenadores (
@@ -262,7 +286,7 @@ CREATE TABLE IF NOT EXISTS resultados (
 CREATE TABLE IF NOT EXISTS patrocinadores (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   nombre      VARCHAR(150) NOT NULL,
-  tipo        VARCHAR(20) NOT NULL DEFAULT 'colaborador',
+  tipo        VARCHAR(20) NOT NULL DEFAULT 'oficial',
   imagen      LONGTEXT,
   orden       INT NOT NULL UNIQUE,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

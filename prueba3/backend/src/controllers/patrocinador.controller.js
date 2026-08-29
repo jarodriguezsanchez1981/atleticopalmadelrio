@@ -4,7 +4,7 @@ function esOrdenValido(orden) {
   return Number.isInteger(Number(orden)) && Number(orden) >= 1 && Number(orden) <= 50;
 }
 
-const TIPOS_VALIDOS = ['principal', 'oficial', 'colaborador'];
+const TIPOS_VALIDOS = ['principal', 'oficial'];
 
 function esTipoValido(tipo) {
   return TIPOS_VALIDOS.includes(tipo);
@@ -35,7 +35,7 @@ async function crear(req, res, next) {
       return res.status(400).json({ message: 'El orden debe ser un número entre 1 y 50.' });
     }
     if (!tipo || !esTipoValido(String(tipo))) {
-      return res.status(400).json({ message: 'El tipo debe ser principal, oficial o colaborador.' });
+      return res.status(400).json({ message: 'El tipo debe ser principal u oficial.' });
     }
     const existente = await Patrocinador.findOne({ where: { orden: Number(orden) } });
     if (existente) {
@@ -63,7 +63,7 @@ async function actualizar(req, res, next) {
     if (imagen !== undefined) patrocinador.imagen = imagen;
     if (tipo !== undefined) {
       if (!esTipoValido(String(tipo))) {
-        return res.status(400).json({ message: 'El tipo debe ser principal, oficial o colaborador.' });
+        return res.status(400).json({ message: 'El tipo debe ser principal u oficial.' });
       }
       patrocinador.tipo = String(tipo);
     }

@@ -7,7 +7,8 @@ const PlantillaJugador = sequelize.define('PlantillaJugador', {
   id_jugador: { type: DataTypes.INTEGER, allowNull: false },
   dorsal: { type: DataTypes.INTEGER, allowNull: true },
   talla: { type: DataTypes.STRING(10), allowNull: true },
-  titular: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
+  titular: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  promocion: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
 }, {
   tableName: 'plantilla_jugadores',
   timestamps: false,

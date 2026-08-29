@@ -13,7 +13,7 @@ const ENTIDADES = {
   partidos: 'Partidos', equipos: 'Equipos', 'tipos-futbol': 'Tipos de fútbol',
   patrocinadores: 'Patrocinadores', jornadas: 'Jornadas', sanciones: 'Sanciones',
   plantillas: 'Plantillas', 'entrenamientos-jugadores': 'Entrenamientos-Jugadores',
-  calendario: 'Calendario', resultados: 'Resultados'
+  calendario: 'Calendario', resultados: 'Resultados', promociones: 'Promociones'
 };
 
 const ACCION_SEVERITY = {

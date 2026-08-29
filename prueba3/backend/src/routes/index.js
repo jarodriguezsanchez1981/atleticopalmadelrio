@@ -25,6 +25,8 @@ const sancionRoutes = require('./sancion.routes');
 const plantillaRoutes = require('./plantilla.routes');
 const importRoutes = require('./import.routes');
 const cambioRoutes = require('./cambio.routes');
+const equipoJugadorRoutes = require('./equipoJugador.routes');
+const promocionRoutes = require('./promocion.routes');
 
 const router = Router();
 
@@ -53,5 +55,7 @@ router.use('/plantillas', plantillaRoutes);
 router.use('/import', importRoutes);
 router.use('/util', utilRoutes);
 router.use('/cambios', cambioRoutes);
+router.use('/equipos-jugadores', equipoJugadorRoutes);
+router.use('/promociones', promocionRoutes);
 
 module.exports = router;

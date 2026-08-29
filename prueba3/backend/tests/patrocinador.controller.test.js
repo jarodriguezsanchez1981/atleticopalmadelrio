@@ -65,7 +65,7 @@ describe('Sección Patrocinadores · patrocinador.controller', () => {
     await promesa;
 
     expect(res._status).toBe(400);
-    expect(res._json.message).toBe('El tipo debe ser principal, oficial o colaborador.');
+    expect(res._json.message).toBe('El tipo debe ser principal u oficial.');
     expect(Patrocinador.create).not.toHaveBeenCalled();
   });
 
@@ -125,12 +125,12 @@ describe('Sección Patrocinadores · patrocinador.controller', () => {
   it('actualizar guarda los cambios', async () => {
     const patrocinador = { id: 1, nombre: 'Viejo', orden: 2, save: vi.fn().mockResolvedValue() };
     Patrocinador.findOne.mockResolvedValueOnce(patrocinador).mockResolvedValueOnce(patrocinador);
-    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'Nuevo', tipo: 'colaborador', orden: 2 } });
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'Nuevo', tipo: 'oficial', orden: 2 } });
 
     await promesa;
 
     expect(patrocinador.nombre).toBe('Nuevo');
-    expect(patrocinador.tipo).toBe('colaborador');
+    expect(patrocinador.tipo).toBe('oficial');
     expect(patrocinador.save).toHaveBeenCalled();
     expect(res._json).toEqual(patrocinador);
   });

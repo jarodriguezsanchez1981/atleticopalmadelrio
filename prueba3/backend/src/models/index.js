@@ -23,6 +23,8 @@ const PlantillaJugador = require('./PlantillaJugador');
 const PlantillaEntrenador = require('./PlantillaEntrenador');
 const PlantillaDelegado = require('./PlantillaDelegado');
 const Cambio = require('./Cambio');
+const EquipoJugador = require('./EquipoJugador');
+const Promocion = require('./Promocion');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -175,6 +177,23 @@ Delegado.belongsToMany(Plantilla, {
 Cambio.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 Usuario.hasMany(Cambio, { foreignKey: 'id_usuario', sourceKey: 'id', as: 'cambios' });
 
+// ---- Equipos Jugadores ----
+EquipoJugador.belongsTo(Equipo, { foreignKey: 'id_equipo', targetKey: 'id', as: 'equipo', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Equipo.hasMany(EquipoJugador, { foreignKey: 'id_equipo', sourceKey: 'id', as: 'equiposJugadores' });
+
+EquipoJugador.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Categoria.hasMany(EquipoJugador, { foreignKey: 'id_categoria', sourceKey: 'id', as: 'equiposJugadores' });
+
+// ---- Promociones ----
+Promocion.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Plantilla.hasMany(Promocion, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'promociones' });
+
+Promocion.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Categoria.hasMany(Promocion, { foreignKey: 'id_categoria', sourceKey: 'id', as: 'promociones' });
+
+Promocion.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Jugador.hasMany(Promocion, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'promociones' });
+
 module.exports = {
   sequelize,
   Usuario,
@@ -199,5 +218,7 @@ module.exports = {
   PlantillaJugador,
   PlantillaEntrenador,
   PlantillaDelegado,
-  Cambio
+  Cambio,
+  EquipoJugador,
+  Promocion
 };

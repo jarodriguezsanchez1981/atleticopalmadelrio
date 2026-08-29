@@ -33,6 +33,7 @@ export const equiposService = {
   ...crudService('equipos'),
   descargarEscudos: () => api.get('/equipos/descargar-escudos').then(r => r.data)
 };
+export const equiposJugadoresService = crudService('equipos-jugadores');
 export const resultadosService = crudService('resultados');
 export const patrocinadoresService = crudService('patrocinadores');
 export const categoriaCalendarioService = crudService('jornadas');
@@ -41,6 +42,7 @@ export const plantillasService = {
   ...crudService('plantillas'),
   crearTemporada: (payload) => api.post('/plantillas/temporada', payload).then(r => r.data)
 };
+export const promocionesService = crudService('promociones');
 
 export const cambiosService = {
   listar: (params = {}) => api.get('/cambios', { params }).then(r => r.data),

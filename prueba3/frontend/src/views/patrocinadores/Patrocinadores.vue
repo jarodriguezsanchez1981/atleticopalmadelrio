@@ -20,8 +20,7 @@ const opcionesOrden = computed(() =>
 
 const opcionesTipo = computed(() => [
   { label: 'Principal', value: 'principal' },
-  { label: 'Oficial', value: 'oficial' },
-  { label: 'Colaborador', value: 'colaborador' }
+  { label: 'Oficial', value: 'oficial' }
 ]);
 
 const columns = computed(() => [
@@ -39,7 +38,7 @@ const columns = computed(() => [
   }
 ]);
 
-const emptyItem = { nombre: '', tipo: 'colaborador', imagen: null, orden: null };
+const emptyItem = { nombre: '', tipo: 'oficial', imagen: null, orden: null };
 
 onMounted(refrescarOrdenesUsados);
 </script>

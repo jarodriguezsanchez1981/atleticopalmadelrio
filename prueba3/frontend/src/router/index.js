@@ -77,6 +77,12 @@ const routes = [
         meta: { seccion: 'equipos' }
       },
       {
+        path: 'equipos-jugadores',
+        name: 'equipos-jugadores',
+        component: () => import('../views/equiposJugadores/EquiposJugadores.vue'),
+        meta: { seccion: 'equipos_jugadores' }
+      },
+      {
         path: 'jugadores',
         name: 'jugadores',
         component: () => import('../views/jugadores/Jugadores.vue'),
@@ -119,10 +125,22 @@ const routes = [
         meta: { seccion: 'sanciones' }
       },
       {
+        path: 'informes',
+        name: 'informes',
+        component: () => import('../views/informes/Informes.vue'),
+        meta: { seccion: 'informes' }
+      },
+      {
         path: 'cambios',
         name: 'cambios',
         component: () => import('../views/cambios/Cambios.vue'),
         meta: { seccion: 'cambios' }
+      },
+      {
+        path: 'promociones',
+        name: 'promociones',
+        component: () => import('../views/promociones/Promociones.vue'),
+        meta: { seccion: 'promociones' }
       }
     ]
   },

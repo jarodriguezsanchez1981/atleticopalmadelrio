@@ -19,12 +19,12 @@ function navegar() {
 }
 
 const CLUB_SECTIONS = [
-  'plantillas', 'jugadores', 'entrenadores', 'delegados',
+  'plantillas', 'promociones', 'jugadores', 'entrenadores', 'delegados',
   'categorias', 'division', 'titulos', 'temporadas',
   'lugares', 'patrocinadores', 'entrenamientos'
 ];
 
-const COMPETICION_SECTIONS = ['categoria_calendario', 'equipos', 'partidos', 'sanciones'];
+const COMPETICION_SECTIONS = ['categoria_calendario', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'informes'];
 
 const ADMIN_SECTIONS = ['administracion', 'cambios'];
 
@@ -35,6 +35,7 @@ const ALL_NAV = [
 const clubNavItems = computed(() => {
   const items = [
     { label: 'Plantillas', icon: 'pi pi-table', to: '/plantillas', seccion: 'plantillas' },
+    { label: 'Promociones', icon: 'pi pi-arrow-up', to: '/promociones', seccion: 'promociones' },
     { label: 'Jugadores', icon: 'pi pi-users', to: '/jugadores', seccion: 'jugadores' },
     { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
     { label: 'Delegados', icon: 'pi pi-user-plus', to: '/delegados', seccion: 'delegados' },
@@ -53,8 +54,10 @@ const competicionNavItems = computed(() => {
   const items = [
     { label: 'Jornadas', icon: 'pi pi-calendar-plus', to: '/categoria-calendario', seccion: 'categoria_calendario' },
     { label: 'Equipos', icon: 'pi pi-trophy', to: '/equipos', seccion: 'equipos' },
+    { label: 'Jugadores de Equipos', icon: 'pi pi-user', to: '/equipos-jugadores', seccion: 'equipos_jugadores' },
     { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
-    { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' }
+    { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' },
+    { label: 'Informes', icon: 'pi pi-file', to: '/informes', seccion: 'informes' }
   ];
   return items.filter((item) => auth.puedeVer(item.seccion));
 });

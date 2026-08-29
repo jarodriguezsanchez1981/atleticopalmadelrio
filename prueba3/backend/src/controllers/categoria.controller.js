@@ -32,7 +32,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, alias, id_tipofutbol, tiempopartido, tiempoentrenamiento } = req.body;
+    const { nombre, alias, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
     if (!nombre || !id_tipofutbol) {
       return res.status(400).json({ message: 'Nombre y tipo de fútbol son obligatorios.' });
     }
@@ -44,12 +44,16 @@ async function crear(req, res, next) {
     if (tiempoentrenamiento !== undefined && tiempoentrenamiento !== null && (!Number.isInteger(tiempoentrenamiento) || tiempoentrenamiento <= 0)) {
       return res.status(400).json({ message: 'El tiempo de entrenamiento debe ser un número de minutos positivo.' });
     }
+    if (orden !== undefined && orden !== null && (!Number.isInteger(orden) || orden <= 0)) {
+      return res.status(400).json({ message: 'El orden debe ser un número entero positivo.' });
+    }
     const categoria = await Categoria.create({
       nombre,
       alias: alias || null,
       id_tipofutbol,
       tiempopartido: tiempopartido || null,
-      tiempoentrenamiento: tiempoentrenamiento || null
+      tiempoentrenamiento: tiempoentrenamiento || null,
+      orden: orden || null
     });
     const creada = await Categoria.findOne({ where: { id: categoria.id }, include: includes });
     res.status(201).json(serializeCategoria(creada));
@@ -60,7 +64,7 @@ async function actualizar(req, res, next) {
   try {
     const categoria = await Categoria.findOne({ where: { id: req.params.id } });
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    const { nombre, alias, id_tipofutbol, tiempopartido, tiempoentrenamiento } = req.body;
+    const { nombre, alias, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
     if (nombre !== undefined) categoria.nombre = nombre;
     if (alias !== undefined) categoria.alias = alias || null;
     if (id_tipofutbol !== undefined) {
@@ -79,6 +83,12 @@ async function actualizar(req, res, next) {
         return res.status(400).json({ message: 'El tiempo de entrenamiento debe ser un número de minutos positivo.' });
       }
       categoria.tiempoentrenamiento = tiempoentrenamiento || null;
+    }
+    if (orden !== undefined) {
+      if (orden !== null && (!Number.isInteger(orden) || orden <= 0)) {
+        return res.status(400).json({ message: 'El orden debe ser un número entero positivo.' });
+      }
+      categoria.orden = orden || null;
     }
     await categoria.save();
     const actualizada = await Categoria.findOne({ where: { id: categoria.id }, include: includes });

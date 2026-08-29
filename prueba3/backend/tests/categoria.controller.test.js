@@ -88,7 +88,7 @@ describe('Sección Categorías · categoria.controller', () => {
     expect(TipoFutbol.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(Categoria.create).toHaveBeenCalledWith({
       nombre: 'Alevín', alias: null, id_tipofutbol: 1,
-      tiempopartido: null, tiempoentrenamiento: null
+      tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(completo);
@@ -106,7 +106,7 @@ describe('Sección Categorías · categoria.controller', () => {
 
     expect(Categoria.create).toHaveBeenCalledWith({
       nombre: 'Alevín', alias: 'Ali', id_tipofutbol: 1,
-      tiempopartido: null, tiempoentrenamiento: null
+      tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
   });
@@ -123,7 +123,7 @@ describe('Sección Categorías · categoria.controller', () => {
 
     expect(Categoria.create).toHaveBeenCalledWith({
       nombre: 'Alevín', alias: null, id_tipofutbol: 1,
-      tiempopartido: 90, tiempoentrenamiento: 60
+      tiempopartido: 90, tiempoentrenamiento: 60, orden: null
     });
     expect(res._status).toBe(201);
   });

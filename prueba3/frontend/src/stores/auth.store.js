@@ -11,10 +11,12 @@ const SECCION_ORDER = [
   'delegados',
   'categorias',
   'equipos',
+  'equipos_jugadores',
   'jugadores',
   'plantillas',
   'entrenadores',
   'division',
+  'informes',
   'administracion'
 ];
 
