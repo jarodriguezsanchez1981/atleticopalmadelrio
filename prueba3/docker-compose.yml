@@ -14,7 +14,8 @@ services:
       - "127.0.0.1:${DB_PORT:-3306}:3306"
     volumes:
       - apr_mysql_data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./backups/script_user_apr_user.sql:/docker-entrypoint-initdb.d/01-script_user_apr_user.sql:ro
+      - ./database/atletico_palma_intranet_20260830_015205.sql:/docker-entrypoint-initdb.d/02-atletico_palma_intranet_20260830_015205.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
       interval: 5s
