@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     command: tunnel run
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: eyJhIjoiZjM3ZTgxZmE4ODQ1ODMzMTg0OTAyYTMwMmVjZWMxZGMiLCJ0IjoiZDcwYzRlNzItYzc1ZC00MjczLTkxOWEtYWM5NjEyMjdhMDczIiwicyI6Ik9ERTFaV0V6TjJNdFpqQmhaUzAwWmpWbUxXRmxaR0l0WVdVeU5tTXlObVpqTUdZeSJ9
     depends_on:
       - nginx
     networks:
