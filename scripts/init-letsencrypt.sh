@@ -2,7 +2,7 @@
 set -euo pipefail
 
 EMAIL="${1:?Uso: scripts/init-letsencrypt.sh <email>}"
-DOMAIN="intranetatleticopalmadelrio.com"
+DOMAIN="intranet.atleticopalmadelrio.com"
 ENV_FILE=".env.production"
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
