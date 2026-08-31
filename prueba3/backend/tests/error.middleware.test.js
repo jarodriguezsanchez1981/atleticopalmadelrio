@@ -11,6 +11,14 @@ function mockRes() {
 }
 
 describe('Middleware errorHandler', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('maneja errores de unicidad de Sequelize (409)', () => {
     const err = { name: 'SequelizeUniqueConstraintError', errors: [{ message: 'duplicado' }] };
     const res = mockRes();
