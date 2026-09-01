@@ -40,6 +40,7 @@ export function createModelsMock() {
     TipoFutbol: createModelMock(),
     Titulo: createModelMock(),
     Division: createModelMock(),
+    Posicion: createModelMock(),
     Delegado: createModelMock(),
     Categoria: createModelMock(),
     Jugador: createModelMock(),
@@ -76,6 +77,7 @@ export const Lugar = models.Lugar;
 export const TipoFutbol = models.TipoFutbol;
 export const Titulo = models.Titulo;
 export const Division = models.Division;
+export const Posicion = models.Posicion;
 export const Delegado = models.Delegado;
 export const Categoria = models.Categoria;
 export const Jugador = models.Jugador;

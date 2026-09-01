@@ -47,46 +47,6 @@ const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
 
-const golesLocal = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
-  const partes = e.resultado.split('-');
-  if (partes.length !== 2) return '—';
-  return partes[0].trim();
-});
-
-const golesVisitante = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
-  const partes = e.resultado.split('-');
-  if (partes.length !== 2) return '—';
-  return partes[1].trim();
-});
-
-const nombreLocal = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e) return '';
-  return e.equipoLocal?.nombre || '';
-});
-
-const nombreVisitante = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e) return '';
-  return e.equipoVisitante?.nombre || '';
-});
-
-const escudoLocal = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e) return '/escudo.png';
-  return e.equipoLocal?.escudo || '/escudo.png';
-});
-
-const escudoVisitante = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e) return '/escudo.png';
-  return e.equipoVisitante?.escudo || '/escudo.png';
-});
-
 const lugarPartido = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '—';
@@ -658,27 +618,6 @@ onBeforeUnmount(() => {
             </span>
           </div>
         </template>
-
-        <div
-          v-if="eventoSeleccionado.tipo === 'partido'"
-          class="flex flex-col gap-2 py-3"
-        >
-          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
-            <div class="flex justify-center">
-              <img :src="escudoLocal" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
-            </div>
-            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreLocal }}</span>
-            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesLocal }}</span>
-          </div>
-
-          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
-            <div class="flex justify-center">
-              <img :src="escudoVisitante" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
-            </div>
-            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreVisitante }}</span>
-            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesVisitante }}</span>
-          </div>
-        </div>
 
         <div class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">

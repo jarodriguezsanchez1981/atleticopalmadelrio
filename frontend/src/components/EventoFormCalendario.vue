@@ -86,7 +86,6 @@ function resetForm() {
     id_equipo_local: null,
     id_equipo_visitante: null,
     incidencias: '',
-    resultado: '',
     resultado_incidencias: ''
   };
 }
@@ -120,7 +119,6 @@ async function cargarRegistro() {
       id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
       id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
-      resultado: item.resultado || '',
       resultado_incidencias: item.resultado_incidencias || ''
     };
   } catch {
@@ -417,7 +415,6 @@ async function guardar() {
       payload.id_equipo_visitante = form.value.id_equipo_visitante;
       payload.id_lugar = esEquipoLocalPalma.value ? form.value.id_lugar : null;
       payload.incidencias = form.value.incidencias;
-      payload.resultado = form.value.resultado;
       payload.resultado_incidencias = form.value.resultado_incidencias || null;
     }
     const service = props.tipo === 'entrenamiento' ? entrenamientosService : partidosService;
@@ -592,14 +589,6 @@ async function guardar() {
           </div>
         </div>
 
-        <div v-if="registroId" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Resultado</label>
-          <div class="flex items-center gap-2">
-            <InputText v-model="form.resultado" placeholder="Marcador, p. ej. 2-1" class="flex-1" maxlength="30" />
-            <i class="pi pi-flag text-ink-tertiary"></i>
-          </div>
-          <p class="text-xs text-ink-tertiary">El resultado quedará guardado en el partido.</p>
-        </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Incidencias</label>
           <Textarea v-model="form.incidencias" rows="3" class="w-full" />

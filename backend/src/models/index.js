@@ -6,6 +6,7 @@ const Temporada = require('./Temporada');
 const Lugar = require('./Lugar');
 const Titulo = require('./Titulo');
 const Division = require('./Division');
+const Posicion = require('./Posicion');
 const Delegado = require('./Delegado');
 const Categoria = require('./Categoria');
 const Jugador = require('./Jugador');
@@ -141,6 +142,10 @@ Jugador.belongsToMany(Plantilla, {
   timestamps: false
 });
 
+// ---- PlantillaJugador <-> Posición (Muchos a Muchos) ----
+PlantillaJugador.belongsToMany(Posicion, { through: 'plantilla_jugador_posiciones', foreignKey: 'id_plantilla_jugador', otherKey: 'id_posicion', as: 'posiciones', timestamps: false });
+Posicion.belongsToMany(PlantillaJugador, { through: 'plantilla_jugador_posiciones', foreignKey: 'id_posicion', otherKey: 'id_plantilla_jugador', sourceKey: 'id', as: 'plantillasJugadores', timestamps: false });
+
 // ---- Plantilla <-> Entrenador (Muchos a Muchos) ----
 Plantilla.belongsToMany(Entrenador, {
   through: PlantillaEntrenador,
@@ -202,6 +207,7 @@ module.exports = {
   Lugar,
   Titulo,
   Division,
+  Posicion,
   Delegado,
   Categoria,
   Jugador,

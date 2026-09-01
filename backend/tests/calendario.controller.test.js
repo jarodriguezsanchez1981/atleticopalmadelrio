@@ -47,7 +47,6 @@ describe('Calendario · calendario.controller', () => {
     id_lugar: 2,
     id_equipo_local: 73,
     id_equipo_visitante: 5,
-    resultado: '2-1',
     equipoLocal: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.', escudo: null, localidad: 'Palma' },
     equipoVisitante: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' },
     lugar: { id: 2, nombre: 'Municipal' },

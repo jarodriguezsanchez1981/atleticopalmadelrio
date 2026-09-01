@@ -335,7 +335,7 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'delegados', 'titulo', 'titulos', 'secciones', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'delegados', 'titulo', 'titulos', 'secciones', 'posiciones', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
     delete payload[k];
   });
   // `usuario` solo se elimina cuando es la relación anidada (objeto);

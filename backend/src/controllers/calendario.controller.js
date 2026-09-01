@@ -141,7 +141,7 @@ async function eventos(req, res, next) {
         incidencias: p.incidencias,
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
-        resultado: p.resultado || p.Resultados?.[0]?.resultado || null,
+        resultado: p.Resultados?.[0]?.resultado || null,
         jornada: jornadaMatch ? jornadaMatch.jornada : null
       };
     });

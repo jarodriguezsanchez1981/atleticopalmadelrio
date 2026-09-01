@@ -7,8 +7,9 @@ import Select from 'primevue/select';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Checkbox from 'primevue/checkbox';
+import MultiSelect from 'primevue/multiselect';
 import { useToast } from 'primevue/usetoast';
-import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
+import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService, posicionesService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import CamisetaDorsal from '../../components/CamisetaDorsal.vue';
 
@@ -21,6 +22,7 @@ const divisiones = ref([]);
 const jugadores = ref([]);
 const entrenadores = ref([]);
 const delegados = ref([]);
+const posiciones = ref([]);
 const plantillasExistentes = ref([]);
 let unsubCambio = null;
 
@@ -29,13 +31,14 @@ const temporadaSeleccionada = ref(null);
 const creandoTemporada = ref(false);
 
 async function cargarOpciones() {
-  const [cats, temps, divs, jug, ents, dels, plants] = await Promise.all([
+  const [cats, temps, divs, jug, ents, dels, pos, plants] = await Promise.all([
     categoriasService.listar(),
     temporadasService.listar(),
     divisionesService.listar().catch(() => []),
     jugadoresService.listar(),
     entrenadoresService.listar(),
     delegadosService.listar(),
+    posicionesService.listar().catch(() => []),
     plantillasService.listar()
   ]);
   categorias.value = cats;
@@ -44,6 +47,7 @@ async function cargarOpciones() {
   jugadores.value = jug;
   entrenadores.value = ents;
   delegados.value = dels;
+  posiciones.value = pos;
   plantillasExistentes.value = plants;
 }
 
@@ -126,6 +130,12 @@ const opcionesJugador = computed(() =>
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
+const opcionesPosicion = computed(() =>
+  posiciones.value
+    .map(p => ({ label: p.alias ? `${p.nombre} (${p.alias})` : p.nombre, value: p.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
 const columns = computed(() => [
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true, enDetalle: false },
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
@@ -161,8 +171,14 @@ function formatearJugador(j) {
     id_jugador: j.id,
     dorsal: jp.dorsal,
     talla: jp.talla,
-    promocion: jp.promocion || false
+    promocion: jp.promocion || false,
+    ids_posiciones: (jp.posiciones || []).map(p => p.id)
   };
+}
+
+function nombrePosiciones(pos) {
+  if (!Array.isArray(pos) || !pos.length) return '—';
+  return pos.map(p => p.alias ? `${p.nombre} (${p.alias})` : p.nombre).join(', ');
 }
 
 function prepareEdit(item) {
@@ -180,6 +196,7 @@ function prepareEdit(item) {
 const nuevoEntrenador = ref(null);
 const nuevoDelegado = ref(null);
 const nuevoJugador = ref(null);
+const nuevasPosiciones = ref([]);
 const nuevoDorsal = ref(null);
 const nuevaTalla = ref(null);
 const keySelectJugador = ref(0);
@@ -237,11 +254,13 @@ function addJugador(form) {
       id_jugador: nuevoJugador.value,
       dorsal: nuevoDorsal.value ?? null,
       talla: nuevaTalla.value || null,
-      promocion: false
+      promocion: false,
+      ids_posiciones: [...nuevasPosiciones.value]
     });
     if (nuevoDorsal.value != null) comprobarDorsalDuplicado(form, nuevoJugador.value, nuevoDorsal.value);
   }
   nuevoJugador.value = null;
+  nuevasPosiciones.value = [];
   nuevoDorsal.value = null;
   nuevaTalla.value = null;
   keySelectJugador.value++;
@@ -474,6 +493,7 @@ function validarPlantilla(form) {
                   <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrden('dorsal'), 'text-[10px]']"></i></span>
                 </th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
               </tr>
@@ -496,6 +516,11 @@ function validarPlantilla(form) {
                   <InputText v-model="j.talla" class="!w-16 !text-center" />
                 </td>
                 <td class="text-center border border-line p-2">
+                  <MultiSelect v-model="j.ids_posiciones" :options="opcionesPosicion" optionLabel="label"
+                               optionValue="value" display="chip" class="w-full min-w-44"
+                               placeholder="Posiciones" :maxSelectedLabels="1" />
+                </td>
+                <td class="text-center border border-line p-2">
                   <Checkbox v-model="j.promocion" :binary="true" />
                 </td>
                 <td class="text-center border border-line p-2">
@@ -505,9 +530,11 @@ function validarPlantilla(form) {
             </tbody>
           </table>
           </div>
-          <div class="flex gap-2 mt-2 items-center">
+          <div class="flex gap-2 mt-2 items-center flex-wrap">
             <Select :key="keySelectJugador" v-model="nuevoJugador" :options="opcionesJugadorDisponibles(form)" optionLabel="label" optionValue="value"
                     placeholder="Seleccionar jugador" class="flex-1" filter showClear />
+            <MultiSelect v-model="nuevasPosiciones" :options="opcionesPosicion" optionLabel="label"
+                         optionValue="value" display="chip" class="w-56" placeholder="Posición" :maxSelectedLabels="1" />
             <InputNumber v-model="nuevoDorsal" placeholder="Dorsal" :min="0" :max="99" class="w-20" inputClass="!w-20" />
             <InputText v-model="nuevaTalla" placeholder="Talla" class="w-20" />
             <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addJugador(form)" />
@@ -610,6 +637,7 @@ function validarPlantilla(form) {
                 <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrdenDetalle('dorsal'), 'text-[10px]']"></i></span>
               </th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
             </tr>
           </thead>
@@ -625,6 +653,7 @@ function validarPlantilla(form) {
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
               <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ nombrePosiciones(j.PlantillaJugador?.posiciones) }}</td>
               <td class="text-center border border-line p-2 text-sm">
                 <i v-if="j.PlantillaJugador?.promocion" class="pi pi-check-circle text-club-green" />
                 <span v-else class="text-ink-tertiary">—</span>

@@ -1,10 +1,10 @@
-const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion } = require('../models');
 
 const includes = [
   { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] },
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
   { model: Division, as: 'division', attributes: ['id', 'nombre'] },
-  { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['dorsal', 'talla', 'titular', 'promocion'] } },
+  { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['id', 'dorsal', 'talla', 'titular', 'promocion'] } },
   { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['rol'] }, include: [{ model: Titulo, as: 'titulos', attributes: ['id', 'nombre'], through: { attributes: [] } }] },
   { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } }
 ];
@@ -16,6 +16,33 @@ function serializePlantilla(plantilla) {
   if (json.entrenador && !json.entrenadores) json.entrenadores = [json.entrenador];
   if (json.delegado && !json.delegados) json.delegados = [json.delegado];
   return json;
+}
+
+/** Adjunta a cada jugador sus posiciones (por membresía de plantilla). */
+async function adjuntarPosiciones(plantillas) {
+  const lista = Array.isArray(plantillas) ? plantillas : [plantillas];
+  const ids = lista.filter((p) => p?.id).map((p) => p.id);
+  if (!ids.length) return plantillas;
+
+  const miembros = (await PlantillaJugador.findAll({
+    where: { id_plantilla: ids },
+    include: [{ model: Posicion, as: 'posiciones', attributes: ['id', 'nombre', 'alias'], through: { attributes: [] } }]
+  })) || [];
+  const porPlantilla = new Map();
+  miembros.forEach((m) => {
+    if (!porPlantilla.has(m.id_plantilla)) porPlantilla.set(m.id_plantilla, new Map());
+    porPlantilla.get(m.id_plantilla).set(m.id_jugador, m.posiciones || []);
+  });
+
+  lista.forEach((p) => {
+    const mapa = porPlantilla.get(p.id);
+    (p.jugadores || []).forEach((j) => {
+      if (j.PlantillaJugador) {
+        j.PlantillaJugador.posiciones = mapa?.get(j.id) || [];
+      }
+    });
+  });
+  return plantillas;
 }
 
 async function listar(req, res, next) {
@@ -32,6 +59,7 @@ async function listar(req, res, next) {
         [{ model: Temporada, as: 'temporada' }, 'nombre', 'DESC']
       ]
     });
+    await adjuntarPosiciones(plantillas);
     res.json(plantillas.map(serializePlantilla));
   } catch (err) { next(err); }
 }
@@ -40,6 +68,7 @@ async function obtener(req, res, next) {
   try {
     const plantilla = await Plantilla.findOne({ where: { id: req.params.id }, include: includes });
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
+    await adjuntarPosiciones(plantilla);
     res.json(serializePlantilla(plantilla));
   } catch (err) { next(err); }
 }
@@ -80,6 +109,14 @@ async function validarCategoriaDisponible(idCategoria, idTemporada, excludeId = 
   }
   const temporada = await Temporada.findOne({ where: { id: existente.id_temporada }, attributes: ['nombre'] });
   return `La categoría ${categoria?.nombre || idCategoria} ya tiene plantilla en la temporada ${temporada?.nombre || existente.id_temporada}.`;
+}
+
+async function guardarPosicionesJugadores(idPlantilla, jugadores) {
+  for (const j of jugadores || []) {
+    if (!j?.id_jugador || !Array.isArray(j.ids_posiciones)) continue;
+    const miembro = await PlantillaJugador.findOne({ where: { id_plantilla: idPlantilla, id_jugador: j.id_jugador } });
+    if (miembro) await miembro.setPosiciones(j.ids_posiciones);
+  }
 }
 
 async function sincronizarPromociones(plantilla, jugadores) {
@@ -126,6 +163,7 @@ async function crear(req, res, next) {
         promocion: j.promocion || false
       }));
       await PlantillaJugador.bulkCreate(rows, { ignoreDuplicates: true });
+      await guardarPosicionesJugadores(plantilla.id, jugadores);
     }
 
     // Asociar entrenadores
@@ -149,6 +187,7 @@ async function crear(req, res, next) {
     await sincronizarPromociones(plantilla, jugadores);
 
     const completa = await Plantilla.findOne({ where: { id: plantilla.id }, include: includes });
+    await adjuntarPosiciones(completa);
     res.status(201).json(serializePlantilla(completa));
   } catch (err) { next(err); }
 }
@@ -211,6 +250,7 @@ async function actualizar(req, res, next) {
           promocion: j.promocion || false
         }));
         await PlantillaJugador.bulkCreate(rows, { ignoreDuplicates: true });
+        await guardarPosicionesJugadores(plantilla.id, jugadores);
       }
     }
 
@@ -243,6 +283,7 @@ async function actualizar(req, res, next) {
     }
 
     const actualizada = await Plantilla.findOne({ where: { id: plantilla.id }, include: includes });
+    await adjuntarPosiciones(actualizada);
     res.json(serializePlantilla(actualizada));
   } catch (err) { next(err); }
 }

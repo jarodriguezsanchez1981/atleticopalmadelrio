@@ -15,7 +15,6 @@ const columns = [
     format: (v) => v?.nombre || '—' },
   { field: 'equipoVisitante', header: 'Visitante', type: 'text',
     format: (v) => v?.nombre || '—' },
-  { field: 'resultado', header: 'Resultado', type: 'text' },
   { field: 'lugar', header: 'Lugar', type: 'text',
     format: (v) => v?.nombre || v || '—' }
 ];

@@ -23,6 +23,7 @@ export const lugaresService = crudService('lugares');
 export const tiposFutbolService = crudService('tipos-futbol');
 export const titulosService = crudService('titulos');
 export const divisionesService = crudService('divisiones');
+export const posicionesService = crudService('posiciones');
 export const delegadosService = crudService('delegados');
 export const categoriasService = crudService('categorias');
 export const jugadoresService = crudService('jugadores');

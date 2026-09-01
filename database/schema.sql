@@ -37,6 +37,7 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('patrocinadores', 'Patrocinadores', 'pi pi-briefcase', 97),
   ('categoria_calendario', 'Jornadas', 'pi pi-calendar-plus', 98),
   ('sanciones', 'Sanciones', 'pi pi-ban', 99),
+  ('posicion', 'Posición', 'pi pi-directions', 48),
   ('administracion', 'Administración', 'pi pi-user-cog', 100);
 
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -92,6 +93,15 @@ CREATE TABLE IF NOT EXISTS titulo (
 CREATE TABLE IF NOT EXISTS division (
   id            INT AUTO_INCREMENT,
   nombre        VARCHAR(100) NOT NULL UNIQUE,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS posicion (
+  id            INT AUTO_INCREMENT,
+  nombre        VARCHAR(100) NOT NULL UNIQUE,
+  alias         VARCHAR(50)  NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id)

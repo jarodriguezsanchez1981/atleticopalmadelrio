@@ -6,6 +6,7 @@ const SECCIONES = [
   { clave: 'temporadas', nombre: 'Temporadas', icono: 'pi pi-clock', orden: 40 },
   { clave: 'titulos', nombre: 'Títulos', icono: 'pi pi-graduation-cap', orden: 45 },
   { clave: 'division', nombre: 'División', icono: 'pi pi-tags', orden: 47 },
+  { clave: 'posicion', nombre: 'Posición', icono: 'pi pi-directions', orden: 48 },
   { clave: 'lugares', nombre: 'Lugares', icono: 'pi pi-map-marker', orden: 50 },
   { clave: 'delegados', nombre: 'Delegados', icono: 'pi pi-user-plus', orden: 55 },
   { clave: 'categorias', nombre: 'Categorías', icono: 'pi pi-sitemap', orden: 60 },

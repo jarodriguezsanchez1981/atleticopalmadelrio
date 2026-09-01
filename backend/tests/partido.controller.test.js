@@ -243,8 +243,7 @@ describe('Sección Partidos · partido.controller', () => {
       id_equipo_local: 6,
       id_equipo_visitante: 7,
       id_usuario: 7,
-      incidencias: null,
-      resultado: null
+      incidencias: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
@@ -326,26 +325,6 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._status).toBe(201);
   });
 
-  it('crear guarda el resultado en el partido', async () => {
-    Partido.count.mockResolvedValue(0);
-    Partido.findAll.mockResolvedValue([]);
-    const creado = { id: 10, id_equipo_local: 6, id_equipo_visitante: 7 };
-    const completo = { id: 10, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
-    Partido.create.mockResolvedValue(creado);
-    Partido.findByPk.mockResolvedValue(completo);
-    const { promesa, res } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7, resultado: '2-1' }
-    });
-
-    await promesa;
-
-    expect(Partido.create).toHaveBeenCalledWith(
-      expect.objectContaining({ resultado: '2-1' })
-    );
-    expect(res._status).toBe(201);
-  });
-
   it('actualizar devuelve 404 si no existe', async () => {
     Partido.findByPk.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { fecha: 'x' } });
@@ -370,7 +349,7 @@ describe('Sección Partidos · partido.controller', () => {
 
   it('serialize expone resultado_incidencias desde resultados', async () => {
     const partido = {
-      id: 1, id_equipo_local: 5, id_equipo_visitante: 6, resultado: '2-1',
+      id: 1, id_equipo_local: 5, id_equipo_visitante: 6,
       Resultados: [{ id: 7, resultado: '2-1', incidencias: null }]
     };
     Partido.findAll.mockResolvedValue([partido]);
@@ -378,7 +357,6 @@ describe('Sección Partidos · partido.controller', () => {
 
     await promesa;
 
-    expect(res._json[0].resultado).toBe('2-1');
     expect(res._json[0].resultado_incidencias).toBeNull();
   });
 

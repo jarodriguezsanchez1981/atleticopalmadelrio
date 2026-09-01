@@ -10,6 +10,7 @@ const RECURSOS = {
   temporadas: { modelo: 'Temporada', campos: ['nombre'] },
   titulos: { modelo: 'Titulo', campos: ['nombre'] },
   divisiones: { modelo: 'Division', campos: ['nombre'] },
+  posiciones: { modelo: 'Posicion', campos: ['nombre', 'alias'] },
   'tipos-futbol': { modelo: 'TipoFutbol', campos: ['nombre'] },
   lugares: { modelo: 'Lugar', campos: ['nombre', 'escudo', 'direccion', 'codigopostal', 'localidad', 'provincia'] },
   delegados: { modelo: 'Delegado', campos: ['nombre', 'apellidos', 'dni', 'foto', 'tipo'] },
