@@ -4,20 +4,31 @@ import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { equiposService } from '../../services';
+import { OPCIONES_COLOR } from '../../utils/coloresEquipacion';
+import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
 
 const toast = useToast();
 const dtRef = ref();
 
 const columns = [
-  { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'escudo', header: 'Escudo', type: 'image' },
+  { field: 'nombre', header: 'Nombre', type: 'text', required: true },
+  {
+    field: 'equipacion',
+    header: 'Equipación',
+    soloTabla: true,
+    format: (v, d) => [d.camiseta, d.calzonas, d.medias].filter(Boolean).join(' / ')
+  },
+  { field: 'camiseta', header: 'Camiseta', type: 'select', options: OPCIONES_COLOR, enTabla: false },
+  { field: 'calzonas', header: 'Calzonas', type: 'select', options: OPCIONES_COLOR, enTabla: false },
+  { field: 'medias', header: 'Medias', type: 'select', options: OPCIONES_COLOR, enTabla: false },
   { field: 'direccion', header: 'Dirección', type: 'text' },
   { field: 'codigopostal', header: 'Código postal', type: 'text' },
   { field: 'localidad', header: 'Localidad', type: 'text' },
   { field: 'provincia', header: 'Provincia', type: 'text' }
 ];
 
-const emptyItem = { nombre: '', escudo: null, direccion: '', codigopostal: '', localidad: '', provincia: '' };
+const emptyItem = { nombre: '', escudo: null, camiseta: null, calzonas: null, medias: null, direccion: '', codigopostal: '', localidad: '', provincia: '' };
 
 async function descargarEscudosExternos(data) {
   const tieneExternos = (data || []).some(e => e.escudo && /^https?:\/\//i.test(e.escudo));
@@ -69,6 +80,36 @@ async function copiarDireccion(parte) {
     :emptyItem="emptyItem"
     @data-loaded="descargarEscudosExternos"
   >
+    <template #cell-equipacion="{ data }">
+      <div v-if="data.camiseta || data.calzonas || data.medias" class="flex items-center gap-2">
+        <EquipacionPrenda tipo="camiseta" :color="data.camiseta" :size="26" />
+        <EquipacionPrenda tipo="calzonas" :color="data.calzonas" :size="26" />
+        <EquipacionPrenda tipo="medias" :color="data.medias" :size="26" />
+      </div>
+    </template>
+
+    <template #detail-camiseta="{ data }">
+      <div v-if="data.camiseta" class="flex items-center gap-3">
+        <EquipacionPrenda tipo="camiseta" :color="data.camiseta" :size="40" />
+        <span>{{ data.camiseta }}</span>
+      </div>
+      <span v-else>—</span>
+    </template>
+    <template #detail-calzonas="{ data }">
+      <div v-if="data.calzonas" class="flex items-center gap-3">
+        <EquipacionPrenda tipo="calzonas" :color="data.calzonas" :size="40" />
+        <span>{{ data.calzonas }}</span>
+      </div>
+      <span v-else>—</span>
+    </template>
+    <template #detail-medias="{ data }">
+      <div v-if="data.medias" class="flex items-center gap-3">
+        <EquipacionPrenda tipo="medias" :color="data.medias" :size="40" />
+        <span>{{ data.medias }}</span>
+      </div>
+      <span v-else>—</span>
+    </template>
+
     <template #cell-direccion="{ data }">
       <a
         v-if="data.direccion"

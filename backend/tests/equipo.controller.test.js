@@ -67,7 +67,8 @@ describe('Sección Equipos · equipo.controller', () => {
     await promesa;
 
     expect(Equipo.create).toHaveBeenCalledWith({
-      nombre: 'Senior', escudo: null, direccion: null, codigopostal: null, localidad: null, provincia: null
+      nombre: 'Senior', escudo: null, direccion: null, codigopostal: null, localidad: null, provincia: null,
+      camiseta: null, calzonas: null, medias: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(creado);
@@ -76,13 +77,15 @@ describe('Sección Equipos · equipo.controller', () => {
   it('crear guarda escudo, dirección, código postal, localidad y provincia si se envían', async () => {
     const creado = {
       id: 9, nombre: 'Senior',
-      escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1', codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba'
+      escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1', codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba',
+      camiseta: 'Blanca', calzonas: 'Negras', medias: 'Blancas'
     };
     Equipo.create.mockResolvedValue(creado);
     const { promesa, res } = llamar(ctrl.crear, {
       body: {
         nombre: 'Senior', escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1',
-        codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba'
+        codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba',
+        camiseta: 'Blanca', calzonas: 'Negras', medias: 'Blancas'
       }
     });
 
@@ -90,7 +93,8 @@ describe('Sección Equipos · equipo.controller', () => {
 
     expect(Equipo.create).toHaveBeenCalledWith({
       nombre: 'Senior', escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1',
-      codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba'
+      codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba',
+      camiseta: 'Blanca', calzonas: 'Negras', medias: 'Blancas'
     });
     expect(res._status).toBe(201);
   });

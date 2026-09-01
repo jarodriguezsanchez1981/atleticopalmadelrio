@@ -20,8 +20,8 @@ const includesBase = [
     include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }]
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
-  { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad', 'provincia'] },
-  { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad', 'provincia'] },
+  { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
+  { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] },
   { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
 ];
 

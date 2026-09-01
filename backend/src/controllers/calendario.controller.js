@@ -69,8 +69,8 @@ async function eventos(req, res, next) {
         where: whereJornada,
         attributes: ['id_plantilla', 'fecha', 'jornada', 'id_equipo_local', 'id_equipo_visitante'],
         include: [
-          { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-          { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] }
+          { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta'] },
+          { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta'] }
         ]
       });
       jornadas = jornadas.map(j => j.toJSON());
@@ -84,8 +84,8 @@ async function eventos(req, res, next) {
       }
       const includesPartido = [
         ...plantillaFiltrada,
-        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta'] },
         { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
       ];
       promesas.push(Partido.findAll({ where: wherePartido, include: includesPartido }));

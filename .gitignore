@@ -6,3 +6,5 @@ dist/
 backend/.env
 frontend/dist/
 certbot/
+scripts/.venv/
+scripts/debug_*.html

@@ -15,7 +15,7 @@ const RECURSOS = {
   lugares: { modelo: 'Lugar', campos: ['nombre', 'escudo', 'direccion', 'codigopostal', 'localidad', 'provincia'] },
   delegados: { modelo: 'Delegado', campos: ['nombre', 'apellidos', 'dni', 'foto', 'tipo'] },
   categorias: { modelo: 'Categoria', campos: ['nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento', 'orden'] },
-  equipos: { modelo: 'Equipo', campos: ['nombre', 'escudo', 'direccion', 'codigopostal', 'localidad', 'provincia'] },
+  equipos: { modelo: 'Equipo', campos: ['nombre', 'escudo', 'direccion', 'codigopostal', 'localidad', 'provincia', 'camiseta', 'calzonas', 'medias'] },
   incidencias: { modelo: 'Incidencia', campos: ['id_categoria', 'id_jugador', 'id_entrenador', 'id_delegado', 'id_usuario', 'incidencias', 'fecha'] },
   jugadores: { modelo: 'Jugador', campos: ['nombre', 'apellidos', 'dni', 'fecha_nacimiento', 'foto'] },
   entrenadores: { modelo: 'Entrenador', campos: ['nombre', 'apellidos', 'dni', 'foto'] },

@@ -13,12 +13,12 @@ const includes = [
   {
     model: Equipo,
     as: 'equipoLocal',
-    attributes: ['id', 'nombre', 'escudo', 'localidad']
+    attributes: ['id', 'nombre']
   },
   {
     model: Equipo,
     as: 'equipoVisitante',
-    attributes: ['id', 'nombre', 'escudo', 'localidad']
+    attributes: ['id', 'nombre']
   }
 ];
 

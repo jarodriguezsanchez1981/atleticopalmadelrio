@@ -26,7 +26,10 @@ async function crear(req, res, next) {
       direccion: req.body.direccion || null,
       codigopostal: req.body.codigopostal || null,
       localidad: req.body.localidad || null,
-      provincia: req.body.provincia || null
+      provincia: req.body.provincia || null,
+      camiseta: req.body.camiseta || null,
+      calzonas: req.body.calzonas || null,
+      medias: req.body.medias || null
     });
     res.status(201).json(equipo);
   } catch (err) { next(err); }
@@ -43,6 +46,9 @@ async function actualizar(req, res, next) {
     if (req.body.codigopostal !== undefined) equipo.codigopostal = req.body.codigopostal || null;
     if (req.body.localidad !== undefined) equipo.localidad = req.body.localidad || null;
     if (req.body.provincia !== undefined) equipo.provincia = req.body.provincia || null;
+    if (req.body.camiseta !== undefined) equipo.camiseta = req.body.camiseta || null;
+    if (req.body.calzonas !== undefined) equipo.calzonas = req.body.calzonas || null;
+    if (req.body.medias !== undefined) equipo.medias = req.body.medias || null;
     await equipo.save();
     res.json(equipo);
   } catch (err) { next(err); }

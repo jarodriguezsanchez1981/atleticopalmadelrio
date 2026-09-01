@@ -85,7 +85,7 @@ function restaurarOrden() {
       }
     }
   } catch { /* ignora errores de localStorage */ }
-  columnas.value = orden;
+  columnas.value = orden.filter((c) => c.enTabla !== false);
 }
 
 function guardarOrden() {

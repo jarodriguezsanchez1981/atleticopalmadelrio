@@ -8,7 +8,10 @@ const Equipo = sequelize.define('Equipo', {
   direccion: { type: DataTypes.STRING(255), allowNull: true },
   codigopostal: { type: DataTypes.STRING(10), allowNull: true },
   localidad: { type: DataTypes.STRING(100), allowNull: true },
-  provincia: { type: DataTypes.STRING(100), allowNull: true }
+  provincia: { type: DataTypes.STRING(100), allowNull: true },
+  camiseta: { type: DataTypes.STRING(50), allowNull: true },
+  calzonas: { type: DataTypes.STRING(50), allowNull: true },
+  medias: { type: DataTypes.STRING(50), allowNull: true }
 }, {
   tableName: 'equipos'
 });

@@ -18,6 +18,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from './EventoFormCalendario.vue';
+import EquipacionPrenda from './EquipacionPrenda.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { tituloCalendario } from '../utils/tituloCalendario';
@@ -70,6 +71,9 @@ const escudoVisitante = computed(() => {
   if (!e) return '/escudo.png';
   return e.equipoVisitante?.escudo || '/escudo.png';
 });
+
+const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);
+const camisetaVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.camiseta || null);
 
 const lugarPartido = computed(() => {
   const e = eventoSeleccionado.value;
@@ -643,14 +647,16 @@ onBeforeUnmount(() => {
           </div>
         </template>
 
-        <div v-if="eventoSeleccionado.tipo === 'partido'" class="flex flex-col gap-3 py-3">
-          <div class="flex items-center gap-3">
-            <img :src="escudoLocal" alt="Escudo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
-            <span class="text-sm sm:text-base font-medium text-ink-secondary">{{ nombreLocal }}</span>
+        <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">
+          <div class="flex flex-col items-center gap-2">
+            <img :src="escudoLocal" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
+            <EquipacionPrenda tipo="camiseta" :color="camisetaLocal" :size="30" />
+            <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreLocal }}</span>
           </div>
-          <div class="flex items-center gap-3">
-            <img :src="escudoVisitante" alt="Escudo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
-            <span class="text-sm sm:text-base font-medium text-ink-secondary">{{ nombreVisitante }}</span>
+          <div class="flex flex-col items-center gap-2">
+            <img :src="escudoVisitante" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
+            <EquipacionPrenda tipo="camiseta" :color="camisetaVisitante" :size="30" />
+            <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreVisitante }}</span>
           </div>
         </div>
 
