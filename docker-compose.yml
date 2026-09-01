@@ -89,16 +89,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    expose:
-      - "80"
-    networks:
-      - apr_net
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: apr_cloudflared
-    restart: "no"
-    command: tunnel --no-autoupdate --url http://frontend:80
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
     networks:
       - apr_net
 
