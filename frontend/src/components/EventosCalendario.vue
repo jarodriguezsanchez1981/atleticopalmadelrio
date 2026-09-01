@@ -74,6 +74,10 @@ const escudoVisitante = computed(() => {
 
 const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);
 const camisetaVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.camiseta || null);
+const calzonasLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.calzonas || null);
+const calzonasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.calzonas || null);
+const mediasLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.medias || null);
+const mediasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.medias || null);
 
 const lugarPartido = computed(() => {
   const e = eventoSeleccionado.value;
@@ -650,12 +654,20 @@ onBeforeUnmount(() => {
         <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">
           <div class="flex flex-col items-center gap-2">
             <img :src="escudoLocal" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
-            <EquipacionPrenda tipo="camiseta" :color="camisetaLocal" :size="30" />
+            <div class="flex items-center gap-2">
+              <EquipacionPrenda tipo="camiseta" :color="camisetaLocal" :size="28" />
+              <EquipacionPrenda tipo="calzonas" :color="calzonasLocal" :size="28" />
+              <EquipacionPrenda tipo="medias" :color="mediasLocal" :size="28" />
+            </div>
             <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreLocal }}</span>
           </div>
           <div class="flex flex-col items-center gap-2">
             <img :src="escudoVisitante" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
-            <EquipacionPrenda tipo="camiseta" :color="camisetaVisitante" :size="30" />
+            <div class="flex items-center gap-2">
+              <EquipacionPrenda tipo="camiseta" :color="camisetaVisitante" :size="28" />
+              <EquipacionPrenda tipo="calzonas" :color="calzonasVisitante" :size="28" />
+              <EquipacionPrenda tipo="medias" :color="mediasVisitante" :size="28" />
+            </div>
             <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreVisitante }}</span>
           </div>
         </div>
