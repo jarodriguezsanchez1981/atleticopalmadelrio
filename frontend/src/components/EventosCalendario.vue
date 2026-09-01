@@ -47,6 +47,30 @@ const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
 
+const nombreLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '';
+  return e.equipoLocal?.nombre || '';
+});
+
+const nombreVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '';
+  return e.equipoVisitante?.nombre || '';
+});
+
+const escudoLocal = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '/escudo.png';
+  return e.equipoLocal?.escudo || '/escudo.png';
+});
+
+const escudoVisitante = computed(() => {
+  const e = eventoSeleccionado.value;
+  if (!e) return '/escudo.png';
+  return e.equipoVisitante?.escudo || '/escudo.png';
+});
+
 const lugarPartido = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '—';
@@ -618,6 +642,17 @@ onBeforeUnmount(() => {
             </span>
           </div>
         </template>
+
+        <div v-if="eventoSeleccionado.tipo === 'partido'" class="flex flex-col gap-3 py-3">
+          <div class="flex items-center gap-3">
+            <img :src="escudoLocal" alt="Escudo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
+            <span class="text-sm sm:text-base font-medium text-ink-secondary">{{ nombreLocal }}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <img :src="escudoVisitante" alt="Escudo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0" />
+            <span class="text-sm sm:text-base font-medium text-ink-secondary">{{ nombreVisitante }}</span>
+          </div>
+        </div>
 
         <div class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
