@@ -1,0 +1,4 @@
+1. Añades/editas datos en la app.
+2. ./scripts/dump-init.sh → deja database/init.sql con todo.
+3. Para un despliegue limpio con tus datos: docker compose --env-file .env.development down -v && docker compose --env-file .env.development up -d --build.
+Si solo quieres reconstruir imágenes sin tocar la BD: docker compose --env-file .env.development up -d --build (el volumen conserva los datos).
