@@ -4,28 +4,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Scandinavian neutral foundation: alpha-black ink ladder on white
+        // Neutral corporativo: tinta grafito sobre blanco
         ink: {
-          primary: 'rgb(0 0 0 / 90%)',
-          secondary: 'rgb(0 0 0 / 64%)',
-          tertiary: 'rgb(0 0 0 / 44%)',
+          primary: 'rgb(28 28 30 / 94%)',
+          secondary: 'rgb(28 28 30 / 68%)',
+          tertiary: 'rgb(28 28 30 / 48%)',
         },
         line: {
-          DEFAULT: 'rgb(0 0 0 / 10%)',
-          strong: 'rgb(0 0 0 / 18%)',
+          DEFAULT: 'rgb(0 0 0 / 8%)',
+          strong: 'rgb(0 0 0 / 16%)',
         },
         fill: {
-          hover: 'rgb(0 0 0 / 5%)',
-          pressed: 'rgb(0 0 0 / 9%)',
+          hover: 'rgb(0 0 0 / 4%)',
+          pressed: 'rgb(0 0 0 / 8%)',
           surface: 'rgb(0 0 0 / 3%)',
         },
-        // Single brand accent: club green for primary actions only
+        // Identidad del club: verde institucional
         club: {
           green: '#0B3D2E',
-          greenLight: '#156B4F',
-          garnet: '#8E2A3D',
-          gold: '#B08D57',
-          cream: '#FAFAFA',
+          greenLight: '#166A4C',
+          greenDark: '#06261C',
+          garnet: '#7A2436',
+          gold: '#A98E5F',
+          cream: '#F6F5F1',
         }
       },
       fontFamily: {

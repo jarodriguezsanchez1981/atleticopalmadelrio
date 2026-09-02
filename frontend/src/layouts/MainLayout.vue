@@ -311,7 +311,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
     </Drawer>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="h-14 bg-white border-b border-line flex items-center justify-between px-4 sm:px-6">
+      <header class="h-16 bg-white border-b border-line flex items-center justify-between px-4 sm:px-6 shadow-[0_1px_2px_rgb(16_24_40_/_0.04)]">
         <div class="flex items-center gap-3">
           <button
             v-if="isMobile"
@@ -330,7 +330,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
         <Menu ref="menu" :model="userMenuItems" :popup="true" />
       </header>
 
-      <main class="flex-1 overflow-y-auto p-4 sm:p-6">
+      <main class="flex-1 overflow-y-auto p-5 sm:p-8">
         <router-view />
       </main>
 
