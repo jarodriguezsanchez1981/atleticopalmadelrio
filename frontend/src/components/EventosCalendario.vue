@@ -503,7 +503,7 @@ const calendarOptions = {
   dateClick: onDateClick,
   editable: false,
   selectable: false,
-  dayMaxEvents: 4,
+  dayMaxEvents: false,
   fixedWeekCount: false
 };
 

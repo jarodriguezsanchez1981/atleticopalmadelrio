@@ -225,7 +225,7 @@ const calendarOptions = {
   eventClick: onEventClick,
   dateClick: onDateClick,
   eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-  dayMaxEvents: 4,
+  dayMaxEvents: false,
   fixedWeekCount: false,
   editable: false,
   selectable: false
