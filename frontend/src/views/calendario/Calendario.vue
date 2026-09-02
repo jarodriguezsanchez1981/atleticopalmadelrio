@@ -19,7 +19,7 @@ import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
 import TorneoFormCalendario from '../../components/TorneoFormCalendario.vue';
 import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
-import { calendarioService, categoriasService, entrenamientosService, partidosService } from '../../services';
+import { calendarioService, categoriasService, entrenamientosService, partidosService, torneosService } from '../../services';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { generarPdfCalendario } from '../../utils/pdfCalendario';
@@ -37,6 +37,7 @@ const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
 const torneoFormVisible = ref(false);
+const torneoFormRegistroId = ref(null);
 const confirm = useConfirm();
 const toast = useToast();
 const auth = useAuthStore();
@@ -181,8 +182,13 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
   }
 }
 
+function seccionDeEvento(tipo) {
+  if (tipo === 'partido') return 'partidos';
+  if (tipo === 'torneo') return 'torneo';
+  return 'entrenamientos';
+}
+
 function onEventClick(info) {
-  if (info.event.extendedProps?.tipo === 'torneo') return;
   eventoSeleccionado.value = {
     ...info.event.extendedProps,
     titulo: info.event.extendedProps?.titulo || info.event.title,
@@ -204,6 +210,7 @@ function idDeEvento(e) {
 function nuevoDeTipo(tipo) {
   elegirTipoVisible.value = false;
   if (tipo === 'torneo') {
+    torneoFormRegistroId.value = null;
     torneoFormVisible.value = true;
     return;
   }
@@ -215,6 +222,12 @@ function nuevoDeTipo(tipo) {
 function editarEvento() {
   const e = eventoSeleccionado.value;
   if (!e) return;
+  if (e.tipo === 'torneo') {
+    torneoFormRegistroId.value = idDeEvento(e);
+    dialogVisible.value = false;
+    torneoFormVisible.value = true;
+    return;
+  }
   formTipo.value = e.tipo === 'partido' ? 'partido' : 'entrenamiento';
   formRegistroId.value = idDeEvento(e);
   formFechaDefecto.value = null;
@@ -225,7 +238,7 @@ function editarEvento() {
 function eliminarEvento() {
   const e = eventoSeleccionado.value;
   if (!e) return;
-  const service = e.tipo === 'partido' ? partidosService : entrenamientosService;
+  const service = e.tipo === 'partido' ? partidosService : (e.tipo === 'torneo' ? torneosService : entrenamientosService);
   confirm.require({
     message: '¿Seguro que quieres eliminar este evento? Esta acción no se puede deshacer.',
     header: 'Confirmar eliminación',
@@ -303,6 +316,18 @@ function contenidoEvento(arg) {
       html: `<div class="fc-evento-contenido">` +
         `<span class="fc-partido-hora">${hora}</span>` +
         icono +
+        `<span class="fc-partido-alias">${alias}</span>` +
+        badge +
+        `</div>`
+    };
+  }
+  if (e?.tipo === 'torneo') {
+    const hora = escapeHtml(formatearHora(e.inicio));
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || 'Torneo');
+    const badge = '<span class="fc-torneo-badge">Torneo</span>';
+    return {
+      html: `<div class="fc-evento-contenido">` +
+        `<span class="fc-partido-hora">${hora}</span>` +
         `<span class="fc-partido-alias">${alias}</span>` +
         badge +
         `</div>`
@@ -421,6 +446,9 @@ onMounted(async () => {
             <i :class="eventoSeleccionado?.jornada ? 'pi pi-star-fill' : 'pi pi-handshake'"></i>
             {{ eventoSeleccionado?.jornada ? 'Liga' : 'Amistoso' }}
           </span>
+          <span v-else-if="eventoSeleccionado?.tipo === 'torneo'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+            <i class="pi pi-trophy"></i> Torneo
+          </span>
         </div>
       </template>
 
@@ -471,6 +499,27 @@ onMounted(async () => {
           </div>
         </template>
 
+        <template v-if="eventoSeleccionado.tipo === 'torneo'">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2 border-b border-line">
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
+              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
+              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Equipo</p>
+              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.equipo?.nombre || '—' }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Categoría</p>
+              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.categoria?.nombre || '—' }}</p>
+            </div>
+          </div>
+        </template>
+
         <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">
           <div class="flex flex-col items-center gap-2">
             <img :src="escudoLocal" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
@@ -503,7 +552,7 @@ onMounted(async () => {
           class="flex justify-end gap-2 pt-2 border-t border-line"
         >
           <Button
-            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos') && auth.puedeEditar()"
+            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEditar()"
             label="Editar"
             icon="pi pi-pencil"
             text
@@ -511,7 +560,7 @@ onMounted(async () => {
             @click="editarEvento"
           />
           <Button
-            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos') && auth.puedeEliminar()"
+            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEliminar()"
             label="Eliminar"
             icon="pi pi-trash"
             text
@@ -550,6 +599,7 @@ onMounted(async () => {
 
     <TorneoFormCalendario
       v-model:visible="torneoFormVisible"
+      :registroId="torneoFormRegistroId"
       :fechaDefecto="formFechaDefecto"
       @saved="onFormSaved"
     />
@@ -628,6 +678,10 @@ onMounted(async () => {
 .calendario-club .fc-liga-badge {
   background: rgb(16 185 129 / 15%);
   color: rgb(6 95 70);
+}
+.calendario-club .fc-torneo-badge {
+  background: rgb(109 40 217 / 15%);
+  color: rgb(88 28 135);
 }
 .calendario-club .fc-amistoso-badge {
   background: rgb(217 119 6 / 15%);

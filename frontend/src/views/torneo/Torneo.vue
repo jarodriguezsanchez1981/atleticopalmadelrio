@@ -113,6 +113,24 @@ function refrescar() {
   calendarRef.value?.getApi()?.refetchEvents();
 }
 
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function contenidoTorneo(arg) {
+  const t = arg.event?.extendedProps;
+  const d = arg.event?.start;
+  const hora = d ? esc(d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })) : '';
+  const cat = esc(t?.plantilla?.categoria?.alias || t?.plantilla?.categoria?.nombre || 'Torneo');
+  return {
+    html: `<div class="flex items-center gap-1.5 flex-wrap">` +
+      (hora ? `<span class="font-semibold text-xs">${hora}</span>` : '') +
+      `<span class="text-xs">${cat}</span>` +
+      `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" style="background:rgb(109 40 217 / 15%);color:rgb(88 28 135)">Torneo</span>` +
+      `</div>`
+  };
+}
+
 // ---------- Diálogo de alta / edición ----------
 const dialogVisible = ref(false);
 const guardando = ref(false);
@@ -203,6 +221,7 @@ const calendarOptions = {
   },
   buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', year: 'Año' },
   events: fetchTorneos,
+  eventContent: contenidoTorneo,
   eventClick: onEventClick,
   dateClick: onDateClick,
   eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },

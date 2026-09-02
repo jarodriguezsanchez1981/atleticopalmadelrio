@@ -37,7 +37,9 @@ async function adjuntarPosiciones(plantillas) {
   lista.forEach((p) => {
     const mapa = porPlantilla.get(p.id);
     (p.jugadores || []).forEach((j) => {
-      if (j.PlantillaJugador) {
+      if (j.PlantillaJugador && typeof j.PlantillaJugador.setDataValue === 'function') {
+        j.PlantillaJugador.setDataValue('posiciones', mapa?.get(j.id) || []);
+      } else if (j.PlantillaJugador) {
         j.PlantillaJugador.posiciones = mapa?.get(j.id) || [];
       }
     });
