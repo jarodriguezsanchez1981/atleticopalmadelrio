@@ -107,7 +107,7 @@ async function eventos(req, res, next) {
         where: whereTorneo,
         include: [
           { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] }] },
-          { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo'] }
+          { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] }
         ],
         order: [['fecha', 'ASC'], ['hora', 'ASC']]
       }));

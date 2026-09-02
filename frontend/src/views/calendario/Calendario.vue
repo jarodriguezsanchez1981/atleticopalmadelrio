@@ -510,8 +510,8 @@ onMounted(async () => {
               <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
             </div>
             <div>
-              <p class="text-xs text-ink-tertiary font-medium">Equipo</p>
-              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.equipo?.nombre || '—' }}</p>
+              <p class="text-xs text-ink-tertiary font-medium">Localidad</p>
+              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.equipo?.localidad || '—' }}</p>
             </div>
             <div>
               <p class="text-xs text-ink-tertiary font-medium">Categoría</p>
