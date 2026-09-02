@@ -814,6 +814,9 @@ watch(
 
           <InputText v-if="col.type === 'text' && !col.readonly" :id="col.field" v-model="form[col.field]" class="w-full" />
 
+          <Textarea v-else-if="col.type === 'textarea'" :id="col.field" v-model="form[col.field]"
+                    rows="3" class="w-full" />
+
           <Password
             v-else-if="col.type === 'password'"
             :id="col.field"

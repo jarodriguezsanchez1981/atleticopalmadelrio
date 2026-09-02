@@ -8,7 +8,9 @@ const Jornada = sequelize.define('Jornada', {
   id_equipo_visitante: { type: DataTypes.INTEGER, allowNull: false },
   jornada: { type: DataTypes.INTEGER, allowNull: false },
   fecha: { type: DataTypes.DATEONLY, allowNull: false },
-  hora: { type: DataTypes.TIME, allowNull: true }
+  hora: { type: DataTypes.TIME, allowNull: true },
+  incidencias: { type: DataTypes.TEXT, allowNull: true },
+  observaciones: { type: DataTypes.TEXT, allowNull: true }
 }, {
   tableName: 'jornadas'
 });

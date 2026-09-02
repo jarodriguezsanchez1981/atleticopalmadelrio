@@ -177,9 +177,24 @@ CREATE TABLE IF NOT EXISTS jornadas (
   jornada           INT NOT NULL,
   fecha             DATE NOT NULL,
   hora              TIME NULL,
+  incidencias       TEXT NULL,
+  observaciones     TEXT NULL,
   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS jornada_jugadores (
+  id                INT AUTO_INCREMENT,
+  id_jornada        INT NOT NULL,
+  id_jugador        INT NULL,
+  id_equipo_jugador INT NULL,
+  es_local          TINYINT(1) NOT NULL DEFAULT 1,
+  tarjeta_amarilla  INT NOT NULL DEFAULT 0,
+  tarjeta_roja      INT NOT NULL DEFAULT 0,
+  goles             INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_jj (id_jornada, id_jugador, es_local)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS jugadores (
