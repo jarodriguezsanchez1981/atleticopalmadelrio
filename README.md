@@ -7,55 +7,65 @@ Intranet de gestión del club con Docker Compose.
 ## Arranque rápido (Docker)
 
 ```bash
-cp .env.example .env   # o usar el .existente
-docker compose up -d --build
+# Desarrollo
+docker compose --env-file .env.development up -d --build
+
+# Producción
+docker compose --env-file .env.production up -d --build
 ```
 
 | Servicio  | URL | Descripción |
 |-----------|-----|-------------|
-| Intranet  | https://intranetatleticopalmadelrio.com | Acceso principal (HTTPS) |
-| Intranet  | https://localhost | Acceso local alternativo |
-| API       | https://localhost/api | REST API (proxied por Nginx) |
+| Intranet  | http://localhost:8080 (dev) / http://localhost:80 (prod) | Acceso principal |
+| API       | http://localhost:8080/api | REST API (proxied por el nginx del frontend) |
 | MySQL     | 127.0.0.1:3306 | Base de datos (solo localhost) |
 
-> **Nota:** añade `127.0.0.1 intranetatleticopalmadelrio.com` a `/etc/hosts` para resolver el dominio en local.
+> El túnel de Cloudflare (`cloudflared`) se ejecuta por separado en el servidor (systemd) apuntando al puerto público del frontend, con la URL fija del Public Hostname.
 
 **Login inicial:** `admin` / cámbiala en Administración.
 
 ```bash
 docker compose logs -f          # logs
-docker compose down             # parar
-docker compose down -v          # parar y borrar datos MySQL
+docker compose down             # parar (conserva datos)
+docker compose down -v          # parar y borrar datos MySQL (¡borra todo!)
+```
+
+Para que un despliegue nuevo incluya los datos añadidos, regenera el volcado:
+
+```bash
+./scripts/dump-init.sh               # vuelca la BD a database/init.sql
+./scripts/dump-init.sh .env.production
 ```
 
 ## Arquitectura
 
 ```
-prueba3/
+atleticopalmadelrio/
 ├── docker-compose.yml
-├── .env / .env.example
-├── nginx/
-│   ├── proxy.conf              # Reverse proxy HTTPS + security headers
-│   └── certs/                  # Certificados TLS
+├── .env.development / .env.production
+├── scripts/
+│   ├── rfaf_equipaciones.py         # Extrae equipaciones RFAF de una competición
+│   ├── rfaf_equipaciones_todas.py   # Extrae equipaciones de todas las ligas de Córdoba
+│   └── dump-init.sh                 # Vuelca MySQL a database/init.sql
 ├── database/
-│   ├── init.sql                # DDL + datos iniciales (26 tablas, 850+ líneas)
+│   ├── init.sql                # DDL + datos (vuelco actualizado con ./scripts/dump-init.sh)
 │   └── schema.sql              # Instalación manual MySQL
 ├── backend/                    # Express + Sequelize + JWT + bcrypt
 │   ├── Dockerfile              # Multi-stage, non-root user
 │   └── src/
-│       ├── models/             # Modelos Sequelize + asociaciones (20 modelos)
+│       ├── models/             # Modelos Sequelize + asociaciones
 │       ├── controllers/        # Lógica CRUD con validación
 │       ├── routes/             # REST API con auth + autorización
 │       ├── middlewares/        # JWT, roles, auditoría, rate limiting, errores
 │       └── utils/              # bcrypt, AES-256-GCM, JWT, validación SSRF
 ├── frontend/                   # Vue 3 + Pinia + PrimeVue + FullCalendar
 │   ├── Dockerfile              # Build estático + nginx interno
-│   ├── tailwind.config.js      # Sistema de diseño escandinavo
 │   └── src/
 │       ├── components/
 │       │   ├── CrudDataTable.vue       # Tabla CRUD genérica responsive
 │       │   ├── EventosCalendario.vue   # Calendario con detalle partidos/entrenamientos
 │       │   ├── EventoFormCalendario.vue
+│       │   ├── EquipacionPrenda.vue    # Camiseta/calzonas/medias SVG por color
 │       │   ├── CamisetaDorsal.vue      # Visualización jersey + dorsal
 │       │   └── FooterSponsors.vue      # Footer compartido con sponsors
 │       ├── views/
@@ -63,12 +73,15 @@ prueba3/
 │       │   ├── admin/Usuarios.vue
 │       │   ├── calendario/Calendario.vue
 │       │   ├── plantillas/Plantillas.vue
+│       │   ├── posicion/Posicion.vue
+│       │   ├── categoriaCalendario/CategoriaCalendario.vue   # Sección Jornadas
 │       │   ├── cambios/Cambios.vue     # Auditoría de cambios
 │       │   └── ...
 │       ├── layouts/MainLayout.vue      # Sidebar responsive + drawer móvil
 │       ├── composables/useMediaQuery.js
 │       ├── services/api.js             # Axios + JWT interceptor
 │       └── utils/
+│           ├── coloresEquipacion.js    # Paleta de colores de equipación
 │           ├── pdfPartidos.js          # PDF 5 columnas con semana
 │           ├── pdfCalendario.js        # PDF combinado (partidos + entrenamientos)
 │           └── pdfEntrenamientos.js    # PDF entrenamientos agrupados
@@ -85,16 +98,17 @@ prueba3/
 | Temporadas     | Sí   | write | Temporadas del club |
 | Títulos        | Sí   | write | Títulos de entrenadores |
 | División       | Sí   | write | Divisiones deportivas |
+| Posición       | Sí   | write | Posiciones de juego (nombre + alias) |
 | Lugares        | Sí   | write | Lugares de entrenamiento/partido |
 | Delegados      | Sí   | write | Delegados del club |
 | Categorías     | Sí   | write | Categorías del club |
-| Equipos        | Sí   | write | Equipos del club |
+| Equipos        | Sí   | write | Equipos del club con equipación (camiseta/calzonas/medias) |
 | Incidencias    | Sí   | write | Incidencias de partidos |
 | Jugadores      | Sí   | write | Jugadores del club |
-| Plantillas     | Sí   | write | Plantillas por categoría y temporada |
+| Plantillas     | Sí   | write | Plantillas por categoría y temporada (con posiciones por temporada) |
 | Entrenadores   | Sí   | write | Entrenadores del club |
-| Jornadas       | Sí   | write | Jornadas deportivas (calendario por categoría) |
-| Sanciones      | Sí   | write | Sanciones a jugadores |
+| Jornadas       | Sí   | write | Jornadas con jugadores convocados (tarjetas y goles) |
+| Sanciones      | Sí   | write | Sanciones a jugadores (autogeneradas desde Jornadas para el equipo local del club) |
 | Roles          | Sí   | write | Roles de usuario |
 | Patrocinadores | Sí   | write | Patrocinadores del club |
 | Administración | Sí   | write | Gestión de usuarios y permisos |
@@ -125,12 +139,32 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 ### Plantillas
 - **CRUD de plantillas** con drag & drop de entrenadores, delegados y jugadores
 - **Dorsal visual**: camiseta con número asignado, detección de duplicados
+- **Posiciones por temporada**: cada jugador tiene una o varias posiciones dentro de su plantilla (`plantilla_jugador_posiciones`), no globales
 - **Ordenación** por nombre y dorsal en vista detalle
 - **Vista detalle** con entrenadores, delegados y jugadores
 
-### Equipo
+### Posición
+- CRUD de posiciones de juego con **nombre** y **alias** (p. ej. `Portero (POR)`)
+
+### Equipos y equipación
 - **Escudo download**: desde la API de equipos
 - **Datos geográficos** y localidad
+- **Equipación**: columnas `camiseta`, `calzonas` y `medias` con colores de una paleta
+- **Prendas SVG**: en el listado y el detalle del partido se dibujan la camiseta, las calzonas y las medias con su color real
+- **Selector de color**: al editar, combo con todos los colores de la paleta
+- **Colores desde RFAF**: scripts en `scripts/` extraen las equipaciones de rfaf.es (por competición o todas las ligas de Córdoba) y se importan a los equipos
+
+### Jornadas
+- CRUD de jornadas con equipos local/visitante, fecha, hora, incidencias y observaciones
+- **Jugadores convocados** por jornada, en dos grupos: **Equipo Local** y **Equipo Visitante**
+  - Si el equipo es **PALMA DEL RIO ATLETICO C.F.**: se cargan los jugadores de la plantilla (`plantilla.jugadores`)
+  - Si no: se cargan los jugadores de `equipos_jugadores` de ese equipo
+- Por cada jugador convocado: **tarjeta amarilla**, **tarjeta roja** y **goles**
+- **Sanciones automáticas**: los jugadores de PALMA con tarjetas generan/actualizan registros en `sanciones` vinculados al partido de la jornada
+- **Detalle personalizado**:
+  1. Tabla resumen (2 filas × 4 col): **Temporada | Categoría | Fecha y Hora | Jornada**
+  2. Tabla de equipos (4 filas × 2 col): **Equipo Local | Equipo Visitante**, con nombres, escudos y la **suma de goles** de cada lado
+  3. Tablas **Jugadores Equipo Local** y **Jugadores Equipo Visitante** (jugador, T. Amarilla, T. Roja, Goles)
 
 ### Responsive móvil
 - **Sidebar → Drawer** en dispositivos ≤767px
@@ -173,18 +207,21 @@ Sistema de diseño escandinavo aplicado:
 ### Principales
 - `usuarios` — Usuarios del sistema con roles y secciones visibles
 - `categorias` — Categorías del club (Benjamin, Infantil, Juvenil, Senior...)
-- `equipos` — Equipos con escudo y datos geográficos
+- `equipos` — Equipos con escudo, datos geográficos y equipación (camiseta/calzonas/medias)
 - `jugadores` — Jugadores del club (DNI opcional)
+- `posicion` — Posiciones de juego (nombre + alias)
 - `partidos` — Partidos con `id_equipo_local` y `id_equipo_visitante` (FK equipos)
-- `jornadas` — Jornadas deportivas con equipos local/visitante
-- `sanciones` — Sanciones a jugadores
+- `jornadas` — Jornadas con equipos local/visitante, hora, incidencias y observaciones
+- `jornada_jugadores` — Jugadores convocados por jornada (local/visitante) con tarjetas y goles
+- `sanciones` — Sanciones a jugadores (id_partido, id_jugador, amarilla, roja)
 - `patrocinadores` — Patrocinadores con logos
 - `plantillas` — Plantillas por categoría y temporada
 - **`cambios`** — Auditoría de todas las acciones CRUD (entidad, acción, antes/después, usuario)
 
 ### Relaciones
 - `plantilla_jugadores` / `plantilla_entrenadores` / `plantilla_delegados` — Muchos a muchos
-- `usuario_secciones` — Permisos por sección (24 secciones)
+- `plantilla_jugador_posiciones` — Posiciones de cada jugador en su plantilla
+- `usuario_secciones` — Permisos por sección
 - `entrenador_titulos` — Muchos a muchos
 - `lugar_tipofutbol` — Muchos a muchos
 - `entrenamientos_jugadores` — Asignación de jugadores a entrenamientos
@@ -205,7 +242,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (303 tests, 32 archivos)
+# Backend (332 tests, 34 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
