@@ -19,6 +19,7 @@ const TipoFutbol = require('./TipoFutbol');
 const Patrocinador = require('./Patrocinador');
 const Jornada = require('./Jornada');
 const JornadaJugador = require('./JornadaJugador');
+const Torneo = require('./Torneo');
 const Sancion = require('./Sancion');
 const Plantilla = require('./Plantilla');
 const PlantillaJugador = require('./PlantillaJugador');
@@ -117,6 +118,11 @@ JornadaJugador.belongsTo(Jornada, { foreignKey: 'id_jornada', targetKey: 'id', a
 JornadaJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
 Jugador.hasMany(JornadaJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'jornadasJugador' });
 JornadaJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+
+// ---- Torneo ----
+Torneo.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Plantilla.hasMany(Torneo, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'torneos' });
+Torneo.belongsTo(Equipo, { foreignKey: 'id_equipo', targetKey: 'id', as: 'equipo', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
 Equipo.hasMany(Jornada, { foreignKey: 'id_equipo_local', sourceKey: 'id', as: 'jornadasLocal' });
 Jornada.belongsTo(Equipo, { foreignKey: 'id_equipo_local', targetKey: 'id', as: 'equipoLocal', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
@@ -228,6 +234,7 @@ module.exports = {
   Patrocinador,
   Jornada,
   JornadaJugador,
+  Torneo,
   Sancion,
   Plantilla,
   PlantillaJugador,

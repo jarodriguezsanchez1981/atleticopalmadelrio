@@ -1,4 +1,4 @@
-const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Patrocinador, Jornada, Sancion, Plantilla, Promocion } = require('../models');
+const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Patrocinador, Jornada, Sancion, Plantilla, Promocion, Torneo } = require('../models');
 
 const ENTITY_MAP = {
   usuarios: { model: Usuario, label: 'Usuarios' },
@@ -20,7 +20,8 @@ const ENTITY_MAP = {
   sanciones: { model: Sancion, label: 'Sanciones' },
   plantillas: { model: Plantilla, label: 'Plantillas' },
   'entrenamientos-jugadores': { model: null, label: 'Entrenamientos-Jugadores' },
-  promociones: { model: Promocion, label: 'Promociones' }
+  promociones: { model: Promocion, label: 'Promociones' },
+  torneos: { model: Torneo, label: 'Torneos' }
 };
 
 const SENSITIVE_KEYS = ['password', 'token', 'jwt', 'secret', 'AES_SECRET_KEY'];

@@ -38,6 +38,7 @@ INSERT IGNORE INTO secciones (clave, nombre, icono, orden) VALUES
   ('categoria_calendario', 'Jornadas', 'pi pi-calendar-plus', 98),
   ('sanciones', 'Sanciones', 'pi pi-ban', 99),
   ('posicion', 'Posición', 'pi pi-directions', 48),
+  ('torneo', 'Torneo', 'pi pi-trophy', 94),
   ('administracion', 'Administración', 'pi pi-user-cog', 100);
 
 CREATE TABLE IF NOT EXISTS usuarios (
@@ -195,6 +196,17 @@ CREATE TABLE IF NOT EXISTS jornada_jugadores (
   goles             INT NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uq_jj (id_jornada, id_jugador, es_local)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS torneo (
+  id                INT AUTO_INCREMENT,
+  id_plantilla      INT NOT NULL,
+  id_equipo         INT NOT NULL,
+  fecha             DATE NOT NULL,
+  hora              TIME NULL,
+  created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS jugadores (

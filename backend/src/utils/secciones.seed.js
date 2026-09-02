@@ -19,6 +19,7 @@ const SECCIONES = [
   { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80 },
   { clave: 'patrocinadores', nombre: 'Patrocinadores', icono: 'pi pi-briefcase', orden: 90 },
   { clave: 'categoria_calendario', nombre: 'Jornadas', icono: 'pi pi-calendar-plus', orden: 93 },
+  { clave: 'torneo', nombre: 'Torneo', icono: 'pi pi-trophy', orden: 94 },
   { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98 },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100 }
 ];

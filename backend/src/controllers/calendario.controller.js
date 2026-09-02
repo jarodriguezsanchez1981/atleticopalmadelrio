@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada } = require('../models');
+const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada, Torneo } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 /**
@@ -16,6 +16,7 @@ async function eventos(req, res, next) {
 
     const incluirEntrenamientos = !tipo || tipo === 'entrenamiento';
     const incluirPartidos = !tipo || tipo === 'partido';
+    const incluirTorneos = !tipo || tipo === 'torneo';
 
     const includesPlantilla = [
       {
@@ -93,7 +94,28 @@ async function eventos(req, res, next) {
       promesas.push(Promise.resolve([]));
     }
 
-    const [entrenamientos, partidos] = await Promise.all(promesas);
+    // ---- Torneos ----
+    if (incluirTorneos) {
+      const whereTorneo = {};
+      if (id_plantilla) whereTorneo.id_plantilla = id_plantilla;
+      if (fechaDesde || fechaHasta) {
+        whereTorneo.fecha = {};
+        if (fechaDesde) whereTorneo.fecha[Op.gte] = fechaDesde;
+        if (fechaHasta) whereTorneo.fecha[Op.lte] = fechaHasta;
+      }
+      promesas.push(Torneo.findAll({
+        where: whereTorneo,
+        include: [
+          { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] }] },
+          { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo'] }
+        ],
+        order: [['fecha', 'ASC'], ['hora', 'ASC']]
+      }));
+    } else {
+      promesas.push(Promise.resolve([]));
+    }
+
+    const [entrenamientos, partidos, torneos] = await Promise.all(promesas);
 
     // ---- Eventos ----
     const eventosEntrenamiento = entrenamientos.map((e) => {
@@ -146,7 +168,25 @@ async function eventos(req, res, next) {
       };
     });
 
-    res.json([...eventosEntrenamiento, ...eventosPartido]);
+    const eventosTorneo = torneos.map((t) => {
+      const fecha = String(t.fecha || '').slice(0, 10);
+      const hora = String(t.hora || '').slice(0, 5);
+      const inicio = fecha ? `${fecha}T${hora || '00:00'}:00` : null;
+      return {
+        id: `torneo-${t.id}`,
+        tipo: 'torneo',
+        base_id: t.id,
+        titulo: `${t.equipo?.nombre ?? ''} · Torneo`,
+        inicio,
+        lugar: null,
+        plantilla: t.plantilla,
+        categoria: t.plantilla?.categoria,
+        equipo: t.equipo,
+        es_torneo: true
+      };
+    });
+
+    res.json([...eventosEntrenamiento, ...eventosPartido, ...eventosTorneo]);
   } catch (err) { next(err); }
 }
 

@@ -24,7 +24,7 @@ const CLUB_SECTIONS = [
   'lugares', 'patrocinadores', 'entrenamientos'
 ];
 
-const COMPETICION_SECTIONS = ['categoria_calendario', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'informes'];
+const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'informes'];
 
 const ADMIN_SECTIONS = ['administracion', 'cambios'];
 
@@ -54,6 +54,7 @@ const clubNavItems = computed(() => {
 const competicionNavItems = computed(() => {
   const items = [
     { label: 'Jornadas', icon: 'pi pi-calendar-plus', to: '/categoria-calendario', seccion: 'categoria_calendario' },
+    { label: 'Torneo', icon: 'pi pi-trophy', to: '/torneo', seccion: 'torneo' },
     { label: 'Equipos', icon: 'pi pi-trophy', to: '/equipos', seccion: 'equipos' },
     { label: 'Jugadores de Equipos', icon: 'pi pi-user', to: '/equipos-jugadores', seccion: 'equipos_jugadores' },
     { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },

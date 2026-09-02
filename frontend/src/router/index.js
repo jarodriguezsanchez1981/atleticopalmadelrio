@@ -125,6 +125,12 @@ const routes = [
         meta: { seccion: 'categoria_calendario' }
       },
       {
+        path: 'torneo',
+        name: 'torneo',
+        component: () => import('../views/torneo/Torneo.vue'),
+        meta: { seccion: 'torneo' }
+      },
+      {
         path: 'sanciones',
         name: 'sanciones',
         component: () => import('../views/sanciones/Sanciones.vue'),

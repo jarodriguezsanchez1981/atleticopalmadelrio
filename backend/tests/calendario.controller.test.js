@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Op } from 'sequelize';
-import { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada } from './helpers/models.js';
+import { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Torneo } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/calendario.controller.js';
@@ -10,6 +10,8 @@ describe('Calendario · calendario.controller', () => {
     Entrenamiento.findAll.mockReset();
     Partido.findAll.mockReset();
     Jornada.findAll.mockReset();
+    Torneo.findAll.mockReset();
+    Torneo.findAll.mockResolvedValue([]);
   });
 
   function llamar(fn, overrides = {}) {

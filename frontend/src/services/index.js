@@ -44,6 +44,7 @@ export const plantillasService = {
   crearTemporada: (payload) => api.post('/plantillas/temporada', payload).then(r => r.data)
 };
 export const promocionesService = crudService('promociones');
+export const torneosService = crudService('torneos');
 
 export const cambiosService = {
   listar: (params = {}) => api.get('/cambios', { params }).then(r => r.data),

@@ -17,6 +17,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
+import TorneoFormCalendario from '../../components/TorneoFormCalendario.vue';
 import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
 import { calendarioService, categoriasService, entrenamientosService, partidosService } from '../../services';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
@@ -35,6 +36,7 @@ const formVisible = ref(false);
 const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
+const torneoFormVisible = ref(false);
 const confirm = useConfirm();
 const toast = useToast();
 const auth = useAuthStore();
@@ -145,6 +147,7 @@ const lugarPartido = computed(() => {
 
 const COLOR_ENTRENAMIENTO = '#0B3D2E';
 const COLOR_PARTIDO = '#7A1E2B';
+const COLOR_TORNEO = '#6D28D9';
 const COLOR_FESTIVO = '#D97706';
 
 async function fetchEventos(fetchInfo, successCallback, failureCallback) {
@@ -159,7 +162,7 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
       id: e.id,
       title: e.titulo,
       start: e.inicio,
-      color: e.tipo === 'partido' ? COLOR_PARTIDO : COLOR_ENTRENAMIENTO,
+      color: e.tipo === 'partido' ? COLOR_PARTIDO : (e.tipo === 'torneo' ? COLOR_TORNEO : COLOR_ENTRENAMIENTO),
       extendedProps: e
     }));
 
@@ -179,6 +182,7 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
 }
 
 function onEventClick(info) {
+  if (info.event.extendedProps?.tipo === 'torneo') return;
   eventoSeleccionado.value = {
     ...info.event.extendedProps,
     titulo: info.event.extendedProps?.titulo || info.event.title,
@@ -199,6 +203,10 @@ function idDeEvento(e) {
 
 function nuevoDeTipo(tipo) {
   elegirTipoVisible.value = false;
+  if (tipo === 'torneo') {
+    torneoFormVisible.value = true;
+    return;
+  }
   formTipo.value = tipo;
   formRegistroId.value = null;
   formVisible.value = true;
@@ -527,6 +535,8 @@ onMounted(async () => {
                 class="!justify-start" @click="nuevoDeTipo('entrenamiento')" />
         <Button v-if="auth.puedeVer('partidos')" label="Partido" icon="pi pi-flag" text
                 class="!justify-start" @click="nuevoDeTipo('partido')" />
+        <Button v-if="auth.puedeVer('torneo')" label="Torneo" icon="pi pi-trophy" text
+                class="!justify-start" @click="nuevoDeTipo('torneo')" />
       </div>
     </Dialog>
 
@@ -534,6 +544,12 @@ onMounted(async () => {
       v-model:visible="formVisible"
       :tipo="formTipo"
       :registroId="formRegistroId"
+      :fechaDefecto="formFechaDefecto"
+      @saved="onFormSaved"
+    />
+
+    <TorneoFormCalendario
+      v-model:visible="torneoFormVisible"
       :fechaDefecto="formFechaDefecto"
       @saved="onFormSaved"
     />
