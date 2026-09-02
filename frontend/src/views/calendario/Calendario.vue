@@ -10,6 +10,7 @@ import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
@@ -46,6 +47,15 @@ const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
 const pdfSemana = ref(new Date());
 const pdfTipoFutbol = ref(null);
+const pdfTipos = ref(['liga', 'partido', 'amistoso', 'torneo', 'entrenamiento']);
+
+const OPCIONES_TIPO_EVENTO = [
+  { label: 'Liga', value: 'liga' },
+  { label: 'Partido', value: 'partido' },
+  { label: 'Amistoso', value: 'amistoso' },
+  { label: 'Torneo', value: 'torneo' },
+  { label: 'Entrenamiento', value: 'entrenamiento' }
+];
 
 const OPCIONES_TIPO_FUTBOL = [
   { label: 'Todos (Futbol 7 y Futbol 11)', value: null },
@@ -65,6 +75,7 @@ function semanaDe(fecha) {
 function abrirPdfSemana() {
   pdfSemana.value = new Date();
   pdfTipoFutbol.value = null;
+  pdfTipos.value = ['liga', 'partido', 'amistoso', 'torneo', 'entrenamiento'];
   pdfDialogVisible.value = true;
 }
 
@@ -89,7 +100,21 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
       toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos en esta semana.', life: 3000 });
       return;
     }
-    await generarPdfCalendario(eventos, fechaTitulo, tipoFutbol);
+    const sel = pdfTipos.value;
+    const filtrados = eventos.filter((e) => {
+      if (e.tipo === 'entrenamiento') return sel.includes('entrenamiento');
+      if (e.tipo === 'torneo') return sel.includes('torneo');
+      if (e.tipo === 'partido') {
+        if (e.jornada) return sel.includes('partido') || sel.includes('liga');
+        return sel.includes('partido') || sel.includes('amistoso');
+      }
+      return true;
+    });
+    if (!filtrados.length) {
+      toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos de los tipos elegidos.', life: 3000 });
+      return;
+    }
+    await generarPdfCalendario(filtrados, fechaTitulo, tipoFutbol);
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -325,9 +350,14 @@ function contenidoEvento(arg) {
     const hora = escapeHtml(formatearHora(e.inicio));
     const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || 'Torneo');
     const badge = '<span class="fc-torneo-badge">Torneo</span>';
+    const esLocal = e.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
+    const icono = esLocal
+      ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
+      : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
     return {
       html: `<div class="fc-evento-contenido">` +
         `<span class="fc-partido-hora">${hora}</span>` +
+        icono +
         `<span class="fc-partido-alias">${alias}</span>` +
         badge +
         `</div>`
@@ -337,11 +367,13 @@ function contenidoEvento(arg) {
     const hora = escapeHtml(formatearHora(e.inicio));
     const lugar = escapeHtml(e.lugar || '—');
     const categoria = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    const badge = '<span class="fc-entrenamiento-badge">Entrenamiento</span>';
     return {
       html: `<div class="fc-evento-contenido">` +
         `<span class="fc-partido-hora">${hora}</span>` +
         `<span class="fc-partido-lugar">${lugar}</span>` +
         `<span class="fc-partido-alias">${categoria}</span>` +
+        badge +
         `</div>`
     };
   }
@@ -448,6 +480,9 @@ onMounted(async () => {
           </span>
           <span v-else-if="eventoSeleccionado?.tipo === 'torneo'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
             <i class="pi pi-trophy"></i> Torneo
+          </span>
+          <span v-else-if="eventoSeleccionado?.tipo === 'entrenamiento'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+            <i class="pi pi-calendar"></i> Entrenamiento
           </span>
         </div>
       </template>
@@ -624,6 +659,11 @@ onMounted(async () => {
           </span>
         </p>
         <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Tipos de evento</label>
+          <MultiSelect v-model="pdfTipos" :options="OPCIONES_TIPO_EVENTO" optionLabel="label" optionValue="value"
+                       display="chip" placeholder="Elige los tipos" class="w-full" />
+        </div>
+        <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Tipo de fútbol</label>
           <Select v-model="pdfTipoFutbol" :options="OPCIONES_TIPO_FUTBOL" optionLabel="label" optionValue="value"
                   placeholder="Elige el tipo de fútbol" class="w-full" />
@@ -669,7 +709,9 @@ onMounted(async () => {
   font-weight: 500;
 }
 .calendario-club .fc-liga-badge,
-.calendario-club .fc-amistoso-badge {
+.calendario-club .fc-amistoso-badge,
+.calendario-club .fc-torneo-badge,
+.calendario-club .fc-entrenamiento-badge {
   font-size: 0.6rem;
   font-weight: 600;
   padding: 1px 5px;
@@ -686,6 +728,10 @@ onMounted(async () => {
 .calendario-club .fc-amistoso-badge {
   background: rgb(217 119 6 / 15%);
   color: rgb(146 64 14);
+}
+.calendario-club .fc-entrenamiento-badge {
+  background: rgb(59 130 246 / 15%);
+  color: rgb(30 64 175);
 }
 .calendario-club .fc-partido-lugar {
   font-weight: 400;

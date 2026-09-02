@@ -165,11 +165,13 @@ function contenidoEvento(arg) {
     const hora = escapeHtml(formatearHora(e.inicio));
     const lugar = escapeHtml(e.lugar || '—');
     const categoria = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    const badge = '<span class="fc-entrenamiento-badge">Entrenamiento</span>';
     return {
       html: `<div class="fc-evento-contenido">` +
         `<span class="fc-partido-hora">${hora}</span>` +
         `<span class="fc-partido-lugar">${lugar}</span>` +
         `<span class="fc-partido-alias">${categoria}</span>` +
+        badge +
         `</div>`
     };
   }
@@ -774,7 +776,8 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 .calendario-club .fc-liga-badge,
-.calendario-club .fc-amistoso-badge {
+.calendario-club .fc-amistoso-badge,
+.calendario-club .fc-entrenamiento-badge {
   font-size: 0.6rem;
   font-weight: 600;
   padding: 1px 5px;
@@ -787,6 +790,10 @@ onBeforeUnmount(() => {
 .calendario-club .fc-amistoso-badge {
   background: rgb(217 119 6 / 15%);
   color: rgb(146 64 14);
+}
+.calendario-club .fc-entrenamiento-badge {
+  background: rgb(59 130 246 / 15%);
+  color: rgb(30 64 175);
 }
 .calendario-club .fc-partido-lugar {
   font-weight: 400;
@@ -841,8 +848,9 @@ onBeforeUnmount(() => {
     font-size: 0.6rem;
   }
   .calendario-club .fc-liga-badge,
-  .calendario-club .fc-amistoso-badge {
-    font-size: 0.5rem;
+  .calendario-club .fc-amistoso-badge,
+  .calendario-club .fc-entrenamiento-badge {
+    font-size: 0.6rem;
     padding: 0 3px;
   }
 }
