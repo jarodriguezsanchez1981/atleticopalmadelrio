@@ -191,21 +191,7 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._json.message).toBe('Esta plantilla ya tiene un partido ese día.');
   });
 
-  it('crear rechaza si la plantilla jugó hace menos de 72 horas', async () => {
-    Partido.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
-    const { promesa, res } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-03T10:00:00', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
-    });
-
-    await promesa;
-
-    expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Esta plantilla jugó hace menos de 72 horas.');
-    expect(Partido.create).not.toHaveBeenCalled();
-  });
-
-  it('crear permite si pasaron más de 72 horas', async () => {
+  it('crear permite un partido por día distinto para la misma plantilla', async () => {
     Partido.count.mockResolvedValue(0);
     Partido.findAll.mockResolvedValue([]);
     const creado = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7 };

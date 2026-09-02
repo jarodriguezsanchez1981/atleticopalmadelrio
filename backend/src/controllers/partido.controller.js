@@ -83,19 +83,6 @@ async function existePartidoDia(idPlantilla, fecha, omitirId = null) {
   return contados > 0;
 }
 
-const HORAS_DESCANSO_ENTRE_PARTIDOS = 72;
-
-async function existePartidoReciente(idPlantilla, fecha, omitirId = null) {
-  if (!idPlantilla || !fecha) return false;
-  const d = new Date(fecha);
-  if (Number.isNaN(d.getTime())) return false;
-  const inicio = new Date(d.getTime() - HORAS_DESCANSO_ENTRE_PARTIDOS * 60 * 60 * 1000);
-  const where = { id_plantilla: idPlantilla, fecha: { [Op.gte]: inicio, [Op.lte]: d } };
-  if (omitirId) where.id = { [Op.ne]: omitirId };
-  const contados = await Partido.count({ where });
-  return contados > 0;
-}
-
 function seSolapan(partido, inicioNuevo, finNuevo) {
   const inicioEx = new Date(partido.fecha).getTime();
   const finEx = inicioEx + (partido.plantilla?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO) * 60000;
@@ -130,9 +117,6 @@ async function crear(req, res, next) {
     }
     if (await existePartidoDia(id_plantilla, fecha)) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
-    }
-    if (await existePartidoReciente(id_plantilla, fecha)) {
-      return res.status(409).json({ message: 'Esta plantilla jugó hace menos de 72 horas.' });
     }
     if (id_lugar && id_equipo_local === PALMA_ID) {
       const plantilla = await Plantilla.findOne({ where: { id: id_plantilla }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });
@@ -177,9 +161,6 @@ async function actualizar(req, res, next) {
 
     if (cambiaCatOFecha && (await existePartidoDia(idPlantillaFinal, fechaFinal, partido.id))) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
-    }
-    if (cambiaCatOFecha && (await existePartidoReciente(idPlantillaFinal, fechaFinal, partido.id))) {
-      return res.status(409).json({ message: 'Esta plantilla jugó hace menos de 72 horas.' });
     }
     if (idLugarFinal && idLocalFinal === PALMA_ID && cambiaUbicacion) {
       const plantilla = await Plantilla.findOne({ where: { id: idPlantillaFinal }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });

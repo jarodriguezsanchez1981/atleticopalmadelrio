@@ -33,7 +33,6 @@ const guardando = ref(false);
 
 const form = ref({});
 const partidosDelDia = ref([]);
-const partidosRecientes = ref([]);
 const entrenamientosDelDia = ref([]);
 
 function claveDia(fecha) {
@@ -50,19 +49,12 @@ function diaDePartido(p) {
 async function cargarPartidosDelDia() {
   if (props.tipo !== 'partido') {
     partidosDelDia.value = [];
-    partidosRecientes.value = [];
   } else {
     const dia = claveDia(form.value?.fecha);
-    const fechaRef = form.value?.fecha instanceof Date ? form.value.fecha : new Date(form.value?.fecha);
-    const limite = fechaRef && !Number.isNaN(fechaRef.getTime()) ? new Date(fechaRef.getTime() - 72 * 60 * 60 * 1000) : null;
     const todos = await partidosService.listar();
     partidosDelDia.value = todos.filter((p) =>
       dia && diaDePartido(p) === dia && String(p.id) !== String(props.registroId || '')
     );
-    partidosRecientes.value = todos.filter((p) => {
-      const f = p.fecha ? new Date(p.fecha) : null;
-      return f && limite && f >= limite && f <= fechaRef && String(p.id) !== String(props.registroId || '');
-    });
   }
 }
 
@@ -177,11 +169,11 @@ const opcionesPlantilla = computed(() => {
       .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
-  const recientes = new Set(
-    partidosRecientes.value.map((p) => p.id_plantilla ?? p.plantilla?.id ?? null).filter(Boolean)
+  const ocupadasHoy = new Set(
+    partidosDelDia.value.map((p) => p.id_plantilla ?? p.plantilla?.id ?? null).filter(Boolean)
   );
   return plantillas.value
-    .filter((p) => !recientes.has(p.id))
+    .filter((p) => !ocupadasHoy.has(p.id))
     .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 });
@@ -269,16 +261,6 @@ function textoConflicto() {
 
 function nombrePlantilla(idPl) {
   return plantillas.value.find((p) => p.id === idPl)?.categoria?.nombre || '?';
-}
-
-function plantillaJugoRecientemente() {
-  if (props.tipo !== 'partido' || form.value.id_plantilla == null || !form.value.fecha) return null;
-  const fecha = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
-  if (Number.isNaN(fecha.getTime())) return null;
-  return partidosRecientes.value.find((p) => {
-    const pPl = p.id_plantilla ?? p.plantilla?.id ?? null;
-    return pPl != null && String(pPl) === String(form.value.id_plantilla);
-  }) || null;
 }
 
 function entrenamientoEnConflicto() {
@@ -382,16 +364,6 @@ function validar() {
       severity: 'error',
       summary: 'Entrenamiento duplicado',
       detail: `Esta plantilla ya tiene un entrenamiento a esa hora (${formatHora(conflictoEntrenamiento.fecha)}).`,
-      life: 5000
-    });
-    return false;
-  }
-  const reciente = props.tipo === 'partido' ? plantillaJugoRecientemente() : null;
-  if (reciente) {
-    toast.add({
-      severity: 'error',
-      summary: 'Plantilla ocupada',
-      detail: 'Esta plantilla jugó hace menos de 72 horas.',
       life: 5000
     });
     return false;

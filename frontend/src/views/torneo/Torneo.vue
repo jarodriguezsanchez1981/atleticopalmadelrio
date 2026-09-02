@@ -4,6 +4,7 @@ import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
+import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
@@ -189,7 +190,7 @@ async function guardar() {
 }
 
 const calendarOptions = {
-  plugins: [dayGridPlugin, timeGridPlugin, multiMonthPlugin],
+  plugins: [dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin],
   initialView: 'dayGridMonth',
   locale: esLocale,
   height: 'auto',
