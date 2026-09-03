@@ -2,7 +2,7 @@
 /**
  * Calendario solo lectura: entrenamientos, partidos y festivos nacionales ES.
  */
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -223,12 +223,16 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
     });
 
     const festivos = eventosFestivosFullCalendar(fetchInfo.startStr, fetchInfo.endStr).map(f => ({
-      ...f,
+      id: f.id,
+      title: f.title,
+      start: f.start,
+      allDay: true,
       display: 'auto',
-      color: COLOR_FESTIVO,
       backgroundColor: '#FDE68A',
       borderColor: '#D97706',
-      textColor: '#78350F'
+      textColor: '#78350F',
+      classNames: ['fc-festivo-nacional'],
+      extendedProps: f.extendedProps
     }));
 
     successCallback([...mapeados, ...festivos]);
@@ -320,7 +324,34 @@ function eliminarEvento() {
 }
 
 function refrescar() {
-  calendarRef.value?.getApi().refetchEvents();
+  const api = calendarRef.value?.getApi();
+  if (api) {
+    api.refetchEvents();
+  } else if (esMovil.value) {
+    fetchEventosMobile();
+  }
+}
+
+async function fetchEventosMobile() {
+  try {
+    const now = new Date();
+    const desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const hasta = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+    const eventos = await calendarioService.eventos({
+      desde,
+      hasta,
+      id_categoria: filtroCategoria.value || undefined
+    });
+    const festivos = eventosFestivosFullCalendar(desde, hasta).map(f => ({
+      id: f.id,
+      tipo: 'festivo',
+      titulo: f.title.replace('🎉 ', ''),
+      inicio: f.start,
+      lugar: null,
+      categoria: null
+    }));
+    eventosLista.value = eventos.concat(festivos);
+  } catch {}
 }
 
 function onFormSaved() {
@@ -416,6 +447,11 @@ function contenidoEvento(arg) {
         `</div>`
     };
   }
+  if (e?.tipo === 'festivo') {
+    return {
+      html: `<div class="fc-evento-contenido"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
+    };
+  }
   return { html: escapeHtml(arg.event?.title) };
 }
 
@@ -493,7 +529,10 @@ const calendarOptions = {
 
 onMounted(async () => {
   categorias.value = await categoriasService.listar();
+  if (esMovil.value) fetchEventosMobile();
 });
+
+watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(); });
 </script>
 
 <template>
@@ -530,7 +569,14 @@ onMounted(async () => {
     </div>
 
     <div class="bg-white rounded-xl  p-4 calendario-club">
-      <FullCalendar ref="calendarRef" :options="calendarOptions" />
+      <FullCalendar v-if="!esMovil" ref="calendarRef" :options="calendarOptions" />
+      <CalendarioLista
+        v-else
+        :eventos="eventosLista"
+        :id-categoria="filtroCategoria"
+        @event-click="onEventClickMovil"
+        @date-click="onDateClickMovil"
+      />
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-md">

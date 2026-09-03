@@ -201,6 +201,11 @@ function contenidoEvento(arg) {
         `</div>`
     };
   }
+  if (e?.tipo === 'festivo') {
+    return {
+      html: `<div class="fc-evento-contenido"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
+    };
+  }
   return { html: escapeHtml(arg.event?.title) };
 }
 
@@ -267,12 +272,16 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
 
     const festivos = props.showFestivos
       ? eventosFestivosFullCalendar(fetchInfo.startStr, fetchInfo.endStr).map((f) => ({
-          ...f,
+          id: f.id,
+          title: f.title,
+          start: f.start,
+          allDay: true,
           display: 'auto',
-          color: COLOR_FESTIVO,
           backgroundColor: '#FDE68A',
           borderColor: '#D97706',
-          textColor: '#78350F'
+          textColor: '#78350F',
+          classNames: ['fc-festivo-nacional'],
+          extendedProps: f.extendedProps
         }))
       : [];
 
@@ -396,6 +405,20 @@ function onEventClick(info) {
     inicio: info.event.extendedProps?.inicio || info.event.start
   };
   dialogVisible.value = true;
+}
+
+function onEventClickMovil(e) {
+  if (e.tipo === 'festivo') return;
+  eventoSeleccionado.value = { ...e, titulo: e.titulo || e.equipo?.nombre || '' };
+  dialogVisible.value = true;
+}
+
+function onDateClickMovil(dateStr) {
+  if (!dateStr) return;
+  formTipo.value = props.tipo || 'entrenamiento';
+  formRegistroId.value = null;
+  formFechaDefecto.value = dateStr;
+  formVisible.value = true;
 }
 
 function onDateClick(info) {
@@ -533,7 +556,35 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
 }
 
 function refrescar() {
-  calendarRef.value?.getApi()?.refetchEvents();
+  const api = calendarRef.value?.getApi();
+  if (api) {
+    api.refetchEvents();
+  } else if (esMovil.value) {
+    fetchEventosMobile();
+  }
+}
+
+async function fetchEventosMobile() {
+  try {
+    const now = new Date();
+    const desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const hasta = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+    const eventos = await calendarioService.eventos({
+      desde,
+      hasta,
+      id_categoria: props.idCategoria || undefined,
+      tipo: props.tipo || undefined
+    });
+    const festivos = eventosFestivosFullCalendar(desde, hasta).map(f => ({
+      id: f.id,
+      tipo: 'festivo',
+      titulo: f.title.replace('🎉 ', ''),
+      inicio: f.start,
+      lugar: null,
+      categoria: null
+    }));
+    eventosLista.value = eventos.concat(festivos);
+  } catch {}
 }
 
 watch(
@@ -623,10 +674,13 @@ defineExpose({ refrescar });
 let unsubCambio = null;
 onMounted(() => {
   unsubCambio = suscribirseCambio(() => refrescar());
+  if (esMovil.value) fetchEventosMobile();
 });
 onBeforeUnmount(() => {
   if (unsubCambio) unsubCambio();
 });
+
+watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(); });
 </script>
 
 <template>
@@ -661,7 +715,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="bg-white rounded-xl  p-4 calendario-club" :style="{ '--fc-event-bg-color': colorPrincipal }">
-      <FullCalendar ref="calendarRef" :options="calendarOptions" />
+      <FullCalendar v-if="!esMovil" ref="calendarRef" :options="calendarOptions" />
+      <CalendarioLista
+        v-else
+        :eventos="eventosLista"
+        :id-categoria="idCategoria"
+        @event-click="onEventClickMovil"
+        @date-click="onDateClickMovil"
+      />
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-md">
