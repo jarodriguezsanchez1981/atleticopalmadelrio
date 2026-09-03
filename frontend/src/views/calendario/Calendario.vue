@@ -20,12 +20,14 @@ import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
 import TorneoFormCalendario from '../../components/TorneoFormCalendario.vue';
 import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
+import CalendarioLista from '../../components/CalendarioLista.vue';
 import { calendarioService, categoriasService, entrenamientosService, partidosService, torneosService } from '../../services';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { generarPdfCalendario } from '../../utils/pdfCalendario';
 import { useAuthStore } from '../../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../../utils/cambioBus';
+import { useMediaQuery } from '../../composables/useMediaQuery';
 
 const categorias = ref([]);
 const filtroCategoria = ref(null);
@@ -42,6 +44,9 @@ const torneoFormRegistroId = ref(null);
 const confirm = useConfirm();
 const toast = useToast();
 const auth = useAuthStore();
+
+const esMovil = useMediaQuery('(max-width: 639px)');
+const eventosLista = ref([]);
 
 const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
@@ -236,6 +241,17 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
     }));
 
     successCallback([...mapeados, ...festivos]);
+    eventosLista.value = eventos.map((e, idx) => {
+      const m = mapeados[idx];
+      return { ...e, esPrimeroGrupo: m?.extendedProps?.esPrimeroGrupo, miGrupo: m?.miGrupo };
+    }).concat(festivos.map(f => ({
+      id: f.id,
+      tipo: 'festivo',
+      titulo: f.title.replace('🎉 ', ''),
+      inicio: f.start,
+      lugar: null,
+      categoria: null
+    })));
   } catch (err) {
     failureCallback(err);
   }
