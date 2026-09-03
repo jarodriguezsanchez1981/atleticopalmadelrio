@@ -19,6 +19,7 @@ import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from './EventoFormCalendario.vue';
 import EquipacionPrenda from './EquipacionPrenda.vue';
+import CalendarioLista from './CalendarioLista.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { tituloCalendario } from '../utils/tituloCalendario';
@@ -26,6 +27,7 @@ import { generarPdfPartidos } from '../utils/pdfPartidos';
 import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
+import { useMediaQuery } from '../composables/useMediaQuery';
 import * as XLSX from '@e965/xlsx';
 
 const props = defineProps({
@@ -47,6 +49,8 @@ const formVisible = ref(false);
 const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
+const esMovil = useMediaQuery('(max-width: 639px)');
+const eventosLista = ref([]);
 
 const nombreLocal = computed(() => {
   const e = eventoSeleccionado.value;

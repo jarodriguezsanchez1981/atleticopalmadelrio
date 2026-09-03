@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -19,6 +19,8 @@ import { torneosService, plantillasService, equiposService } from '../../service
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { useAuthStore } from '../../stores/auth.store';
 import { suscribirseCambio, emitirCambio } from '../../utils/cambioBus';
+import CalendarioLista from '../../components/CalendarioLista.vue';
+import { useMediaQuery } from '../../composables/useMediaQuery';
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -29,6 +31,8 @@ let unsubCambio = null;
 
 const crudRef = ref();
 const calendarRef = ref();
+const esMovil = useMediaQuery('(max-width: 639px)');
+const eventosLista = ref([]);
 
 async function cargarOpciones() {
   const [pls, eqs] = await Promise.all([
@@ -42,10 +46,13 @@ async function cargarOpciones() {
 onMounted(async () => {
   await cargarOpciones();
   unsubCambio = suscribirseCambio(refrescar);
+  if (esMovil.value) fetchTorneosMobile();
 });
 onBeforeUnmount(() => {
   if (unsubCambio) unsubCambio();
 });
+
+watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchTorneosMobile(); });
 
 const opcionesPlantilla = computed(() =>
   plantillas.value.map(p => ({
@@ -131,13 +138,43 @@ async function fetchTorneos(fetchInfo, successCallback, failureCallback) {
       return ev;
     });
     successCallback(eventos);
+    eventosLista.value = items.map(t => ({
+      id: t.id,
+      tipo: 'torneo',
+      titulo: t.nombre || t.equipo?.nombre || '',
+      inicio: formatoHora(t.fecha, t.hora),
+      lugar: t.lugar || null,
+      categoria: t.plantilla?.categoria || null
+    }));
   } catch (err) {
     failureCallback(err);
   }
 }
 
 function refrescar() {
-  calendarRef.value?.getApi()?.refetchEvents();
+  const api = calendarRef.value?.getApi();
+  if (api) {
+    api.refetchEvents();
+  } else if (esMovil.value) {
+    fetchTorneosMobile();
+  }
+}
+
+async function fetchTorneosMobile() {
+  try {
+    const now = new Date();
+    const desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const hasta = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+    const items = await torneosService.eventos({ desde, hasta });
+    eventosLista.value = items.map(t => ({
+      id: t.id,
+      tipo: 'torneo',
+      titulo: t.nombre || t.equipo?.nombre || '',
+      inicio: formatoHora(t.fecha, t.hora),
+      lugar: t.lugar || null,
+      categoria: t.plantilla?.categoria || null
+    }));
+  } catch {}
 }
 
 function esc(s) {
@@ -253,6 +290,16 @@ function onEventClick(info) {
   if (ext.id != null) abrirDetalle(ext);
 }
 
+function onEventClickMovil(e) {
+  if (e.tipo === 'festivo') return;
+  if (e.id != null) abrirDetalle(e);
+}
+
+function onDateClickMovil(dateStr) {
+  if (!(auth.puedeVer('torneo') && auth.puedeEditar())) return;
+  abrirNuevo(dateStr);
+}
+
 async function guardar() {
   if (!form.id_plantilla || !form.id_equipo || !form.fecha) {
     toast.add({ severity: 'warn', summary: 'Faltan campos', detail: 'Plantilla, equipo y fecha son obligatorios.', life: 4000 });
@@ -320,7 +367,13 @@ const calendarOptions = {
         Calendario de torneos
       </h1>
       <div class="bg-white rounded-xl p-4">
-        <FullCalendar ref="calendarRef" :options="calendarOptions" />
+        <FullCalendar v-if="!esMovil" ref="calendarRef" :options="calendarOptions" />
+        <CalendarioLista
+          v-else
+          :eventos="eventosLista"
+          @event-click="onEventClickMovil"
+          @date-click="onDateClickMovil"
+        />
         <p v-if="auth.puedeVer('torneo') && auth.puedeEditar()" class="text-xs text-ink-tertiary mt-2">
           Pincha en un día para añadir un torneo. Pincha en un evento para ver sus detalles, editarlo o eliminarlo.
         </p>

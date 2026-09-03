@@ -25,6 +25,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import { mapaFestivosAnio, nombreFestivoNacional } from '../utils/festivosEspana';
 import { emitirCambio } from '../utils/cambioBus';
 import { useAuthStore } from '../stores/auth.store';
+import { useMediaQuery } from '../composables/useMediaQuery';
 import * as XLSX from '@e965/xlsx';
 
 const auth = useAuthStore();
@@ -69,6 +70,7 @@ const importProgress = ref(0);
 const importInputRef = ref(null);
 const importPreview = ref([]);
 const importErrores = ref([]);
+const esMovil = useMediaQuery('(max-width: 639px)');
 
 const columnas = ref([]);
 const storageKey = `ar_col_order_${props.title}`;
@@ -677,6 +679,15 @@ function exportarExcel() {
   XLSX.writeFile(wb, `${props.title.toLowerCase().replace(/\s+/g, '_')}.xlsx`);
 }
 
+function valorCelda(col, data) {
+  const slot = col.field;
+  if (typeof col.format === 'function') return col.format(data[col.field], data);
+  if (col.type === 'image') return data[col.field] ? '' : '—';
+  return data[col.field] ?? '—';
+}
+
+const columnasVisibles = computed(() => columnas.value.filter(c => c.type !== 'image').slice(0, 3));
+
 defineExpose({ cargar });
 onMounted(() => {
   restaurarOrden();
@@ -706,7 +717,7 @@ watch(
           </span>
         </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
+        <div :class="esMovil ? 'flex flex-col gap-2 w-full' : 'flex items-center gap-2 flex-wrap'">
           <Button
             v-if="permisoEliminar && seleccionados.length"
             :label="`Eliminar seleccionados (${seleccionados.length})`"
@@ -721,20 +732,21 @@ watch(
             <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
           </IconField>
           <slot name="acciones" />
-          <Button v-if="canExport" label="Exportar" icon="pi pi-file-export" outlined
+          <Button v-if="canExport && !esMovil" label="Exportar" icon="pi pi-file-export" outlined
                   class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
                   @click="exportarExcel" />
-          <Button v-if="permisoCrear" label="Importar" icon="pi pi-file-import" outlined
+          <Button v-if="permisoCrear && !esMovil" label="Importar" icon="pi pi-file-import" outlined
                   class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
                   @click="abrirImport" />
           <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight !" />
+                  :class="esMovil ? 'fab-movil !fixed !bottom-6 !right-6 !z-50 !rounded-full !w-14 !h-14 !shadow-lg' : '!bg-club-green !border-club-green hover:!bg-club-greenLight !'" />
         </div>
       </div>
       <div class="mt-3 h-px bg-fill-hover"></div>
     </div>
 
     <DataTable
+      v-if="!esMovil"
       :value="items"
       v-model:selection="seleccionados"
       :dataKey="'id'"
@@ -790,11 +802,43 @@ watch(
       </template>
     </DataTable>
 
+    <!-- Vista tarjetas móvil -->
+    <div v-if="esMovil" class="space-y-3">
+      <div v-if="!items.length && !cargando" class="text-center text-ink-tertiary py-8">
+        <i class="pi pi-inbox text-2xl block mb-2"></i>
+        No hay registros todavía.
+      </div>
+      <div v-for="item in items" :key="item.id" class="bg-white rounded-xl border border-line p-3">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="flex-1 min-w-0">
+            <div v-for="col in columnasVisibles" :key="col.field" class="mb-1">
+              <span class="text-[0.65rem] text-ink-tertiary uppercase tracking-wide">{{ col.header }}</span>
+              <div class="text-sm font-medium text-ink-primary truncate">
+                <slot :name="`cell-${col.field}`" :data="item">
+                  <img v-if="col.type === 'image' && item[col.field]" :src="item[col.field]" alt="" class="ar-foto-mini" />
+                  <template v-else>{{ valorCelda(col, item) }}</template>
+                </slot>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-1 shrink-0">
+            <Button icon="pi pi-eye" text rounded severity="secondary" size="small"
+                    class="!w-8 !h-8" @click="abrirDetalle(item)" />
+            <Button v-if="permisoEditar" icon="pi pi-pencil" text rounded severity="secondary" size="small"
+                    class="!w-8 !h-8" @click="abrirEdicion(item)" />
+            <Button v-if="permisoEliminar" icon="pi pi-trash" text rounded severity="danger" size="small"
+                    class="!w-8 !h-8" @click="confirmarEliminar(item)" />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Alta / edición -->
     <Dialog
       v-model:visible="dialogVisible"
       modal
-      :class="['w-full', formMaxWidth]"
+      :class="['w-full', esMovil ? '' : formMaxWidth]"
+      :style="esMovil ? { width: '100%', height: '100%', maxWidth: '100%', margin: 0 } : {}"
       :pt="{ header: { class: 'items-center' } }"
     >
       <template #header>
@@ -888,7 +932,8 @@ watch(
     </Dialog>
 
     <!-- Detalle (lupa) -->
-    <Dialog v-model:visible="detalleVisible" modal :class="['w-full', detailMaxWidth]">
+    <Dialog v-model:visible="detalleVisible" modal :class="['w-full', esMovil ? '' : detailMaxWidth]"
+            :style="esMovil ? { width: '100%', height: '100%', maxWidth: '100%', margin: 0 } : {}">
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -1107,5 +1152,16 @@ watch(
 .p-datepicker-panel .p-datepicker-day-selected.dp-festivo-es,
 .p-datepicker-panel .p-datepicker-day-selected .dp-festivo-es {
   box-shadow: inset 0 0 0 2px #9a3412;
+}
+
+.fab-movil {
+  background: #0B3D2E !important;
+  border: none !important;
+  color: #fff !important;
+  width: 56px !important;
+  height: 56px !important;
+}
+.fab-movil .p-button-icon {
+  font-size: 1.25rem;
 }
 </style>
