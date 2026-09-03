@@ -132,7 +132,7 @@ const opcionesJugador = computed(() =>
 
 const opcionesPosicion = computed(() =>
   posiciones.value
-    .map(p => ({ label: p.alias ? `${p.nombre} (${p.alias})` : p.nombre, value: p.id }))
+    .map(p => ({ label: p.alias || p.nombre, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
@@ -178,7 +178,7 @@ function formatearJugador(j) {
 
 function nombrePosiciones(pos) {
   if (!Array.isArray(pos) || !pos.length) return '—';
-  return pos.map(p => p.alias ? `${p.nombre} (${p.alias})` : p.nombre).join(', ');
+  return pos.map(p => p.alias || p.nombre).join('<br>');
 }
 
 function prepareEdit(item) {
@@ -653,7 +653,7 @@ function validarPlantilla(form) {
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
               <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
-              <td class="text-center border border-line p-2 text-sm">{{ nombrePosiciones(j.PlantillaJugador?.posiciones) }}</td>
+              <td class="text-center border border-line p-2 text-sm" v-html="nombrePosiciones(j.PlantillaJugador?.posiciones)"></td>
               <td class="text-center border border-line p-2 text-sm">
                 <i v-if="j.PlantillaJugador?.promocion" class="pi pi-check-circle text-club-green" />
                 <span v-else class="text-ink-tertiary">—</span>

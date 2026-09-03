@@ -44,7 +44,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, id_equipo, fecha, hora } = req.body;
+    const { id_plantilla, id_equipo, nombre, fecha, hora } = req.body;
     if (!id_plantilla || !id_equipo || !fecha) {
       return res.status(400).json({ message: 'Plantilla, equipo y fecha son obligatorios.' });
     }
@@ -55,6 +55,7 @@ async function crear(req, res, next) {
     const item = await Torneo.create({
       id_plantilla,
       id_equipo,
+      nombre: nombre || null,
       fecha,
       hora: hora || null
     });
@@ -67,7 +68,7 @@ async function actualizar(req, res, next) {
   try {
     const item = await Torneo.findByPk(req.params.id);
     if (!item) return res.status(404).json({ message: 'Torneo no encontrado.' });
-    const { id_plantilla, id_equipo, fecha, hora } = req.body;
+    const { id_plantilla, id_equipo, nombre, fecha, hora } = req.body;
     if (id_plantilla !== undefined) {
       const plantilla = await Plantilla.findOne({ where: { id: id_plantilla } });
       if (!plantilla) return res.status(400).json({ message: 'La plantilla indicada no existe.' });
@@ -78,6 +79,7 @@ async function actualizar(req, res, next) {
       if (!equipo) return res.status(400).json({ message: 'El equipo indicado no existe.' });
       item.id_equipo = id_equipo;
     }
+    if (nombre !== undefined) item.nombre = nombre || null;
     if (fecha !== undefined) item.fecha = fecha;
     if (hora !== undefined) item.hora = hora || null;
     await item.save();

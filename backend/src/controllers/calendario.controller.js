@@ -176,12 +176,13 @@ async function eventos(req, res, next) {
         id: `torneo-${t.id}`,
         tipo: 'torneo',
         base_id: t.id,
-        titulo: `${t.equipo?.nombre ?? ''} · Torneo`,
+        titulo: `${t.nombre || t.equipo?.nombre || ''} · Torneo`,
         inicio,
         lugar: null,
         plantilla: t.plantilla,
         categoria: t.plantilla?.categoria,
         equipo: t.equipo,
+        nombre: t.nombre,
         es_torneo: true
       };
     });

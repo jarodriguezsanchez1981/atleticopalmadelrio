@@ -5,6 +5,7 @@ const Torneo = sequelize.define('Torneo', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   id_plantilla: { type: DataTypes.INTEGER, allowNull: false },
   id_equipo: { type: DataTypes.INTEGER, allowNull: false },
+  nombre: { type: DataTypes.STRING(150), allowNull: true },
   fecha: { type: DataTypes.DATEONLY, allowNull: false },
   hora: { type: DataTypes.TIME, allowNull: true }
 }, {

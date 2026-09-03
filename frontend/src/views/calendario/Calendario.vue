@@ -184,13 +184,43 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
       id_categoria: filtroCategoria.value || undefined
     });
 
-    const mapeados = eventos.map(e => ({
-      id: e.id,
-      title: e.titulo,
-      start: e.inicio,
-      color: e.tipo === 'partido' ? COLOR_PARTIDO : (e.tipo === 'torneo' ? COLOR_TORNEO : COLOR_ENTRENAMIENTO),
-      extendedProps: e
-    }));
+    const gruposPorDia = new Map();
+    const conGrupo = eventos.map(e => {
+      const miGrupo = e.tipo === 'partido'
+        ? (e.jornada ? 'LIGA' : 'AMISTOSO')
+        : (e.tipo === 'torneo' ? 'TORNEO' : 'ENTRENAMIENTO');
+      const miGrupoOrden = { LIGA: 1, AMISTOSO: 2, TORNEO: 3, ENTRENAMIENTO: 4 }[miGrupo];
+      const diaKey = String(e.inicio || '').slice(0, 10);
+      const key = `${diaKey}__${miGrupo}`;
+      let bucket = gruposPorDia.get(key);
+      if (!bucket) {
+        bucket = { firstId: null, firstInicio: null };
+        gruposPorDia.set(key, bucket);
+      }
+      const inicio = e.inicio ? new Date(e.inicio).getTime() : Infinity;
+      if (bucket.firstInicio == null || inicio < bucket.firstInicio) {
+        bucket.firstInicio = inicio;
+        bucket.firstId = e.id;
+      }
+      return {
+        id: e.id,
+        title: e.titulo,
+        start: e.inicio,
+        color: e.tipo === 'partido' ? COLOR_PARTIDO : (e.tipo === 'torneo' ? COLOR_TORNEO : COLOR_ENTRENAMIENTO),
+        extendedProps: e,
+        miGrupo,
+        miGrupoOrden
+      };
+    });
+
+    const mapeados = conGrupo.map(ev => {
+      const diaKey = String(ev.start || '').slice(0, 10);
+      const key = `${diaKey}__${ev.miGrupo}`;
+      const bucket = gruposPorDia.get(key);
+      const esPrimeroGrupo = bucket && bucket.firstId === ev.id;
+      ev.extendedProps = { ...ev.extendedProps, esPrimeroGrupo, miGrupo: ev.miGrupo };
+      return ev;
+    });
 
     const festivos = eventosFestivosFullCalendar(fetchInfo.startStr, fetchInfo.endStr).map(f => ({
       ...f,
@@ -334,32 +364,41 @@ function contenidoEvento(arg) {
     const icono = e.es_local
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
       : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
-    const badge = e.jornada
-      ? '<span class="fc-liga-badge">Liga</span>'
-      : '<span class="fc-amistoso-badge">Amistoso</span>';
+
+    const lugar = e.es_local
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipoLocal?.localidad || '');
+    const lugarHtml = lugar ? `<span class="fc-partido-lugar">${escapeHtml(lugar)}</span>` : '';
+    const cab = cabeceraGrupoHtml(e);
     return {
       html: `<div class="fc-evento-contenido">` +
+        cab +
         `<span class="fc-partido-hora">${hora}</span>` +
         icono +
         `<span class="fc-partido-alias">${alias}</span>` +
-        badge +
+        lugarHtml +
         `</div>`
     };
   }
   if (e?.tipo === 'torneo') {
     const hora = escapeHtml(formatearHora(e.inicio));
     const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || 'Torneo');
-    const badge = '<span class="fc-torneo-badge">Torneo</span>';
     const esLocal = e.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
     const icono = esLocal
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
       : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+    const lugar = esLocal
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipo?.localidad || '');
+    const lugarHtml = lugar ? `<span class="fc-partido-lugar">${escapeHtml(lugar)}</span>` : '';
+    const cab = cabeceraGrupoHtml(e);
     return {
       html: `<div class="fc-evento-contenido">` +
+        cab +
         `<span class="fc-partido-hora">${hora}</span>` +
         icono +
         `<span class="fc-partido-alias">${alias}</span>` +
-        badge +
+        lugarHtml +
         `</div>`
     };
   }
@@ -367,17 +406,41 @@ function contenidoEvento(arg) {
     const hora = escapeHtml(formatearHora(e.inicio));
     const lugar = escapeHtml(e.lugar || '—');
     const categoria = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
-    const badge = '<span class="fc-entrenamiento-badge">Entrenamiento</span>';
+    const cab = cabeceraGrupoHtml(e);
     return {
       html: `<div class="fc-evento-contenido">` +
+        cab +
         `<span class="fc-partido-hora">${hora}</span>` +
         `<span class="fc-partido-lugar">${lugar}</span>` +
         `<span class="fc-partido-alias">${categoria}</span>` +
-        badge +
         `</div>`
     };
   }
   return { html: escapeHtml(arg.event?.title) };
+}
+
+function cabeceraGrupoHtml(e) {
+  if (!e.esPrimeroGrupo) return '';
+  const meta = GRUPO_LABELS[e.miGrupo];
+  if (!meta) return '';
+  return `<div class="fc-grupo-cabecera" style="background:${meta.color};color:#fff;font-size:9px;font-weight:700;padding:1px 4px;margin:0 0 5px;border-radius:3px;letter-spacing:0.3px;display:flex;align-items:center;gap:3px;line-height:1.2;width:100%;"><i class="${meta.icon}" style="font-size:9px"></i>${meta.label}</div>`;
+}
+
+const GRUPO_LABELS = {
+  LIGA: { label: 'LIGA', color: '#0B3D2E', icon: 'pi pi-star-fill' },
+  AMISTOSO: { label: 'AMISTOSO', color: '#D97706', icon: 'pi pi-handshake' },
+  TORNEO: { label: 'TORNEO', color: '#6D28D9', icon: 'pi pi-trophy' },
+  ENTRENAMIENTO: { label: 'ENTRENAMIENTO', color: '#2563EB', icon: 'pi pi-calendar' }
+};
+
+const cabecerasInsertadas = new WeakSet();
+
+function agruparEventosDidMount(info) {
+  const grupo = info.event.extendedProps?.tipo === 'partido'
+    ? (info.event.extendedProps?.jornada ? 'LIGA' : 'AMISTOSO')
+    : (info.event.extendedProps?.tipo === 'torneo' ? 'TORNEO' : 'ENTRENAMIENTO');
+  const el = info.el;
+  el.classList.add(`fc-grupo-${grupo.toLowerCase()}`);
 }
 
 let unsubCambio = null;
@@ -418,12 +481,14 @@ const calendarOptions = {
   },
   events: fetchEventos,
   eventContent: contenidoEvento,
+  eventDidMount: agruparEventosDidMount,
   eventClick: onEventClick,
   dateClick: onDateClick,
   editable: false,
   selectable: false,
   dayMaxEvents: false,
-  fixedWeekCount: false
+  fixedWeekCount: false,
+  eventOrder: 'miGrupoOrden,start'
 };
 
 onMounted(async () => {
@@ -552,6 +617,10 @@ onMounted(async () => {
               <p class="text-xs text-ink-tertiary font-medium">Categoría</p>
               <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.categoria?.nombre || '—' }}</p>
             </div>
+          </div>
+          <div class="py-2 text-center">
+            <p class="text-xs text-ink-tertiary font-medium">Nombre</p>
+            <p class="text-base font-semibold text-ink-primary">{{ eventoSeleccionado.nombre || '—' }}</p>
           </div>
         </template>
 

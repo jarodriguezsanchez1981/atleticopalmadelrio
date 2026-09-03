@@ -140,7 +140,7 @@ function escapeHtml(s) {
   }[c]));
 }
 
-/** Contenido HTML del evento: hora + icono local/visitante + alias + badge para partidos. */
+/** Contenido HTML del evento: hora + icono local/visitante + alias + badge + lugar para partidos. */
 function contenidoEvento(arg) {
   const e = arg.event?.extendedProps;
   if (e?.tipo === 'partido') {
@@ -152,12 +152,17 @@ function contenidoEvento(arg) {
     const badge = e.jornada
       ? '<span class="fc-liga-badge">Liga</span>'
       : '<span class="fc-amistoso-badge">Amistoso</span>';
+    const lugar = e.es_local
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipoLocal?.localidad || '');
+    const lugarHtml = lugar ? `<span class="fc-partido-lugar">${escapeHtml(lugar)}</span>` : '';
     return {
       html: `<div class="fc-evento-contenido">` +
         `<span class="fc-partido-hora">${hora}</span>` +
         icono +
         `<span class="fc-partido-alias">${alias}</span>` +
         badge +
+        lugarHtml +
         `</div>`
     };
   }

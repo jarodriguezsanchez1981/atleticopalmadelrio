@@ -11,7 +11,9 @@ import Select from 'primevue/select';
 import DatePicker from 'primevue/datepicker';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
+import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { torneosService, plantillasService, equiposService } from '../../services';
 import { tituloCalendario } from '../../utils/tituloCalendario';
@@ -19,6 +21,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { suscribirseCambio, emitirCambio } from '../../utils/cambioBus';
 
 const toast = useToast();
+const confirm = useConfirm();
 const auth = useAuthStore();
 const plantillas = ref([]);
 const equipos = ref([]);
@@ -58,11 +61,12 @@ const opcionesEquipo = computed(() =>
 const columns = computed(() => [
   { field: 'id_plantilla', header: 'Plantilla', type: 'select', options: opcionesPlantilla.value, required: true },
   { field: 'id_equipo', header: 'Equipo', type: 'select', options: opcionesEquipo.value, required: true },
+  { field: 'nombre', header: 'Nombre', type: 'text', required: false, enDetalle: false },
   { field: 'fecha', header: 'Fecha', type: 'date', required: true, format: (v) => formatFecha(v) },
   { field: 'hora', header: 'Hora', type: 'text', required: false }
 ]);
 
-const emptyItem = { id_plantilla: null, id_equipo: null, fecha: null, hora: null };
+const emptyItem = { id_plantilla: null, id_equipo: null, nombre: null, fecha: null, hora: null };
 
 function formatFecha(fecha) {
   if (!fecha) return '—';
@@ -98,7 +102,7 @@ async function fetchTorneos(fetchInfo, successCallback, failureCallback) {
     });
     const eventos = items.map(t => ({
       id: String(t.id),
-      title: `${t.equipo?.nombre || nombreEquipo(t.id_equipo)} · Torneo`,
+      title: `${t.nombre || t.equipo?.nombre || nombreEquipo(t.id_equipo)} · Torneo`,
       start: formatoHora(t.fecha, t.hora),
       color: '#6D28D9',
       extendedProps: t
@@ -131,11 +135,57 @@ function contenidoTorneo(arg) {
   };
 }
 
+// ---------- Diálogo de detalle ----------
+const detalleVisible = ref(false);
+const detalle = ref(null);
+
+function abrirDetalle(torneo) {
+  detalle.value = torneo;
+  detalleVisible.value = true;
+}
+
+function editarDesdeDetalle() {
+  const t = detalle.value;
+  if (!t) return;
+  detalleVisible.value = false;
+  abrirEdicion(t);
+}
+
+async function eliminarDesdeDetalle() {
+  const t = detalle.value;
+  if (!t) return;
+  confirm.require({
+    message: '¿Eliminar este torneo?',
+    header: 'Confirmar eliminación',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Eliminar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await torneosService.eliminar(t.id);
+        toast.add({ severity: 'success', summary: 'Eliminado', detail: 'Torneo eliminado.', life: 3000 });
+        detalleVisible.value = false;
+        refrescar();
+        crudRef.value?.cargar?.();
+        emitirCambio();
+      } catch (err) {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err.response?.data?.message || 'No se pudo eliminar.',
+          life: 5000
+        });
+      }
+    }
+  });
+}
+
 // ---------- Diálogo de alta / edición ----------
 const dialogVisible = ref(false);
 const guardando = ref(false);
 const editandoId = ref(null);
-const form = reactive({ id_plantilla: null, id_equipo: null, fecha: null, hora: null });
+const form = reactive({ id_plantilla: null, id_equipo: null, nombre: null, fecha: null, hora: null });
 
 function toFechaSQL(d) {
   if (!d) return null;
@@ -151,6 +201,7 @@ function abrirNuevo(fechaStr) {
   editandoId.value = null;
   form.id_plantilla = null;
   form.id_equipo = null;
+  form.nombre = null;
   form.fecha = fechaStr ? new Date(`${fechaStr}T12:00:00`) : null;
   form.hora = null;
   dialogVisible.value = true;
@@ -160,6 +211,7 @@ async function abrirEdicion(torneo) {
   editandoId.value = torneo.id;
   form.id_plantilla = torneo.id_plantilla;
   form.id_equipo = torneo.id_equipo;
+  form.nombre = torneo.nombre || null;
   form.fecha = torneo.fecha ? new Date(`${String(torneo.fecha).slice(0, 10)}T12:00:00`) : null;
   form.hora = String(torneo.hora || '').slice(0, 5) || null;
   dialogVisible.value = true;
@@ -172,7 +224,7 @@ function onDateClick(info) {
 
 function onEventClick(info) {
   const ext = info.event.extendedProps || {};
-  if (ext.id != null) abrirEdicion(ext);
+  if (ext.id != null) abrirDetalle(ext);
 }
 
 async function guardar() {
@@ -186,6 +238,7 @@ async function guardar() {
     const payload = {
       id_plantilla: form.id_plantilla,
       id_equipo: form.id_equipo,
+      nombre: form.nombre || null,
       fecha: toFechaSQL(form.fecha),
       hora
     };
@@ -242,7 +295,7 @@ const calendarOptions = {
       <div class="bg-white rounded-xl p-4">
         <FullCalendar ref="calendarRef" :options="calendarOptions" />
         <p v-if="auth.puedeVer('torneo') && auth.puedeEditar()" class="text-xs text-ink-tertiary mt-2">
-          Pincha en un día para añadir un torneo. Pincha en un evento para editarlo o eliminarlo desde la tabla.
+          Pincha en un día para añadir un torneo. Pincha en un evento para ver sus detalles, editarlo o eliminarlo.
         </p>
       </div>
     </div>
@@ -295,6 +348,10 @@ const calendarOptions = {
                   class="w-full" placeholder="Busca un equipo" showClear filter />
         </div>
         <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Nombre</label>
+          <InputText v-model="form.nombre" placeholder="Nombre del torneo" class="w-full" />
+        </div>
+        <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Fecha y hora <span class="text-club-garnet">*</span></label>
           <div class="flex gap-2">
             <DatePicker v-model="form.fecha" @update:modelValue="onFechaSelect" dateFormat="dd/mm/yy" showIcon
@@ -309,5 +366,51 @@ const calendarOptions = {
         </div>
       </form>
     </Dialog>
+
+    <Dialog v-model:visible="detalleVisible" modal class="w-full max-w-md">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
+          <span class="font-display text-club-green text-lg">Detalle · Torneo</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+            <i class="pi pi-trophy"></i> Torneo
+          </span>
+        </div>
+      </template>
+      <div v-if="detalle" class="space-y-3 pt-1">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2 border-b border-line">
+          <div>
+            <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
+            <p class="text-sm text-ink-secondary">{{ formatFecha(detalle.fecha) }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-ink-tertiary font-medium">Hora</p>
+            <p class="text-sm text-ink-secondary">{{ detalle.hora ? String(detalle.hora).slice(0, 5) : '—' }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-ink-tertiary font-medium">Localidad</p>
+            <p class="text-sm text-ink-secondary">{{ detalle.equipo?.localidad || '—' }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-ink-tertiary font-medium">Categoría</p>
+            <p class="text-sm text-ink-secondary">{{ detalle.plantilla?.categoria?.alias || detalle.plantilla?.categoria?.nombre || '—' }}</p>
+          </div>
+        </div>
+        <div class="py-2 text-center">
+          <p class="text-xs text-ink-tertiary font-medium">Nombre</p>
+          <p class="text-base font-semibold text-ink-primary">{{ detalle.nombre || '—' }}</p>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <Button label="Cerrar" text severity="secondary" @click="detalleVisible = false" />
+          <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar()" label="Eliminar" icon="pi pi-trash"
+                  severity="danger" outlined @click="eliminarDesdeDetalle" />
+          <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar()" label="Editar" icon="pi pi-pencil"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                  @click="editarDesdeDetalle" />
+        </div>
+      </div>
+    </Dialog>
+
+    <ConfirmDialog />
   </div>
 </template>
