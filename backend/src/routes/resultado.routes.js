@@ -10,8 +10,8 @@ router.use(authenticate, authorize('resultados'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('resultados'), ctrl.crear);
+router.put('/:id', requireEditar('resultados'), ctrl.actualizar);
+router.delete('/:id', requireEditar('resultados'), ctrl.eliminar);
 
 module.exports = router;

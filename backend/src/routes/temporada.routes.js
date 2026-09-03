@@ -10,8 +10,8 @@ router.use(authenticate, authorize('temporadas'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('temporadas'), ctrl.crear);
+router.put('/:id', requireEditar('temporadas'), ctrl.actualizar);
+router.delete('/:id', requireEditar('temporadas'), ctrl.eliminar);
 
 module.exports = router;

@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 #
-# Vuelca la base de datos MySQL de Docker a database/init.sql
-# para que un despliegue nuevo (o tras `down -v`) incluya todos los datos.
+# Vuelca la base de datos MySQL de Docker a backups/ (con datos reales).
+# NUNCA escribe en database/init.sql: ese fichero está versionado en git
+# y solo debe contener esquema (sin datos), para no filtrar PII/credenciales
+# al repositorio. backups/ está en .gitignore.
+#
+# Para restaurar un volcado en un despliegue (datos reales, no en git):
+#   docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < backups/<fichero>.sql
 #
 # Uso:
 #   scripts/dump-init.sh [archivo-env] [contenedor]
@@ -28,15 +33,19 @@ fi
 DB_NAME="${DB_NAME:-atletico_palma_intranet}"
 MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-rootpass}"
 
+mkdir -p backups
+OUT_FILE="backups/dump_${DB_NAME}_$(date +%Y%m%d_%H%M%S).sql"
+
 echo "Entorno : $ENV_FILE"
 echo "BD      : $DB_NAME"
 echo "Contenedor: $CONTAINER"
-echo "Volcando a database/init.sql ..."
+echo "Volcando a $OUT_FILE ..."
 
 docker exec "$CONTAINER" mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" \
   --single-transaction --no-tablespaces \
-  "$DB_NAME" > database/init.sql
+  "$DB_NAME" > "$OUT_FILE"
 
-LINES=$(wc -l < database/init.sql || true)
-SIZE=$(wc -c < database/init.sql || true)
-echo "OK: database/init.sql generado ($LINES líneas, $SIZE bytes)."
+LINES=$(wc -l < "$OUT_FILE" || true)
+SIZE=$(wc -c < "$OUT_FILE" || true)
+echo "OK: $OUT_FILE generado ($LINES líneas, $SIZE bytes)."
+echo "Este fichero contiene datos reales y NO se sube a git (backups/ está en .gitignore)."

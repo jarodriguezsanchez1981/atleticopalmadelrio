@@ -11,8 +11,8 @@ router.use(authenticate, authorize('categorias'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('categorias'), ctrl.crear);
+router.put('/:id', requireEditar('categorias'), ctrl.actualizar);
+router.delete('/:id', requireEditar('categorias'), ctrl.eliminar);
 
 module.exports = router;

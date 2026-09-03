@@ -10,8 +10,8 @@ router.use(authenticate, authorize('sanciones'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('sanciones'), ctrl.crear);
+router.put('/:id', requireEditar('sanciones'), ctrl.actualizar);
+router.delete('/:id', requireEditar('sanciones'), ctrl.eliminar);
 
 module.exports = router;

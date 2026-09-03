@@ -10,8 +10,8 @@ router.use(authenticate, authorize('delegados'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('delegados'), ctrl.crear);
+router.put('/:id', requireEditar('delegados'), ctrl.actualizar);
+router.delete('/:id', requireEditar('delegados'), ctrl.eliminar);
 
 module.exports = router;

@@ -7,6 +7,6 @@ const requireEditar = require('../middlewares/requireEditar');
 const router = Router();
 
 router.use(authenticate, authorize('administracion'));
-router.post('/:recurso', requireEditar(), ctrl.importar);
+router.post('/:recurso', requireEditar('administracion'), ctrl.importar);
 
 module.exports = router;

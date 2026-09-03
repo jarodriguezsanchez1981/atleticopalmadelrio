@@ -11,8 +11,8 @@ router.use(authenticate, authorize('administracion'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('administracion'), ctrl.crear);
+router.put('/:id', requireEditar('administracion'), ctrl.actualizar);
+router.delete('/:id', requireEditar('administracion'), ctrl.eliminar);
 
 module.exports = router;

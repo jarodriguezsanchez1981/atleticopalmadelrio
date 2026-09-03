@@ -9,10 +9,10 @@ const router = Router();
 router.use(authenticate, authorize('plantillas'));
 
 router.get('/', ctrl.listar);
-router.post('/temporada', requireEditar(), ctrl.crearParaTemporada);
+router.post('/temporada', requireEditar('plantillas'), ctrl.crearParaTemporada);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('plantillas'), ctrl.crear);
+router.put('/:id', requireEditar('plantillas'), ctrl.actualizar);
+router.delete('/:id', requireEditar('plantillas'), ctrl.eliminar);
 
 module.exports = router;

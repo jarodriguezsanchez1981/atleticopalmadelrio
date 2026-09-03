@@ -10,8 +10,8 @@ router.use(authenticate, authorize('partidos'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('partidos'), ctrl.crear);
+router.put('/:id', requireEditar('partidos'), ctrl.actualizar);
+router.delete('/:id', requireEditar('partidos'), ctrl.eliminar);
 
 module.exports = router;

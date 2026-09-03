@@ -11,8 +11,8 @@ router.use(authenticate, authorize('categoria_calendario'));
 router.get('/', ctrl.listar);
 router.get('/numeros', ctrl.listarNumeros);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('categoria_calendario'), ctrl.crear);
+router.put('/:id', requireEditar('categoria_calendario'), ctrl.actualizar);
+router.delete('/:id', requireEditar('categoria_calendario'), ctrl.eliminar);
 
 module.exports = router;

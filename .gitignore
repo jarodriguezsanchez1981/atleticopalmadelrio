@@ -8,3 +8,16 @@ frontend/dist/
 certbot/
 scripts/.venv/
 scripts/debug_*.html
+
+# Secretos de despliegue: usar el propio fichero local, nunca commitearlo
+# (ver .env.development.example / .env.production.example)
+/.env.development
+/.env.production
+
+# Volcados de BD con datos reales / PII: nunca deben ir al repo.
+# database/init.sql se mantiene versionado pero SOLO con esquema (sin datos);
+# los volcados con datos reales van a backups/, que está ignorado.
+backups/
+database/init.sql.bak
+database/init.sql.orig
+database/init 2.sql

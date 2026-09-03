@@ -10,8 +10,8 @@ router.use(authenticate, authorize('entrenamientos'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('entrenamientos'), ctrl.crear);
+router.put('/:id', requireEditar('entrenamientos'), ctrl.actualizar);
+router.delete('/:id', requireEditar('entrenamientos'), ctrl.eliminar);
 
 module.exports = router;

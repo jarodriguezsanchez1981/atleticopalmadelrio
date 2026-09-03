@@ -30,12 +30,20 @@ docker compose down             # parar (conserva datos)
 docker compose down -v          # parar y borrar datos MySQL (¡borra todo!)
 ```
 
-Para que un despliegue nuevo incluya los datos añadidos, regenera el volcado:
+Para hacer un backup de los datos reales (nunca se commitea, va a `backups/` que está en `.gitignore`):
 
 ```bash
-./scripts/dump-init.sh               # vuelca la BD a database/init.sql
+./scripts/dump-init.sh               # vuelca la BD a backups/dump_<bd>_<fecha>.sql
 ./scripts/dump-init.sh .env.production
 ```
+
+Para restaurar ese backup en un despliegue:
+
+```bash
+docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < backups/<fichero>.sql
+```
+
+`database/init.sql` (el que usa `docker-entrypoint-initdb.d`) solo contiene el esquema, sin datos — no debe regenerarse con `dump-init.sh` ni contener información real de usuarios/jugadores.
 
 ## Arquitectura
 
@@ -46,9 +54,9 @@ atleticopalmadelrio/
 ├── scripts/
 │   ├── rfaf_equipaciones.py         # Extrae equipaciones RFAF de una competición
 │   ├── rfaf_equipaciones_todas.py   # Extrae equipaciones de todas las ligas de Córdoba
-│   └── dump-init.sh                 # Vuelca MySQL a database/init.sql
+│   └── dump-init.sh                 # Vuelca MySQL (datos reales) a backups/, NUNCA a git
 ├── database/
-│   ├── init.sql                # DDL + datos (vuelco actualizado con ./scripts/dump-init.sh)
+│   ├── init.sql                # Solo esquema (sin datos), usado por docker-entrypoint-initdb.d
 │   └── schema.sql              # Instalación manual MySQL
 ├── backend/                    # Express + Sequelize + JWT + bcrypt
 │   ├── Dockerfile              # Multi-stage, non-root user

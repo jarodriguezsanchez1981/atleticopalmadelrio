@@ -10,8 +10,8 @@ router.use(authenticate, authorize('division'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('division'), ctrl.crear);
+router.put('/:id', requireEditar('division'), ctrl.actualizar);
+router.delete('/:id', requireEditar('division'), ctrl.eliminar);
 
 module.exports = router;

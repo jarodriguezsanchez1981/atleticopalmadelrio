@@ -7,8 +7,8 @@ const router = Router();
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', authenticate, requireEditar(), ctrl.crear);
-router.put('/:id', authenticate, requireEditar(), ctrl.actualizar);
-router.delete('/:id', authenticate, requireEditar(), ctrl.eliminar);
+router.post('/', authenticate, requireEditar('promociones'), ctrl.crear);
+router.put('/:id', authenticate, requireEditar('promociones'), ctrl.actualizar);
+router.delete('/:id', authenticate, requireEditar('promociones'), ctrl.eliminar);
 
 module.exports = router;

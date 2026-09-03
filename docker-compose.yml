@@ -5,10 +5,10 @@ services:
     container_name: apr_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
       MYSQL_DATABASE: ${DB_NAME:-atletico_palma_intranet}
       MYSQL_USER: ${DB_USER:-apr_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-apr_pass}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
       TZ: Europe/Madrid
     ports:
       - "127.0.0.1:${DB_PORT:-3306}:3306"
@@ -16,7 +16,7 @@ services:
       - apr_mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -41,14 +41,14 @@ services:
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
       DB_USER: ${DB_USER:-apr_user}
-      DB_PASSWORD: ${DB_PASSWORD:-apr_pass}
-      JWT_SECRET: ${JWT_SECRET:-7d7857fcd1c3e70182cb1d6de060b3e8639500193c5402f8a2ee5f4e6c056d0f}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en tu .env (ver .env.production.example)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
-      AES_SECRET_KEY: ${AES_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      AES_SECRET_KEY: ${AES_SECRET_KEY:?Define AES_SECRET_KEY en tu .env (32 bytes hex, ver .env.production.example)}
       BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-12}
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_USER: ${SEED_ADMIN_USER:-admin}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin#2026}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Define SEED_ADMIN_PASSWORD en tu .env}
     expose:
       - "4000"
     cap_drop:
@@ -73,7 +73,7 @@ services:
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
       DB_USER: ${DB_USER:-apr_user}
-      DB_PASSWORD: ${DB_PASSWORD:-apr_pass}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
     cap_drop:
       - ALL
     networks:
