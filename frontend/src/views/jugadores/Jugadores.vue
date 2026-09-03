@@ -39,6 +39,7 @@ function formatearPartido(p) {
 </script>
 
 <template>
+<SectionGuard seccion="jugadores">
   <CrudDataTable
     title="Jugadores"
     :columns="columns"
@@ -106,4 +107,5 @@ function formatearPartido(p) {
       </div>
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

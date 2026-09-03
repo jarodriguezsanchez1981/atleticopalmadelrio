@@ -72,6 +72,7 @@ function nombresSecciones(data) {
 </script>
 
 <template>
+<SectionGuard seccion="administracion">
   <div>
     <h1 class="font-display text-xl text-club-green mb-1 flex items-center gap-2">
       <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
@@ -145,4 +146,5 @@ function nombresSecciones(data) {
       </template>
     </CrudDataTable>
   </div>
+</SectionGuard>
 </template>

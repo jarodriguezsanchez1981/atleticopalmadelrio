@@ -24,6 +24,7 @@ const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', t
 </script>
 
 <template>
+<SectionGuard seccion="delegados">
   <CrudDataTable
     title="Delegados"
     :columns="columns"
@@ -35,4 +36,5 @@ const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', t
       {{ data.tipo === 'equipo' ? 'Equipo' : 'Campo' }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

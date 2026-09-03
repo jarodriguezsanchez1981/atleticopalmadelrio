@@ -44,6 +44,7 @@ onMounted(refrescarOrdenesUsados);
 </script>
 
 <template>
+<SectionGuard seccion="patrocinadores">
   <CrudDataTable
     title="Patrocinadores"
     :columns="columns"
@@ -57,4 +58,5 @@ onMounted(refrescarOrdenesUsados);
       <span v-else>—</span>
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

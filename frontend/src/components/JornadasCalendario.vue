@@ -181,7 +181,9 @@ function categoriaNombre(j) {
         </div>
       </div>
 
-      <div class="flex items-center justify-center gap-3 mt-3">
+      <div class="flex items-center justify-center gap-2 mt-3">
+        <Button icon="pi pi-angle-double-left" text rounded size="small"
+                :disabled="numPagina <= 0" @click="irPagina(0)" />
         <Button icon="pi pi-chevron-left" text rounded size="small"
                 :disabled="numPagina <= 0" @click="paginaAnterior" />
         <span class="text-sm font-semibold text-club-green">
@@ -192,6 +194,8 @@ function categoriaNombre(j) {
         </span>
         <Button icon="pi pi-chevron-right" text rounded size="small"
                 :disabled="numPagina >= totalPaginas - 1" @click="paginaSiguiente" />
+        <Button icon="pi pi-angle-double-right" text rounded size="small"
+                :disabled="numPagina >= totalPaginas - 1" @click="irPagina(totalPaginas - 1)" />
       </div>
     </div>
   </div>

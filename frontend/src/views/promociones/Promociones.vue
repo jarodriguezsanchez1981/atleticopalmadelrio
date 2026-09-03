@@ -70,6 +70,7 @@ function jugadorLabel(id) {
 </script>
 
 <template>
+<SectionGuard seccion="promociones">
   <CrudDataTable
     title="Promociones"
     :columns="columns"
@@ -86,4 +87,5 @@ function jugadorLabel(id) {
       {{ data.jugador ? `${data.jugador.nombre} ${data.jugador.apellidos}` : jugadorLabel(data.id_jugador) }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

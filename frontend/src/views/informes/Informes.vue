@@ -2,6 +2,7 @@
 </script>
 
 <template>
+<SectionGuard seccion="informes">
   <div>
     <h1 class="font-display text-xl text-club-green mb-1 flex items-center gap-2">
       <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
@@ -16,4 +17,5 @@
       Página en construcción.
     </div>
   </div>
+</SectionGuard>
 </template>

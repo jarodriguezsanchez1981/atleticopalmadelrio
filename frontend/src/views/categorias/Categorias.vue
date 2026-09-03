@@ -40,6 +40,7 @@ function nombreTipoFutbol(id) {
 </script>
 
 <template>
+<SectionGuard seccion="categorias">
   <CrudDataTable
     title="Categorías"
     :columns="columns"
@@ -50,4 +51,5 @@ function nombreTipoFutbol(id) {
       {{ data.tipofutbol?.nombre || nombreTipoFutbol(data.id_tipofutbol) }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

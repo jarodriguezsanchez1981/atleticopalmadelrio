@@ -10,10 +10,12 @@ const emptyItem = { nombre: '' };
 </script>
 
 <template>
+<SectionGuard seccion="titulos">
   <CrudDataTable
     title="Títulos"
     :columns="columns"
     :service="titulosService"
     :emptyItem="emptyItem"
   />
+</SectionGuard>
 </template>

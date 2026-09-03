@@ -218,6 +218,7 @@ function nombreJugadorEnForm(form, entry) {
 </script>
 
 <template>
+<SectionGuard seccion="categoria_calendario">
   <div>
     <JornadasCalendario />
 
@@ -439,4 +440,5 @@ function nombreJugadorEnForm(form, entry) {
     </template>
   </CrudDataTable>
   </div>
+</SectionGuard>
 </template>

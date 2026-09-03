@@ -552,6 +552,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 </script>
 
 <template>
+<SectionGuard seccion="calendario">
   <div>
     <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
       <div>
@@ -809,6 +810,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 
     <ConfirmDialog />
   </div>
+  </SectionGuard>
 </template>
 
 <style>

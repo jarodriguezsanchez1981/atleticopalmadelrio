@@ -72,6 +72,7 @@ async function copiarDireccion(parte) {
 </script>
 
 <template>
+<SectionGuard seccion="equipos">
   <CrudDataTable
     ref="dtRef"
     title="Equipos"
@@ -165,4 +166,5 @@ async function copiarDireccion(parte) {
       </div>
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

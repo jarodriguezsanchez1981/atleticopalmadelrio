@@ -6,6 +6,7 @@ const calendario = ref();
 </script>
 
 <template>
+<SectionGuard seccion="entrenamientos">
   <div>
     <EventosCalendario
       ref="calendario"
@@ -14,4 +15,5 @@ const calendario = ref();
       subtitle="Pincha en un día para añadir un entrenamiento. Pincha en un evento para editar o eliminar."
     />
   </div>
+</SectionGuard>
 </template>

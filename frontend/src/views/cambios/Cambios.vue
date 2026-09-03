@@ -49,6 +49,7 @@ const emptyItem = {};
 </script>
 
 <template>
+<SectionGuard seccion="cambios">
   <div>
     <h1 class="font-display text-xl text-club-green mb-1 flex items-center gap-2">
       <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
@@ -97,4 +98,5 @@ const emptyItem = {};
       </template>
     </CrudDataTable>
   </div>
+</SectionGuard>
 </template>

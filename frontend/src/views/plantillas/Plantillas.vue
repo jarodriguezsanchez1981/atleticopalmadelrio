@@ -372,6 +372,7 @@ function validarPlantilla(form) {
 </script>
 
 <template>
+<SectionGuard seccion="plantillas">
   <CrudDataTable
     ref="crudRef"
     title="Plantillas"
@@ -687,4 +688,5 @@ function validarPlantilla(form) {
       </div>
     </template>
   </Dialog>
+</SectionGuard>
 </template>

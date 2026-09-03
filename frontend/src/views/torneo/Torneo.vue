@@ -360,6 +360,7 @@ const calendarOptions = {
 </script>
 
 <template>
+<SectionGuard seccion="torneo">
   <div class="space-y-6">
     <div>
       <h1 class="font-display text-xl text-club-green flex items-center gap-2 mb-3">
@@ -493,4 +494,5 @@ const calendarOptions = {
 
     <ConfirmDialog />
   </div>
+</SectionGuard>
 </template>

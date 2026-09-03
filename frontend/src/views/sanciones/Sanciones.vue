@@ -82,6 +82,7 @@ function nombreJugador(id) {
 </script>
 
 <template>
+<SectionGuard seccion="sanciones">
   <CrudDataTable
     title="Sanciones"
     :columns="columns"
@@ -113,4 +114,5 @@ function nombreJugador(id) {
       {{ data.jugador ? `${data.jugador.apellidos}, ${data.jugador.nombre}` : nombreJugador(data.id_jugador) }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>
