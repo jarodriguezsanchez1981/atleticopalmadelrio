@@ -41,6 +41,7 @@ function nombreTipos(data) {
 <SectionGuard seccion="lugares">
   <CrudDataTable
     title="Lugares"
+    seccion="lugares"
     :columns="columns"
     :service="lugaresService"
     :emptyItem="emptyItem"

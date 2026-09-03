@@ -43,6 +43,7 @@ function nombreTipoFutbol(id) {
 <SectionGuard seccion="categorias">
   <CrudDataTable
     title="Categorías"
+    seccion="categorias"
     :columns="columns"
     :service="categoriasService"
     :emptyItem="emptyItem"

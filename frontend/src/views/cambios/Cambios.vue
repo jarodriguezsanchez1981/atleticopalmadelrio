@@ -61,6 +61,7 @@ const emptyItem = {};
 
     <CrudDataTable
       title="Cambios"
+    seccion="cambios"
       :columns="columns"
       :service="cambiosService"
       :emptyItem="emptyItem"

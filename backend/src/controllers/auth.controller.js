@@ -3,20 +3,27 @@ const { verifyPassword } = require('../utils/password.utils');
 const { signToken } = require('../utils/jwt.utils');
 
 const includeAuth = [
-  { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: [] } }
+  { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: ['puede_ver', 'puede_editar'] } }
 ];
 
 function userPayload(user) {
-  const secciones = Array.from(new Set((user.secciones || []).map((s) => s.clave)));
+  const permisos = {};
+  (user.secciones || []).forEach((s) => {
+    permisos[s.clave] = {
+      ver: !!s.usuario_secciones?.puede_ver,
+      editar: !!s.usuario_secciones?.puede_editar
+    };
+  });
+  const secciones = Object.keys(permisos);
   return {
     id: user.id,
     usuario: user.usuario,
     nombre: user.nombre,
     apellidos: user.apellidos,
     secciones,
+    permisos,
     rol: user.rol,
-    id_categoria: user.id_categoria || null,
-    visibilidad: user.visibilidad || 'leer'
+    id_categoria: user.id_categoria || null
   };
 }
 
@@ -46,9 +53,9 @@ async function login(req, res, next) {
       id: user.id,
       usuario: user.usuario,
       secciones: payload.secciones,
+      permisos: payload.permisos,
       rol: payload.rol,
-      id_categoria: payload.id_categoria,
-      visibilidad: payload.visibilidad
+      id_categoria: payload.id_categoria
     });
 
     return res.json({

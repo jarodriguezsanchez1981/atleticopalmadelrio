@@ -2,13 +2,23 @@ const { Usuario, Seccion } = require('../models');
 const { isPasswordValid, hashPassword } = require('../utils/password.utils');
 
 const includeUsuario = [
-  { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: [] } }
+  { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre', 'icono', 'orden'], through: { attributes: ['puede_ver', 'puede_editar'] } }
 ];
 
-function normalizeSeccionesIds(body) {
-  if (Array.isArray(body.ids_secciones)) return body.ids_secciones.map(Number).filter(Boolean);
+function normalizePermisos(body) {
+  if (body.permisos && typeof body.permisos === 'object') return body.permisos;
+  if (Array.isArray(body.ids_secciones)) {
+    const permisos = {};
+    body.ids_secciones.forEach(id => { permisos[id] = { ver: true, editar: false }; });
+    return permisos;
+  }
   if (Array.isArray(body.secciones)) {
-    return body.secciones.map((s) => (typeof s === 'object' ? Number(s.id) : Number(s))).filter(Boolean);
+    const permisos = {};
+    body.secciones.forEach(s => {
+      const id = typeof s === 'object' ? s.id : s;
+      permisos[id] = { ver: true, editar: false };
+    });
+    return permisos;
   }
   return null;
 }
@@ -26,7 +36,13 @@ async function listar(req, res, next) {
 function serializeUsuario(usuario) {
   const json = usuario.toJSON ? usuario.toJSON() : usuario;
   const { password, ...safe } = json;
-  safe.ids_secciones = (safe.secciones || []).map((s) => s.id);
+  safe.permisos = {};
+  (safe.secciones || []).forEach((s) => {
+    safe.permisos[s.clave] = {
+      ver: !!s.usuario_secciones?.puede_ver,
+      editar: !!s.usuario_secciones?.puede_editar
+    };
+  });
   return safe;
 }
 
@@ -42,10 +58,6 @@ function rolFinal(rol) {
   return rol === 'entrenador' ? 'entrenador' : 'coordinador';
 }
 
-function visibilidadFinal(visibilidad) {
-  return visibilidad === 'editar' ? 'editar' : 'leer';
-}
-
 function validaRolCategoria(res, rol, id_categoria) {
   const rolNormalizado = rolFinal(rol);
   if (rolNormalizado === 'entrenador' && !id_categoria) {
@@ -58,8 +70,8 @@ function validaRolCategoria(res, rol, id_categoria) {
 
 async function crear(req, res, next) {
   try {
-    const { usuario, password, nombre, apellidos, rol, id_categoria, visibilidad } = req.body;
-    const idsSecciones = normalizeSeccionesIds(req.body) || [];
+    const { usuario, password, nombre, apellidos, rol, id_categoria } = req.body;
+    const permisos = normalizePermisos(req.body) || {};
 
     const faltan = [];
     if (!usuario) faltan.push('usuario');
@@ -88,10 +100,22 @@ async function crear(req, res, next) {
       nombre,
       apellidos,
       rol: rolNormalizado,
-      id_categoria: rolNormalizado === 'entrenador' ? id_categoria : null,
-      visibilidad: visibilidadFinal(visibilidad)
+      id_categoria: rolNormalizado === 'entrenador' ? id_categoria : null
     });
-    await nuevo.setSecciones(idsSecciones);
+
+    const idsSecciones = Object.keys(permisos).map(Number).filter(Boolean);
+    if (idsSecciones.length) {
+      const seccionesConPermisos = idsSecciones.map(id => ({
+        id,
+        usuario_secciones: {
+          puede_ver: permisos[id]?.ver ? 1 : 0,
+          puede_editar: permisos[id]?.editar ? 1 : 0
+        }
+      }));
+      await nuevo.setSecciones(seccionesConPermisos);
+    } else {
+      await nuevo.setSecciones([]);
+    }
 
     const completo = await Usuario.findByPk(nuevo.id, { include: includeUsuario });
     res.status(201).json(serializeUsuario(completo));
@@ -103,8 +127,8 @@ async function actualizar(req, res, next) {
     const usuario = await Usuario.scope('withPassword').findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado.' });
 
-    const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol, id_categoria, visibilidad } = req.body;
-    const idsSecciones = normalizeSeccionesIds(req.body);
+    const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol, id_categoria } = req.body;
+    const permisos = normalizePermisos(req.body);
 
     if (password) {
       if (!isPasswordValid(password)) {
@@ -119,7 +143,6 @@ async function actualizar(req, res, next) {
     if (nombre !== undefined) usuario.nombre = nombre;
     if (apellidos !== undefined) usuario.apellidos = apellidos;
     if (activo !== undefined) usuario.activo = activo;
-    if (visibilidad !== undefined) usuario.visibilidad = visibilidadFinal(visibilidad);
     if (rol !== undefined) {
       const rolNormalizado = rolFinal(rol);
       const idCategoriaFinal = id_categoria !== undefined
@@ -141,8 +164,20 @@ async function actualizar(req, res, next) {
 
     await usuario.save();
 
-    if (idsSecciones !== null && idsSecciones !== undefined) {
-      await usuario.setSecciones(idsSecciones);
+    if (permisos !== null && permisos !== undefined) {
+      const idsSecciones = Object.keys(permisos).map(Number).filter(Boolean);
+      if (idsSecciones.length) {
+        const seccionesConPermisos = idsSecciones.map(id => ({
+          id,
+          usuario_secciones: {
+            puede_ver: permisos[id]?.ver ? 1 : 0,
+            puede_editar: permisos[id]?.editar ? 1 : 0
+          }
+        }));
+        await usuario.setSecciones(seccionesConPermisos);
+      } else {
+        await usuario.setSecciones([]);
+      }
     }
 
     const completo = await Usuario.findByPk(usuario.id, { include: includeUsuario });

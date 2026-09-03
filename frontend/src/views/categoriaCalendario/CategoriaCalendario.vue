@@ -224,6 +224,7 @@ function nombreJugadorEnForm(form, entry) {
 
     <CrudDataTable
     title="Jornadas"
+    seccion="categoria_calendario"
     :columns="columns"
     :service="categoriaCalendarioService"
     :emptyItem="emptyItem"

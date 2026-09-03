@@ -55,4 +55,43 @@ describe('Permisos · requireEditar', () => {
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(403);
   });
+
+  it('permite con permisos de secciones que incluyen editar', () => {
+    const { nextLlamado } = ejecutar({
+      secciones: ['calendario'],
+      permisos: { calendario: { ver: true, editar: true } }
+    });
+    expect(nextLlamado).toBe(true);
+  });
+
+  it('bloquea con permisos de secciones sin editar', () => {
+    const { res, nextLlamado } = ejecutar({
+      secciones: ['calendario'],
+      permisos: { calendario: { ver: true, editar: false } }
+    });
+    expect(nextLlamado).toBe(false);
+    expect(res._status).toBe(403);
+  });
+
+  it('permite con permisos donde al menos una sección tiene editar', () => {
+    const { nextLlamado } = ejecutar({
+      secciones: ['calendario', 'jugadores'],
+      permisos: {
+        calendario: { ver: true, editar: false },
+        jugadores: { ver: true, editar: true }
+      }
+    });
+    expect(nextLlamado).toBe(true);
+  });
+
+  it('bloquea sin permisos ni visibilidad', () => {
+    const { res, nextLlamado } = ejecutar({ secciones: ['calendario'] });
+    expect(nextLlamado).toBe(false);
+    expect(res._status).toBe(403);
+  });
+
+  it('permite con visibilidad "editar" sin permisos', () => {
+    const { nextLlamado } = ejecutar({ visibilidad: 'editar', secciones: [] });
+    expect(nextLlamado).toBe(true);
+  });
 });

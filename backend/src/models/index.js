@@ -27,6 +27,7 @@ const PlantillaEntrenador = require('./PlantillaEntrenador');
 const PlantillaDelegado = require('./PlantillaDelegado');
 const Cambio = require('./Cambio');
 const EquipoJugador = require('./EquipoJugador');
+const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
 
 // ---- Asociaciones ----
@@ -34,20 +35,20 @@ const Promocion = require('./Promocion');
 // explícitos para que las FK sigan apuntando a la columna `id`.
 
 Usuario.belongsToMany(Seccion, {
-  through: 'usuario_secciones',
+  through: { model: UsuarioSeccion, timestamps: false },
   foreignKey: 'id_usuario',
   otherKey: 'id_seccion',
   targetKey: 'id',
   as: 'secciones',
-  timestamps: false
+  attributes: ['id', 'clave', 'nombre', 'icono', 'orden']
 });
 Seccion.belongsToMany(Usuario, {
-  through: 'usuario_secciones',
+  through: { model: UsuarioSeccion, timestamps: false },
   foreignKey: 'id_seccion',
   sourceKey: 'id',
   otherKey: 'id_usuario',
   as: 'usuarios',
-  timestamps: false
+  attributes: ['id', 'clave', 'nombre', 'icono', 'orden']
 });
 
 Titulo.belongsToMany(Entrenador, { through: 'entrenador_titulos', foreignKey: 'id_titulo', otherKey: 'id_entrenador', as: 'entrenadores', timestamps: false });

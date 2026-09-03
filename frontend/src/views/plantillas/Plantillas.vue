@@ -376,6 +376,7 @@ function validarPlantilla(form) {
   <CrudDataTable
     ref="crudRef"
     title="Plantillas"
+    seccion="plantillas"
     :columns="columns"
     :service="plantillasService"
     :emptyItem="emptyItem"

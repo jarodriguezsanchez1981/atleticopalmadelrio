@@ -85,6 +85,7 @@ function nombreJugador(id) {
 <SectionGuard seccion="sanciones">
   <CrudDataTable
     title="Sanciones"
+    seccion="sanciones"
     :columns="columns"
     :service="sancionesService"
     :emptyItem="emptyItem"

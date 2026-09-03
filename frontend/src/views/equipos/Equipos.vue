@@ -76,6 +76,7 @@ async function copiarDireccion(parte) {
   <CrudDataTable
     ref="dtRef"
     title="Equipos"
+    seccion="equipos"
     :columns="columns"
     :service="equiposService"
     :emptyItem="emptyItem"

@@ -43,14 +43,15 @@ const props = defineProps({
   formMaxWidth: { type: String, default: 'max-w-lg' },
   prepareEdit: { type: Function, default: null },
   canExport: { type: Boolean, default: false },
-  validateForm: { type: Function, default: null }
+  validateForm: { type: Function, default: null },
+  seccion: { type: String, default: null }
 });
 
 const emit = defineEmits(['changed', 'data-loaded']);
 
-const permisoCrear = computed(() => props.canCreate && auth.puedeCrear());
-const permisoEditar = computed(() => props.canEdit && auth.puedeEditar());
-const permisoEliminar = computed(() => props.canDelete && auth.puedeEliminar());
+const permisoCrear = computed(() => props.canCreate && auth.puedeCrear(props.seccion));
+const permisoEditar = computed(() => props.canEdit && auth.puedeEditar(props.seccion));
+const permisoEliminar = computed(() => props.canDelete && auth.puedeEliminar(props.seccion));
 
 const items = ref([]);
 const seleccionados = ref([]);

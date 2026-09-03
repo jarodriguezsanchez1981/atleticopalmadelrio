@@ -47,6 +47,7 @@ function nombresTitulos(data) {
 <SectionGuard seccion="entrenadores">
   <CrudDataTable
     title="Entrenadores"
+    seccion="entrenadores"
     :columns="columns"
     :service="entrenadoresService"
     :emptyItem="emptyItem"

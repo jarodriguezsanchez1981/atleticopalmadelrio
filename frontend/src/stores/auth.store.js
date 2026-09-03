@@ -30,33 +30,35 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => !!state.token,
     secciones: (state) => state.user?.secciones || [],
+    permisos: (state) => state.user?.permisos || {},
     nombreCompleto: (state) => (state.user ? `${state.user.nombre} ${state.user.apellidos}` : ''),
     primeraSeccion: (state) => {
       const set = new Set(state.user?.secciones || []);
       return SECCION_ORDER.find((s) => set.has(s)) || 'calendario';
     },
     rol: (state) => state.user?.rol || 'coordinador',
-    idCategoria: (state) => state.user?.id_categoria || null,
-    visibilidad: (state) => state.user?.visibilidad || 'leer'
+    idCategoria: (state) => state.user?.id_categoria || null
   },
 
   actions: {
     puedeVer(clave) {
       if (!this.user) return false;
-      const secs = this.user.secciones || [];
-      return secs.includes(clave);
+      return !!(this.user.permisos?.[clave]?.ver);
     },
 
-    puedeCrear() {
-      return this.visibilidad === 'editar';
+    puedeCrear(clave) {
+      if (!clave) return false;
+      return !!(this.user.permisos?.[clave]?.editar);
     },
 
-    puedeEditar() {
-      return this.visibilidad === 'editar';
+    puedeEditar(clave) {
+      if (!clave) return false;
+      return !!(this.user.permisos?.[clave]?.editar);
     },
 
-    puedeEliminar() {
-      return this.visibilidad === 'editar';
+    puedeEliminar(clave) {
+      if (!clave) return false;
+      return !!(this.user.permisos?.[clave]?.editar);
     },
 
     async login(usuario, password) {

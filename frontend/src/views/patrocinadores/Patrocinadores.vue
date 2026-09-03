@@ -47,6 +47,7 @@ onMounted(refrescarOrdenesUsados);
 <SectionGuard seccion="patrocinadores">
   <CrudDataTable
     title="Patrocinadores"
+    seccion="patrocinadores"
     :columns="columns"
     :service="patrocinadoresService"
     :emptyItem="emptyItem"

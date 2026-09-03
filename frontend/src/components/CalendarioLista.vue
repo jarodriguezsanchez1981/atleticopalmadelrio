@@ -1,11 +1,9 @@
 <script setup>
 /**
- * Vista de calendario en lista (para móvil): eventos agrupados por día y tipo.
- * Recibe los mismos eventos que fetchEventos de FullCalendar.
+ * Vista de calendario en lista (para móvil): eventos de la semana agrupados por día y tipo.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import Button from 'primevue/button';
-import Select from 'primevue/select';
 import { useMediaQuery } from '../composables/useMediaQuery';
 
 const props = defineProps({
@@ -16,8 +14,7 @@ const props = defineProps({
 const emit = defineEmits(['event-click', 'date-click']);
 
 const esMovil = useMediaQuery('(max-width: 639px)');
-
-const fechaRef = ref(new Date());
+const semanaOffset = ref(0);
 
 const GRUPOS = {
   LIGA: { label: 'Liga', color: '#0B3D2E', icon: 'pi pi-star-fill' },
@@ -27,11 +24,42 @@ const GRUPOS = {
   FESTIVO: { label: 'Festivo', color: '#B45309', icon: 'pi pi-star' }
 };
 
+function getLunes(fecha) {
+  const d = new Date(fecha);
+  const dia = d.getDay();
+  const diff = d.getDate() - dia + (dia === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function claveFecha(inicio) {
   const d = new Date(inicio);
   if (Number.isNaN(d.getTime())) return 'sin-fecha';
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+const inicioSemana = computed(() => {
+  const lunes = getLunes(new Date());
+  lunes.setDate(lunes.getDate() + semanaOffset.value * 7);
+  return lunes;
+});
+
+const finSemana = computed(() => {
+  const fin = new Date(inicioSemana.value);
+  fin.setDate(fin.getDate() + 6);
+  fin.setHours(23, 59, 59, 999);
+  return fin;
+});
+
+const rangoSemana = computed(() => {
+  const fmt = (d) => d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  return `${fmt(inicioSemana.value)} – ${fmt(finSemana.value)}`;
+});
+
+function semanaAnterior() { semanaOffset.value--; }
+function semanaSiguiente() { semanaOffset.value++; }
+function semanaActual() { semanaOffset.value = 0; }
 
 function grupoDe(e) {
   if (e.tipo === 'partido') return e.jornada ? 'LIGA' : 'AMISTOSO';
@@ -41,15 +69,19 @@ function grupoDe(e) {
 }
 
 const dias = computed(() => {
-  const mapa = new Map();
   const ordenGrupo = { LIGA: 1, AMISTOSO: 2, TORNEO: 3, ENTRENAMIENTO: 4, FESTIVO: 0 };
+  const claveInicio = claveFecha(inicioSemana.value);
+  const claveFin = claveFecha(finSemana.value);
 
   const eventosFiltrados = props.eventos.filter((e) => {
+    const clave = claveFecha(e.inicio || e.fecha);
+    if (clave < claveInicio || clave > claveFin) return false;
     if (e.tipo === 'festivo') return true;
     if (props.idCategoria == null) return true;
     return String(e.categoria?.id ?? e.plantilla?.categoria?.id ?? '') === String(props.idCategoria);
   });
 
+  const mapa = new Map();
   for (const e of eventosFiltrados) {
     const clave = claveFecha(e.inicio || e.fecha);
     if (!mapa.has(clave)) mapa.set(clave, { clave, items: [] });
@@ -110,6 +142,19 @@ function lugarEvento(e) {
 
 <template>
   <div class="calendario-lista">
+    <div class="semana-nav">
+      <Button icon="pi pi-chevron-left" text rounded size="small" @click="semanaAnterior" />
+      <div class="semana-info">
+        <button class="semana-rango" @click="semanaActual">{{ rangoSemana }}</button>
+        <span v-if="semanaOffset !== 0" class="semana-hoy">Hoy</span>
+      </div>
+      <Button icon="pi pi-chevron-right" text rounded size="small" @click="semanaSiguiente" />
+    </div>
+
+    <div v-if="!dias.length" class="sin-eventos">
+      Sin eventos esta semana.
+    </div>
+
     <div v-for="dia in dias" :key="dia.clave" class="dia">
       <div
         class="dia-cabecera"
@@ -136,7 +181,6 @@ function lugarEvento(e) {
         </button>
       </div>
     </div>
-    <p v-if="!dias.length" class="sin-eventos">No hay eventos en este periodo.</p>
   </div>
 </template>
 
@@ -210,5 +254,38 @@ function lugarEvento(e) {
   color: #64748B;
   padding: 24px 0;
   font-size: 0.85rem;
+}
+.semana-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0B3D2E;
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+}
+.semana-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.semana-rango {
+  background: none;
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.semana-hoy {
+  font-size: 0.6rem;
+  background: #D97706;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>

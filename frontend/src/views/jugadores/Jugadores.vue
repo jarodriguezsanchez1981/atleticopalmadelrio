@@ -42,6 +42,7 @@ function formatearPartido(p) {
 <SectionGuard seccion="jugadores">
   <CrudDataTable
     title="Jugadores"
+    seccion="jugadores"
     :columns="columns"
     :service="jugadoresService"
     :emptyItem="emptyItem"

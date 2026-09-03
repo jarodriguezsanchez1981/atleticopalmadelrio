@@ -73,6 +73,7 @@ function jugadorLabel(id) {
 <SectionGuard seccion="promociones">
   <CrudDataTable
     title="Promociones"
+    seccion="promociones"
     :columns="columns"
     :service="promocionesService"
     :emptyItem="emptyItem"

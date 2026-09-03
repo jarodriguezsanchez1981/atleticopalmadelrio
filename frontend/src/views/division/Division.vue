@@ -13,6 +13,7 @@ const emptyItem = { nombre: '' };
 <SectionGuard seccion="division">
   <CrudDataTable
     title="División"
+    seccion="division"
     :columns="columns"
     :service="divisionesService"
     :emptyItem="emptyItem"

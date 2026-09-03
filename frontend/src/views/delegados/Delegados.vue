@@ -27,6 +27,7 @@ const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', t
 <SectionGuard seccion="delegados">
   <CrudDataTable
     title="Delegados"
+    seccion="delegados"
     :columns="columns"
     :service="delegadosService"
     :emptyItem="emptyItem"

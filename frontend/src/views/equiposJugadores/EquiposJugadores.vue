@@ -55,6 +55,7 @@ function nombreCategoria(id) {
 <SectionGuard seccion="equipos_jugadores">
   <CrudDataTable
     title="Jugadores de Equipos"
+    seccion="equipos_jugadores"
     :columns="columns"
     :service="equiposJugadoresService"
     :emptyItem="emptyItem"
