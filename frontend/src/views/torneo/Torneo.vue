@@ -100,13 +100,36 @@ async function fetchTorneos(fetchInfo, successCallback, failureCallback) {
       desde: fetchInfo.startStr,
       hasta: fetchInfo.endStr
     });
-    const eventos = items.map(t => ({
-      id: String(t.id),
-      title: `${t.nombre || t.equipo?.nombre || nombreEquipo(t.id_equipo)} · Torneo`,
-      start: formatoHora(t.fecha, t.hora),
-      color: '#6D28D9',
-      extendedProps: t
-    }));
+    const gruposPorDia = new Map();
+    const conGrupo = items.map(t => {
+      const diaKey = String(t.fecha || '').slice(0, 10);
+      let bucket = gruposPorDia.get(diaKey);
+      if (!bucket) {
+        bucket = { firstId: null, firstFecha: null };
+        gruposPorDia.set(diaKey, bucket);
+      }
+      const f = t.fecha ? new Date(String(t.fecha).slice(0, 10)).getTime() : Infinity;
+      if (bucket.firstFecha == null || f < bucket.firstFecha) {
+        bucket.firstFecha = f;
+        bucket.firstId = t.id;
+      }
+      return {
+        id: String(t.id),
+        title: `${t.nombre || t.equipo?.nombre || nombreEquipo(t.id_equipo)} · Torneo`,
+        start: formatoHora(t.fecha, t.hora),
+        color: '#6D28D9',
+        extendedProps: { ...t, miGrupo: 'TORNEO' },
+        miGrupo: 'TORNEO',
+        miGrupoOrden: 3
+      };
+    });
+    const eventos = conGrupo.map(ev => {
+      const diaKey = String(ev.start || '').slice(0, 10).slice(0, 10);
+      const bucket = gruposPorDia.get(diaKey);
+      const esPrimeroGrupo = bucket && bucket.firstId === Number(ev.id);
+      ev.extendedProps = { ...ev.extendedProps, esPrimeroGrupo };
+      return ev;
+    });
     successCallback(eventos);
   } catch (err) {
     failureCallback(err);
@@ -126,11 +149,14 @@ function contenidoTorneo(arg) {
   const d = arg.event?.start;
   const hora = d ? esc(d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })) : '';
   const cat = esc(t?.plantilla?.categoria?.alias || t?.plantilla?.categoria?.nombre || 'Torneo');
+  const cab = t?.esPrimeroGrupo
+    ? `<div class="fc-grupo-cabecera" style="background:#6D28D9;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;margin:0 0 5px;border-radius:3px;letter-spacing:0.3px;display:flex;align-items:center;gap:3px;line-height:1.2;width:100%;"><i class="pi pi-trophy" style="font-size:9px"></i>TORNEO</div>`
+    : '';
   return {
-    html: `<div class="flex items-center gap-1.5 flex-wrap">` +
-      (hora ? `<span class="font-semibold text-xs">${hora}</span>` : '') +
-      `<span class="text-xs">${cat}</span>` +
-      `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded" style="background:rgb(109 40 217 / 15%);color:rgb(88 28 135)">Torneo</span>` +
+    html: `<div class="fc-evento-contenido">` +
+      cab +
+      (hora ? `<span class="fc-partido-hora">${hora}</span>` : '') +
+      `<span class="fc-partido-alias">${cat}</span>` +
       `</div>`
   };
 }
@@ -280,6 +306,7 @@ const calendarOptions = {
   eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
   dayMaxEvents: false,
   fixedWeekCount: false,
+  eventOrder: 'miGrupoOrden,start',
   editable: false,
   selectable: false
 };

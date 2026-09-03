@@ -42,3 +42,41 @@ sudo systemctl status cloudflared
 4) En Cloudflare Zero Trust → Tunnels → tu túnel → Public Hostname
 - Subdominio/dominio que quieras.
 - Service: http://localhost:8080 (porque ahora cloudflared corre en el host y el frontend está publicado en el 8080).
+
+
+Hecho. Sistema de migraciones versionadas configurado.
+Cómo funciona
+Estructura:
+database/
+├── init.sql                    # dump completo para nuevos despliegues
+└── migrations/
+    └── 20260903_add_nombre_to_torneo.sql
+Script migrador: backend/src/utils/migrate.js — se ejecuta automáticamente al arrancar el backend (en server.js antes de ensureSecciones).
+Tabla de control: schema_migrations registra qué migrations se han aplicado.
+Cómo añadir una nueva migration
+1. Crear archivo SQL en database/migrations/YYYYMMDD_NNN_descripcion.sql con la fecha y un número correlativo:
+nano database/migrations/20260915_001_add_camiseta_to_equipos.sql
+-- Cambios en tabla equipos
+SET @col_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'equipos' AND COLUMN_NAME = 'camiseta'
+);
+SET @sql = IF(@col_exists = 0,
+  'ALTER TABLE equipos ADD COLUMN camiseta VARCHAR(50) NULL',
+  'SELECT 1 AS ok'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+Usa siempre el patrón INFORMATION_SCHEMA con IF() para que la migration sea idempotente y se pueda aplicar tanto en BD nuevas (vía init.sql) como existentes (vía migrator).
+2. Reiniciar el backend:
+docker compose --env-file .env.development restart backend
+El backend detecta la migration pendiente, la aplica y la registra.
+3. (Opcional) Regenerar init.sql para entornos nuevos:
+./scripts/dump-init.sh
+Flujo en desarrollo
+Escenario	Comando
+Cambio de schema local	Crear migration → restart backend
+Nuevo dev que clona repo	docker compose --env-file .env.development up -d --build → MySQL ejecuta init.sql + backend aplica migrations
+Reset total	down -v && up -d --build
+Aplicar migration a mano	cd backend && node -e "require('./src/utils/migrate').migrate()"

@@ -3,6 +3,7 @@ const { sequelize, Usuario, Seccion } = require('./models');
 const { hashPassword, isPasswordValid } = require('./utils/password.utils');
 const { ensureSecciones } = require('./utils/secciones.seed');
 const { ensureTiposFutbol } = require('./utils/tipofutbol.seed');
+const { migrate } = require('./utils/migrate');
 
 const PORT = process.env.PORT || 4000;
 const MAX_RETRIES = 30;
@@ -83,6 +84,14 @@ async function start() {
   try {
     validateSecrets();
     await waitForDb();
+
+    // Migraciones: aplica database/migrations/*.sql pendientes.
+    // El resto de la estructura la crea database/init.sql en despliegues nuevos.
+    try {
+      await migrate();
+    } catch (err) {
+      console.warn('⚠️  Migraciones: no se pudieron aplicar (continuando):', err.message);
+    }
 
     // La BD se gestiona con database/schema.sql + init.sql. NO se usa
     // sequelize.sync: con atributos unique:true Sequelize emite ALTERs
