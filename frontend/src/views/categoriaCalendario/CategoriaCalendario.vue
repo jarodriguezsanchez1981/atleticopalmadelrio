@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
+import JornadasCalendario from '../../components/JornadasCalendario.vue';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import InputNumber from 'primevue/inputnumber';
@@ -217,7 +218,10 @@ function nombreJugadorEnForm(form, entry) {
 </script>
 
 <template>
-  <CrudDataTable
+  <div>
+    <JornadasCalendario />
+
+    <CrudDataTable
     title="Jornadas"
     :columns="columns"
     :service="categoriaCalendarioService"
@@ -434,4 +438,5 @@ function nombreJugadorEnForm(form, entry) {
       </div>
     </template>
   </CrudDataTable>
+  </div>
 </template>

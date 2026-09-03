@@ -256,4 +256,19 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+async function listarNumeros(req, res, next) {
+  try {
+    const { id_plantilla } = req.query;
+    const where = {};
+    if (id_plantilla) where.id_plantilla = id_plantilla;
+    const items = await Jornada.findAll({
+      where,
+      attributes: ['jornada'],
+      group: ['jornada'],
+      order: [['jornada', 'ASC']]
+    });
+    res.json(items.map(i => i.jornada).filter(Boolean));
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, listarNumeros };

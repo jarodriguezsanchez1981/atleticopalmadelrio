@@ -9,6 +9,7 @@ const router = Router();
 router.use(authenticate, authorize('categoria_calendario'));
 
 router.get('/', ctrl.listar);
+router.get('/numeros', ctrl.listarNumeros);
 router.get('/:id', ctrl.obtener);
 router.post('/', requireEditar(), ctrl.crear);
 router.put('/:id', requireEditar(), ctrl.actualizar);

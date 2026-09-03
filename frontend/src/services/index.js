@@ -37,7 +37,10 @@ export const equiposService = {
 export const equiposJugadoresService = crudService('equipos-jugadores');
 export const resultadosService = crudService('resultados');
 export const patrocinadoresService = crudService('patrocinadores');
-export const categoriaCalendarioService = crudService('jornadas');
+export const categoriaCalendarioService = {
+  ...crudService('jornadas'),
+  listarNumeros: (params = {}) => api.get('/jornadas/numeros', { params }).then(r => r.data),
+};
 export const sancionesService = crudService('sanciones');
 export const plantillasService = {
   ...crudService('plantillas'),
