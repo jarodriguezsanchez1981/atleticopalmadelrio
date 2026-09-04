@@ -47,7 +47,7 @@ async function onSubmit() {
     <div class="hidden md:flex flex-col p-12 bg-club-green relative overflow-hidden">
       <div class="absolute inset-0 opacity-[0.06] pointer-events-none login-pattern"></div>
 
-      <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="relative h-[58px] w-auto object-contain select-none" />
+      <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="relative self-start h-32 w-auto object-contain select-none" />
 
       <div class="relative max-w-sm flex-1 flex flex-col justify-center text-left">
         <h1 class="font-display text-3xl text-white leading-tight">
