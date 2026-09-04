@@ -14,7 +14,6 @@ import Button from 'primevue/button';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
-import CrudDataTable from '../../components/CrudDataTable.vue';
 import { torneosService, plantillasService, equiposService } from '../../services';
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { useAuthStore } from '../../stores/auth.store';
@@ -29,7 +28,6 @@ const plantillas = ref([]);
 const equipos = ref([]);
 let unsubCambio = null;
 
-const crudRef = ref();
 const calendarRef = ref();
 const esMovil = useMediaQuery('(max-width: 639px)');
 const eventosLista = ref([]);
@@ -65,16 +63,6 @@ const opcionesEquipo = computed(() =>
   equipos.value.map(e => ({ label: e.nombre, value: e.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
-const columns = computed(() => [
-  { field: 'id_plantilla', header: 'Plantilla', type: 'select', options: opcionesPlantilla.value, required: true },
-  { field: 'id_equipo', header: 'Equipo', type: 'select', options: opcionesEquipo.value, required: true },
-  { field: 'nombre', header: 'Nombre', type: 'text', required: false, enDetalle: false },
-  { field: 'fecha', header: 'Fecha', type: 'date', required: true, format: (v) => formatFecha(v) },
-  { field: 'hora', header: 'Hora', type: 'text', required: false }
-]);
-
-const emptyItem = { id_plantilla: null, id_equipo: null, nombre: null, fecha: null, hora: null };
-
 function formatFecha(fecha) {
   if (!fecha) return '—';
   const d = new Date(fecha);
@@ -82,11 +70,6 @@ function formatFecha(fecha) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
-}
-
-function nombrePlantilla(id) {
-  const p = plantillas.value.find(pl => pl.id === id);
-  return p ? `${p.categoria?.nombre || '—'} / ${p.temporada?.nombre || '—'}` : '—';
 }
 
 function nombreEquipo(id) {
@@ -230,7 +213,6 @@ async function eliminarDesdeDetalle() {
         toast.add({ severity: 'success', summary: 'Eliminado', detail: 'Torneo eliminado.', life: 3000 });
         detalleVisible.value = false;
         refrescar();
-        crudRef.value?.cargar?.();
         emitirCambio();
       } catch (err) {
         toast.add({
@@ -324,7 +306,6 @@ async function guardar() {
     }
     dialogVisible.value = false;
     refrescar();
-    crudRef.value?.cargar?.();
     emitirCambio();
   } catch (err) {
     toast.add({ severity: 'error', summary: 'Error', detail: err.response?.data?.message || 'No se pudo guardar.', life: 5000 });
@@ -380,35 +361,6 @@ const calendarOptions = {
         </p>
       </div>
     </div>
-
-    <CrudDataTable
-      ref="crudRef"
-      title="Torneos"
-      :columns="columns"
-      :service="torneosService"
-      :emptyItem="emptyItem"
-      :canExport="true"
-      @changed="refrescar"
-    >
-      <template #cell-id_plantilla="{ data }">
-        {{ data.plantilla ? (data.plantilla.categoria?.nombre + ' / ' + data.plantilla.temporada?.nombre) : nombrePlantilla(data.id_plantilla) }}
-      </template>
-      <template #cell-id_equipo="{ data }">
-        {{ data.equipo?.nombre || nombreEquipo(data.id_equipo) }}
-      </template>
-      <template #cell-fecha="{ data }">
-        {{ formatFecha(data.fecha) }}
-      </template>
-      <template #detail-id_plantilla="{ data }">
-        {{ data.plantilla ? (data.plantilla.categoria?.nombre + ' / ' + data.plantilla.temporada?.nombre) : nombrePlantilla(data.id_plantilla) }}
-      </template>
-      <template #detail-id_equipo="{ data }">
-        {{ data.equipo?.nombre || nombreEquipo(data.id_equipo) }}
-      </template>
-      <template #detail-fecha="{ data }">
-        {{ formatFecha(data.fecha) }}
-      </template>
-    </CrudDataTable>
 
     <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-lg">
       <template #header>

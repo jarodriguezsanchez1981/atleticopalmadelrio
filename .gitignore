@@ -21,3 +21,7 @@ backups/
 database/init.sql.bak
 database/init.sql.orig
 database/init 2.sql
+
+# Config local de Claude Code (hooks/permisos personales, no se comparte)
+.claude/settings.local.json
+.claude/docker-rebuild-state.txt

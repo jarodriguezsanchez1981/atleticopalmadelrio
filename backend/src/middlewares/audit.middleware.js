@@ -1,4 +1,4 @@
-const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Patrocinador, Jornada, Sancion, Plantilla, Promocion, Torneo } = require('../models');
+const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Jornada, Sancion, Plantilla, Promocion, Torneo } = require('../models');
 
 const ENTITY_MAP = {
   usuarios: { model: Usuario, label: 'Usuarios' },
@@ -15,7 +15,6 @@ const ENTITY_MAP = {
   partidos: { model: Partido, label: 'Partidos' },
   equipos: { model: Equipo, label: 'Equipos' },
   'tipos-futbol': { model: TipoFutbol, label: 'Tipos de fútbol' },
-  patrocinadores: { model: Patrocinador, label: 'Patrocinadores' },
   jornadas: { model: Jornada, label: 'Jornadas' },
   sanciones: { model: Sancion, label: 'Sanciones' },
   plantillas: { model: Plantilla, label: 'Plantillas' },

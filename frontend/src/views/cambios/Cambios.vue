@@ -11,7 +11,7 @@ const ENTIDADES = {
   delegados: 'Delegados', categorias: 'Categorías', jugadores: 'Jugadores',
   entrenadores: 'Entrenadores', entrenamientos: 'Entrenamientos',
   partidos: 'Partidos', equipos: 'Equipos', 'tipos-futbol': 'Tipos de fútbol',
-  patrocinadores: 'Patrocinadores', jornadas: 'Jornadas', sanciones: 'Sanciones',
+  jornadas: 'Jornadas', sanciones: 'Sanciones',
   plantillas: 'Plantillas', 'entrenamientos-jugadores': 'Entrenamientos-Jugadores',
   calendario: 'Calendario', resultados: 'Resultados', promociones: 'Promociones'
 };

@@ -5,8 +5,9 @@ import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
+import IconField from 'primevue/iconfield';
+import InputIcon from 'primevue/inputicon';
 import { useAuthStore } from '../../stores/auth.store';
-import FooterSponsors from '../../components/FooterSponsors.vue';
 
 const usuario = ref('');
 const password = ref('');
@@ -41,29 +42,61 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="h-screen w-full flex flex-col bg-club-cream overflow-hidden">
-    <div class="flex-1 flex items-center justify-center px-4 overflow-y-auto">
+  <div class="h-screen w-full grid md:grid-cols-2 overflow-hidden">
+    <!-- Panel de marca -->
+    <div class="hidden md:flex flex-col p-12 bg-club-green relative overflow-hidden">
+      <div class="absolute inset-0 opacity-[0.06] pointer-events-none login-pattern"></div>
+
+      <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="relative h-[58px] w-auto object-contain select-none" />
+
+      <div class="relative max-w-sm flex-1 flex flex-col justify-center text-left">
+        <h1 class="font-display text-3xl text-white leading-tight">
+          Intranet de gestión del club
+        </h1>
+        <p class="text-white/70 text-sm mt-3 leading-relaxed">
+          Calendario, plantillas, jugadores y resultados de todas las categorías, en un solo sitio.
+        </p>
+      </div>
+
+      <p class="relative text-white/50 text-xs">
+        © {{ new Date().getFullYear() }} Atlético Palma del Río
+      </p>
+    </div>
+
+    <!-- Formulario -->
+    <div class="flex-1 flex items-center justify-center px-4 py-10 overflow-y-auto bg-club-cream">
       <div class="w-full max-w-sm">
-        <!-- Escudo del club, centrado -->
-        <div class="flex flex-col items-center mb-8">
+        <!-- Escudo compacto solo en móvil -->
+        <div class="flex md:hidden flex-col items-center mb-8">
           <img
             src="/escudo.png"
             alt="Escudo Atlético Palma del Río"
-            class="w-32 h-auto object-contain select-none"
-            width="128"
-            height="144"
+            class="w-20 h-auto object-contain select-none"
           />
-          <h1 class="mt-5 font-display text-xl text-ink-primary tracking-wide text-center">
+          <h1 class="mt-4 font-display text-lg text-ink-primary tracking-wide text-center">
             Atlético Palma del Río
           </h1>
           <p class="text-ink-tertiary text-sm mt-1">Intranet de gestión del club</p>
         </div>
 
-        <!-- Formulario de acceso -->
-        <form @submit.prevent="onSubmit" class="bg-white rounded-lg border border-line p-8 space-y-5">
+        <div class="mb-6 hidden md:flex items-center gap-3">
+          <svg width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+              <polygon points="0 0 24 0 24 24 0 24"></polygon>
+              <path d="M12,11 C9.790861,11 8,9.209139 8,7 C8,4.790861 9.790861,3 12,3 C14.209139,3 16,4.790861 16,7 C16,9.209139 14.209139,11 12,11 Z" fill="#afafaf" fill-rule="nonzero" opacity="0.3"></path>
+              <path d="M3.00065168,20.1992055 C3.38825852,15.4265159 7.26191235,13 11.9833413,13 C16.7712164,13 20.7048837,15.2931929 20.9979143,20.2 C21.0095879,20.3954741 20.9979143,21 20.2466999,21 C16.541124,21 11.0347247,21 3.72750223,21 C3.47671215,21 2.97953825,20.45918 3.00065168,20.1992055 Z" fill="#afafaf" fill-rule="nonzero"></path>
+            </g>
+          </svg>
+          <h2 class="font-display text-xl text-ink-primary">Datos de Acceso</h2>
+        </div>
+
+        <form @submit.prevent="onSubmit" class="bg-white rounded-xl shadow-[0_1px_2px_rgb(16_24_40_/_0.04),0_4px_16px_rgb(16_24_40_/_0.06)] border border-line p-8 space-y-5">
           <div class="flex flex-col gap-2">
             <label for="usuario" class="text-sm font-medium text-ink-secondary">Usuario</label>
-            <InputText id="usuario" v-model="usuario" autocomplete="username" placeholder="tu.usuario" class="w-full" />
+            <IconField>
+              <InputIcon class="pi pi-user" />
+              <InputText id="usuario" v-model="usuario" autocomplete="username" placeholder="tu.usuario" class="w-full" />
+            </IconField>
           </div>
 
           <div class="flex flex-col gap-2">
@@ -84,19 +117,24 @@ async function onSubmit() {
 
           <Button
             type="submit"
-            label="Enviar"
+            label="Iniciar sesión"
             icon="pi pi-sign-in"
             :loading="enviando"
             class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight"
           />
         </form>
 
-        <p class="text-center text-xs text-ink-tertiary mt-6">
-          © {{ new Date().getFullYear() }} Atlético Palma del Río
+        <p class="md:hidden text-center text-xs text-ink-tertiary mt-6">
+          Atlético Palma del Río © 2026 Todos los derechos reservados
         </p>
       </div>
     </div>
-
-    <FooterSponsors :with-border="false" />
   </div>
 </template>
+
+<style scoped>
+.login-pattern {
+  background-image: radial-gradient(circle, #ffffff 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+</style>

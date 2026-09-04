@@ -4,6 +4,15 @@ services:
     image: mysql:8.0
     container_name: apr_mysql
     restart: unless-stopped
+    # Binary log activo: cada cambio (no solo el volcado diario) queda
+    # registrado, para poder restaurar point-in-time junto con el servicio
+    # binlog-backup. Purga sola a los 30 días (mismo plazo que DB_DUMP_RETENTION).
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-expire-logs-seconds=2592000
+      - --sync-binlog=1
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
       MYSQL_DATABASE: ${DB_NAME:-atletico_palma_intranet}
@@ -21,6 +30,52 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
+    networks:
+      - apr_net
+
+  backup:
+    image: databack/mysql-backup:1.5.0
+    container_name: apr_mysql_backup
+    command: ["dump"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_SERVER: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-apr_user}
+      DB_PASS: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
+      DB_DUMP_INCLUDE: ${DB_NAME:-atletico_palma_intranet}
+      DB_DUMP_TARGET: /db
+      # Diario a las 03:00 (hora del contenedor, UTC por defecto)
+      DB_DUMP_CRON: "0 3 * * *"
+      # Conserva 30 días de volcados, borra los más antiguos automáticamente
+      DB_DUMP_RETENTION: 30d
+    volumes:
+      - ./backups:/db
+    cap_drop:
+      - ALL
+    networks:
+      - apr_net
+
+  binlog-backup:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.binlog-backup
+    container_name: apr_mysql_binlog_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
+      DB_HOST: db
+      DB_PORT: 3306
+    volumes:
+      - ./backups/binlogs:/backups
+    cap_drop:
+      - ALL
     networks:
       - apr_net
 
@@ -49,6 +104,11 @@ services:
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_USER: ${SEED_ADMIN_USER:-admin}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Define SEED_ADMIN_PASSWORD en tu .env}
+    volumes:
+      # migrate.js busca database/migrations en la raíz del contenedor
+      # (../../../database/migrations desde backend/src/utils); sin este
+      # mount, database/migrations/*.sql nunca se aplican en Docker.
+      - ./database/migrations:/database/migrations:ro
     expose:
       - "4000"
     cap_drop:

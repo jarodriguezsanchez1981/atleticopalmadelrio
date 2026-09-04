@@ -1,0 +1,15 @@
+# Imagen mínima con mysqlbinlog para el streaming continuo de binlogs.
+# mysql:8.0 no trae mysqlbinlog (solo mysql/mysqladmin/mysqldump/mysqlpump);
+# hay que instalar el paquete cliente completo, quitando antes el paquete
+# "server-minimal" (no hace falta, este contenedor no arranca mysqld) para
+# evitar conflictos de ficheros entre ambos paquetes.
+FROM mysql:8.0
+
+RUN microdnf remove -y mysql-community-server-minimal \
+  && microdnf install -y mysql \
+  && microdnf clean all
+
+COPY binlog-stream.sh /scripts/binlog-stream.sh
+RUN chmod +x /scripts/binlog-stream.sh
+
+ENTRYPOINT ["/bin/sh", "/scripts/binlog-stream.sh"]

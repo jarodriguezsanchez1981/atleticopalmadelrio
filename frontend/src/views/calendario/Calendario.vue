@@ -132,6 +132,10 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   }
 }
 
+const puedeCrearEvento = computed(() =>
+  auth.puedeVer('entrenamientos') || auth.puedeVer('partidos') || auth.puedeVer('torneo')
+);
+
 const opcionesCategoria = computed(() => [
   { label: 'Todas las categorías', value: null },
   ...categorias.value.map(c => ({ label: c.nombre, value: c.id }))
@@ -275,6 +279,21 @@ function onEventClick(info) {
 function onDateClick(info) {
   elegirTipoVisible.value = true;
   formFechaDefecto.value = info?.dateStr || info?.startStr;
+}
+
+function onEventClickMovil(evento) {
+  eventoSeleccionado.value = evento;
+  dialogVisible.value = true;
+}
+
+function onDateClickMovil(clave) {
+  elegirTipoVisible.value = true;
+  formFechaDefecto.value = clave;
+}
+
+function abrirNuevoEvento() {
+  formFechaDefecto.value = null;
+  elegirTipoVisible.value = true;
 }
 
 function idDeEvento(e) {
@@ -581,6 +600,14 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
           text
           :loading="generandoPdf"
           @click="abrirPdfSemana"
+        />
+        <Button
+          v-if="esMovil && puedeCrearEvento"
+          label="Nuevo"
+          icon="pi pi-plus"
+          size="small"
+          class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+          @click="abrirNuevoEvento"
         />
       </div>
     </div>

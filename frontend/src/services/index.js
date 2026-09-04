@@ -17,7 +17,10 @@ export function crudService(resource) {
 }
 
 export const usuariosService = crudService('usuarios');
-export const seccionesService = crudService('secciones');
+export const seccionesService = {
+  ...crudService('secciones'),
+  reordenar: (orden) => api.post('/secciones/reordenar', { orden }).then(r => r.data)
+};
 export const temporadasService = crudService('temporadas');
 export const lugaresService = crudService('lugares');
 export const tiposFutbolService = crudService('tipos-futbol');
@@ -36,7 +39,6 @@ export const equiposService = {
 };
 export const equiposJugadoresService = crudService('equipos-jugadores');
 export const resultadosService = crudService('resultados');
-export const patrocinadoresService = crudService('patrocinadores');
 export const categoriaCalendarioService = {
   ...crudService('jornadas'),
   listarNumeros: (params = {}) => api.get('/jornadas/numeros', { params }).then(r => r.data),

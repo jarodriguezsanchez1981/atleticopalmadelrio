@@ -6,7 +6,6 @@ import Menu from 'primevue/menu';
 import Drawer from 'primevue/drawer';
 import { useAuthStore } from '../stores/auth.store';
 import { useMediaQuery } from '../composables/useMediaQuery';
-import FooterSponsors from '../components/FooterSponsors.vue';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -21,7 +20,7 @@ function navegar() {
 const CLUB_SECTIONS = [
   'plantillas', 'promociones', 'jugadores', 'entrenadores', 'delegados',
   'categorias', 'division', 'posicion', 'titulos', 'temporadas',
-  'lugares', 'patrocinadores', 'entrenamientos'
+  'lugares', 'entrenamientos'
 ];
 
 const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'informes'];
@@ -45,7 +44,6 @@ const clubNavItems = computed(() => {
     { label: 'Títulos', icon: 'pi pi-graduation-cap', to: '/titulos', seccion: 'titulos' },
     { label: 'Temporadas', icon: 'pi pi-clock', to: '/temporadas', seccion: 'temporadas' },
     { label: 'Lugares', icon: 'pi pi-map-marker', to: '/lugares', seccion: 'lugares' },
-    { label: 'Patrocinadores', icon: 'pi pi-briefcase', to: '/patrocinadores', seccion: 'patrocinadores' },
     { label: 'Entrenamientos', icon: 'pi pi-stopwatch', to: '/entrenamientos', seccion: 'entrenamientos' }
   ];
   return items.filter((item) => auth.puedeVer(item.seccion));
@@ -126,7 +124,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           :key="item.to"
           :to="item.to"
           class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-          active-class="!bg-club-green !text-white"
+          active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
         >
           <i :class="item.icon" class="text-[0.85rem]" />
           <span>{{ item.label }}</span>
@@ -137,7 +135,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <button
             @click="clubOpen = !clubOpen"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green !text-white': isClubActive }"
+            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isClubActive }"
           >
             <i class="pi pi-building text-[0.85rem]" />
             <span class="flex-1 text-left">Club</span>
@@ -149,7 +147,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green !text-white"
+              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
@@ -162,7 +160,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <button
             @click="competicionOpen = !competicionOpen"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green !text-white': isCompeticionActive }"
+            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isCompeticionActive }"
           >
             <i class="pi pi-trophy text-[0.85rem]" />
             <span class="flex-1 text-left">Competición</span>
@@ -174,7 +172,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green !text-white"
+              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
@@ -187,7 +185,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <button
             @click="adminOpen = !adminOpen"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green !text-white': isAdminActive }"
+            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isAdminActive }"
           >
             <i class="pi pi-server text-[0.85rem]" />
             <span class="flex-1 text-left">Panel Administración</span>
@@ -199,7 +197,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green !text-white"
+              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
@@ -226,7 +224,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           :key="item.to"
           :to="item.to"
           class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-          active-class="!bg-club-green !text-white"
+          active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
           @click="navegar"
         >
           <i :class="item.icon" class="text-[0.85rem]" />
@@ -237,7 +235,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <button
             @click="clubOpen = !clubOpen"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green !text-white': isClubActive }"
+            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isClubActive }"
           >
             <i class="pi pi-building text-[0.85rem]" />
             <span class="flex-1 text-left">Club</span>
@@ -249,7 +247,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green !text-white"
+              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
               @click="navegar"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
@@ -262,7 +260,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <button
             @click="competicionOpen = !competicionOpen"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green !text-white': isCompeticionActive }"
+            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isCompeticionActive }"
           >
             <i class="pi pi-trophy text-[0.85rem]" />
             <span class="flex-1 text-left">Competición</span>
@@ -274,7 +272,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green !text-white"
+              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
               @click="navegar"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
@@ -287,7 +285,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <button
             @click="adminOpen = !adminOpen"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green !text-white': isAdminActive }"
+            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isAdminActive }"
           >
             <i class="pi pi-server text-[0.85rem]" />
             <span class="flex-1 text-left">Panel Administración</span>
@@ -299,7 +297,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green !text-white"
+              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
               @click="navegar"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
@@ -318,7 +316,6 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
             @click="drawerVisible = true"
             class="pi pi-bars text-xl text-ink-secondary hover:text-ink-primary transition-colors"
           />
-          <h2 class="font-display text-ink-primary text-lg truncate">{{ tituloPagina }}</h2>
         </div>
 
         <button class="flex items-center gap-3" @click="menu.toggle($event)">
@@ -333,8 +330,6 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
       <main class="flex-1 overflow-y-auto p-5 sm:p-8">
         <router-view />
       </main>
-
-      <FooterSponsors :with-border="false" />
     </div>
   </div>
 </template>

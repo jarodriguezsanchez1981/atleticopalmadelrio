@@ -21,7 +21,7 @@ const toast = useToast();
 const plantillas = ref([]);
 const equipos = ref([]);
 const guardando = ref(false);
-const form = reactive({ id_plantilla: null, id_equipo: null, fecha: null, hora: null });
+const form = reactive({ id_plantilla: null, id_equipo: null, nombre: null, fecha: null, hora: null });
 let unsubCambio = null;
 
 async function cargarCatalogo() {
@@ -64,6 +64,7 @@ async function cargarRegistro() {
     const item = await torneosService.obtener(props.registroId);
     form.id_plantilla = item.id_plantilla;
     form.id_equipo = item.id_equipo;
+    form.nombre = item.nombre || null;
     form.fecha = item.fecha ? new Date(`${String(item.fecha).slice(0, 10)}T12:00:00`) : null;
     form.hora = String(item.hora || '').slice(0, 5) || null;
   } catch {
@@ -75,6 +76,7 @@ watch(() => props.visible, async (v) => {
   if (!v) return;
   form.id_plantilla = null;
   form.id_equipo = null;
+  form.nombre = null;
   form.fecha = props.fechaDefecto ? new Date(props.fechaDefecto) : null;
   form.hora = null;
   await cargarRegistro();
@@ -92,7 +94,13 @@ async function guardar() {
   guardando.value = true;
   try {
     const hora = form.hora && /^\d{1,2}:\d{2}$/.test(String(form.hora)) ? `${String(form.hora)}:00` : null;
-    const payload = { id_plantilla: form.id_plantilla, id_equipo: form.id_equipo, fecha: toFechaSQL(form.fecha), hora };
+    const payload = {
+      id_plantilla: form.id_plantilla,
+      id_equipo: form.id_equipo,
+      nombre: form.nombre || null,
+      fecha: toFechaSQL(form.fecha),
+      hora
+    };
     if (props.registroId) {
       await torneosService.actualizar(props.registroId, payload);
       toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Torneo actualizado correctamente.', life: 3000 });
@@ -128,6 +136,10 @@ async function guardar() {
         <label class="text-sm font-medium text-ink-secondary">Equipo <span class="text-club-garnet">*</span></label>
         <Select v-model="form.id_equipo" :options="opcionesEquipo" optionLabel="label" optionValue="value"
                 class="w-full" placeholder="Busca un equipo" showClear filter />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium text-ink-secondary">Nombre</label>
+        <InputText v-model="form.nombre" placeholder="Nombre del torneo" class="w-full" />
       </div>
       <div class="flex flex-col gap-1.5">
         <label class="text-sm font-medium text-ink-secondary">Fecha y hora <span class="text-club-garnet">*</span></label>

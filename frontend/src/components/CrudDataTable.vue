@@ -348,7 +348,8 @@ function payloadFromForm() {
   }
   for (const col of props.columns) {
     if (col.type === 'date' && payload[col.field] instanceof Date) {
-      payload[col.field] = payload[col.field].toISOString();
+      const d = payload[col.field];
+      payload[col.field] = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
     if (col.type === 'password' && !payload[col.field]) {
       delete payload[col.field];
@@ -666,6 +667,10 @@ function exportarExcel() {
         const dd = String(d.getDate()).padStart(2, '0');
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const yyyy = d.getFullYear();
+        const raw = String(item[col.field]);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+          return `${dd}/${mm}/${yyyy}`;
+        }
         const hh = String(d.getHours()).padStart(2, '0');
         const mi = String(d.getMinutes()).padStart(2, '0');
         const ss = String(d.getSeconds()).padStart(2, '0');

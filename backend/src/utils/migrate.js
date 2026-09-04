@@ -42,10 +42,17 @@ async function migrate(logger = console.log) {
     logger(`🔄 Aplicando ${pendientes.length} migración(es)...`);
     for (const file of pendientes) {
       const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+      // Quita las líneas de comentario ANTES de trocear por ';\n': si un
+      // comentario precede a una sentencia dentro del mismo bloque (antes
+      // del siguiente ';'), el filtro antiguo descartaba el bloque entero
+      // (comentario + sentencia real), no solo el comentario.
       const statements = sql
+        .split('\n')
+        .filter((line) => !/^\s*--/.test(line))
+        .join('\n')
         .split(/;\s*\n/)
         .map((s) => s.trim())
-        .filter((s) => s.length > 0 && !/^--/.test(s.split('\n')[0]));
+        .filter((s) => s.length > 0);
       for (const stmt of statements) {
         await conn.query(stmt);
       }

@@ -26,7 +26,7 @@ export default {
           greenDark: '#06261C',
           garnet: '#7A2436',
           gold: '#A98E5F',
-          cream: '#F6F5F1',
+          cream: '#F7F8FA',
         }
       },
       fontFamily: {
