@@ -98,17 +98,18 @@ const toast = useToast();
 const auth = useAuthStore();
 
 const puedeCrear = computed(() => {
-  if (props.tipo === 'entrenamiento') return auth.puedeVer('entrenamientos') && auth.puedeEditar();
-  if (props.tipo === 'partido') return auth.puedeVer('partidos') && auth.puedeEditar();
-  return (auth.puedeVer('entrenamientos') || auth.puedeVer('partidos')) && auth.puedeEditar();
+  if (props.tipo === 'entrenamiento') return auth.puedeVer('entrenamientos') && auth.puedeEditar('entrenamientos');
+  if (props.tipo === 'partido') return auth.puedeVer('partidos') && auth.puedeEditar('partidos');
+  return (auth.puedeVer('entrenamientos') && auth.puedeEditar('entrenamientos'))
+    || (auth.puedeVer('partidos') && auth.puedeEditar('partidos'));
 });
 
 function puedeEditarEvento(seccion) {
-  return auth.puedeVer(seccion) && auth.puedeEditar();
+  return auth.puedeVer(seccion) && auth.puedeEditar(seccion);
 }
 
 function puedeEliminarEvento(seccion) {
-  return auth.puedeVer(seccion) && auth.puedeEliminar();
+  return auth.puedeVer(seccion) && auth.puedeEliminar(seccion);
 }
 
 const COLOR_ENTRENAMIENTO = '#0B3D2E';

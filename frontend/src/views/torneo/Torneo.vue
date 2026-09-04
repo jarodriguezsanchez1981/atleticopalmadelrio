@@ -263,7 +263,7 @@ async function abrirEdicion(torneo) {
 }
 
 function onDateClick(info) {
-  if (!(auth.puedeVer('torneo') && auth.puedeEditar())) return;
+  if (!(auth.puedeVer('torneo') && auth.puedeEditar('torneo'))) return;
   abrirNuevo(info.dateStr);
 }
 
@@ -278,7 +278,7 @@ function onEventClickMovil(e) {
 }
 
 function onDateClickMovil(dateStr) {
-  if (!(auth.puedeVer('torneo') && auth.puedeEditar())) return;
+  if (!(auth.puedeVer('torneo') && auth.puedeEditar('torneo'))) return;
   abrirNuevo(dateStr);
 }
 
@@ -356,7 +356,7 @@ const calendarOptions = {
           @event-click="onEventClickMovil"
           @date-click="onDateClickMovil"
         />
-        <p v-if="auth.puedeVer('torneo') && auth.puedeEditar()" class="text-xs text-ink-tertiary mt-2">
+        <p v-if="auth.puedeVer('torneo') && auth.puedeEditar('torneo')" class="text-xs text-ink-tertiary mt-2">
           Pincha en un día para añadir un torneo. Pincha en un evento para ver sus detalles, editarlo o eliminarlo.
         </p>
       </div>
@@ -435,9 +435,9 @@ const calendarOptions = {
         </div>
         <div class="flex justify-end gap-2 pt-3">
           <Button label="Cerrar" text severity="secondary" @click="detalleVisible = false" />
-          <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar()" label="Eliminar" icon="pi pi-trash"
+          <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar('torneo')" label="Eliminar" icon="pi pi-trash"
                   severity="danger" outlined @click="eliminarDesdeDetalle" />
-          <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar()" label="Editar" icon="pi pi-pencil"
+          <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar('torneo')" label="Editar" icon="pi pi-pencil"
                   class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
                   @click="editarDesdeDetalle" />
         </div>

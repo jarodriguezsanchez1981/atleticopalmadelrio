@@ -746,7 +746,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
           class="flex justify-end gap-2 pt-2 border-t border-line"
         >
           <Button
-            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEditar()"
+            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEditar(seccionDeEvento(eventoSeleccionado.tipo))"
             label="Editar"
             icon="pi pi-pencil"
             text
@@ -754,7 +754,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
             @click="editarEvento"
           />
           <Button
-            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEliminar()"
+            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEliminar(seccionDeEvento(eventoSeleccionado.tipo))"
             label="Eliminar"
             icon="pi pi-trash"
             text
