@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
-const { Torneo, Plantilla, Categoria, Temporada, Equipo } = require('../models');
+const { Torneo, Plantilla, Categoria, Temporada, Equipo, Entrenamiento, Partido } = require('../models');
+const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
 const includes = [
   {
@@ -52,6 +53,12 @@ async function crear(req, res, next) {
     if (!plantilla) return res.status(400).json({ message: 'La plantilla indicada no existe.' });
     const equipo = await Equipo.findOne({ where: { id: id_equipo } });
     if (!equipo) return res.status(400).json({ message: 'El equipo indicado no existe.' });
+    const conflictoTipo = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'torneo'
+    });
+    if (conflictoTipo) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+    }
     const item = await Torneo.create({
       id_plantilla,
       id_equipo,
@@ -82,6 +89,14 @@ async function actualizar(req, res, next) {
     if (nombre !== undefined) item.nombre = nombre || null;
     if (fecha !== undefined) item.fecha = fecha;
     if (hora !== undefined) item.hora = hora || null;
+    if (id_plantilla !== undefined || fecha !== undefined) {
+      const conflictoTipo = await otroTipoDeEventoMismoDia({
+        models: { Entrenamiento, Partido, Torneo }, idPlantilla: item.id_plantilla, fecha: item.fecha, tipoActual: 'torneo'
+      });
+      if (conflictoTipo) {
+        return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+      }
+    }
     await item.save();
     const completo = await Torneo.findByPk(item.id, { include: includes });
     res.json(completo);

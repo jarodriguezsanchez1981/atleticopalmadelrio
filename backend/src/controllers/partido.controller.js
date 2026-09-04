@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Entrenamiento, Torneo } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
+const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
@@ -118,6 +119,12 @@ async function crear(req, res, next) {
     if (await existePartidoDia(id_plantilla, fecha)) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
     }
+    const conflictoTipo = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'partido'
+    });
+    if (conflictoTipo) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+    }
     if (id_lugar && id_equipo_local === PALMA_ID) {
       const plantilla = await Plantilla.findOne({ where: { id: id_plantilla }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });
       const minutosPartido = plantilla?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
@@ -161,6 +168,14 @@ async function actualizar(req, res, next) {
 
     if (cambiaCatOFecha && (await existePartidoDia(idPlantillaFinal, fechaFinal, partido.id))) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
+    }
+    if (cambiaCatOFecha) {
+      const conflictoTipo = await otroTipoDeEventoMismoDia({
+        models: { Entrenamiento, Partido, Torneo }, idPlantilla: idPlantillaFinal, fecha: fechaFinal, tipoActual: 'partido'
+      });
+      if (conflictoTipo) {
+        return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+      }
     }
     if (idLugarFinal && idLocalFinal === PALMA_ID && cambiaUbicacion) {
       const plantilla = await Plantilla.findOne({ where: { id: idPlantillaFinal }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });

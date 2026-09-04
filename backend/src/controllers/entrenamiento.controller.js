@@ -1,8 +1,7 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Plantilla, Categoria, Lugar } = require('../models');
+const { Entrenamiento, Partido, Torneo, Plantilla, Categoria, Lugar } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
-
-const DURACION_ENTRENAMIENTO_DEFECTO = 60;
+const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
 const includes = [
   { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }] },
@@ -28,31 +27,6 @@ function calcularFechasSemanal(fechaBase, hasta) {
   }
   if (!fechas.length) fechas.push(new Date(base));
   return fechas;
-}
-
-function seSolapanEntrenamientos(entrenamiento, inicioNuevo, finNuevo) {
-  const inicioEx = new Date(entrenamiento.fecha).getTime();
-  const finEx = inicioEx + (entrenamiento.plantilla?.categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO) * 60000;
-  return inicioNuevo < finEx && inicioEx < finNuevo;
-}
-
-async function existeEntrenamientoMismoHorario(idPlantilla, fecha, minutosNuevo, omitirId = null) {
-  if (!idPlantilla || !fecha) return false;
-  const inicio = new Date(fecha);
-  if (Number.isNaN(inicio.getTime())) return false;
-  const finNuevo = inicio.getTime() + (minutosNuevo || DURACION_ENTRENAMIENTO_DEFECTO) * 60000;
-  const margen = DURACION_ENTRENAMIENTO_DEFECTO * 60000;
-  const where = {
-    id_plantilla: idPlantilla,
-    fecha: { [Op.gte]: new Date(inicio.getTime() - margen), [Op.lte]: new Date(finNuevo) }
-  };
-  if (omitirId) where.id = { [Op.ne]: omitirId };
-  const entrenamientos = await Entrenamiento.findAll({
-    where,
-    include: [{ model: Plantilla, as: 'plantilla', attributes: ['id'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempoentrenamiento'] }] }]
-  });
-  if (omitirId) return entrenamientos.some((e) => String(e.id) !== String(omitirId) && seSolapanEntrenamientos(e, inicio.getTime(), finNuevo));
-  return entrenamientos.some((e) => seSolapanEntrenamientos(e, inicio.getTime(), finNuevo));
 }
 
 async function listar(req, res, next) {
@@ -89,10 +63,11 @@ async function crear(req, res, next) {
     if (!id_plantilla || !fecha || !id_lugar) {
       return res.status(400).json({ message: 'Plantilla, fecha y lugar son obligatorios.' });
     }
-    const plantilla = await Plantilla.findOne({ where: { id: id_plantilla }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempoentrenamiento'] }] });
-    const minutosEntrenamiento = plantilla?.categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO;
-    if (await existeEntrenamientoMismoHorario(id_plantilla, fecha, minutosEntrenamiento)) {
-      return res.status(409).json({ message: 'Esta plantilla ya tiene un entrenamiento a esa hora.' });
+    const conflicto = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: null
+    });
+    if (conflicto) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
     }
     const esRecurrente = recurrente ? 1 : 0;
     const hastaFecha = recurrente && hasta ? hasta : null;
@@ -119,10 +94,12 @@ async function actualizar(req, res, next) {
     if (id_plantilla !== undefined || fecha !== undefined) {
       const plantillaFinal = id_plantilla !== undefined ? id_plantilla : entrenamiento.id_plantilla;
       const fechaFinal = fecha !== undefined ? fecha : entrenamiento.fecha;
-      const plantilla = await Plantilla.findOne({ where: { id: plantillaFinal }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempoentrenamiento'] }] });
-      const minutosEntrenamiento = plantilla?.categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO;
-      if (await existeEntrenamientoMismoHorario(plantillaFinal, fechaFinal, minutosEntrenamiento, entrenamiento.id)) {
-        return res.status(409).json({ message: 'Esta plantilla ya tiene un entrenamiento a esa hora.' });
+      const conflicto = await otroTipoDeEventoMismoDia({
+        models: { Entrenamiento, Partido, Torneo }, idPlantilla: plantillaFinal, fecha: fechaFinal,
+        tipoActual: null, excluirEntrenamientoId: entrenamiento.id
+      });
+      if (conflicto) {
+        return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
       }
     }
     if (id_plantilla !== undefined) entrenamiento.id_plantilla = id_plantilla;

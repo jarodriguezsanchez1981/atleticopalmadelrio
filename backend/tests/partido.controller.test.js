@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Resultado } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Resultado, Entrenamiento, Torneo } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -17,6 +17,8 @@ describe('Sección Partidos · partido.controller', () => {
     Resultado.findOne.mockReset();
     Plantilla.findOne.mockReset();
     Categoria.findOne.mockReset();
+    Entrenamiento.count.mockReset();
+    Torneo.count.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -189,6 +191,37 @@ describe('Sección Partidos · partido.controller', () => {
 
     expect(res._status).toBe(409);
     expect(res._json.message).toBe('Esta plantilla ya tiene un partido ese día.');
+  });
+
+  it('crear rechaza si la plantilla ya tiene un entrenamiento ese día', async () => {
+    Partido.count.mockResolvedValue(0);
+    Entrenamiento.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento ese día.');
+    expect(Partido.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza si la plantilla ya tiene un torneo ese día', async () => {
+    Partido.count.mockResolvedValue(0);
+    Entrenamiento.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01', id_lugar: 2, id_equipo_local: 6, id_equipo_visitante: 7 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un torneo ese día.');
+    expect(Partido.create).not.toHaveBeenCalled();
   });
 
   it('crear permite un partido por día distinto para la misma plantilla', async () => {

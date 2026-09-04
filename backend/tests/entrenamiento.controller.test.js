@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Entrenamiento, Plantilla, Categoria } from './helpers/models.js';
+import { Entrenamiento, Plantilla, Categoria, Partido, Torneo } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/entrenamiento.controller.js';
@@ -14,6 +14,8 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     Entrenamiento.count.mockReset();
     Plantilla.findOne.mockReset();
     Categoria.findOne.mockReset();
+    Partido.count.mockReset();
+    Torneo.count.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -108,11 +110,8 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._json).toEqual({ id: 5, plantilla: null, lugar: null });
   });
 
-  it('crear rechaza duplicado: misma plantilla y misma hora', async () => {
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 9, fecha: new Date('2026-01-01T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
+  it('crear rechaza duplicado: misma plantilla el mismo día', async () => {
+    Entrenamiento.count.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
       body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
@@ -121,7 +120,54 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento a esa hora.');
+    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento ese día.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza un segundo entrenamiento el mismo día aunque no se solape en horario', async () => {
+    // La plantilla ya tiene un entrenamiento a las 09:00; este nuevo es a las 18:00 (sin
+    // solape de horario), pero sigue sin permitirse: máximo un registro por día.
+    Entrenamiento.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01T18:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento ese día.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza si la plantilla ya tiene un partido ese día', async () => {
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un partido ese día.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza si la plantilla ya tiene un torneo ese día', async () => {
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un torneo ese día.');
     expect(Entrenamiento.create).not.toHaveBeenCalled();
   });
 
@@ -145,49 +191,10 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._status).toBe(201);
   });
 
-  it('crear rechaza si el entrenamiento anterior aún no ha terminado (tiempoentrenamiento)', async () => {
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 9, fecha: new Date('2026-01-01T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
-    const { promesa, res } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:30:00', id_lugar: 2 }
-    });
-
-    await promesa;
-
-    expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento a esa hora.');
-    expect(Entrenamiento.create).not.toHaveBeenCalled();
-  });
-
-  it('crear permite cuando el entrenamiento anterior ya ha terminado', async () => {
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 9, fecha: new Date('2026-01-01T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
-    const creado = { id: 6 };
-    const completo = { id: 6, plantilla: null, lugar: null };
-    Entrenamiento.create.mockResolvedValue(creado);
-    Entrenamiento.findByPk.mockResolvedValue(completo);
-    const { promesa, res } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T11:00:00', id_lugar: 2 }
-    });
-
-    await promesa;
-
-    expect(res._status).toBe(201);
-  });
-
   it('actualizar rechaza duplicado al cambiar de plantilla o fecha', async () => {
     const entrenamiento = { id: 1, id_plantilla: 1, fecha: '2026-01-01T10:00:00', recurrente: 0, id_lugar: 2, save: vi.fn().mockResolvedValue() };
     Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 2, fecha: new Date('2026-01-03T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
+    Entrenamiento.count.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' },
       body: { fecha: '2026-01-03T10:00:00' }
@@ -196,7 +203,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento a esa hora.');
+    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento ese día.');
     expect(entrenamiento.save).not.toHaveBeenCalled();
   });
 

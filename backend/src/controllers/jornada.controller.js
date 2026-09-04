@@ -1,5 +1,6 @@
-const { Jornada, JornadaJugador, Equipo, EquipoJugador, Plantilla, Categoria, Temporada, Partido, Jugador, Sancion } = require('../models');
+const { Jornada, JornadaJugador, Equipo, EquipoJugador, Plantilla, Categoria, Temporada, Partido, Jugador, Sancion, Entrenamiento, Torneo } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
+const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
 const PALMA_ID = 73;
 
@@ -168,6 +169,16 @@ async function crear(req, res, next) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene una jornada programada para esa fecha.' });
     }
 
+    // Una jornada crea un partido asociado, así que cuenta como "partido" a
+    // efectos de exclusividad diaria: la plantilla no puede tener además un
+    // entrenamiento, un torneo, o un partido suelto ese mismo día.
+    const conflictoTipo = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'jornada'
+    });
+    if (conflictoTipo) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+    }
+
     const creado = await Jornada.create({
       id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora: hora || null,
       incidencias: incidencias || null, observaciones: observaciones || null
@@ -192,6 +203,8 @@ async function actualizar(req, res, next) {
   try {
     const item = await Jornada.findOne({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
+    const idPlantillaOriginal = item.id_plantilla;
+    const fechaOriginal = item.fecha;
     const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora, incidencias, observaciones, jugadores_local, jugadores_visitante } = req.body;
     if (id_equipo_local && id_equipo_visitante && id_equipo_local === id_equipo_visitante) {
       return res.status(400).json({ message: 'El equipo local y el visitante no pueden ser el mismo.' });
@@ -228,6 +241,21 @@ async function actualizar(req, res, next) {
     }
     if (observaciones !== undefined) {
       item.observaciones = observaciones || null;
+    }
+    if (id_plantilla !== undefined || fecha !== undefined) {
+      const partidoVinculado = await Partido.findOne({
+        where: { id_plantilla: idPlantillaOriginal, fecha: fechaOriginal }
+      });
+      const conflictoTipo = await otroTipoDeEventoMismoDia({
+        models: { Entrenamiento, Partido, Torneo },
+        idPlantilla: item.id_plantilla,
+        fecha: item.fecha,
+        tipoActual: 'jornada',
+        excluirPartidoId: partidoVinculado ? partidoVinculado.id : null
+      });
+      if (conflictoTipo) {
+        return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+      }
     }
     await item.save();
     if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
