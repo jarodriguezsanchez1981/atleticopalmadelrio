@@ -8,6 +8,7 @@ const SECCIONES = [
   { clave: 'division', nombre: 'División', icono: 'pi pi-tags', orden: 47 },
   { clave: 'posicion', nombre: 'Posición', icono: 'pi pi-directions', orden: 48 },
   { clave: 'lugares', nombre: 'Lugares', icono: 'pi pi-map-marker', orden: 50 },
+  { clave: 'material', nombre: 'Material', icono: 'pi pi-box', orden: 52 },
   { clave: 'delegados', nombre: 'Delegados', icono: 'pi pi-user-plus', orden: 55 },
   { clave: 'categorias', nombre: 'Categorías', icono: 'pi pi-sitemap', orden: 60 },
   { clave: 'equipos', nombre: 'Equipos', icono: 'pi pi-trophy', orden: 65 },

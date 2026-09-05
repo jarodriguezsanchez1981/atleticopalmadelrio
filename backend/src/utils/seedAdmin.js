@@ -5,7 +5,7 @@
  * o de los valores por defecto de abajo si no se definen.
  */
 require('../config/env');
-const { sequelize, Usuario, Seccion } = require('../models');
+const { sequelize, Usuario, Seccion, UsuarioSeccion } = require('../models');
 const { hashPassword, isPasswordValid } = require('./password.utils');
 
 async function run() {
@@ -33,10 +33,16 @@ async function run() {
     }
   });
 
-  // Admin siempre tiene todas las secciones (incluida "Administración")
+  // Admin siempre tiene todas las secciones (incluida "Administración"), con
+  // ver y editar completos (setSecciones solo asocia con los valores por
+  // defecto puede_editar=0, así que hay que forzarlo).
   const secciones = await Seccion.findAll();
   if (secciones.length) {
     await user.setSecciones(secciones.map((s) => s.id));
+    await UsuarioSeccion.update(
+      { puede_ver: true, puede_editar: true },
+      { where: { id_usuario: user.id } }
+    );
   }
 
   if (!created) {

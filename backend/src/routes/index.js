@@ -28,6 +28,7 @@ const cambioRoutes = require('./cambio.routes');
 const equipoJugadorRoutes = require('./equipoJugador.routes');
 const promocionRoutes = require('./promocion.routes');
 const torneoRoutes = require('./torneo.routes');
+const materialRoutes = require('./material.routes');
 
 const router = Router();
 
@@ -59,5 +60,6 @@ router.use('/cambios', cambioRoutes);
 router.use('/equipos-jugadores', equipoJugadorRoutes);
 router.use('/promociones', promocionRoutes);
 router.use('/torneos', torneoRoutes);
+router.use('/materiales', materialRoutes);
 
 module.exports = router;

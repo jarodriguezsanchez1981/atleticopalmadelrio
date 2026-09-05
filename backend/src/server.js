@@ -1,5 +1,5 @@
 const app = require('./app');
-const { sequelize, Usuario, Seccion } = require('./models');
+const { sequelize, Usuario, Seccion, UsuarioSeccion } = require('./models');
 const { hashPassword, isPasswordValid } = require('./utils/password.utils');
 const { ensureSecciones } = require('./utils/secciones.seed');
 const { ensureTiposFutbol } = require('./utils/tipofutbol.seed');
@@ -73,10 +73,18 @@ async function seedAdminIfNeeded() {
     console.log(`ℹ️  Usuario admin "${usuario}" ya existe.`);
   }
 
-  // Admin siempre tiene todas las secciones (incluida "Administración")
+  // Admin siempre tiene todas las secciones (incluida "Administración"),
+  // con ver y editar completos. setSecciones() solo asocia las filas nuevas
+  // con los valores por defecto de la tabla puente (puede_editar=0), así que
+  // hay que forzarlo explícitamente para que también cubra secciones nuevas
+  // que se añadan más adelante (p.ej. al crear una sección nueva).
   const secciones = await Seccion.findAll();
   if (secciones.length) {
     await user.setSecciones(secciones.map((s) => s.id));
+    await UsuarioSeccion.update(
+      { puede_ver: true, puede_editar: true },
+      { where: { id_usuario: user.id } }
+    );
   }
 }
 

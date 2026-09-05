@@ -20,7 +20,7 @@ function navegar() {
 const CLUB_SECTIONS = [
   'plantillas', 'promociones', 'jugadores', 'entrenadores', 'delegados',
   'categorias', 'division', 'posicion', 'titulos', 'temporadas',
-  'lugares', 'entrenamientos'
+  'lugares', 'material', 'entrenamientos'
 ];
 
 const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'informes'];
@@ -44,6 +44,7 @@ const clubNavItems = computed(() => {
     { label: 'Títulos', icon: 'pi pi-graduation-cap', to: '/titulos', seccion: 'titulos' },
     { label: 'Temporadas', icon: 'pi pi-clock', to: '/temporadas', seccion: 'temporadas' },
     { label: 'Lugares', icon: 'pi pi-map-marker', to: '/lugares', seccion: 'lugares' },
+    { label: 'Material', icon: 'pi pi-box', to: '/material', seccion: 'material' },
     { label: 'Entrenamientos', icon: 'pi pi-stopwatch', to: '/entrenamientos', seccion: 'entrenamientos' }
   ];
   return items.filter((item) => auth.puedeVer(item.seccion));

@@ -53,6 +53,12 @@ const routes = [
         meta: { seccion: 'division' }
       },
       {
+        path: 'material',
+        name: 'material',
+        component: () => import('../views/material/Material.vue'),
+        meta: { seccion: 'material' }
+      },
+      {
         path: 'posicion',
         name: 'posicion',
         component: () => import('../views/posicion/Posicion.vue'),

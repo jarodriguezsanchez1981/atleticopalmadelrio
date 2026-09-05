@@ -29,6 +29,7 @@ const Cambio = require('./Cambio');
 const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
+const Material = require('./Material');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -243,5 +244,7 @@ module.exports = {
   PlantillaDelegado,
   Cambio,
   EquipoJugador,
-  Promocion
+  Promocion,
+  Material,
+  UsuarioSeccion
 };
