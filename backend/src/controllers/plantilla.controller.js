@@ -1,7 +1,7 @@
-const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Jornada, JornadaJugador } = require('../models');
 
 const includes = [
-  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido'] },
+  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'orden'] },
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
   { model: Division, as: 'division', attributes: ['id', 'nombre'] },
   { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['id', 'dorsal', 'talla', 'titular', 'promocion'] } },
@@ -47,6 +47,55 @@ async function adjuntarPosiciones(plantillas) {
   return plantillas;
 }
 
+/** Cuenta, por jugador, cuántas veces ha sido convocado (jornada_jugadores) en una
+ * categoría superior (orden mayor) a la indicada. */
+async function contarVecesConvocadoSuperior(idsJugadores, ordenActual) {
+  const mapa = new Map();
+  if (!idsJugadores.length || ordenActual == null) return mapa;
+  const registros = await JornadaJugador.findAll({
+    where: { id_jugador: idsJugadores },
+    include: [{
+      model: Jornada,
+      as: 'jornada',
+      attributes: ['id'],
+      required: true,
+      include: [{
+        model: Plantilla,
+        as: 'plantilla',
+        attributes: ['id'],
+        required: true,
+        include: [{ model: Categoria, as: 'categoria', attributes: ['orden'], required: true }]
+      }]
+    }]
+  });
+  registros.forEach((r) => {
+    const orden = r.jornada?.plantilla?.categoria?.orden;
+    if (orden == null || Number(orden) <= Number(ordenActual)) return;
+    mapa.set(r.id_jugador, (mapa.get(r.id_jugador) || 0) + 1);
+  });
+  return mapa;
+}
+
+/** Adjunta a cada jugador el nº de veces convocado por una categoría superior. */
+async function adjuntarVecesConvocado(plantillas) {
+  const lista = Array.isArray(plantillas) ? plantillas : [plantillas];
+  for (const p of lista) {
+    if (!p?.jugadores?.length) continue;
+    const ordenActual = p.categoria?.orden;
+    const ids = p.jugadores.map((j) => j.id);
+    const mapa = await contarVecesConvocadoSuperior(ids, ordenActual);
+    p.jugadores.forEach((j) => {
+      const veces = mapa.get(j.id) || 0;
+      if (j.PlantillaJugador && typeof j.PlantillaJugador.setDataValue === 'function') {
+        j.PlantillaJugador.setDataValue('veces_convocado_superior', veces);
+      } else if (j.PlantillaJugador) {
+        j.PlantillaJugador.veces_convocado_superior = veces;
+      }
+    });
+  }
+  return plantillas;
+}
+
 async function listar(req, res, next) {
   try {
     const { id_categoria, id_temporada } = req.query;
@@ -62,6 +111,7 @@ async function listar(req, res, next) {
       ]
     });
     await adjuntarPosiciones(plantillas);
+    await adjuntarVecesConvocado(plantillas);
     res.json(plantillas.map(serializePlantilla));
   } catch (err) { next(err); }
 }
@@ -71,6 +121,7 @@ async function obtener(req, res, next) {
     const plantilla = await Plantilla.findOne({ where: { id: req.params.id }, include: includes });
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
     await adjuntarPosiciones(plantilla);
+    await adjuntarVecesConvocado(plantilla);
     res.json(serializePlantilla(plantilla));
   } catch (err) { next(err); }
 }
@@ -190,6 +241,7 @@ async function crear(req, res, next) {
 
     const completa = await Plantilla.findOne({ where: { id: plantilla.id }, include: includes });
     await adjuntarPosiciones(completa);
+    await adjuntarVecesConvocado(completa);
     res.status(201).json(serializePlantilla(completa));
   } catch (err) { next(err); }
 }
@@ -286,6 +338,7 @@ async function actualizar(req, res, next) {
 
     const actualizada = await Plantilla.findOne({ where: { id: plantilla.id }, include: includes });
     await adjuntarPosiciones(actualizada);
+    await adjuntarVecesConvocado(actualizada);
     res.json(serializePlantilla(actualizada));
   } catch (err) { next(err); }
 }

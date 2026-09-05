@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion } from './helpers/models.js';
+import { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion, JornadaJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/plantilla.controller.js';
@@ -29,6 +29,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Promocion.findOrCreate.mockReset();
     Promocion.destroy.mockReset();
     Promocion.bulkCreate.mockReset();
+    JornadaJugador.findAll.mockReset();
+    JornadaJugador.findAll.mockResolvedValue([]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -73,6 +75,32 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
     expect(res._status).toBe(404);
     expect(res._json.message).toBe('Plantilla no encontrada.');
+  });
+
+  it('obtener calcula "veces convocado" solo con categorías de orden superior', async () => {
+    const jugador5 = { id: 5, PlantillaJugador: { setDataValue: vi.fn() } };
+    const jugador6 = { id: 6, PlantillaJugador: { setDataValue: vi.fn() } };
+    const plantilla = {
+      id: 1,
+      categoria: { id: 1, orden: 5 },
+      jugadores: [jugador5, jugador6]
+    };
+    Plantilla.findOne.mockResolvedValue(plantilla);
+    JornadaJugador.findAll.mockResolvedValue([
+      // jugador 5: convocado dos veces por categorías superiores (orden 6 y 7)
+      { id_jugador: 5, jornada: { plantilla: { categoria: { orden: 6 } } } },
+      { id_jugador: 5, jornada: { plantilla: { categoria: { orden: 7 } } } },
+      // jugador 5: convocado también en su propia categoría (orden 5) -> no cuenta
+      { id_jugador: 5, jornada: { plantilla: { categoria: { orden: 5 } } } },
+      // jugador 6: convocado en una categoría inferior (orden 3) -> no cuenta
+      { id_jugador: 6, jornada: { plantilla: { categoria: { orden: 3 } } } }
+    ]);
+
+    const { promesa } = llamar(ctrl.obtener, { params: { id: '1' } });
+    await promesa;
+
+    expect(jugador5.PlantillaJugador.setDataValue).toHaveBeenCalledWith('veces_convocado_superior', 2);
+    expect(jugador6.PlantillaJugador.setDataValue).toHaveBeenCalledWith('veces_convocado_superior', 0);
   });
 
   it('crear exige categoría y temporada', async () => {

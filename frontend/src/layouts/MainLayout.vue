@@ -323,9 +323,9 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
         </div>
 
         <button class="flex items-center gap-3" @click="menu.toggle($event)">
-          <div class="text-right leading-tight hidden sm:block">
-            <p class="text-sm font-medium text-ink-primary">{{ auth.nombreCompleto }}</p>
-            <p class="text-xs text-ink-tertiary">{{ rolLabel }}</p>
+          <div class="text-right leading-tight max-w-[45vw] sm:max-w-none">
+            <p class="text-sm font-medium text-ink-primary truncate">{{ auth.nombreCompleto }}</p>
+            <p class="text-xs text-ink-tertiary truncate">{{ rolLabel }}</p>
           </div>
           <Avatar :label="auth.user?.nombre?.[0] || 'U'" shape="circle" class="!bg-club-green !text-white" />
         </button>

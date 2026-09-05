@@ -172,7 +172,8 @@ function formatearJugador(j) {
     dorsal: jp.dorsal,
     talla: jp.talla,
     promocion: jp.promocion || false,
-    ids_posiciones: (jp.posiciones || []).map(p => p.id)
+    ids_posiciones: (jp.posiciones || []).map(p => p.id),
+    veces_convocado_superior: jp.veces_convocado_superior ?? 0
   };
 }
 
@@ -255,7 +256,8 @@ function addJugador(form) {
       dorsal: nuevoDorsal.value ?? null,
       talla: nuevaTalla.value || null,
       promocion: false,
-      ids_posiciones: [...nuevasPosiciones.value]
+      ids_posiciones: [...nuevasPosiciones.value],
+      veces_convocado_superior: 0
     });
     if (nuevoDorsal.value != null) comprobarDorsalDuplicado(form, nuevoJugador.value, nuevoDorsal.value);
   }
@@ -497,6 +499,7 @@ function validarPlantilla(form) {
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary" v-tooltip.top="'Veces convocado por una categoría superior'">Nº Veces</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
               </tr>
             </thead>
@@ -525,6 +528,7 @@ function validarPlantilla(form) {
                 <td class="text-center border border-line p-2">
                   <Checkbox v-model="j.promocion" :binary="true" />
                 </td>
+                <td class="text-center border border-line p-2 text-sm">{{ j.veces_convocado_superior ?? 0 }}</td>
                 <td class="text-center border border-line p-2">
                   <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeJugador(form, j.id_jugador)" />
                 </td>
@@ -547,16 +551,16 @@ function validarPlantilla(form) {
 
     <template #detail-extra="{ data }">
       <div class="overflow-x-auto">
-      <table class="w-full border-collapse mb-6">
-        <tr>
-          <td class="text-center border border-line p-3 bg-club-green text-white">
-            <div class="text-sm font-medium">Temporada</div>
+      <table class="w-full border-collapse">
+        <tr class="bg-club-green/5">
+          <td class="text-center border border-line p-3">
+            <div class="text-sm font-medium text-ink-tertiary">Temporada</div>
           </td>
-          <td class="text-center border border-line p-3 bg-club-green text-white">
-            <div class="text-sm font-medium">Categoría</div>
+          <td class="text-center border border-line p-3">
+            <div class="text-sm font-medium text-ink-tertiary">Categoría</div>
           </td>
-          <td class="text-center border border-line p-3 bg-club-green text-white">
-            <div class="text-sm font-medium">División</div>
+          <td class="text-center border border-line p-3">
+            <div class="text-sm font-medium text-ink-tertiary">División</div>
           </td>
         </tr>
         <tr>
@@ -641,6 +645,7 @@ function validarPlantilla(form) {
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary" v-tooltip.top="'Veces convocado por una categoría superior'">Nº Veces</th>
             </tr>
           </thead>
           <tbody>
@@ -660,6 +665,7 @@ function validarPlantilla(form) {
                 <i v-if="j.PlantillaJugador?.promocion" class="pi pi-check-circle text-club-green" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
+              <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.veces_convocado_superior ?? 0 }}</td>
             </tr>
           </tbody>
         </table>
