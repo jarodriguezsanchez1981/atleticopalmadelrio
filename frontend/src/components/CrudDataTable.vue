@@ -1034,9 +1034,9 @@ watch(
 }
 .ar-datatable .p-datatable-thead > tr > th,
 .ar-datatable .p-datatable-thead > tr > td {
-  background: rgb(0 0 0 / 3%) !important;
-  border-color: rgb(0 0 0 / 10%) !important;
-  color: rgb(0 0 0 / 64%) !important;
+  background: rgb(15 61 34 / 6%) !important;
+  border-color: rgb(15 61 34 / 14%) !important;
+  color: rgb(15 61 34 / 82%) !important;
   font-size: 0.72rem;
   font-weight: 500;
   text-transform: none;
@@ -1055,11 +1055,11 @@ watch(
   font-size: 0.86rem;
 }
 .ar-datatable .p-datatable-tbody > tr:hover {
-  background: rgb(0 0 0 / 3%) !important;
+  background: rgb(15 61 34 / 5%) !important;
 }
 .ar-datatable .p-datatable-tbody > tr.ar-dt-row-selected,
 .ar-datatable .p-datatable-tbody > tr.p-highlight {
-  background: rgb(0 0 0 / 5%) !important;
+  background: rgb(15 61 34 / 10%) !important;
 }
 .ar-datatable .p-paginator {
   border-top: 1px solid rgb(0 0 0 / 10%);
@@ -1084,7 +1084,7 @@ watch(
   font-size: 0.85rem;
 }
 .ar-datatable .p-paginator .p-paginator-page.p-highlight {
-  background: #0B3D2E !important;
+  background: #0F3D22 !important;
   color: #fff !important;
 }
 .ar-datatable .p-datatable-footer {
@@ -1097,8 +1097,8 @@ watch(
   color: rgb(0 0 0 / 44%) !important;
 }
 .ar-dt-btn:hover {
-  background: rgb(0 0 0 / 5%) !important;
-  color: rgb(0 0 0 / 90%) !important;
+  background: rgb(15 61 34 / 8%) !important;
+  color: #0F3D22 !important;
 }
 .ar-dt-btn.p-button-danger:hover {
   background: #fef2f2 !important;
@@ -1161,7 +1161,7 @@ watch(
 }
 
 .fab-movil {
-  background: #0B3D2E !important;
+  background: #0F3D22 !important;
   border: none !important;
   color: #fff !important;
   width: 56px !important;

@@ -112,7 +112,7 @@ function puedeEliminarEvento(seccion) {
   return auth.puedeVer(seccion) && auth.puedeEliminar(seccion);
 }
 
-const COLOR_ENTRENAMIENTO = '#0B3D2E';
+const COLOR_ENTRENAMIENTO = '#0F3D22';
 const COLOR_PARTIDO = '#7A1E2B';
 const COLOR_FESTIVO = '#D97706';
 
@@ -215,7 +215,7 @@ function contenidoEvento(arg) {
 }
 
 const GRUPO_LABELS = {
-  LIGA: { label: 'LIGA', color: '#0B3D2E', icon: 'pi pi-star-fill' },
+  LIGA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-star-fill' },
   AMISTOSO: { label: 'AMISTOSO', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'TORNEO', color: '#6D28D9', icon: 'pi pi-trophy' },
   ENTRENAMIENTO: { label: 'ENTRENAMIENTO', color: '#2563EB', icon: 'pi pi-calendar' }

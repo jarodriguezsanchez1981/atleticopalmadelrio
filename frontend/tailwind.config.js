@@ -19,19 +19,23 @@ export default {
           pressed: 'rgb(0 0 0 / 8%)',
           surface: 'rgb(0 0 0 / 3%)',
         },
-        // Identidad del club: verde institucional
+        // Identidad: un único color de marca, #0F3D22 (tintas/sombras derivadas para hover/foco)
         club: {
-          green: '#0B3D2E',
-          greenLight: '#166A4C',
-          greenDark: '#06261C',
+          green: '#0F3D22',
+          greenLight: '#446853',
+          greenDark: '#0A2B18',
           garnet: '#7A2436',
-          gold: '#A98E5F',
           cream: '#F7F8FA',
         }
       },
       fontFamily: {
-        display: ['"Inter"', 'sans-serif'],
+        display: ['"Manrope"', 'sans-serif'],
         body: ['"Inter"', 'sans-serif']
+      },
+      boxShadow: {
+        card: '0 1px 2px rgb(16 24 40 / 0.04), 0 2px 6px rgb(16 24 40 / 0.05)',
+        elevated: '0 4px 12px rgb(16 24 40 / 0.06), 0 12px 32px rgb(16 24 40 / 0.08)',
+        panel: '1px 0 0 0 rgb(0 0 0 / 6%), 4px 0 16px rgb(16 24 40 / 0.03)'
       }
     }
   },

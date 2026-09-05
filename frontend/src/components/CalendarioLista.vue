@@ -17,7 +17,7 @@ const esMovil = useMediaQuery('(max-width: 639px)');
 const semanaOffset = ref(0);
 
 const GRUPOS = {
-  LIGA: { label: 'Liga', color: '#0B3D2E', icon: 'pi pi-star-fill' },
+  LIGA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-star-fill' },
   AMISTOSO: { label: 'Amistoso', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'Torneo', color: '#6D28D9', icon: 'pi pi-trophy' },
   ENTRENAMIENTO: { label: 'Entrenamiento', color: '#2563EB', icon: 'pi pi-calendar' },
@@ -237,7 +237,7 @@ function lugarEvento(e) {
 }
 .hora {
   font-weight: 700;
-  color: #0B3D2E;
+  color: #0F3D22;
   min-width: 34px;
 }
 .nombre {
@@ -259,7 +259,7 @@ function lugarEvento(e) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #0B3D2E;
+  background: #0F3D22;
   border-radius: 8px;
   padding: 4px 8px;
   margin-bottom: 4px;

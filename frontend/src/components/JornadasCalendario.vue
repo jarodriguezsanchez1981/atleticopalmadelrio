@@ -590,7 +590,7 @@ function nombreJugadorEnForm(entry) {
   overflow: hidden;
 }
 .jornada-header {
-  background: #0B3D2E;
+  background: #0F3D22;
   color: #fff;
   padding: 6px 12px;
   display: flex;

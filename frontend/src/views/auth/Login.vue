@@ -45,11 +45,12 @@ async function onSubmit() {
   <div class="h-screen w-full grid md:grid-cols-2 overflow-hidden">
     <!-- Panel de marca -->
     <div class="hidden md:flex flex-col p-12 bg-club-green relative overflow-hidden">
-      <div class="absolute inset-0 opacity-[0.06] pointer-events-none login-pattern"></div>
+      <div class="absolute inset-0 opacity-40 pointer-events-none login-bg"></div>
 
       <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="relative self-start h-32 w-auto object-contain select-none" />
 
-      <div class="relative max-w-sm flex-1 flex flex-col justify-center text-left">
+      <div class="relative max-w-sm flex-1 flex flex-col justify-center text-justify">
+        <span class="w-10 h-[3px] bg-white/70 rounded-full mb-5"></span>
         <h1 class="font-display text-3xl text-white leading-tight">
           Intranet de gestión del club
         </h1>
@@ -64,7 +65,7 @@ async function onSubmit() {
     </div>
 
     <!-- Formulario -->
-    <div class="flex-1 flex items-center justify-center px-4 py-10 overflow-y-auto bg-club-cream">
+    <div class="flex-1 flex items-center justify-center px-4 py-10 overflow-y-auto login-form-panel">
       <div class="w-full max-w-sm">
         <!-- Escudo compacto solo en móvil -->
         <div class="flex md:hidden flex-col items-center mb-8">
@@ -73,10 +74,10 @@ async function onSubmit() {
             alt="Escudo Atlético Palma del Río"
             class="w-20 h-auto object-contain select-none"
           />
-          <h1 class="mt-4 font-display text-lg text-ink-primary tracking-wide text-center">
+          <h1 class="mt-4 font-display text-lg text-white tracking-wide text-center">
             Atlético Palma del Río
           </h1>
-          <p class="text-ink-tertiary text-sm mt-1">Intranet de gestión del club</p>
+          <p class="text-white/70 text-sm mt-1">Intranet de gestión del club</p>
         </div>
 
         <div class="mb-6 hidden md:flex items-center gap-3">
@@ -95,7 +96,7 @@ async function onSubmit() {
             <label for="usuario" class="text-sm font-medium text-ink-secondary">Usuario</label>
             <IconField>
               <InputIcon class="pi pi-user" />
-              <InputText id="usuario" v-model="usuario" autocomplete="username" placeholder="tu.usuario" class="w-full" />
+              <InputText id="usuario" v-model="usuario" autocomplete="username" placeholder="usuario" class="w-full" />
             </IconField>
           </div>
 
@@ -124,7 +125,7 @@ async function onSubmit() {
           />
         </form>
 
-        <p class="md:hidden text-center text-xs text-ink-tertiary mt-6">
+        <p class="md:hidden text-center text-xs text-white/60 mt-6">
           Atlético Palma del Río © 2026 Todos los derechos reservados
         </p>
       </div>
@@ -133,8 +134,20 @@ async function onSubmit() {
 </template>
 
 <style scoped>
-.login-pattern {
-  background-image: radial-gradient(circle, #ffffff 1px, transparent 1px);
-  background-size: 24px 24px;
+.login-bg {
+  background-image: url('/login-bg.png');
+  background-size: cover;
+  background-position: center;
+}
+.login-form-panel {
+  background-color: #F7F8FA;
+}
+@media (max-width: 767px) {
+  .login-form-panel {
+    background-color: #0F3D22;
+    background-image: url('/login-bg.png');
+    background-size: cover;
+    background-position: center;
+  }
 }
 </style>

@@ -16,20 +16,20 @@ body {
 }
 
 h1, h2, h3, .font-display {
-  font-family: 'Inter', sans-serif;
-  letter-spacing: -0.018em;
-  font-weight: 650;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: -0.014em;
+  font-weight: 700;
 }
 
 /* Selección con la identidad del club */
 ::selection {
-  background: rgb(11 61 46 / 18%);
+  background: rgb(15 61 34 / 18%);
 }
 
-/* Tarjetas blancas sobre papel cálido: elevación sutil global */
+/* Tarjetas blancas: elevación sutil global (misma escala que shadow-card) */
 .bg-white.rounded-xl,
 .bg-white.rounded-lg {
-  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.03);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 2px 6px rgb(16 24 40 / 0.05);
 }
 
 /* Barra de scroll discreta */
@@ -40,7 +40,7 @@ h1, h2, h3, .font-display {
 
 /* Foco visible accesible — anillo verde institucional */
 :focus-visible {
-  outline: 2px solid rgb(11 61 46 / 70%);
+  outline: 2px solid rgb(15 61 34 / 70%);
   outline-offset: 2px;
   border-radius: 2px;
 }

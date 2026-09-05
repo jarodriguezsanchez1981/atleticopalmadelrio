@@ -5,7 +5,7 @@ const ESCUDO_CLUB = '/escudo.png';
 const NOMBRE_CLUB = 'ATLÉTICO PALMA DEL RÍO';
 const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
-const VERDE = '#0B3D2E';
+const VERDE = '#0F3D22';
 const GRANATE = '#7A1E2B';
 const GRIS = '#64748B';
 

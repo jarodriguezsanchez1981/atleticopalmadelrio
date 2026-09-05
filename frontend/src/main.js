@@ -16,12 +16,15 @@ import { useAuthStore } from './stores/auth.store';
 import { localeEs } from './utils/localeEs';
 
 const ClubPreset = definePreset(Aura, {
+  primitive: {
+    borderRadius: { none: '0', xs: '3px', sm: '6px', md: '8px', lg: '10px', xl: '14px' }
+  },
   semantic: {
     primary: {
-      50: '#F1F5F3', 100: '#E0E9E4', 200: '#C2D2C8',
-      300: '#98B4A5', 400: '#67907D', 500: '#0B3D2E',
-      600: '#0D4634', 700: '#0A3828', 800: '#072B20',
-      900: '#051E16', 950: '#02120D'
+      50: '#F1F3F2', 100: '#DDE4E0', 200: '#BCC9C1',
+      300: '#8CA295', 400: '#527360', 500: '#0F3D22',
+      600: '#0D361E', 700: '#0B2C18', 800: '#082213',
+      900: '#06170D', 950: '#040F08'
     },
     surface: {
       0: '#ffffff',

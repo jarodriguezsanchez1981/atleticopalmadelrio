@@ -73,6 +73,9 @@ const adminNavItems = computed(() => {
 
 const navItems = computed(() => ALL_NAV.filter((item) => auth.puedeVer(item.seccion)));
 
+const ROL_LABELS = { coordinador: 'Coordinador', entrenador: 'Entrenador' };
+const rolLabel = computed(() => ROL_LABELS[auth.rol] || auth.rol);
+
 const menu = ref();
 const userMenuItems = [
   {
@@ -104,8 +107,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
   <div class="min-h-screen flex bg-club-cream">
 
     <!-- Sidebar Desktop -->
-    <aside v-if="!isMobile" class="w-64 bg-white flex flex-col shrink-0 border-r border-line">
-      <div class="flex items-center gap-3 px-5 py-5 border-b border-line">
+    <aside v-if="!isMobile" class="w-64 bg-club-green flex flex-col shrink-0 shadow-panel relative z-10">
+      <div class="flex items-center gap-3 px-5 py-5 border-b border-white/10">
         <img
           src="/escudo.png"
           alt="Escudo Atlético Palma del Río"
@@ -114,8 +117,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           height="40"
         />
         <div class="leading-tight min-w-0">
-          <p class="font-display text-sm text-ink-primary">Atlético</p>
-          <p class="font-display text-xs text-ink-tertiary">Palma del Río</p>
+          <p class="font-display text-sm text-white">Atlético</p>
+          <p class="font-display text-xs text-white/60">Palma del Río</p>
         </div>
       </div>
 
@@ -124,19 +127,19 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-          active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+          active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
         >
           <i :class="item.icon" class="text-[0.85rem]" />
           <span>{{ item.label }}</span>
         </router-link>
 
         <!-- Sección Club -->
-        <div v-if="clubNavItems.length" class="mt-4 pt-3 border-t border-line">
+        <div v-if="clubNavItems.length" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="clubOpen = !clubOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isClubActive }"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/10 !text-white !font-medium': isClubActive }"
           >
             <i class="pi pi-building text-[0.85rem]" />
             <span class="flex-1 text-left">Club</span>
@@ -147,8 +150,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               v-for="item in clubNavItems"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
@@ -157,11 +160,11 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
         </div>
 
         <!-- Sección Competición -->
-        <div v-if="competicionNavItems.length" class="mt-4 pt-3 border-t border-line">
+        <div v-if="competicionNavItems.length" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="competicionOpen = !competicionOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isCompeticionActive }"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/10 !text-white !font-medium': isCompeticionActive }"
           >
             <i class="pi pi-trophy text-[0.85rem]" />
             <span class="flex-1 text-left">Competición</span>
@@ -172,8 +175,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               v-for="item in competicionNavItems"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
@@ -182,11 +185,11 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
         </div>
 
         <!-- Panel Administración -->
-        <div v-if="adminNavItems.length" class="mt-4 pt-3 border-t border-line">
+        <div v-if="adminNavItems.length" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="adminOpen = !adminOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isAdminActive }"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/10 !text-white !font-medium': isAdminActive }"
           >
             <i class="pi pi-server text-[0.85rem]" />
             <span class="flex-1 text-left">Panel Administración</span>
@@ -197,8 +200,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               v-for="item in adminNavItems"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
@@ -214,8 +217,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
         <div class="flex items-center gap-3">
           <img src="/escudo.png" alt="Escudo" class="w-10 h-10 object-contain" />
           <div class="leading-tight">
-            <p class="font-display text-sm text-ink-primary">Atlético</p>
-            <p class="font-display text-xs text-ink-tertiary">Palma del Río</p>
+            <p class="font-display text-sm text-white">Atlético</p>
+            <p class="font-display text-xs text-white/60">Palma del Río</p>
           </div>
         </div>
       </template>
@@ -224,19 +227,19 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-          active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+          active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
           @click="navegar"
         >
           <i :class="item.icon" class="text-[0.85rem]" />
           <span>{{ item.label }}</span>
         </router-link>
 
-        <div v-if="clubNavItems.length" class="mt-4 pt-3 border-t border-line">
+        <div v-if="clubNavItems.length" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="clubOpen = !clubOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isClubActive }"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/10 !text-white !font-medium': isClubActive }"
           >
             <i class="pi pi-building text-[0.85rem]" />
             <span class="flex-1 text-left">Club</span>
@@ -247,8 +250,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               v-for="item in clubNavItems"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
               @click="navegar"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
@@ -257,11 +260,11 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           </div>
         </div>
 
-        <div v-if="competicionNavItems.length" class="mt-4 pt-3 border-t border-line">
+        <div v-if="competicionNavItems.length" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="competicionOpen = !competicionOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isCompeticionActive }"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/10 !text-white !font-medium': isCompeticionActive }"
           >
             <i class="pi pi-trophy text-[0.85rem]" />
             <span class="flex-1 text-left">Competición</span>
@@ -272,8 +275,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               v-for="item in competicionNavItems"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
               @click="navegar"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
@@ -282,11 +285,11 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           </div>
         </div>
 
-        <div v-if="adminNavItems.length" class="mt-4 pt-3 border-t border-line">
+        <div v-if="adminNavItems.length" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="adminOpen = !adminOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors w-full"
-            :class="{ '!bg-club-green/[0.08] !text-club-green !font-medium': isAdminActive }"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/10 !text-white !font-medium': isAdminActive }"
           >
             <i class="pi pi-server text-[0.85rem]" />
             <span class="flex-1 text-left">Panel Administración</span>
@@ -297,8 +300,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
               v-for="item in adminNavItems"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-ink-secondary hover:bg-fill-hover hover:text-ink-primary transition-colors"
-              active-class="!bg-club-green/[0.08] !text-club-green !font-medium !border-l-2 !border-club-green !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
               @click="navegar"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
@@ -310,7 +313,7 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
     </Drawer>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="h-16 bg-white border-b border-line flex items-center justify-between px-4 sm:px-6 shadow-[0_1px_2px_rgb(16_24_40_/_0.04)]">
+      <header class="h-20 bg-white border-b border-line flex items-center justify-between px-4 sm:px-6 shadow-[0_1px_2px_rgb(16_24_40_/_0.04)]">
         <div class="flex items-center gap-3">
           <button
             v-if="isMobile"
@@ -321,7 +324,8 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
 
         <button class="flex items-center gap-3" @click="menu.toggle($event)">
           <div class="text-right leading-tight hidden sm:block">
-            <p class="text-sm font-medium text-ink-secondary">{{ auth.nombreCompleto }}</p>
+            <p class="text-sm font-medium text-ink-primary">{{ auth.nombreCompleto }}</p>
+            <p class="text-xs text-ink-tertiary">{{ rolLabel }}</p>
           </div>
           <Avatar :label="auth.user?.nombre?.[0] || 'U'" shape="circle" class="!bg-club-green !text-white" />
         </button>
@@ -334,3 +338,20 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.p-drawer) {
+  background: #0F3D22;
+  color: #fff;
+}
+:deep(.p-drawer-header) {
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+}
+:deep(.p-drawer-close-button) {
+  color: rgb(255 255 255 / 70%);
+}
+:deep(.p-drawer-close-button:hover) {
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
+}
+</style>
