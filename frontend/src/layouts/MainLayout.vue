@@ -339,19 +339,21 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
   </div>
 </template>
 
-<style scoped>
-:deep(.p-drawer) {
-  background: #0F3D22;
-  color: #fff;
+<style>
+/* El Drawer de PrimeVue se teletransporta a <body>, fuera del árbol
+   del componente: estas reglas deben ser globales (no scoped/:deep). */
+.p-drawer {
+  background: #0F3D22 !important;
+  color: #fff !important;
 }
-:deep(.p-drawer-header) {
-  border-bottom: 1px solid rgb(255 255 255 / 10%);
+.p-drawer-header {
+  border-bottom: 1px solid rgb(255 255 255 / 10%) !important;
 }
-:deep(.p-drawer-close-button) {
-  color: rgb(255 255 255 / 70%);
+.p-drawer-close-button {
+  color: rgb(255 255 255 / 70%) !important;
 }
-:deep(.p-drawer-close-button:hover) {
-  background: rgb(255 255 255 / 10%);
-  color: #fff;
+.p-drawer-close-button:hover {
+  background: rgb(255 255 255 / 10%) !important;
+  color: #fff !important;
 }
 </style>
