@@ -12,7 +12,12 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import DatePicker from 'primevue/datepicker';
 import Textarea from 'primevue/textarea';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import ProgressBar from 'primevue/progressbar';
+import Message from 'primevue/message';
 import { useToast } from 'primevue/usetoast';
+import * as XLSX from '@e965/xlsx';
 import {
   categoriaCalendarioService, plantillasService, equiposService,
   jugadoresService, equiposJugadoresService
@@ -158,6 +163,69 @@ function puedeEditarPartido(partido) {
 }
 
 const puedeCrear = computed(() => auth.puedeEditar('categoria_calendario'));
+
+// ---------- Importación Excel ----------
+const importDialogVisible = ref(false);
+const importInputRef = ref(null);
+const importPreview = ref([]);
+const importando = ref(false);
+const importProgress = ref(0);
+const importResultado = ref(null);
+
+function abrirImport() {
+  importPreview.value = [];
+  importResultado.value = null;
+  importProgress.value = 0;
+  importDialogVisible.value = true;
+}
+
+function onImportFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  importando.value = true;
+  importProgress.value = 10;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      importPreview.value = rows;
+      importProgress.value = 100;
+    } catch {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo leer el archivo Excel.', life: 4000 });
+      importPreview.value = [];
+    } finally {
+      importando.value = false;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function confirmarImport() {
+  if (!importPreview.value.length) return;
+  importando.value = true;
+  importProgress.value = 30;
+  try {
+    const res = await categoriaCalendarioService.importar(importPreview.value);
+    importProgress.value = 100;
+    importResultado.value = res;
+    if (res.insertados) {
+      await cargarCatalogo();
+      await cargarNumeros();
+      emitirCambio();
+    }
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error de importación',
+      detail: err.response?.data?.message || 'No se pudo completar la importación.',
+      life: 5000
+    });
+  } finally {
+    importando.value = false;
+  }
+}
 
 // ---------- Alta / edición ----------
 const dialogVisible = ref(false);
@@ -366,6 +434,9 @@ function nombreJugadorEnForm(entry) {
           class="w-full sm:w-52"
           showClear
         />
+        <Button v-if="puedeCrear" label="Importar" icon="pi pi-file-import" size="small" outlined
+                class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
+                @click="abrirImport" />
         <Button v-if="puedeCrear" label="Nueva jornada" icon="pi pi-plus" size="small"
                 class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
                 @click="abrirNuevaJornada" />
@@ -579,6 +650,89 @@ function nombreJugadorEnForm(entry) {
                   class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
         </div>
       </form>
+    </Dialog>
+
+    <!-- Diálogo de importación Excel -->
+    <Dialog v-model:visible="importDialogVisible" modal header="Importar jornadas desde Excel"
+            :style="{ width: '42rem' }" :closable="!importando">
+      <div class="space-y-4">
+        <div class="space-y-2">
+          <p class="text-sm text-ink-secondary">
+            El archivo debe ser un <strong>.xlsx</strong> con estas columnas:
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr class="bg-club-green/5">
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">plantilla</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">jornada</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">fecha</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">equipolocal</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">equipovisitante</th>
+                </tr>
+              </thead>
+            </table>
+          </div>
+          <p class="text-xs text-ink-tertiary italic font-bold">
+            * Si un equipo local o visitante no existe todavía en Equipos, se creará automáticamente.
+          </p>
+        </div>
+
+        <input ref="importInputRef" type="file" accept=".xlsx,.xls"
+               class="hidden"
+               @change="onImportFile" />
+
+        <div v-if="!importPreview.length && !importResultado" class="flex justify-center">
+          <Button label="Seleccionar archivo" icon="pi pi-upload"
+                  :loading="importando"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                  @click="importInputRef?.click()" />
+        </div>
+
+        <div v-else-if="!importResultado" class="space-y-3">
+          <div class="text-sm font-medium text-ink-primary">
+            {{ importPreview.length }} filas detectadas
+          </div>
+          <DataTable :value="importPreview.slice(0, 10)" class="ar-datatable text-sm" scrollable scrollHeight="200px">
+            <Column v-for="key of Object.keys(importPreview[0] || {})" :key="key"
+                    :field="key" :header="key" />
+          </DataTable>
+          <p v-if="importPreview.length > 10" class="text-xs text-ink-tertiary">
+            Mostrando las 10 primeras filas de {{ importPreview.length }}.
+          </p>
+        </div>
+
+        <div v-else class="space-y-3">
+          <Message :severity="importResultado.insertados ? 'success' : 'warn'" :closable="false">
+            {{ importResultado.insertados }} jornada(s) importada(s)
+            <template v-if="importResultado.errores?.length">, {{ importResultado.errores.length }} con errores</template>.
+          </Message>
+          <div v-if="importResultado.avisos?.length" class="space-y-1">
+            <p class="text-sm font-medium text-ink-primary">Equipos añadidos automáticamente:</p>
+            <ul class="text-sm text-ink-secondary list-disc list-inside">
+              <li v-for="(aviso, i) in importResultado.avisos" :key="i">{{ aviso }}</li>
+            </ul>
+          </div>
+          <div v-if="importResultado.errores?.length" class="space-y-1">
+            <p class="text-sm font-medium text-ink-primary">Errores:</p>
+            <ul class="text-sm text-club-garnet list-disc list-inside">
+              <li v-for="err in importResultado.errores" :key="err.fila">Fila {{ err.fila }}: {{ err.mensaje }}</li>
+            </ul>
+          </div>
+        </div>
+
+        <ProgressBar v-if="importando" :value="importProgress" />
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <Button :label="importResultado ? 'Cerrar' : 'Cancelar'" text @click="importDialogVisible = false" :disabled="importando" />
+          <Button v-if="importPreview.length && !importResultado" label="Importar" icon="pi pi-check"
+                  :loading="importando"
+                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                  @click="confirmarImport" />
+        </div>
+      </template>
     </Dialog>
   </div>
 </template>

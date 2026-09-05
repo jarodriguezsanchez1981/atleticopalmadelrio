@@ -25,14 +25,13 @@ const RECURSOS = {
   promociones: { modelo: 'Promocion', campos: ['id_plantilla', 'id_categoria', 'id_jugador'] }
 };
 
-/** Mapeo de columnas legibles a campos de BD para jornadas */
+/** Mapeo de columnas legibles a campos de BD para jornadas (comparación en minúsculas) */
 const JORNADAS_COLUMN_MAP = {
-  'Plantilla': 'id_plantilla',
-  'Local': 'id_equipo_local',
-  'Visitante': 'id_equipo_visitante',
-  'Jornada': 'jornada',
-  'Fecha': 'fecha',
-  'Hora': 'hora'
+  plantilla: 'id_plantilla',
+  jornada: 'jornada',
+  fecha: 'fecha',
+  equipolocal: 'id_equipo_local',
+  equipovisitante: 'id_equipo_visitante'
 };
 
 /**
@@ -62,18 +61,21 @@ async function buscarPlantillaPorNombre(nombre) {
 }
 
 /**
- * Busca un equipo por su nombre; si no existe lo crea
+ * Busca un equipo por su nombre; si no existe lo crea.
+ * Devuelve { id, creado } para poder avisar cuando se ha dado de alta uno nuevo.
  */
 async function buscarEquipoPorNombre(nombre) {
-  if (!nombre) return null;
+  if (!nombre) return { id: null, creado: false };
   const Equipo = models.Equipo;
-  const nombreLimpio = nombre.trim();
+  const nombreLimpio = String(nombre).trim();
   let equipo = await Equipo.findOne({ where: { nombre: { [Op.like]: nombreLimpio } } });
+  let creado = false;
   if (!equipo) {
     // Crear equipo nuevo con datos mínimos
     equipo = await Equipo.create({ nombre: nombreLimpio });
+    creado = true;
   }
-  return equipo?.id || null;
+  return { id: equipo?.id || null, creado };
 }
 
 /**
@@ -93,27 +95,6 @@ function convertirFecha(fechaStr) {
     return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
   }
   return str; // Devolver como está si no coincide
-}
-
-/**
- * Convierte hora de HH:MM a HH:MM:SS
- */
-function convertirHora(horaStr) {
-  if (!horaStr) return null;
-  const str = String(horaStr).trim();
-  // HH:MM
-  if (/^\d{1,2}:\d{2}$/.test(str)) {
-    return str + ':00';
-  }
-  // HH:MM:SS
-  if (/^\d{1,2}:\d{2}:\d{2}$/.test(str)) {
-    return str;
-  }
-  // Solo horas (0, 1, 2, etc.)
-  if (/^\d+$/.test(str)) {
-    return str.padStart(2, '0') + ':00:00';
-  }
-  return str;
 }
 
 async function importar(req, res, next) {
@@ -157,6 +138,8 @@ async function importar(req, res, next) {
 async function importarJornadas(filas, res) {
   let insertados = 0;
   const errores = [];
+  const avisos = [];
+  const equiposAvisados = new Set();
 
   for (let i = 0; i < filas.length; i++) {
     const fila = filas[i];
@@ -164,19 +147,24 @@ async function importarJornadas(filas, res) {
 
     try {
       const datos = {};
-      for (const [columna, valor] of Object.entries(fila)) {
+      for (const [columnaOriginal, valor] of Object.entries(fila)) {
+        const columna = String(columnaOriginal).trim().toLowerCase();
         const campo = JORNADAS_COLUMN_MAP[columna];
         if (!campo) continue;
         if (campo === 'id_plantilla') {
           datos[campo] = await buscarPlantillaPorNombre(valor);
           if (!datos[campo]) throw new Error(`Plantilla no encontrada: "${valor}"`);
         } else if (campo === 'id_equipo_local' || campo === 'id_equipo_visitante') {
-          datos[campo] = await buscarEquipoPorNombre(valor);
+          const { id, creado } = await buscarEquipoPorNombre(valor);
+          datos[campo] = id;
           if (!datos[campo]) throw new Error(`Equipo no encontrado: "${valor}"`);
+          const nombreLimpio = String(valor).trim();
+          if (creado && !equiposAvisados.has(nombreLimpio.toLowerCase())) {
+            equiposAvisados.add(nombreLimpio.toLowerCase());
+            avisos.push(`Se ha añadido el equipo "${nombreLimpio}" en Equipos.`);
+          }
         } else if (campo === 'fecha') {
           datos[campo] = convertirFecha(valor);
-        } else if (campo === 'hora') {
-          datos[campo] = convertirHora(valor);
         } else {
           datos[campo] = valor;
         }
@@ -217,7 +205,7 @@ async function importarJornadas(filas, res) {
     }
   }
 
-  res.json({ insertados, errores });
+  res.json({ insertados, errores, avisos });
 }
 
 module.exports = { importar, RECURSOS };

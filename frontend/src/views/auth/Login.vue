@@ -49,18 +49,15 @@ async function onSubmit() {
 
       <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="relative self-start h-32 w-auto object-contain select-none" />
 
-      <div class="relative max-w-sm flex-1 flex flex-col justify-center text-justify">
+      <div class="relative flex-1 flex flex-col justify-center">
         <span class="w-10 h-[3px] bg-white/70 rounded-full mb-5"></span>
-        <h1 class="font-display text-3xl text-white leading-tight">
-          Intranet de gestión del club
+        <h1 class="font-display text-xl lg:text-2xl xl:text-3xl text-white leading-tight !font-normal whitespace-nowrap">
+          Intranet Atlético Palma del Río
         </h1>
-        <p class="text-white/70 text-sm mt-3 leading-relaxed">
-          Calendario, plantillas, jugadores y resultados de todas las categorías, en un solo sitio.
-        </p>
       </div>
 
       <p class="relative text-white/50 text-xs">
-        © {{ new Date().getFullYear() }} Atlético Palma del Río
+        Atlético Palma del Río © {{ new Date().getFullYear() }} Todos los derechos reservados
       </p>
     </div>
 
