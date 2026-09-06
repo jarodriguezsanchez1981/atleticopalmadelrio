@@ -44,6 +44,7 @@ function festivosDeAnio(year) {
     [5, 1, 'Fiesta del Trabajo'],
     [8, 8, 'Festividad local · Palma del Río'],
     [8, 15, 'Asunción de la Virgen'],
+    [9, 8, 'Festivo del club'],
     [10, 12, 'Fiesta Nacional de España'],
     [11, 1, 'Todos los Santos'],
     [12, 6, 'Día de la Constitución Española'],
