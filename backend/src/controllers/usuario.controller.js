@@ -1,26 +1,61 @@
-const { Usuario, Seccion } = require('../models');
+const { Usuario, Seccion, UsuarioSeccion } = require('../models');
 const { isPasswordValid, hashPassword } = require('../utils/password.utils');
 
 const includeUsuario = [
   { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre', 'icono', 'orden'], through: { attributes: ['puede_ver', 'puede_editar'] } }
 ];
 
-function normalizePermisos(body) {
-  if (body.permisos && typeof body.permisos === 'object') return body.permisos;
-  if (Array.isArray(body.ids_secciones)) {
-    const permisos = {};
-    body.ids_secciones.forEach(id => { permisos[id] = { ver: true, editar: false }; });
-    return permisos;
+/**
+ * Normaliza los permisos recibidos del formulario a un objeto { id_seccion: {ver, editar} }.
+ * El formulario de Usuarios envía `permisos` con las secciones identificadas por su
+ * `clave` (texto, ej. "calendario"), no por su id numérico, así que hay que resolverlas
+ * contra la tabla `secciones` antes de guardar (si no, `Number(clave)` da NaN y se
+ * pierden todos los permisos al editar).
+ */
+async function normalizePermisos(body) {
+  let entradas = null;
+  if (body.permisos && typeof body.permisos === 'object') {
+    entradas = Object.entries(body.permisos).map(([clave, p]) => ({ clave, ver: !!p?.ver, editar: !!p?.editar }));
+  } else if (Array.isArray(body.ids_secciones)) {
+    entradas = body.ids_secciones.map((id) => ({ clave: id, ver: true, editar: false }));
+  } else if (Array.isArray(body.secciones)) {
+    entradas = body.secciones.map((s) => ({ clave: typeof s === 'object' ? s.id : s, ver: true, editar: false }));
   }
-  if (Array.isArray(body.secciones)) {
-    const permisos = {};
-    body.secciones.forEach(s => {
-      const id = typeof s === 'object' ? s.id : s;
-      permisos[id] = { ver: true, editar: false };
-    });
-    return permisos;
+  if (!entradas) return null;
+  if (!entradas.length) return {};
+
+  const clavesTexto = [...new Set(entradas.filter((e) => Number.isNaN(Number(e.clave))).map((e) => e.clave))];
+  const mapaClaveId = new Map();
+  if (clavesTexto.length) {
+    const filas = await Seccion.findAll({ where: { clave: clavesTexto }, attributes: ['id', 'clave'] });
+    filas.forEach((f) => mapaClaveId.set(f.clave, f.id));
   }
-  return null;
+
+  const permisos = {};
+  entradas.forEach((e) => {
+    const id = Number.isNaN(Number(e.clave)) ? mapaClaveId.get(e.clave) : Number(e.clave);
+    if (!id) return;
+    permisos[id] = { ver: e.ver, editar: e.editar };
+  });
+  return permisos;
+}
+
+/**
+ * Sustituye las filas de usuario_secciones de un usuario por las indicadas en `permisos`
+ * ({ id_seccion: {ver, editar} }). Se maneja la tabla intermedia directamente (en vez de
+ * `usuario.setSecciones(...)`) porque el helper de asociación de Sequelize no admite
+ * datos de la tabla intermedia distintos por fila en una sola llamada.
+ */
+async function guardarPermisosUsuario(idUsuario, permisos) {
+  await UsuarioSeccion.destroy({ where: { id_usuario: idUsuario } });
+  const idsSecciones = Object.keys(permisos || {}).map(Number).filter(Boolean);
+  if (!idsSecciones.length) return;
+  await UsuarioSeccion.bulkCreate(idsSecciones.map((id) => ({
+    id_usuario: idUsuario,
+    id_seccion: id,
+    puede_ver: permisos[id]?.ver ? 1 : 0,
+    puede_editar: permisos[id]?.editar ? 1 : 0
+  })));
 }
 
 async function listar(req, res, next) {
@@ -71,7 +106,7 @@ function validaRolCategoria(res, rol, id_categoria) {
 async function crear(req, res, next) {
   try {
     const { usuario, password, nombre, apellidos, rol, id_categoria } = req.body;
-    const permisos = normalizePermisos(req.body) || {};
+    const permisos = (await normalizePermisos(req.body)) || {};
 
     const faltan = [];
     if (!usuario) faltan.push('usuario');
@@ -103,19 +138,7 @@ async function crear(req, res, next) {
       id_categoria: rolNormalizado === 'entrenador' ? id_categoria : null
     });
 
-    const idsSecciones = Object.keys(permisos).map(Number).filter(Boolean);
-    if (idsSecciones.length) {
-      const seccionesConPermisos = idsSecciones.map(id => ({
-        id,
-        usuario_secciones: {
-          puede_ver: permisos[id]?.ver ? 1 : 0,
-          puede_editar: permisos[id]?.editar ? 1 : 0
-        }
-      }));
-      await nuevo.setSecciones(seccionesConPermisos);
-    } else {
-      await nuevo.setSecciones([]);
-    }
+    await guardarPermisosUsuario(nuevo.id, permisos);
 
     const completo = await Usuario.findByPk(nuevo.id, { include: includeUsuario });
     res.status(201).json(serializeUsuario(completo));
@@ -128,7 +151,7 @@ async function actualizar(req, res, next) {
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado.' });
 
     const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol, id_categoria } = req.body;
-    const permisos = normalizePermisos(req.body);
+    const permisos = await normalizePermisos(req.body);
 
     if (password) {
       if (!isPasswordValid(password)) {
@@ -165,19 +188,7 @@ async function actualizar(req, res, next) {
     await usuario.save();
 
     if (permisos !== null && permisos !== undefined) {
-      const idsSecciones = Object.keys(permisos).map(Number).filter(Boolean);
-      if (idsSecciones.length) {
-        const seccionesConPermisos = idsSecciones.map(id => ({
-          id,
-          usuario_secciones: {
-            puede_ver: permisos[id]?.ver ? 1 : 0,
-            puede_editar: permisos[id]?.editar ? 1 : 0
-          }
-        }));
-        await usuario.setSecciones(seccionesConPermisos);
-      } else {
-        await usuario.setSecciones([]);
-      }
+      await guardarPermisosUsuario(usuario.id, permisos);
     }
 
     const completo = await Usuario.findByPk(usuario.id, { include: includeUsuario });

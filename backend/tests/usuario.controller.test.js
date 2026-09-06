@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Usuario, Seccion } from './helpers/models.js';
+import { Usuario, Seccion, UsuarioSeccion } from './helpers/models.js';
 import { passwordUtils } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
@@ -11,6 +11,11 @@ describe('Sección Usuarios · usuario.controller', () => {
     Usuario.findByPk.mockReset();
     Usuario.create.mockReset();
     Usuario.destroy.mockReset();
+    Seccion.findAll.mockReset();
+    UsuarioSeccion.destroy.mockReset();
+    UsuarioSeccion.bulkCreate.mockReset();
+    UsuarioSeccion.destroy.mockResolvedValue(0);
+    UsuarioSeccion.bulkCreate.mockResolvedValue([]);
     passwordUtils.isPasswordValid.mockReset();
     passwordUtils.hashPassword.mockReset();
     passwordUtils.isPasswordValid.mockReturnValue(true);
@@ -60,7 +65,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('crear permite crear un usuario sin secciones', async () => {
-    const nuevo = { id: 6, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 6 };
     const completo = { id: 6, usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B', secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -89,7 +94,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('crear crea el usuario con la contraseña hasheada y devuelve 201', async () => {
-    const nuevo = { id: 5, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 5 };
     const completo = { id: 5, usuario: 'juan', password: 'hash', nombre: 'A', apellidos: 'B', secciones: [{ id: 2, clave: 'temporadas', usuario_secciones: { puede_ver: 1, puede_editar: 0 } }] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -107,7 +112,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('crear usa el rol proporcionado y guarda la categoría del entrenador', async () => {
-    const nuevo = { id: 7, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 7 };
     const completo = { id: 7, usuario: 'lore', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'entrenador', id_categoria: 20, secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -134,7 +139,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('crear con permisos por sección', async () => {
-    const nuevo = { id: 8, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 8 };
     const completo = { id: 8, usuario: 'vis', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null, secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -148,7 +153,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('actualizar guarda permisos por sección', async () => {
-    const usuario = { id: 1, save: vi.fn().mockResolvedValue(), setSecciones: vi.fn().mockResolvedValue() };
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
     const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null, secciones: [] };
     Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { permisos: {} } });
@@ -232,8 +237,37 @@ describe('Sección Usuarios · usuario.controller', () => {
     expect(usuario.save).not.toHaveBeenCalled();
   });
 
+  it('actualizar con permisos por clave (formato real del formulario de Usuarios) resuelve el id y NO vacía las secciones', async () => {
+    // Regresión: Usuarios.vue envía `permisos` con las secciones identificadas por su
+    // `clave` de texto (ej. "calendario"), no por id numérico. Antes de la corrección,
+    // Number("calendario") daba NaN y se interpretaba como "sin secciones", vaciando
+    // los permisos del usuario en CUALQUIER edición (p. ej. solo cambiar la contraseña).
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    Seccion.findAll.mockResolvedValue([
+      { id: 10, clave: 'calendario' },
+      { id: 11, clave: 'plantillas' }
+    ]);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { permisos: { calendario: { ver: true, editar: true }, plantillas: { ver: true, editar: false } } }
+    });
+
+    await promesa;
+
+    expect(UsuarioSeccion.bulkCreate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        { id_usuario: 1, id_seccion: 10, puede_ver: 1, puede_editar: 1 },
+        { id_usuario: 1, id_seccion: 11, puede_ver: 1, puede_editar: 0 }
+      ])
+    );
+    expect(res._status).toBe(200);
+  });
+
   it('actualizar permite quitar todas las secciones', async () => {
-    const usuario = { id: 1, save: vi.fn().mockResolvedValue(), setSecciones: vi.fn().mockResolvedValue() };
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
     const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', secciones: [] };
     Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
     const { promesa, res } = llamar(ctrl.actualizar, {
@@ -242,7 +276,8 @@ describe('Sección Usuarios · usuario.controller', () => {
 
     await promesa;
 
-    expect(usuario.setSecciones).toHaveBeenCalledWith([]);
+    expect(UsuarioSeccion.destroy).toHaveBeenCalledWith({ where: { id_usuario: 1 } });
+    expect(UsuarioSeccion.bulkCreate).not.toHaveBeenCalled();
     expect(res._status).toBe(200);
   });
 
@@ -303,7 +338,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('crear normaliza rol no reconocido a coordinador', async () => {
-    const nuevo = { id: 9, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 9 };
     const completo = { id: 9, usuario: 'test', password: 'hash', nombre: 'A', apellidos: 'B', secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -318,7 +353,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('crear con permisos con editar activa las flags correctas', async () => {
-    const nuevo = { id: 10, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 10 };
     const completo = { id: 10, usuario: 'editor', password: 'hash', nombre: 'E', apellidos: 'D', secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -331,15 +366,15 @@ describe('Sección Usuarios · usuario.controller', () => {
 
     await promesa;
 
-    expect(nuevo.setSecciones).toHaveBeenCalledWith([
-      { id: 3, usuario_secciones: { puede_ver: 1, puede_editar: 1 } },
-      { id: 5, usuario_secciones: { puede_ver: 1, puede_editar: 0 } }
+    expect(UsuarioSeccion.bulkCreate).toHaveBeenCalledWith([
+      { id_usuario: 10, id_seccion: 3, puede_ver: 1, puede_editar: 1 },
+      { id_usuario: 10, id_seccion: 5, puede_ver: 1, puede_editar: 0 }
     ]);
     expect(res._status).toBe(201);
   });
 
   it('crear sin permisos ni ids_secciones crea usuario sin secciones', async () => {
-    const nuevo = { id: 11, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 11 };
     const completo = { id: 11, usuario: 'bare', password: 'hash', nombre: 'B', apellidos: 'R', secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -349,7 +384,8 @@ describe('Sección Usuarios · usuario.controller', () => {
 
     await promesa;
 
-    expect(nuevo.setSecciones).toHaveBeenCalledWith([]);
+    expect(UsuarioSeccion.destroy).toHaveBeenCalledWith({ where: { id_usuario: 11 } });
+    expect(UsuarioSeccion.bulkCreate).not.toHaveBeenCalled();
     expect(res._status).toBe(201);
   });
 
@@ -393,8 +429,8 @@ describe('Sección Usuarios · usuario.controller', () => {
     expect(usuario.save).toHaveBeenCalled();
   });
 
-  it('actualizar con permisos llama setSecciones con through attributes', async () => {
-    const usuario = { id: 5, save: vi.fn().mockResolvedValue(), setSecciones: vi.fn().mockResolvedValue() };
+  it('actualizar con permisos guarda los datos de la tabla intermedia', async () => {
+    const usuario = { id: 5, save: vi.fn().mockResolvedValue() };
     const completo = { id: 5, usuario: 'edu', nombre: 'E', apellidos: 'U', secciones: [] };
     Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
     const { promesa, res } = llamar(ctrl.actualizar, {
@@ -404,8 +440,9 @@ describe('Sección Usuarios · usuario.controller', () => {
 
     await promesa;
 
-    expect(usuario.setSecciones).toHaveBeenCalledWith([
-      { id: 3, usuario_secciones: { puede_ver: 1, puede_editar: 1 } }
+    expect(UsuarioSeccion.destroy).toHaveBeenCalledWith({ where: { id_usuario: 5 } });
+    expect(UsuarioSeccion.bulkCreate).toHaveBeenCalledWith([
+      { id_usuario: 5, id_seccion: 3, puede_ver: 1, puede_editar: 1 }
     ]);
     expect(res._status).toBe(200);
   });
@@ -440,7 +477,7 @@ describe('Sección Usuarios · usuario.controller', () => {
   });
 
   it('crear con ids_secciones (formato legacy) genera permisos ver:true', async () => {
-    const nuevo = { id: 12, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 12 };
     const completo = { id: 12, usuario: 'legacy', password: 'hash', nombre: 'L', apellidos: 'G', secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -450,15 +487,15 @@ describe('Sección Usuarios · usuario.controller', () => {
 
     await promesa;
 
-    expect(nuevo.setSecciones).toHaveBeenCalledWith([
-      { id: 3, usuario_secciones: { puede_ver: 1, puede_editar: 0 } },
-      { id: 7, usuario_secciones: { puede_ver: 1, puede_editar: 0 } }
+    expect(UsuarioSeccion.bulkCreate).toHaveBeenCalledWith([
+      { id_usuario: 12, id_seccion: 3, puede_ver: 1, puede_editar: 0 },
+      { id_usuario: 12, id_seccion: 7, puede_ver: 1, puede_editar: 0 }
     ]);
     expect(res._status).toBe(201);
   });
 
   it('crear con secciones (array de objetos legacy) genera permisos ver:true', async () => {
-    const nuevo = { id: 13, setSecciones: vi.fn().mockResolvedValue() };
+    const nuevo = { id: 13 };
     const completo = { id: 13, usuario: 'legacy2', password: 'hash', nombre: 'L', apellidos: '2', secciones: [] };
     Usuario.create.mockResolvedValue(nuevo);
     Usuario.findByPk.mockResolvedValue(completo);
@@ -468,9 +505,9 @@ describe('Sección Usuarios · usuario.controller', () => {
 
     await promesa;
 
-    expect(nuevo.setSecciones).toHaveBeenCalledWith([
-      { id: 4, usuario_secciones: { puede_ver: 1, puede_editar: 0 } },
-      { id: 6, usuario_secciones: { puede_ver: 1, puede_editar: 0 } }
+    expect(UsuarioSeccion.bulkCreate).toHaveBeenCalledWith([
+      { id_usuario: 13, id_seccion: 4, puede_ver: 1, puede_editar: 0 },
+      { id_usuario: 13, id_seccion: 6, puede_ver: 1, puede_editar: 0 }
     ]);
   });
 
