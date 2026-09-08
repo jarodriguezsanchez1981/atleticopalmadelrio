@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Coordinador, TipoFutbol } from './helpers/models.js';
+import { Coordinador, TipoFutbol, Categoria, Plantilla } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/coordinador.controller.js';
@@ -11,6 +11,10 @@ describe('Sección Coordinadores · coordinador.controller', () => {
     Coordinador.create.mockReset();
     Coordinador.destroy.mockReset();
     TipoFutbol.findOne.mockReset();
+    Categoria.findAll.mockReset();
+    Plantilla.update.mockReset();
+    Categoria.findAll.mockResolvedValue([]);
+    Plantilla.update.mockResolvedValue([0]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -110,6 +114,57 @@ describe('Sección Coordinadores · coordinador.controller', () => {
       nombre: 'Luis', apellidos: 'Pérez', id_tipofutbol: null, email: null, telefono: null
     });
     expect(res._status).toBe(201);
+    expect(Plantilla.update).not.toHaveBeenCalled();
+  });
+
+  it('crear asigna el coordinador a todas las plantillas cuya categoría comparte su tipo de fútbol', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 2, nombre: 'Futbol 11' });
+    Coordinador.create.mockResolvedValue({ id: 7, id_tipofutbol: 2 });
+    Categoria.findAll.mockResolvedValue([{ id: 30 }, { id: 31 }]);
+    const completo = { id: 7, nombre: 'Ana', apellidos: 'García', id_tipofutbol: 2 };
+    Coordinador.findOne.mockResolvedValue(completo);
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Ana', apellidos: 'García', id_tipofutbol: 2 }
+    });
+
+    await promesa;
+
+    expect(Categoria.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id_tipofutbol: 2 } })
+    );
+    expect(Plantilla.update).toHaveBeenCalledWith(
+      { id_coordinador: 7 },
+      { where: { id_categoria: [30, 31] } }
+    );
+    expect(res._status).toBe(201);
+  });
+
+  it('crear no toca plantillas si el coordinador no tiene tipo de fútbol', async () => {
+    Coordinador.create.mockResolvedValue({ id: 8, id_tipofutbol: null });
+    Coordinador.findOne.mockResolvedValue({ id: 8, nombre: 'Sin', apellidos: 'Tipo' });
+
+    const { promesa } = llamar(ctrl.crear, { body: { nombre: 'Sin', apellidos: 'Tipo' } });
+
+    await promesa;
+
+    expect(Categoria.findAll).not.toHaveBeenCalled();
+    expect(Plantilla.update).not.toHaveBeenCalled();
+  });
+
+  it('crear no llama a Plantilla.update si ninguna categoría comparte el tipo de fútbol', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 2, nombre: 'Futbol 11' });
+    Coordinador.create.mockResolvedValue({ id: 9, id_tipofutbol: 2 });
+    Categoria.findAll.mockResolvedValue([]);
+    Coordinador.findOne.mockResolvedValue({ id: 9, nombre: 'Ana', apellidos: 'García', id_tipofutbol: 2 });
+
+    const { promesa } = llamar(ctrl.crear, {
+      body: { nombre: 'Ana', apellidos: 'García', id_tipofutbol: 2 }
+    });
+
+    await promesa;
+
+    expect(Plantilla.update).not.toHaveBeenCalled();
   });
 
   it('actualizar devuelve 404 si no existe', async () => {

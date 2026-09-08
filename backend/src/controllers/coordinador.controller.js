@@ -1,4 +1,4 @@
-const { Coordinador, TipoFutbol } = require('../models');
+const { Coordinador, TipoFutbol, Plantilla, Categoria } = require('../models');
 
 const includes = [
   { model: TipoFutbol, as: 'tipofutbol', attributes: ['id', 'nombre'] }
@@ -9,6 +9,18 @@ async function validarTipoFutbol(id_tipofutbol) {
   const existe = await TipoFutbol.findOne({ where: { id: id_tipofutbol } });
   if (!existe) return 'El tipo de fútbol indicado no existe.';
   return null;
+}
+
+/** Asigna el coordinador a todas las plantillas cuya categoría comparte su tipo de fútbol. */
+async function asignarACoordinadorEnPlantillas(coordinador) {
+  if (!coordinador.id_tipofutbol) return;
+  const categorias = await Categoria.findAll({ where: { id_tipofutbol: coordinador.id_tipofutbol }, attributes: ['id'] });
+  const idsCategorias = categorias.map((c) => c.id);
+  if (!idsCategorias.length) return;
+  await Plantilla.update(
+    { id_coordinador: coordinador.id },
+    { where: { id_categoria: idsCategorias } }
+  );
 }
 
 async function listar(req, res, next) {
@@ -37,6 +49,7 @@ async function crear(req, res, next) {
     const coordinador = await Coordinador.create({
       nombre, apellidos, id_tipofutbol: id_tipofutbol || null, email: email || null, telefono: telefono || null
     });
+    await asignarACoordinadorEnPlantillas(coordinador);
     const completo = await Coordinador.findOne({ where: { id: coordinador.id }, include: includes });
     res.status(201).json(completo);
   } catch (err) { next(err); }
