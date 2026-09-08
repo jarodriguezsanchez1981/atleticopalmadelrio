@@ -351,12 +351,12 @@ function jugadoresEquipoDe(lado) {
   const idEquipo = lado === 'local' ? form.id_equipo_local : form.id_equipo_visitante;
   if (Number(idEquipo) === PALMA_ID) {
     return plantillaJugadores()
-      .map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id, tipo: 'jugador' }))
+      .map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id, tipo: 'jugador' }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   return equiposJugadores.value
     .filter(ej => Number(ej.id_equipo) === Number(idEquipo))
-    .map(ej => ({ label: `${ej.apellidos}, ${ej.nombre}`, value: ej.id, tipo: 'equipo_jugador' }))
+    .map(ej => ({ label: `${ej.nombre} ${ej.apellidos}`, value: ej.id, tipo: 'equipo_jugador' }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 }
 
@@ -405,13 +405,13 @@ function removeJugador(lado, valor) {
 function nombreJugadorEnForm(entry) {
   if (entry?.id_jugador) {
     const dePlantilla = plantillaJugadores().find(j => j.id === entry.id_jugador);
-    if (dePlantilla) return `${dePlantilla.apellidos}, ${dePlantilla.nombre}`;
+    if (dePlantilla) return `${dePlantilla.nombre} ${dePlantilla.apellidos}`;
     const j = jugadorInfo(entry.id_jugador);
-    return j ? `${j.apellidos}, ${j.nombre}` : '—';
+    return j ? `${j.nombre} ${j.apellidos}` : '—';
   }
   if (entry?.id_equipo_jugador) {
     const ej = equiposJugadores.value.find(e => e.id === entry.id_equipo_jugador);
-    return ej ? `${ej.apellidos}, ${ej.nombre}` : '—';
+    return ej ? `${ej.nombre} ${ej.apellidos}` : '—';
   }
   return '—';
 }

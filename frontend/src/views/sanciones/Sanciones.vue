@@ -36,7 +36,7 @@ const opcionesPartido = computed(() =>
 );
 
 const opcionesJugador = computed(() =>
-  jugadores.value.map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
+  jugadores.value.map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
@@ -77,7 +77,7 @@ function nombrePartido(id) {
 
 function nombreJugador(id) {
   const j = jugadores.value.find(x => x.id === id);
-  return j ? `${j.apellidos}, ${j.nombre}` : '—';
+  return j ? `${j.nombre} ${j.apellidos}` : '—';
 }
 </script>
 
@@ -94,7 +94,7 @@ function nombreJugador(id) {
       {{ data.partido ? nombrePartido(data.partido.id) : nombrePartido(data.id_partido) }}
     </template>
     <template #cell-id_jugador="{ data }">
-      {{ data.jugador ? `${data.jugador.apellidos}, ${data.jugador.nombre}` : nombreJugador(data.id_jugador) }}
+      {{ data.jugador ? `${data.jugador.nombre} ${data.jugador.apellidos}` : nombreJugador(data.id_jugador) }}
     </template>
     <template #cell-amarilla="{ data }">
       <span v-if="data.amarilla" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
@@ -112,7 +112,7 @@ function nombreJugador(id) {
       {{ data.partido ? etiquetaPartido(data.partido) : nombrePartido(data.id_partido) }}
     </template>
     <template #detail-id_jugador="{ data }">
-      {{ data.jugador ? `${data.jugador.apellidos}, ${data.jugador.nombre}` : nombreJugador(data.id_jugador) }}
+      {{ data.jugador ? `${data.jugador.nombre} ${data.jugador.apellidos}` : nombreJugador(data.id_jugador) }}
     </template>
   </CrudDataTable>
 </SectionGuard>

@@ -44,7 +44,7 @@ const opcionesEntrenamiento = computed(() =>
 );
 
 const opcionesJugador = computed(() =>
-  jugadores.value.map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
+  jugadores.value.map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
@@ -77,7 +77,7 @@ function nombreEntrenamiento(id) {
 
 function nombreJugador(id) {
   const j = jugadores.value.find(x => x.id === id);
-  return j ? `${j.apellidos}, ${j.nombre}` : '—';
+  return j ? `${j.nombre} ${j.apellidos}` : '—';
 }
 </script>
 
@@ -92,7 +92,7 @@ function nombreJugador(id) {
       {{ data.entrenamiento ? nombreEntrenamiento(data.entrenamiento.id) : nombreEntrenamiento(data.id_entrenamiento) }}
     </template>
     <template #cell-id_jugador="{ data }">
-      {{ data.jugador ? `${data.jugador.apellidos}, ${data.jugador.nombre}` : nombreJugador(data.id_jugador) }}
+      {{ data.jugador ? `${data.jugador.nombre} ${data.jugador.apellidos}` : nombreJugador(data.id_jugador) }}
     </template>
     <template #cell-asistencia="{ data }">
       <span :class="data.asistencia ? 'text-club-green' : 'text-red-500'">

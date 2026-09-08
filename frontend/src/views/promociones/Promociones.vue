@@ -42,7 +42,7 @@ const opcionesCategoria = computed(() =>
 
 const opcionesJugador = computed(() =>
   jugadores.value
-    .map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
+    .map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 

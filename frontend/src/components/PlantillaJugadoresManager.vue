@@ -39,7 +39,7 @@ function formatearJugador(j) {
     id_jugador: j.id_jugador || j.id,
     nombre: j.nombre,
     apellidos: j.apellidos,
-    nombreCompleto: `${j.apellidos}, ${j.nombre}`,
+    nombreCompleto: `${j.nombre} ${j.apellidos}`,
     dorsal: jp.dorsal,
     talla: jp.talla
   };
@@ -99,7 +99,7 @@ async function guardarJugador() {
 function getNombreCompleto(jugador) {
   const j = props.jugadores.find(x => x.id === jugador.id_jugador);
   if (!j) return '';
-  return `${j.apellidos}, ${j.nombre}`;
+  return `${j.nombre} ${j.apellidos}`;
 }
 </script>
 

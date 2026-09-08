@@ -125,22 +125,22 @@ function opcionesCoordinador(form) {
   if (!idTipoFutbol) return [];
   return coordinadores.value
     .filter(c => c.id_tipofutbol === idTipoFutbol)
-    .map(c => ({ label: `${c.apellidos}, ${c.nombre}`, value: c.id }))
+    .map(c => ({ label: `${c.nombre} ${c.apellidos}`, value: c.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 }
 
 const opcionesEntrenador = computed(() =>
-  entrenadores.value.map(e => ({ label: `${e.apellidos}, ${e.nombre}`, value: e.id }))
+  entrenadores.value.map(e => ({ label: `${e.nombre} ${e.apellidos}`, value: e.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesDelegado = computed(() =>
-  delegados.value.map(d => ({ label: `${d.apellidos}, ${d.nombre}`, value: d.id }))
+  delegados.value.map(d => ({ label: `${d.nombre} ${d.apellidos}`, value: d.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesJugador = computed(() =>
-  jugadores.value.map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
+  jugadores.value.map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
@@ -183,7 +183,7 @@ function nombreDivision(id) {
 
 function nombreCoordinador(id) {
   const c = coordinadores.value.find(c => c.id === id);
-  return c ? `${c.apellidos}, ${c.nombre}` : '—';
+  return c ? `${c.nombre} ${c.apellidos}` : '—';
 }
 
 function formatearJugador(j) {
@@ -361,7 +361,7 @@ function comprobarDorsalDuplicado(form, idJugadorActual, dorsal) {
   const duplicado = (form.jugadores || []).find(j => j.id_jugador !== idJugadorActual && j.dorsal === dorsal);
   if (duplicado) {
     const nombre = jugadorInfo(duplicado.id_jugador);
-    const texto = nombre ? `${nombre.apellidos}, ${nombre.nombre} (nº ${dorsal})` : `nº ${dorsal}`;
+    const texto = nombre ? `${nombre.nombre} ${nombre.apellidos} (nº ${dorsal})` : `nº ${dorsal}`;
     toast.add({ severity: 'warn', summary: 'Dorsal duplicado', detail: `El dorsal ${dorsal} ya está asignado a ${texto}.`, life: 5000 });
   }
 }
@@ -424,14 +424,14 @@ function validarPlantilla(form) {
       {{ data.division?.nombre || nombreDivision(data.id_division) }}
     </template>
     <template #cell-id_coordinador="{ data }">
-      {{ data.coordinador ? `${data.coordinador.apellidos}, ${data.coordinador.nombre}` : nombreCoordinador(data.id_coordinador) }}
+      {{ data.coordinador ? `${data.coordinador.nombre} ${data.coordinador.apellidos}` : nombreCoordinador(data.id_coordinador) }}
     </template>
     <template #cell-ids_entrenadores="{ data }">
-      <span v-if="data.entrenadores?.length" v-html="data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join('<br>')"></span>
+      <span v-if="data.entrenadores?.length" v-html="data.entrenadores.map(e => `${e.nombre} ${e.apellidos}`).join('<br>')"></span>
       <span v-else>—</span>
     </template>
     <template #cell-ids_delegados="{ data }">
-      <span v-if="data.delegados?.length" v-html="data.delegados.map(d => `${d.apellidos}, ${d.nombre}`).join('<br>')"></span>
+      <span v-if="data.delegados?.length" v-html="data.delegados.map(d => `${d.nombre} ${d.apellidos}`).join('<br>')"></span>
       <span v-else>—</span>
     </template>
 
@@ -455,7 +455,7 @@ function validarPlantilla(form) {
                   <img v-if="entrenadorInfo(id)?.foto" :src="entrenadorInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                   <span v-else class="text-ink-tertiary">—</span>
                 </td>
-                <td class="text-center border border-line p-2 text-sm">{{ entrenadorInfo(id)?.apellidos }}, {{ entrenadorInfo(id)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ entrenadorInfo(id)?.nombre }} {{ entrenadorInfo(id)?.apellidos }}</td>
                 <td class="text-center border border-line p-2 text-sm">{{ entrenadorTitulo(entrenadorInfo(id)) }}</td>
                 <td class="text-center border border-line p-2">
                   <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeEntrenador(form, id)" />
@@ -489,7 +489,7 @@ function validarPlantilla(form) {
                   <img v-if="delegadoInfo(id)?.foto" :src="delegadoInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                   <span v-else class="text-ink-tertiary">—</span>
                 </td>
-                <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.apellidos }}, {{ delegadoInfo(id)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.nombre }} {{ delegadoInfo(id)?.apellidos }}</td>
                 <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.tipo || '—' }}</td>
                 <td class="text-center border border-line p-2">
                   <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeDelegado(form, id)" />
@@ -533,7 +533,7 @@ function validarPlantilla(form) {
                   <img v-if="jugadorInfo(j.id_jugador)?.foto" :src="jugadorInfo(j.id_jugador).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                   <span v-else class="text-ink-tertiary">—</span>
                 </td>
-                <td class="text-center border border-line p-2 text-sm">{{ jugadorInfo(j.id_jugador)?.apellidos }}, {{ jugadorInfo(j.id_jugador)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ jugadorInfo(j.id_jugador)?.nombre }} {{ jugadorInfo(j.id_jugador)?.apellidos }}</td>
                 <td class="text-center border border-line p-2">
                   <div class="flex items-center justify-center gap-1">
                     <CamisetaDorsal :numero="j.dorsal" :size="50" />
@@ -608,13 +608,11 @@ function validarPlantilla(form) {
           <thead>
             <tr class="bg-club-green/5">
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Apellidos</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td class="text-center border border-line p-2 text-sm">{{ data.coordinador.nombre }}</td>
-              <td class="text-center border border-line p-2 text-sm">{{ data.coordinador.apellidos }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ data.coordinador.nombre }} {{ data.coordinador.apellidos }}</td>
             </tr>
           </tbody>
         </table>
@@ -638,7 +636,7 @@ function validarPlantilla(form) {
                 <img v-if="e.foto" :src="e.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
-              <td class="text-center border border-line p-2 text-sm">{{ e.apellidos }}, {{ e.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ e.nombre }} {{ e.apellidos }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ e.titulos?.map(t => t.nombre).join(', ') || e.PlantillaEntrenador?.rol || '—' }}</td>
             </tr>
           </tbody>
@@ -663,7 +661,7 @@ function validarPlantilla(form) {
                 <img v-if="d.foto" :src="d.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
-              <td class="text-center border border-line p-2 text-sm">{{ d.apellidos }}, {{ d.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ d.nombre }} {{ d.apellidos }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ d.tipo || '—' }}</td>
             </tr>
           </tbody>
@@ -698,7 +696,7 @@ function validarPlantilla(form) {
                 <img v-if="j.foto" :src="j.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
-              <td class="text-center border border-line p-2 text-sm">{{ j.apellidos }}, {{ j.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ j.nombre }} {{ j.apellidos }}</td>
               <td class="text-center border border-line p-2">
                 <CamisetaDorsal v-if="j.PlantillaJugador?.dorsal != null" :numero="j.PlantillaJugador.dorsal" :size="50" />
                 <span v-else class="text-ink-tertiary">—</span>
