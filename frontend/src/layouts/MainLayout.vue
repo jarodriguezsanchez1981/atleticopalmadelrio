@@ -18,7 +18,7 @@ function navegar() {
 }
 
 const CLUB_SECTIONS = [
-  'plantillas', 'promociones', 'jugadores', 'entrenadores', 'delegados',
+  'plantillas', 'promociones', 'jugadores', 'entrenadores', 'delegados', 'coordinadores',
   'categorias', 'division', 'posicion', 'titulos', 'temporadas',
   'lugares', 'material', 'entrenamientos'
 ];
@@ -38,6 +38,7 @@ const clubNavItems = computed(() => {
     { label: 'Jugadores', icon: 'pi pi-users', to: '/jugadores', seccion: 'jugadores' },
     { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
     { label: 'Delegados', icon: 'pi pi-user-plus', to: '/delegados', seccion: 'delegados' },
+    { label: 'Coordinadores', icon: 'pi pi-address-book', to: '/coordinadores', seccion: 'coordinadores' },
     { label: 'Categorías', icon: 'pi pi-sitemap', to: '/categorias', seccion: 'categorias' },
     { label: 'División', icon: 'pi pi-tags', to: '/division', seccion: 'division' },
     { label: 'Posición', icon: 'pi pi-directions', to: '/posicion', seccion: 'posicion' },

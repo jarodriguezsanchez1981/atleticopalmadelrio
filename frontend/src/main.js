@@ -14,6 +14,7 @@ import App from './App.vue';
 import router from './router';
 import { useAuthStore } from './stores/auth.store';
 import { localeEs } from './utils/localeEs';
+import SectionGuard from './components/SectionGuard.vue';
 
 const ClubPreset = definePreset(Aura, {
   primitive: {
@@ -44,6 +45,8 @@ const ClubPreset = definePreset(Aura, {
 });
 
 const app = createApp(App);
+
+app.component('SectionGuard', SectionGuard);
 
 app.use(createPinia());
 app.use(PrimeVue, {

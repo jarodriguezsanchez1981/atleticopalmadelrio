@@ -29,6 +29,7 @@ export const divisionesService = crudService('divisiones');
 export const materialesService = crudService('materiales');
 export const posicionesService = crudService('posiciones');
 export const delegadosService = crudService('delegados');
+export const coordinadoresService = crudService('coordinadores');
 export const categoriasService = crudService('categorias');
 export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');

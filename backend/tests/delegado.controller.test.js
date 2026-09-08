@@ -97,7 +97,7 @@ describe('Sección Delegados · delegado.controller', () => {
     await promesa;
 
     expect(Delegado.create).toHaveBeenCalledWith({
-      nombre: 'Ana', apellidos: 'López', dni: '12345678Z', foto: null, tipo: 'campo', telefono: null
+      nombre: 'Ana', apellidos: 'López', dni: '12345678Z', foto: null, tipo: 'campo', email: null, telefono: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(creado);
@@ -122,6 +122,20 @@ describe('Sección Delegados · delegado.controller', () => {
     expect(delegado.nombre).toBe('Nuevo');
     expect(delegado.save).toHaveBeenCalled();
     expect(res._json).toEqual(delegado);
+  });
+
+  it('actualizar guarda el email', async () => {
+    const delegado = { id: 1, email: null, save: vi.fn().mockResolvedValue() };
+    Delegado.findOne.mockResolvedValue(delegado);
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { email: 'delegado@club.es' }
+    });
+
+    await promesa;
+
+    expect(delegado.email).toBe('delegado@club.es');
+    expect(delegado.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
   });
 
   it('eliminar elimina y responde 204', async () => {

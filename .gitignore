@@ -12,6 +12,7 @@ scripts/debug_*.html
 # Secretos de despliegue: usar el propio fichero local, nunca commitearlo
 # (ver .env.development.example / .env.production.example)
 /.env
+/.env.local
 /.env.development
 /.env.production
 

@@ -29,6 +29,7 @@ const equipoJugadorRoutes = require('./equipoJugador.routes');
 const promocionRoutes = require('./promocion.routes');
 const torneoRoutes = require('./torneo.routes');
 const materialRoutes = require('./material.routes');
+const coordinadorRoutes = require('./coordinador.routes');
 
 const router = Router();
 
@@ -61,5 +62,6 @@ router.use('/equipos-jugadores', equipoJugadorRoutes);
 router.use('/promociones', promocionRoutes);
 router.use('/torneos', torneoRoutes);
 router.use('/materiales', materialRoutes);
+router.use('/coordinadores', coordinadorRoutes);
 
 module.exports = router;

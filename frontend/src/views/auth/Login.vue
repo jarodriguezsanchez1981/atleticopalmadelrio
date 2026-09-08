@@ -47,8 +47,6 @@ async function onSubmit() {
     <div class="hidden md:flex flex-col p-12 bg-club-green relative overflow-hidden">
       <div class="absolute inset-0 opacity-40 pointer-events-none login-bg"></div>
 
-      <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="relative self-start h-32 w-auto object-contain select-none" />
-
       <div class="relative flex-1 flex flex-col justify-center">
         <span class="w-10 h-[3px] bg-white/70 rounded-full mb-5"></span>
         <h1 class="font-display text-xl lg:text-2xl xl:text-3xl text-white leading-tight !font-normal whitespace-nowrap">
@@ -75,6 +73,10 @@ async function onSubmit() {
             Atlético Palma del Río
           </h1>
           <p class="text-white/70 text-sm mt-1">Intranet de gestión del club</p>
+        </div>
+
+        <div class="-mt-16 mb-6 hidden md:flex justify-center">
+          <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="h-[9.6rem] w-auto object-contain select-none" />
         </div>
 
         <div class="mb-6 hidden md:flex items-center gap-3">

@@ -1,9 +1,10 @@
-const { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Jornada, JornadaJugador } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Jornada, JornadaJugador } = require('../models');
 
 const includes = [
   { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'orden'] },
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
   { model: Division, as: 'division', attributes: ['id', 'nombre'] },
+  { model: Coordinador, as: 'coordinador', attributes: ['id', 'nombre', 'apellidos'] },
   { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['id', 'dorsal', 'talla', 'titular', 'promocion'] } },
   { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['rol'] }, include: [{ model: Titulo, as: 'titulos', attributes: ['id', 'nombre'], through: { attributes: [] } }] },
   { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } }
@@ -126,7 +127,7 @@ async function obtener(req, res, next) {
   } catch (err) { next(err); }
 }
 
-async function validarReferencias({ id_categoria, id_temporada, id_division, jugadores, ids_entrenadores, ids_delegados }) {
+async function validarReferencias({ id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados }) {
   const categoria = await Categoria.findOne({ where: { id: id_categoria } });
   if (!categoria) return 'La categoría indicada no existe.';
   const temporada = await Temporada.findOne({ where: { id: id_temporada } });
@@ -134,6 +135,10 @@ async function validarReferencias({ id_categoria, id_temporada, id_division, jug
   if (id_division) {
     const existe = await Division.findOne({ where: { id: id_division } });
     if (!existe) return 'La división indicada no existe.';
+  }
+  if (id_coordinador) {
+    const existe = await Coordinador.findOne({ where: { id: id_coordinador } });
+    if (!existe) return 'El coordinador indicado no existe.';
   }
   if (jugadores && jugadores.length) {
     const ids = jugadores.map(j => j.id_jugador).filter(Boolean);
@@ -190,11 +195,11 @@ async function sincronizarPromociones(plantilla, jugadores) {
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, id_temporada, id_division, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados } = req.body;
     if (!id_categoria || !id_temporada) {
       return res.status(400).json({ message: 'Categoría y temporada son obligatorias.' });
     }
-    const errorRef = await validarReferencias({ id_categoria, id_temporada, id_division, jugadores, ids_entrenadores, ids_delegados });
+    const errorRef = await validarReferencias({ id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados });
     if (errorRef) return res.status(400).json({ message: errorRef });
     const errorCategoria = await validarCategoriaDisponible(id_categoria, id_temporada);
     if (errorCategoria) return res.status(409).json({ message: errorCategoria });
@@ -202,7 +207,8 @@ async function crear(req, res, next) {
     const plantilla = await Plantilla.create({
       id_categoria,
       id_temporada,
-      id_division: id_division || null
+      id_division: id_division || null,
+      id_coordinador: id_coordinador || null
     });
 
     // Asociar jugadores con dorsal y talla
@@ -275,12 +281,13 @@ async function actualizar(req, res, next) {
   try {
     const plantilla = await Plantilla.findOne({ where: { id: req.params.id } });
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
-    const { id_categoria, id_temporada, id_division, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados } = req.body;
 
     const nuevos = {
       id_categoria: id_categoria !== undefined ? id_categoria : plantilla.id_categoria,
       id_temporada: id_temporada !== undefined ? id_temporada : plantilla.id_temporada,
-      id_division: id_division !== undefined ? (id_division || null) : plantilla.id_division
+      id_division: id_division !== undefined ? (id_division || null) : plantilla.id_division,
+      id_coordinador: id_coordinador !== undefined ? (id_coordinador || null) : plantilla.id_coordinador
     };
 
     const errorRef = await validarReferencias({ ...nuevos, jugadores, ids_entrenadores, ids_delegados });

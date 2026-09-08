@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion, JornadaJugador } from './helpers/models.js';
+import { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion, JornadaJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/plantilla.controller.js';
@@ -14,6 +14,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Categoria.findOne.mockReset();
     Temporada.findOne.mockReset();
     Division.findOne.mockReset();
+    Coordinador.findOne.mockReset();
     Jugador.findOne.mockReset();
     Entrenador.findOne.mockReset();
     Delegado.findOne.mockReset();
@@ -131,10 +132,72 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(Plantilla.create).toHaveBeenCalledWith({
       id_categoria: 1,
       id_temporada: 1,
-      id_division: null
+      id_division: null,
+      id_coordinador: null
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(11);
+  });
+
+  it('crear valida que el coordinador exista', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue(null);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_categoria: 1, id_temporada: 1, id_coordinador: 99 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El coordinador indicado no existe.');
+    expect(Plantilla.create).not.toHaveBeenCalled();
+  });
+
+  it('crear guarda id_coordinador cuando se indica uno válido', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue({ id: 4 });
+    Plantilla.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 12, id_categoria: 1, id_temporada: 1, id_coordinador: 4 });
+    Plantilla.create.mockResolvedValue({ id: 12 });
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_categoria: 1, id_temporada: 1, id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(Plantilla.create).toHaveBeenCalledWith({
+      id_categoria: 1,
+      id_temporada: 1,
+      id_division: null,
+      id_coordinador: 4
+    });
+    expect(res._status).toBe(201);
+  });
+
+  it('actualizar guarda id_coordinador cuando se indica uno válido', async () => {
+    const plantilla = { id: 1, id_categoria: 1, id_temporada: 1, id_division: null, id_coordinador: null, save: vi.fn().mockResolvedValue() };
+    const actualizada = { id: 1, jugadores: [], entrenadores: [], delegados: [] };
+    Plantilla.findOne
+      .mockResolvedValueOnce(plantilla)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(actualizada);
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue({ id: 4 });
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(plantilla.id_coordinador).toBe(4);
+    expect(plantilla.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
   });
 
   it('crear valida que la categoría exista', async () => {
@@ -203,7 +266,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(Plantilla.create).toHaveBeenCalledWith({
       id_categoria: 1,
       id_temporada: 1,
-      id_division: null
+      id_division: null,
+      id_coordinador: null
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(10);

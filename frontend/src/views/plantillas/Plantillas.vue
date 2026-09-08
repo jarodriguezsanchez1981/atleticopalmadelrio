@@ -9,7 +9,7 @@ import InputNumber from 'primevue/inputnumber';
 import Checkbox from 'primevue/checkbox';
 import MultiSelect from 'primevue/multiselect';
 import { useToast } from 'primevue/usetoast';
-import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService, posicionesService } from '../../services';
+import { plantillasService, categoriasService, temporadasService, divisionesService, coordinadoresService, jugadoresService, entrenadoresService, delegadosService, posicionesService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import CamisetaDorsal from '../../components/CamisetaDorsal.vue';
 
@@ -19,6 +19,7 @@ const toast = useToast();
 const categorias = ref([]);
 const temporadas = ref([]);
 const divisiones = ref([]);
+const coordinadores = ref([]);
 const jugadores = ref([]);
 const entrenadores = ref([]);
 const delegados = ref([]);
@@ -31,10 +32,11 @@ const temporadaSeleccionada = ref(null);
 const creandoTemporada = ref(false);
 
 async function cargarOpciones() {
-  const [cats, temps, divs, jug, ents, dels, pos, plants] = await Promise.all([
+  const [cats, temps, divs, coords, jug, ents, dels, pos, plants] = await Promise.all([
     categoriasService.listar(),
     temporadasService.listar(),
     divisionesService.listar().catch(() => []),
+    coordinadoresService.listar().catch(() => []),
     jugadoresService.listar(),
     entrenadoresService.listar(),
     delegadosService.listar(),
@@ -44,6 +46,7 @@ async function cargarOpciones() {
   categorias.value = cats;
   temporadas.value = temps;
   divisiones.value = divs;
+  coordinadores.value = coords;
   jugadores.value = jug;
   entrenadores.value = ents;
   delegados.value = dels;
@@ -115,6 +118,11 @@ const opcionesDivision = computed(() =>
   divisiones.value.map(d => ({ label: d.nombre, value: d.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
+const opcionesCoordinador = computed(() =>
+  coordinadores.value.map(c => ({ label: `${c.apellidos}, ${c.nombre}`, value: c.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
 const opcionesEntrenador = computed(() =>
   entrenadores.value.map(e => ({ label: `${e.apellidos}, ${e.nombre}`, value: e.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
@@ -140,6 +148,7 @@ const columns = computed(() => [
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true, enDetalle: false },
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false, enDetalle: false },
+  { field: 'id_coordinador', header: 'Coordinador', type: 'select', options: opcionesCoordinador.value, required: false, enDetalle: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
   { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
 ]);
@@ -148,6 +157,7 @@ const emptyItem = {
   id_temporada: null,
   id_categoria: null,
   id_division: null,
+  id_coordinador: null,
   ids_entrenadores: [],
   ids_delegados: [],
   jugadores: []
@@ -163,6 +173,11 @@ function nombreCategoria(id) {
 
 function nombreDivision(id) {
   return divisiones.value.find(d => d.id === id)?.nombre || '—';
+}
+
+function nombreCoordinador(id) {
+  const c = coordinadores.value.find(c => c.id === id);
+  return c ? `${c.apellidos}, ${c.nombre}` : '—';
 }
 
 function formatearJugador(j) {
@@ -402,6 +417,9 @@ function validarPlantilla(form) {
     <template #cell-id_division="{ data }">
       {{ data.division?.nombre || nombreDivision(data.id_division) }}
     </template>
+    <template #cell-id_coordinador="{ data }">
+      {{ data.coordinador ? `${data.coordinador.apellidos}, ${data.coordinador.nombre}` : nombreCoordinador(data.id_coordinador) }}
+    </template>
     <template #cell-ids_entrenadores="{ data }">
       <span v-if="data.entrenadores?.length" v-html="data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join('<br>')"></span>
       <span v-else>—</span>
@@ -575,6 +593,26 @@ function validarPlantilla(form) {
           </td>
         </tr>
       </table>
+      </div>
+
+      <div v-if="data.coordinador" class="mb-6">
+        <h3 class="text-sm font-semibold text-club-green mb-2">Coordinador</h3>
+        <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Apellidos</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-center border border-line p-2 text-sm">{{ data.coordinador.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ data.coordinador.apellidos }}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
       </div>
 
       <div v-if="data.entrenadores?.length" class="mb-6">

@@ -30,6 +30,7 @@ const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
 const Material = require('./Material');
+const Coordinador = require('./Coordinador');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -142,6 +143,9 @@ Temporada.hasMany(Plantilla, { foreignKey: 'id_temporada', sourceKey: 'id', as: 
 Plantilla.belongsTo(Division, { foreignKey: 'id_division', targetKey: 'id', as: 'division' });
 Division.hasMany(Plantilla, { foreignKey: 'id_division', sourceKey: 'id', as: 'plantillas' });
 
+Plantilla.belongsTo(Coordinador, { foreignKey: 'id_coordinador', targetKey: 'id', as: 'coordinador' });
+Coordinador.hasMany(Plantilla, { foreignKey: 'id_coordinador', sourceKey: 'id', as: 'plantillas' });
+
 // ---- Plantilla <-> Jugador (Muchos a Muchos) ----
 Plantilla.belongsToMany(Jugador, {
   through: PlantillaJugador,
@@ -246,5 +250,6 @@ module.exports = {
   EquipoJugador,
   Promocion,
   Material,
+  Coordinador,
   UsuarioSeccion
 };

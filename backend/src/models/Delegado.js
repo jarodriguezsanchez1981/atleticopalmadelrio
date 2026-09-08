@@ -6,6 +6,7 @@ const Delegado = sequelize.define('Delegado', {
   nombre: { type: DataTypes.STRING(100), allowNull: false },
   apellidos: { type: DataTypes.STRING(150), allowNull: false },
   dni: { type: DataTypes.STRING(15), allowNull: true, unique: true },
+  email: { type: DataTypes.STRING(150), allowNull: true },
   foto: { type: DataTypes.TEXT('long'), allowNull: true },
   telefono: { type: DataTypes.STRING(20), allowNull: true },
   tipo: { type: DataTypes.ENUM('campo', 'equipo'), allowNull: false, defaultValue: 'campo' }

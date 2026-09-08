@@ -37,24 +37,32 @@ describe('Auth Store', () => {
     expect(store.isAuthenticated).toBe(true);
   });
 
-  it('puedeVer consulta secciones', () => {
+  it('puedeVer consulta permisos por sección', () => {
     const store = useAuthStore();
-    store.user = { secciones: ['jugadores'] };
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: false } } };
     expect(store.puedeVer('jugadores')).toBe(true);
     expect(store.puedeVer('administracion')).toBe(false);
   });
 
-  it('visibilidad "editar" permite crear, editar y eliminar', () => {
+  it('permiso "editar" en una sección permite crear, editar y eliminar en esa sección', () => {
     const store = useAuthStore();
-    store.user = { secciones: [], visibilidad: 'editar' };
-    expect(store.puedeCrear()).toBe(true);
-    expect(store.puedeEditar()).toBe(true);
-    expect(store.puedeEliminar()).toBe(true);
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: true } } };
+    expect(store.puedeCrear('jugadores')).toBe(true);
+    expect(store.puedeEditar('jugadores')).toBe(true);
+    expect(store.puedeEliminar('jugadores')).toBe(true);
   });
 
-  it('visibilidad "leer" bloquea creación, edición y borrado', () => {
+  it('solo permiso de "ver" bloquea creación, edición y borrado', () => {
     const store = useAuthStore();
-    store.user = { secciones: [], visibilidad: 'leer' };
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: false } } };
+    expect(store.puedeCrear('jugadores')).toBe(false);
+    expect(store.puedeEditar('jugadores')).toBe(false);
+    expect(store.puedeEliminar('jugadores')).toBe(false);
+  });
+
+  it('sin clave, puedeCrear/puedeEditar/puedeEliminar siempre son false', () => {
+    const store = useAuthStore();
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: true } } };
     expect(store.puedeCrear()).toBe(false);
     expect(store.puedeEditar()).toBe(false);
     expect(store.puedeEliminar()).toBe(false);

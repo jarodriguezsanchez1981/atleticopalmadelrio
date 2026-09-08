@@ -10,6 +10,7 @@ const SECCIONES = [
   { clave: 'lugares', nombre: 'Lugares', icono: 'pi pi-map-marker', orden: 50 },
   { clave: 'material', nombre: 'Material', icono: 'pi pi-box', orden: 52 },
   { clave: 'delegados', nombre: 'Delegados', icono: 'pi pi-user-plus', orden: 55 },
+  { clave: 'coordinadores', nombre: 'Coordinadores', icono: 'pi pi-address-book', orden: 56 },
   { clave: 'categorias', nombre: 'Categorías', icono: 'pi pi-sitemap', orden: 60 },
   { clave: 'equipos', nombre: 'Equipos', icono: 'pi pi-trophy', orden: 65 },
   { clave: 'equipos_jugadores', nombre: 'Jugadores de Equipos', icono: 'pi pi-user', orden: 66 },
