@@ -9,8 +9,9 @@ import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import {
   entrenamientosService, partidosService, plantillasService,
-  lugaresService, equiposService, calendarioService
+  lugaresService, equiposService, calendarioService, temporadasService
 } from '../services';
+import { filtrarPlantillasTemporadaActual } from '../utils/temporadaActual';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -26,6 +27,7 @@ const toast = useToast();
 const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
 const plantillas = ref([]);
+const temporadas = ref([]);
 const lugares = ref([]);
 const equipos = ref([]);
 const cargandoCatalogo = ref(false);
@@ -85,10 +87,11 @@ function resetForm() {
 async function cargarCatalogo() {
   cargandoCatalogo.value = true;
   try {
-    const promesas = [plantillasService.listar(), lugaresService.listar()];
+    const promesas = [plantillasService.listar(), temporadasService.listar(), lugaresService.listar()];
     if (props.tipo === 'partido') promesas.push(equiposService.listar());
-    const [pls, lugs, eqs] = await Promise.all(promesas);
+    const [pls, temps, lugs, eqs] = await Promise.all(promesas);
     plantillas.value = pls;
+    temporadas.value = temps;
     lugares.value = lugs;
     if (eqs) equipos.value = eqs;
   } finally {
@@ -154,25 +157,27 @@ watch(
   }
 );
 
+const plantillasTemporadaActual = computed(() => filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value));
+
 const opcionesPlantilla = computed(() => {
   if (props.tipo === 'entrenamiento') {
     const ocupadas = new Set(
       entrenamientosDelDia.value.map((e) => e.id_plantilla ?? e.plantilla?.id ?? null).filter(Boolean)
     );
-    return plantillas.value
+    return plantillasTemporadaActual.value
       .filter((p) => !ocupadas.has(p.id))
       .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   if (props.tipo !== 'partido') {
-    return plantillas.value
+    return plantillasTemporadaActual.value
       .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   const ocupadasHoy = new Set(
     partidosDelDia.value.map((p) => p.id_plantilla ?? p.plantilla?.id ?? null).filter(Boolean)
   );
-  return plantillas.value
+  return plantillasTemporadaActual.value
     .filter((p) => !ocupadasHoy.has(p.id))
     .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));

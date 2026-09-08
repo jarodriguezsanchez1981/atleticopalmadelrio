@@ -6,8 +6,9 @@ import DatePicker from 'primevue/datepicker';
 import InputText from 'primevue/inputtext';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
-import { torneosService, plantillasService, equiposService } from '../services';
+import { torneosService, plantillasService, equiposService, temporadasService } from '../services';
 import { suscribirseCambio } from '../utils/cambioBus';
+import { filtrarPlantillasTemporadaActual } from '../utils/temporadaActual';
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -19,17 +20,20 @@ const emit = defineEmits(['update:visible', 'saved']);
 
 const toast = useToast();
 const plantillas = ref([]);
+const temporadas = ref([]);
 const equipos = ref([]);
 const guardando = ref(false);
 const form = reactive({ id_plantilla: null, id_equipo: null, nombre: null, fecha: null, hora: null });
 let unsubCambio = null;
 
 async function cargarCatalogo() {
-  const [pls, eqs] = await Promise.all([
+  const [pls, temps, eqs] = await Promise.all([
     plantillasService.listar(),
+    temporadasService.listar(),
     equiposService.listar()
   ]);
   plantillas.value = pls;
+  temporadas.value = temps;
   equipos.value = eqs;
 }
 
@@ -42,7 +46,7 @@ onBeforeUnmount(() => {
 });
 
 const opcionesPlantilla = computed(() =>
-  plantillas.value.map(p => ({
+  filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value).map(p => ({
     label: `${p.categoria?.nombre || '—'} / ${p.temporada?.nombre || '—'}`,
     value: p.id
   })).sort((a, b) => a.label.localeCompare(b.label, 'es'))

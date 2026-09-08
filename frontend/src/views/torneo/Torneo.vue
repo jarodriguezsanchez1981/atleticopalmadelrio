@@ -14,17 +14,19 @@ import Button from 'primevue/button';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
-import { torneosService, plantillasService, equiposService } from '../../services';
+import { torneosService, plantillasService, equiposService, temporadasService } from '../../services';
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { useAuthStore } from '../../stores/auth.store';
 import { suscribirseCambio, emitirCambio } from '../../utils/cambioBus';
 import CalendarioLista from '../../components/CalendarioLista.vue';
 import { useMediaQuery } from '../../composables/useMediaQuery';
+import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 
 const toast = useToast();
 const confirm = useConfirm();
 const auth = useAuthStore();
 const plantillas = ref([]);
+const temporadas = ref([]);
 const equipos = ref([]);
 let unsubCambio = null;
 
@@ -33,11 +35,13 @@ const esMovil = useMediaQuery('(max-width: 639px)');
 const eventosLista = ref([]);
 
 async function cargarOpciones() {
-  const [pls, eqs] = await Promise.all([
+  const [pls, temps, eqs] = await Promise.all([
     plantillasService.listar(),
+    temporadasService.listar(),
     equiposService.listar()
   ]);
   plantillas.value = pls;
+  temporadas.value = temps;
   equipos.value = eqs;
 }
 
@@ -53,7 +57,7 @@ onBeforeUnmount(() => {
 watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchTorneosMobile(); });
 
 const opcionesPlantilla = computed(() =>
-  plantillas.value.map(p => ({
+  filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value).map(p => ({
     label: `${p.categoria?.nombre || '—'} / ${p.temporada?.nombre || '—'}`,
     value: p.id
   })).sort((a, b) => a.label.localeCompare(b.label, 'es'))

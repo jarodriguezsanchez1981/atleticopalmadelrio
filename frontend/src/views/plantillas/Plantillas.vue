@@ -97,6 +97,12 @@ async function crearPlantillaTemporada() {
   }
 }
 
+/** Mientras haya una temporada marcada como actual, la tabla solo muestra sus plantillas. */
+const listParamsPlantillas = computed(() => {
+  const actual = temporadas.value.find(t => t.actual);
+  return actual ? { id_temporada: actual.id } : {};
+});
+
 const opcionesTemporada = computed(() =>
   temporadas.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
@@ -403,6 +409,7 @@ function validarPlantilla(form) {
     :columns="columns"
     :service="plantillasService"
     :emptyItem="emptyItem"
+    :listParams="listParamsPlantillas"
     detailMaxWidth="max-w-4xl"
     formMaxWidth="max-w-4xl"
     :validateForm="validarPlantilla"

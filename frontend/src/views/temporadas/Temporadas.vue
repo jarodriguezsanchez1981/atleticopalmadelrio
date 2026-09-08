@@ -2,11 +2,20 @@
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { temporadasService } from '../../services';
 
-const columns = [
-  { field: 'nombre', header: 'Nombre', type: 'text', required: true }
+const opcionesActual = [
+  { label: 'Sí', value: true },
+  { label: 'No', value: false }
 ];
 
-const emptyItem = { nombre: '' };
+const columns = [
+  { field: 'nombre', header: 'Nombre', type: 'text', required: true },
+  {
+    field: 'actual', header: 'Actual', type: 'select', options: opcionesActual, required: true,
+    format: (v) => (v ? 'Sí' : 'No')
+  }
+];
+
+const emptyItem = { nombre: '', actual: false };
 </script>
 
 <template>

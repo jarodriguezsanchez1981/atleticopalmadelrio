@@ -1,21 +1,25 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { promocionesService, plantillasService, categoriasService, jugadoresService } from '../../services';
+import { promocionesService, plantillasService, categoriasService, jugadoresService, temporadasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
+import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 
 const plantillas = ref([]);
+const temporadas = ref([]);
 const categorias = ref([]);
 const jugadores = ref([]);
 let unsubCambio = null;
 
 async function cargarOpciones() {
-  const [plants, cats, jugs] = await Promise.all([
+  const [plants, temps, cats, jugs] = await Promise.all([
     plantillasService.listar(),
+    temporadasService.listar(),
     categoriasService.listar(),
     jugadoresService.listar()
   ]);
   plantillas.value = plants;
+  temporadas.value = temps;
   categorias.value = cats;
   jugadores.value = jugs;
 }
@@ -29,7 +33,7 @@ onBeforeUnmount(() => {
 });
 
 const opcionesPlantilla = computed(() =>
-  plantillas.value
+  filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
     .map(p => ({ label: `${p.categoria?.nombre || ''} / ${p.temporada?.nombre || ''}`, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );

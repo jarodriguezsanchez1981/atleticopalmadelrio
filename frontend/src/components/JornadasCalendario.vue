@@ -20,11 +20,12 @@ import { useToast } from 'primevue/usetoast';
 import * as XLSX from '@e965/xlsx';
 import {
   categoriaCalendarioService, plantillasService, equiposService,
-  jugadoresService, equiposJugadoresService
+  jugadoresService, equiposJugadoresService, temporadasService
 } from '../services';
 import { useMediaQuery } from '../composables/useMediaQuery';
 import { useAuthStore } from '../stores/auth.store';
 import { suscribirseCambio, emitirCambio } from '../utils/cambioBus';
+import { filtrarPlantillasTemporadaActual } from '../utils/temporadaActual';
 
 const PALMA_ID = 73;
 
@@ -33,6 +34,7 @@ const auth = useAuthStore();
 const toast = useToast();
 
 const plantillas = ref([]);
+const temporadas = ref([]);
 const equipos = ref([]);
 const jugadores = ref([]);
 const equiposJugadores = ref([]);
@@ -45,13 +47,15 @@ const filtroPlantilla = ref(null);
 let unsubCambio = null;
 
 async function cargarCatalogo() {
-  const [pls, eqs, jugs, eqjugs] = await Promise.all([
+  const [pls, temps, eqs, jugs, eqjugs] = await Promise.all([
     plantillasService.listar(),
+    temporadasService.listar(),
     equiposService.listar(),
     jugadoresService.listar(),
     equiposJugadoresService.listar().catch(() => [])
   ]);
   plantillas.value = pls;
+  temporadas.value = temps;
   equipos.value = eqs;
   jugadores.value = jugs;
   equiposJugadores.value = eqjugs;
@@ -107,7 +111,7 @@ onBeforeUnmount(() => {
 watch(filtroPlantilla, () => cargarNumeros());
 
 const opcionesPlantilla = computed(() =>
-  plantillas.value.map(p => ({
+  filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value).map(p => ({
     label: `${p.categoria?.alias || p.categoria?.nombre || '—'} / ${p.temporada?.nombre || '—'}`,
     value: p.id
   })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
