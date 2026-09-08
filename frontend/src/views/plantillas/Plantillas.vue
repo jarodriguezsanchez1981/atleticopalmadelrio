@@ -118,10 +118,16 @@ const opcionesDivision = computed(() =>
   divisiones.value.map(d => ({ label: d.nombre, value: d.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
-const opcionesCoordinador = computed(() =>
-  coordinadores.value.map(c => ({ label: `${c.apellidos}, ${c.nombre}`, value: c.id }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
+/** Solo coordinadores cuyo tipo de fútbol coincide con el de la categoría seleccionada. */
+function opcionesCoordinador(form) {
+  const categoria = categorias.value.find(c => c.id === form?.id_categoria);
+  const idTipoFutbol = categoria?.id_tipofutbol ?? null;
+  if (!idTipoFutbol) return [];
+  return coordinadores.value
+    .filter(c => c.id_tipofutbol === idTipoFutbol)
+    .map(c => ({ label: `${c.apellidos}, ${c.nombre}`, value: c.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+}
 
 const opcionesEntrenador = computed(() =>
   entrenadores.value.map(e => ({ label: `${e.apellidos}, ${e.nombre}`, value: e.id }))
@@ -148,7 +154,7 @@ const columns = computed(() => [
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true, enDetalle: false },
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false, enDetalle: false },
-  { field: 'id_coordinador', header: 'Coordinador', type: 'select', options: opcionesCoordinador.value, required: false, enDetalle: false },
+  { field: 'id_coordinador', header: 'Coordinador', type: 'select', options: opcionesCoordinador, required: false, enDetalle: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
   { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
 ]);

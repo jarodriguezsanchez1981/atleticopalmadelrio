@@ -154,6 +154,21 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(Plantilla.create).not.toHaveBeenCalled();
   });
 
+  it('crear rechaza un coordinador cuyo tipo de fútbol no coincide con el de la categoría', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1, id_tipofutbol: 1 }); // categoría Fútbol 7
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue({ id: 4, id_tipofutbol: 2 }); // coordinador Fútbol 11
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_categoria: 1, id_temporada: 1, id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El coordinador indicado no coincide con el tipo de fútbol de la categoría.');
+    expect(Plantilla.create).not.toHaveBeenCalled();
+  });
+
   it('crear guarda id_coordinador cuando se indica uno válido', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
@@ -176,6 +191,24 @@ describe('Sección Plantillas · plantilla.controller', () => {
       id_coordinador: 4
     });
     expect(res._status).toBe(201);
+  });
+
+  it('actualizar rechaza un coordinador cuyo tipo de fútbol no coincide con el de la categoría', async () => {
+    const plantilla = { id: 1, id_categoria: 1, id_temporada: 1, id_division: null, id_coordinador: null, save: vi.fn().mockResolvedValue() };
+    Plantilla.findOne.mockResolvedValueOnce(plantilla);
+    Categoria.findOne.mockResolvedValue({ id: 1, id_tipofutbol: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue({ id: 4, id_tipofutbol: 2 });
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El coordinador indicado no coincide con el tipo de fútbol de la categoría.');
+    expect(plantilla.save).not.toHaveBeenCalled();
   });
 
   it('actualizar guarda id_coordinador cuando se indica uno válido', async () => {

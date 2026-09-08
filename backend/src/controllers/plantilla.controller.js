@@ -137,8 +137,11 @@ async function validarReferencias({ id_categoria, id_temporada, id_division, id_
     if (!existe) return 'La división indicada no existe.';
   }
   if (id_coordinador) {
-    const existe = await Coordinador.findOne({ where: { id: id_coordinador } });
-    if (!existe) return 'El coordinador indicado no existe.';
+    const coordinador = await Coordinador.findOne({ where: { id: id_coordinador } });
+    if (!coordinador) return 'El coordinador indicado no existe.';
+    if (categoria.id_tipofutbol && coordinador.id_tipofutbol !== categoria.id_tipofutbol) {
+      return 'El coordinador indicado no coincide con el tipo de fútbol de la categoría.';
+    }
   }
   if (jugadores && jugadores.length) {
     const ids = jugadores.map(j => j.id_jugador).filter(Boolean);

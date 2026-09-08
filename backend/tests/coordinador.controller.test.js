@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Coordinador } from './helpers/models.js';
+import { Coordinador, TipoFutbol } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/coordinador.controller.js';
@@ -10,6 +10,7 @@ describe('Sección Coordinadores · coordinador.controller', () => {
     Coordinador.findOne.mockReset();
     Coordinador.create.mockReset();
     Coordinador.destroy.mockReset();
+    TipoFutbol.findOne.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -17,14 +18,16 @@ describe('Sección Coordinadores · coordinador.controller', () => {
     return { promesa: fn(req, res, next), res, req, next };
   }
 
-  it('listar devuelve los coordinadores ordenados por apellidos ASC', async () => {
+  it('listar devuelve los coordinadores ordenados por apellidos ASC, con el tipo de fútbol', async () => {
     const coordinadores = [{ id: 1, nombre: 'Ana', apellidos: 'García' }];
     Coordinador.findAll.mockResolvedValue(coordinadores);
     const { promesa, res } = llamar(ctrl.listar);
 
     await promesa;
 
-    expect(Coordinador.findAll).toHaveBeenCalledWith({ order: [['apellidos', 'ASC']] });
+    expect(Coordinador.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ include: expect.any(Array), order: [['apellidos', 'ASC']] })
+    );
     expect(res._json).toEqual(coordinadores);
   });
 
@@ -35,7 +38,9 @@ describe('Sección Coordinadores · coordinador.controller', () => {
 
     await promesa;
 
-    expect(Coordinador.findOne).toHaveBeenCalledWith({ where: { id: '3' } });
+    expect(Coordinador.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: '3' }, include: expect.any(Array) })
+    );
     expect(res._json).toEqual(coordinador);
   });
 
@@ -59,31 +64,50 @@ describe('Sección Coordinadores · coordinador.controller', () => {
     expect(Coordinador.create).not.toHaveBeenCalled();
   });
 
-  it('crear crea el coordinador y devuelve 201', async () => {
-    const creado = { id: 5, nombre: 'Ana', apellidos: 'García', email: 'ana@club.es', telefono: '600111222' };
-    Coordinador.create.mockResolvedValue(creado);
+  it('crear rechaza un tipo de fútbol que no existe', async () => {
+    TipoFutbol.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.crear, {
-      body: { nombre: 'Ana', apellidos: 'García', email: 'ana@club.es', telefono: '600111222' }
+      body: { nombre: 'Ana', apellidos: 'García', id_tipofutbol: 99 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El tipo de fútbol indicado no existe.');
+    expect(Coordinador.create).not.toHaveBeenCalled();
+  });
+
+  it('crear crea el coordinador con tipo de fútbol y devuelve 201', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 2, nombre: 'Futbol 11' });
+    Coordinador.create.mockResolvedValue({ id: 5 });
+    const completo = { id: 5, nombre: 'Ana', apellidos: 'García', id_tipofutbol: 2, email: 'ana@club.es', telefono: '600111222' };
+    Coordinador.findOne.mockResolvedValue(completo);
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Ana', apellidos: 'García', id_tipofutbol: 2, email: 'ana@club.es', telefono: '600111222' }
     });
 
     await promesa;
 
     expect(Coordinador.create).toHaveBeenCalledWith({
-      nombre: 'Ana', apellidos: 'García', email: 'ana@club.es', telefono: '600111222'
+      nombre: 'Ana', apellidos: 'García', id_tipofutbol: 2, email: 'ana@club.es', telefono: '600111222'
     });
     expect(res._status).toBe(201);
-    expect(res._json).toEqual(creado);
+    expect(res._json).toEqual(completo);
   });
 
-  it('crear permite email y teléfono vacíos', async () => {
-    const creado = { id: 6, nombre: 'Luis', apellidos: 'Pérez' };
-    Coordinador.create.mockResolvedValue(creado);
+  it('crear permite tipo de fútbol, email y teléfono vacíos', async () => {
+    Coordinador.create.mockResolvedValue({ id: 6 });
+    const completo = { id: 6, nombre: 'Luis', apellidos: 'Pérez' };
+    Coordinador.findOne.mockResolvedValue(completo);
+
     const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Luis', apellidos: 'Pérez' } });
 
     await promesa;
 
+    expect(TipoFutbol.findOne).not.toHaveBeenCalled();
     expect(Coordinador.create).toHaveBeenCalledWith({
-      nombre: 'Luis', apellidos: 'Pérez', email: null, telefono: null
+      nombre: 'Luis', apellidos: 'Pérez', id_tipofutbol: null, email: null, telefono: null
     });
     expect(res._status).toBe(201);
   });
@@ -97,19 +121,41 @@ describe('Sección Coordinadores · coordinador.controller', () => {
     expect(res._status).toBe(404);
   });
 
-  it('actualizar guarda los cambios', async () => {
-    const coordinador = { id: 1, nombre: 'Viejo', email: null, save: vi.fn().mockResolvedValue() };
-    Coordinador.findOne.mockResolvedValue(coordinador);
+  it('actualizar rechaza un tipo de fútbol que no existe', async () => {
+    const coordinador = { id: 1, save: vi.fn() };
+    Coordinador.findOne.mockResolvedValueOnce(coordinador);
+    TipoFutbol.findOne.mockResolvedValue(null);
+
     const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { nombre: 'Nuevo', email: 'nuevo@club.es' }
+      params: { id: '1' }, body: { id_tipofutbol: 99 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El tipo de fútbol indicado no existe.');
+    expect(coordinador.save).not.toHaveBeenCalled();
+  });
+
+  it('actualizar guarda los cambios, incluido el tipo de fútbol', async () => {
+    const coordinador = { id: 1, nombre: 'Viejo', email: null, id_tipofutbol: null, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, nombre: 'Nuevo', email: 'nuevo@club.es', id_tipofutbol: 1 };
+    Coordinador.findOne
+      .mockResolvedValueOnce(coordinador)
+      .mockResolvedValueOnce(actualizado);
+    TipoFutbol.findOne.mockResolvedValue({ id: 1, nombre: 'Futbol 7' });
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { nombre: 'Nuevo', email: 'nuevo@club.es', id_tipofutbol: 1 }
     });
 
     await promesa;
 
     expect(coordinador.nombre).toBe('Nuevo');
     expect(coordinador.email).toBe('nuevo@club.es');
+    expect(coordinador.id_tipofutbol).toBe(1);
     expect(coordinador.save).toHaveBeenCalled();
-    expect(res._json).toEqual(coordinador);
+    expect(res._json).toEqual(actualizado);
   });
 
   it('eliminar elimina y responde 204', async () => {
