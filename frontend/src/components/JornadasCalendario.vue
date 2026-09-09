@@ -124,6 +124,18 @@ const opcionesEquipo = computed(() =>
 const numActual = computed(() => numerosJornada.value[numPagina.value] || null);
 const totalPaginas = computed(() => numerosJornada.value.length);
 
+/** Plantillas de la temporada actual sin partido creado en la jornada que se está viendo. */
+const plantillasSinJornada = computed(() => {
+  if (numActual.value == null) return [];
+  const base = filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
+    .filter(p => !filtroPlantilla.value || p.id === filtroPlantilla.value);
+  const idsConPartido = new Set(jornadaActual.value.map(j => j.id_plantilla));
+  return base
+    .filter(p => !idsConPartido.has(p.id))
+    .map(p => p.categoria?.alias || p.categoria?.nombre || '—')
+    .sort((a, b) => a.localeCompare(b, 'es'));
+});
+
 function irPagina(idx) {
   if (idx >= 0 && idx < totalPaginas.value && idx !== numPagina.value) {
     numPagina.value = idx;
@@ -463,7 +475,11 @@ function nombreJugadorEnForm(entry) {
         Cargando jornada {{ numActual }}...
       </div>
 
-      <div v-else class="jornada-bloque">
+      <Message v-if="plantillasSinJornada.length" severity="warn" :closable="false" class="mb-3">
+        Sin partido en la jornada {{ numActual }}: {{ plantillasSinJornada.join(', ') }}
+      </Message>
+
+      <div class="jornada-bloque">
         <div class="jornada-header">
           <span class="jornada-num">J {{ numActual }}</span>
           <span class="text-xs text-white/80">{{ jornadaActual.length }} partido{{ jornadaActual.length !== 1 ? 's' : '' }}</span>
