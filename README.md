@@ -83,17 +83,23 @@ atleticopalmadelrio/
 │   ├── Dockerfile              # Build estático + nginx interno
 │   └── src/
 │       ├── components/
-│       │   ├── CrudDataTable.vue       # Tabla CRUD genérica responsive
+│       │   ├── CrudDataTable.vue       # Tabla CRUD genérica responsive (columnas, selects dinámicos, detalle)
+│       │   ├── SectionGuard.vue        # Gate de visibilidad por permiso de sección
 │       │   ├── EventosCalendario.vue   # Calendario con detalle partidos/entrenamientos
 │       │   ├── EventoFormCalendario.vue
+│       │   ├── JornadasCalendario.vue  # Vista visual de jornadas de liga
+│       │   ├── TorneoFormCalendario.vue
+│       │   ├── CalendarioLista.vue     # Vista lista (alternativa móvil al calendario)
+│       │   ├── PlantillaJugadoresManager.vue
 │       │   ├── EquipacionPrenda.vue    # Camiseta/calzonas/medias SVG por color
-│       │   ├── CamisetaDorsal.vue      # Visualización jersey + dorsal
-│       │   └── FooterSponsors.vue      # Footer compartido con sponsors
+│       │   └── CamisetaDorsal.vue      # Visualización jersey + dorsal
 │       ├── views/
 │       │   ├── auth/Login.vue
 │       │   ├── admin/Usuarios.vue
 │       │   ├── calendario/Calendario.vue
 │       │   ├── plantillas/Plantillas.vue
+│       │   ├── coordinadores/Coordinadores.vue
+│       │   ├── temporadas/Temporadas.vue
 │       │   ├── posicion/Posicion.vue
 │       │   ├── categoriaCalendario/CategoriaCalendario.vue   # Sección Jornadas
 │       │   ├── cambios/Cambios.vue     # Auditoría de cambios
@@ -103,6 +109,7 @@ atleticopalmadelrio/
 │       ├── services/api.js             # Axios + JWT interceptor
 │       └── utils/
 │           ├── coloresEquipacion.js    # Paleta de colores de equipación
+│           ├── temporadaActual.js      # Filtra plantillas a la temporada marcada como actual
 │           ├── pdfPartidos.js          # PDF 5 columnas con semana
 │           ├── pdfCalendario.js        # PDF combinado (partidos + entrenamientos)
 │           └── pdfEntrenamientos.js    # PDF entrenamientos agrupados
@@ -116,22 +123,26 @@ atleticopalmadelrio/
 | Entrenamientos | Sí   | write | Gestión de entrenamientos |
 | Entren. Jugadores | Sí | write | Asignación de jugadores a entrenamientos |
 | Partidos       | Sí   | write | Partidos con filtros temporada/categoría |
-| Temporadas     | Sí   | write | Temporadas del club |
+| Temporadas     | Sí   | write | Temporadas del club; una puede marcarse como **actual** (solo puede haber una) |
 | Títulos        | Sí   | write | Títulos de entrenadores |
 | División       | Sí   | write | Divisiones deportivas |
 | Posición       | Sí   | write | Posiciones de juego (nombre + alias) |
 | Lugares        | Sí   | write | Lugares de entrenamiento/partido |
+| Material       | Sí   | write | Material deportivo del club |
 | Delegados      | Sí   | write | Delegados del club |
+| Coordinadores  | Sí   | write | Coordinadores por tipo de fútbol (F7/F11); al crear uno se asigna automáticamente a las plantillas de ese tipo de fútbol |
 | Categorías     | Sí   | write | Categorías del club |
 | Equipos        | Sí   | write | Equipos del club con equipación (camiseta/calzonas/medias) |
+| Equipos Jugadores | Sí | write | Jugadores de equipos rivales (para convocatorias en Jornadas) |
 | Incidencias    | Sí   | write | Incidencias de partidos |
 | Jugadores      | Sí   | write | Jugadores del club |
-| Plantillas     | Sí   | write | Plantillas por categoría y temporada (con posiciones por temporada) |
+| Plantillas     | Sí   | write | Plantillas por categoría y temporada, con coordinador y posiciones por temporada. Filtradas por defecto a la temporada actual |
+| Promociones    | Sí   | write | Ascensos de jugadores entre plantillas |
 | Entrenadores   | Sí   | write | Entrenadores del club |
 | Jornadas       | Sí   | write | Jornadas con jugadores convocados (tarjetas y goles) |
+| Torneo         | Sí   | write | Torneos y partidos amistosos |
 | Sanciones      | Sí   | write | Sanciones a jugadores (autogeneradas desde Jornadas para el equipo local del club) |
-| Roles          | Sí   | write | Roles de usuario |
-| Patrocinadores | Sí   | write | Patrocinadores del club |
+| Informes       | —    | read  | En construcción |
 | Administración | Sí   | write | Gestión de usuarios y permisos |
 | **Cambios**    | **No** | **read** | **Auditoría de todos los cambios realizados** |
 
@@ -159,10 +170,21 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 
 ### Plantillas
 - **CRUD de plantillas** con drag & drop de entrenadores, delegados y jugadores
+- **Coordinador**: FK opcional a `coordinadores`, filtrada/validada por que `coordinador.id_tipofutbol` coincida con `categoria.id_tipofutbol`
 - **Dorsal visual**: camiseta con número asignado, detección de duplicados
 - **Posiciones por temporada**: cada jugador tiene una o varias posiciones dentro de su plantilla (`plantilla_jugador_posiciones`), no globales
 - **Ordenación** por nombre y dorsal en vista detalle
-- **Vista detalle** con entrenadores, delegados y jugadores
+- **Vista detalle** con coordinador, entrenadores, delegados y jugadores
+- **Filtrado por temporada actual**: la tabla de Plantillas y los selectores de plantilla en Eventos, Jornadas, Torneos y Promociones solo muestran las de la temporada marcada como actual (si ninguna está marcada, se muestran todas)
+
+### Coordinadores
+- CRUD de coordinadores (nombre, apellidos, email, teléfono, tipo de fútbol)
+- **Asignación automática**: al crear un coordinador con tipo de fútbol, se asigna como coordinador de todas las plantillas cuya categoría comparta ese tipo de fútbol (no ocurre al editar, solo al crear)
+
+### Temporadas
+- CRUD de temporadas con el campo **actual** (Sí/No)
+- Solo puede haber una temporada actual a la vez: marcar una desmarca automáticamente las demás
+- Mientras haya una temporada actual, se usa para filtrar Plantillas en toda la aplicación (ver arriba)
 
 ### Posición
 - CRUD de posiciones de juego con **nombre** y **alias** (p. ej. `Portero (POR)`)
@@ -221,22 +243,26 @@ Sistema de diseño escandinavo aplicado:
 - **Color de marca**: verde institucional `#0B3D2E` como único accent
 - **Tipografía**: Inter (Google Fonts)
 - **Componentes**: PrimeVue con theme neutro
-- **Footer**: patrocinadores compartido (FooterSponsors.vue)
 
 ## Tablas MySQL
 
 ### Principales
 - `usuarios` — Usuarios del sistema con roles y secciones visibles
-- `categorias` — Categorías del club (Benjamin, Infantil, Juvenil, Senior...)
+- `categorias` — Categorías del club (Benjamin, Infantil, Juvenil, Senior...), con FK a `tipofutbol`
+- `tipofutbol` — Fútbol 7 / Fútbol 11
 - `equipos` — Equipos con escudo, datos geográficos y equipación (camiseta/calzonas/medias)
 - `jugadores` — Jugadores del club (DNI opcional)
 - `posicion` — Posiciones de juego (nombre + alias)
+- `material` — Material deportivo del club
 - `partidos` — Partidos con `id_equipo_local` y `id_equipo_visitante` (FK equipos)
 - `jornadas` — Jornadas con equipos local/visitante, hora, incidencias y observaciones
 - `jornada_jugadores` — Jugadores convocados por jornada (local/visitante) con tarjetas y goles
 - `sanciones` — Sanciones a jugadores (id_partido, id_jugador, amarilla, roja)
-- `patrocinadores` — Patrocinadores con logos
-- `plantillas` — Plantillas por categoría y temporada
+- `temporadas` — Temporadas del club; columna `actual` (solo una puede ser `true`)
+- `coordinadores` — Coordinadores por tipo de fútbol (`id_tipofutbol`), FK opcional desde `plantillas`
+- `plantillas` — Plantillas por categoría y temporada, con FK opcional `id_coordinador`
+- `promociones` — Ascensos de jugadores entre plantillas
+- `torneo` — Torneos y partidos amistosos
 - **`cambios`** — Auditoría de todas las acciones CRUD (entidad, acción, antes/después, usuario)
 
 ### Relaciones
@@ -246,6 +272,9 @@ Sistema de diseño escandinavo aplicado:
 - `entrenador_titulos` — Muchos a muchos
 - `lugar_tipofutbol` — Muchos a muchos
 - `entrenamientos_jugadores` — Asignación de jugadores a entrenamientos
+- `equipos_jugadores` — Jugadores de equipos rivales (para convocatorias)
+
+> Los cambios de esquema posteriores a `database/schema.sql`/`init.sql` viven como migraciones idempotentes en `database/migrations/` (aplicadas automáticamente al arrancar el backend).
 
 ## Desarrollo local
 
@@ -263,12 +292,12 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (332 tests, 34 archivos)
+# Backend (409 tests, 36 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (21 tests, 4 archivos)
+# Frontend (23 tests, 4 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```
@@ -291,25 +320,24 @@ Mocks en `backend/tests/helpers/` — `Module._load` interceptor para Sequelize 
 docker compose logs -f backend
 
 # Reconstruir solo el backend
-docker compose build backend && docker compose up -d backend
+docker compose --env-file .env.development build backend
+docker compose --env-file .env.development up -d backend
 
 # Reconstruir todas las imágenes
-docker compose build && docker compose up -d
+docker compose --env-file .env.development build
+docker compose --env-file .env.development up -d
 
-# Desplegar frontend (build + copiar al contenedor)
-cd frontend && npm run build
-docker cp dist/. apr_frontend:/usr/share/nginx/html/
-docker restart apr_nginx
+# Recargar config de Nginx sin reiniciar (el propio contenedor frontend sirve el estático + nginx)
+docker exec apr_frontend nginx -s reload
 
-# Recargar config de Nginx sin reiniciar
-docker exec apr_nginx nginx -s reload
+# Acceder a MySQL (nombre de BD según entorno: ver tabla "Entornos")
+docker exec -it apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME"
 
-# Acceder a MySQL
-docker exec -it apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" atletico_palma_intranet
+# Verificar health de la API (proxied directamente, no bajo /api)
+curl http://localhost:8080/health
 
-# Verificar health de la API
-curl -k https://localhost/api/health
-
-# Backup de la base de datos
-./scripts/backup-db.sh
+# Backup manual de la base de datos
+./scripts/dump-init.sh
 ```
+
+> **Nginx cachea la IP del backend**: si recreas solo `apr_backend` (nueva IP interna de Docker), `apr_frontend` puede seguir resolviendo la IP antigua y devolver 502 hasta que se reinicie: `docker restart apr_frontend`. Recréalo siempre que reconstruyas el backend en caliente.
