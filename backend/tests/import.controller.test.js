@@ -146,6 +146,26 @@ describe('Importación masiva · import.controller', () => {
       );
     });
 
+    it('convierte una fecha en formato nº de serie de Excel (celda con formato fecha exportada como número)', async () => {
+      mockPlantillaOk();
+      Equipo.findOne.mockResolvedValue({ id: 10 });
+      Jornada.findOne.mockResolvedValue(null);
+      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.create.mockResolvedValue({ id: 200 });
+
+      const { promesa, res } = llamar(ctrl.importar, {
+        params: { recurso: 'jornadas' },
+        body: { filas: [filaOk({ Fecha: 46082 })] } // 46082 = 01/03/2026
+      });
+      await promesa;
+
+      expect(res._json.insertados).toBe(1);
+      expect(res._json.errores).toHaveLength(0);
+      expect(Jornada.create).toHaveBeenCalledWith(
+        expect.objectContaining({ fecha: '2026-03-01' })
+      );
+    });
+
     it('reconoce las cabeceras cortas "Local" y "Visitante"', async () => {
       mockPlantillaOk();
       Equipo.findOne.mockResolvedValue({ id: 10 });

@@ -90,18 +90,37 @@ async function buscarEquipoPorNombre(nombre) {
 }
 
 /**
- * Convierte fecha de DD/MM/YYYY o DD-MM-YYYY a YYYY-MM-DD
+ * Convierte el nº de serie de fecha de Excel (días desde 1899-12-30) a YYYY-MM-DD.
+ * Es el formato en el que llega una celda con formato de fecha cuando el xlsx
+ * se lee sin `cellDates`, p. ej. 46292 → "2026-09-27".
+ */
+function excelSerialAFecha(serial) {
+  const utcDays = Math.floor(serial - 25569);
+  const d = new Date(utcDays * 86400 * 1000);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Convierte fecha de DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD o nº de serie de Excel a YYYY-MM-DD
  */
 function convertirFecha(fechaStr) {
-  if (!fechaStr) return null;
+  if (fechaStr == null || fechaStr === '') return null;
+  // Nº de serie de Excel (columna con formato de fecha exportada como número)
+  if (typeof fechaStr === 'number' || /^\d+$/.test(String(fechaStr).trim())) {
+    const serial = Number(fechaStr);
+    if (serial > 0) return excelSerialAFecha(serial);
+  }
   const str = String(fechaStr).trim();
   // Intentar DD/MM/YYYY
   let match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (match) {
     return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
   }
-  // Intentar YYYY-MM-DD
-  match = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  // Intentar YYYY-MM-DD (admite hora ISO detrás, p. ej. "2026-09-13T00:00:00.000Z")
+  match = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if (match) {
     return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
   }
