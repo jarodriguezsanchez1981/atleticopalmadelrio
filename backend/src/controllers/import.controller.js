@@ -25,14 +25,25 @@ const RECURSOS = {
   promociones: { modelo: 'Promocion', campos: ['id_plantilla', 'id_categoria', 'id_jugador'] }
 };
 
-/** Mapeo de columnas legibles a campos de BD para jornadas (comparación en minúsculas) */
+/** Mapeo de columnas legibles a campos de BD para jornadas (claves ya normalizadas) */
 const JORNADAS_COLUMN_MAP = {
   plantilla: 'id_plantilla',
   jornada: 'jornada',
   fecha: 'fecha',
   equipolocal: 'id_equipo_local',
-  equipovisitante: 'id_equipo_visitante'
+  local: 'id_equipo_local',
+  equipovisitante: 'id_equipo_visitante',
+  visitante: 'id_equipo_visitante'
 };
+
+/** Normaliza un nombre de columna: sin acentos, sin espacios/guiones/guion bajo, en minúsculas.
+ * Así "Equipo Local", "equipo_local" y "EquipoLocal" resuelven a la misma clave. */
+function normalizarColumna(nombre) {
+  return String(nombre)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase();
+}
 
 /**
  * Busca una plantilla por su nombre (formato "Categoria / Temporada")
@@ -148,7 +159,7 @@ async function importarJornadas(filas, res) {
     try {
       const datos = {};
       for (const [columnaOriginal, valor] of Object.entries(fila)) {
-        const columna = String(columnaOriginal).trim().toLowerCase();
+        const columna = normalizarColumna(columnaOriginal);
         const campo = JORNADAS_COLUMN_MAP[columna];
         if (!campo) continue;
         if (campo === 'id_plantilla') {

@@ -668,17 +668,20 @@ function nombreJugadorEnForm(entry) {
             <table class="w-full border-collapse">
               <thead>
                 <tr class="bg-club-green/5">
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">plantilla</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">jornada</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">fecha</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">equipolocal</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">equipovisitante</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Plantilla</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jornada</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Fecha</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Equipo Local</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Equipo Visitante</th>
                 </tr>
               </thead>
             </table>
           </div>
+          <p class="text-xs text-ink-tertiary italic">
+            Los nombres de columna no distinguen mayúsculas, espacios ni guiones (p. ej. "Equipo Local", "equipo_local" y "EquipoLocal" son equivalentes).
+          </p>
           <p class="text-xs text-ink-tertiary italic font-bold">
-            * Si un equipo local o visitante no existe todavía en Equipos, se creará automáticamente.
+            * En Equipo Local / Equipo Visitante se pone el <strong>nombre</strong> del equipo, no un ID. Si un equipo no existe todavía en Equipos, se creará automáticamente.
           </p>
         </div>
 

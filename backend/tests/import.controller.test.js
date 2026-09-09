@@ -118,6 +118,59 @@ describe('Importación masiva · import.controller', () => {
       );
     });
 
+    it('reconoce cabeceras con espacios, guion bajo y acentos ("Equipo Local", "equipo_local")', async () => {
+      mockPlantillaOk();
+      Equipo.findOne.mockResolvedValue({ id: 10 });
+      Jornada.findOne.mockResolvedValue(null);
+      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.create.mockResolvedValue({ id: 200 });
+
+      const fila = {
+        Plantilla: 'Alevin A / 2026/2027',
+        Jornada: 3,
+        Fecha: '01/03/2026',
+        'Equipo Local': 'Atlético Palma',
+        'equipo_visitante': 'Nuevo CF'
+      };
+
+      const { promesa, res } = llamar(ctrl.importar, {
+        params: { recurso: 'jornadas' },
+        body: { filas: [fila] }
+      });
+      await promesa;
+
+      expect(res._json.insertados).toBe(1);
+      expect(res._json.errores).toHaveLength(0);
+      expect(Jornada.create).toHaveBeenCalledWith(
+        expect.objectContaining({ id_equipo_local: 10, id_equipo_visitante: 10 })
+      );
+    });
+
+    it('reconoce las cabeceras cortas "Local" y "Visitante"', async () => {
+      mockPlantillaOk();
+      Equipo.findOne.mockResolvedValue({ id: 10 });
+      Jornada.findOne.mockResolvedValue(null);
+      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.create.mockResolvedValue({ id: 200 });
+
+      const fila = {
+        Plantilla: 'Alevin A / 2026/2027',
+        Jornada: 3,
+        Fecha: '01/03/2026',
+        Local: 'Atlético Palma',
+        Visitante: 'Nuevo CF'
+      };
+
+      const { promesa, res } = llamar(ctrl.importar, {
+        params: { recurso: 'jornadas' },
+        body: { filas: [fila] }
+      });
+      await promesa;
+
+      expect(res._json.insertados).toBe(1);
+      expect(res._json.errores).toHaveLength(0);
+    });
+
     it('crea el equipo si no existe y avisa una sola vez por equipo', async () => {
       mockPlantillaOk();
       // Simula persistencia real: una vez creado, la siguiente búsqueda por el mismo nombre lo encuentra.
