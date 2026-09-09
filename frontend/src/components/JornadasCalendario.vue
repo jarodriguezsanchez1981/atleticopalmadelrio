@@ -195,6 +195,19 @@ function abrirImport() {
   importDialogVisible.value = true;
 }
 
+/** Solo para mostrar en la vista previa: si la celda de fecha llega como
+ * nº de serie de Excel (días desde 1899-12-30), la formatea a DD/MM/YYYY.
+ * El backend hace la misma conversión sobre el valor real al importar. */
+function previewFecha(valor) {
+  if (valor === '' || valor == null) return valor;
+  if (!/^\d+$/.test(String(valor).trim())) return valor;
+  const utcDays = Math.floor(Number(valor) - 25569);
+  const d = new Date(utcDays * 86400 * 1000);
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getUTCFullYear()}`;
+}
+
 function onImportFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -718,7 +731,11 @@ function nombreJugadorEnForm(entry) {
           </div>
           <DataTable :value="importPreview.slice(0, 10)" class="ar-datatable text-sm" scrollable scrollHeight="200px">
             <Column v-for="key of Object.keys(importPreview[0] || {})" :key="key"
-                    :field="key" :header="key" />
+                    :field="key" :header="key">
+              <template v-if="key.trim().toLowerCase() === 'fecha'" #body="{ data }">
+                {{ previewFecha(data[key]) }}
+              </template>
+            </Column>
           </DataTable>
           <p v-if="importPreview.length > 10" class="text-xs text-ink-tertiary">
             Mostrando las 10 primeras filas de {{ importPreview.length }}.
