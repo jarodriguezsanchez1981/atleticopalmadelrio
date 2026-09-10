@@ -16,7 +16,9 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import ProgressBar from 'primevue/progressbar';
 import Message from 'primevue/message';
+import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import * as XLSX from '@e965/xlsx';
 import {
   categoriaCalendarioService, plantillasService, equiposService,
@@ -32,6 +34,7 @@ const PALMA_ID = 73;
 const esMovil = useMediaQuery('(max-width: 639px)');
 const auth = useAuthStore();
 const toast = useToast();
+const confirm = useConfirm();
 
 const plantillas = ref([]);
 const temporadas = ref([]);
@@ -95,6 +98,50 @@ async function cargarTodasJornadas() {
   } finally {
     cargandoTodas.value = false;
   }
+}
+
+const filtroTodasJornadas = ref('');
+
+const todasJornadasFiltradas = computed(() => {
+  const texto = filtroTodasJornadas.value.trim().toLowerCase();
+  if (!texto) return todasJornadas.value;
+  return todasJornadas.value.filter((j) => {
+    const campos = [
+      categoriaNombre(j),
+      String(j.jornada ?? ''),
+      formatoFecha(j.fecha),
+      nombreEquipo(j.id_equipo_local),
+      nombreEquipo(j.id_equipo_visitante)
+    ];
+    return campos.some((c) => String(c).toLowerCase().includes(texto));
+  });
+});
+
+function confirmarEliminarJornada(item) {
+  confirm.require({
+    message: '¿Seguro que quieres eliminar esta jornada? Esta acción no se puede deshacer.',
+    header: 'Confirmar eliminación',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Eliminar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      try {
+        await categoriaCalendarioService.eliminar(item.id);
+        toast.add({ severity: 'success', summary: 'Eliminada', detail: 'Jornada eliminada.', life: 3000 });
+        await cargarNumeros();
+        await cargarTodasJornadas();
+        emitirCambio();
+      } catch (err) {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err.response?.data?.message || 'No se pudo eliminar la jornada.',
+          life: 5000
+        });
+      }
+    }
+  });
 }
 
 async function cargarJornada() {
@@ -564,8 +611,11 @@ function nombreJugadorEnForm(entry) {
     </div>
 
     <div v-if="esCoordinador" class="mt-6">
-      <h3 class="text-sm font-semibold text-club-green mb-2">Todas las jornadas</h3>
-      <DataTable :value="todasJornadas" :loading="cargandoTodas" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
+      <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <h3 class="text-sm font-semibold text-club-green">Todas las jornadas</h3>
+        <InputText v-model="filtroTodasJornadas" placeholder="Buscar..." class="!py-2 w-full sm:w-64" />
+      </div>
+      <DataTable :value="todasJornadasFiltradas" :loading="cargandoTodas" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
                  sortField="fecha" :sortOrder="1" responsiveLayout="scroll" class="ar-datatable">
         <Column field="plantilla.categoria.nombre" header="Categoría" sortable>
           <template #body="{ data }">{{ categoriaNombre(data) }}</template>
@@ -583,10 +633,14 @@ function nombreJugadorEnForm(entry) {
         <Column header="Equipo Visitante">
           <template #body="{ data }">{{ nombreEquipo(data.id_equipo_visitante) }}</template>
         </Column>
-        <Column header="Acciones" style="width: 80px">
+        <Column header="Acciones" style="width: 100px">
           <template #body="{ data }">
-            <Button v-if="puedeEditarPartido(data)" icon="pi pi-pencil" text rounded size="small"
-                    class="!text-club-green" v-tooltip.top="'Editar'" @click="abrirEdicion(data)" />
+            <div class="flex gap-1">
+              <Button v-if="puedeEditarPartido(data)" icon="pi pi-pencil" text rounded size="small"
+                      class="!text-club-green" v-tooltip.top="'Editar'" @click="abrirEdicion(data)" />
+              <Button v-if="puedeEditarPartido(data)" icon="pi pi-trash" text rounded size="small" severity="danger"
+                      v-tooltip.top="'Eliminar'" @click="confirmarEliminarJornada(data)" />
+            </div>
           </template>
         </Column>
         <template #empty>
@@ -824,6 +878,8 @@ function nombreJugadorEnForm(entry) {
         </div>
       </template>
     </Dialog>
+
+    <ConfirmDialog />
   </div>
 </template>
 
