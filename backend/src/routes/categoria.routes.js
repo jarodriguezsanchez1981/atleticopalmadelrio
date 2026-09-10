@@ -10,6 +10,7 @@ const router = Router();
 router.use(authenticate, authorize('categorias'));
 
 router.get('/', ctrl.listar);
+router.post('/reordenar', requireEditar('categorias'), ctrl.reordenar);
 router.get('/:id', ctrl.obtener);
 router.post('/', requireEditar('categorias'), ctrl.crear);
 router.put('/:id', requireEditar('categorias'), ctrl.actualizar);

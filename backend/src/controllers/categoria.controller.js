@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { Categoria, TipoFutbol } = require('../models');
 
 const includes = [
@@ -96,6 +97,21 @@ async function actualizar(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/** A partir de `desde`, suma 1 al orden de todas las categorías con orden >= desde
+ * (hace hueco para insertar/mover una categoría a esa posición). */
+async function reordenar(req, res, next) {
+  try {
+    const { desde } = req.body;
+    if (!Number.isInteger(desde) || desde <= 0) {
+      return res.status(400).json({ message: 'El número desde el que reordenar debe ser un entero positivo.' });
+    }
+    const where = { orden: { [Op.gte]: desde } };
+    const total = await Categoria.count({ where });
+    await Categoria.increment('orden', { by: 1, where });
+    res.json({ message: `Se ha incrementado el orden de ${total} categoría(s).`, afectadas: total });
+  } catch (err) { next(err); }
+}
+
 async function eliminar(req, res, next) {
   try {
     const eliminado = await Categoria.destroy({ where: { id: req.params.id } });
@@ -104,4 +120,4 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+module.exports = { listar, obtener, crear, actualizar, eliminar, reordenar };

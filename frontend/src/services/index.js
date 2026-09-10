@@ -30,7 +30,10 @@ export const materialesService = crudService('materiales');
 export const posicionesService = crudService('posiciones');
 export const delegadosService = crudService('delegados');
 export const coordinadoresService = crudService('coordinadores');
-export const categoriasService = crudService('categorias');
+export const categoriasService = {
+  ...crudService('categorias'),
+  reordenar: (desde) => api.post('/categorias/reordenar', { desde }).then(r => r.data)
+};
 export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
 export const entrenamientosService = crudService('entrenamientos');

@@ -14,6 +14,7 @@ export function createModelMock() {
     findOrCreate: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    increment: vi.fn(),
     destroy: vi.fn(),
     save: vi.fn(),
     scope: vi.fn(),
