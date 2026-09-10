@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Resultado, Entrenamiento, Torneo } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Resultado, Entrenamiento, Torneo, Jornada } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -19,6 +19,7 @@ describe('Sección Partidos · partido.controller', () => {
     Categoria.findOne.mockReset();
     Entrenamiento.count.mockReset();
     Torneo.count.mockReset();
+    Jornada.findOne.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -364,6 +365,49 @@ describe('Sección Partidos · partido.controller', () => {
     expect(partido.id_equipo_local).toBe(8);
     expect(partido.save).toHaveBeenCalled();
     expect(res._json).toEqual({ id: 1, id_equipo_local: 8, id_equipo_visitante: 6, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
+  });
+
+  it('actualizar sincroniza la jornada vinculada al cambiar fecha y equipos', async () => {
+    const partido = {
+      id: 1, id_plantilla: 5, fecha: '2026-01-01T09:00:00', id_equipo_local: 73, id_equipo_visitante: 6,
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    Partido.count.mockResolvedValue(0);
+    Entrenamiento.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    const jornadaVinculada = { id: 20, id_plantilla: 5, fecha: '2026-01-01', hora: '09:00', id_equipo_local: 73, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    Jornada.findOne.mockResolvedValue(jornadaVinculada);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { fecha: '2026-02-20T18:30:00', id_equipo_visitante: 9 }
+    });
+    await promesa;
+
+    expect(Jornada.findOne).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
+    expect(jornadaVinculada.fecha).toBe('2026-02-20');
+    expect(jornadaVinculada.hora).toBe('18:30:00');
+    expect(jornadaVinculada.id_equipo_visitante).toBe(9);
+    expect(jornadaVinculada.save).toHaveBeenCalled();
+  });
+
+  it('actualizar no falla si el partido editado no tiene jornada vinculada', async () => {
+    const partido = { id: 1, id_plantilla: 5, fecha: '2026-01-01T09:00:00', id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    Partido.count.mockResolvedValue(0);
+    Entrenamiento.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Jornada.findOne.mockResolvedValue(null);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { fecha: '2026-02-20T18:30:00' }
+    });
+    await promesa;
+
+    expect(res._status).toBe(200);
   });
 
   it('serialize expone resultado_incidencias desde resultados', async () => {

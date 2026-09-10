@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Entrenamiento, Torneo } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Entrenamiento, Torneo, Jornada } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
@@ -71,6 +71,28 @@ function ctrlDia(fecha) {
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return null;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function horaDe(fecha) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`;
+}
+
+/** Mantiene en sincronía la jornada vinculada (misma plantilla + fecha originales)
+ * cuando se edita un partido directamente: si no se propaga, la jornada se queda
+ * apuntando a la fecha/equipos antiguos y desaparece de "Jornadas". */
+async function sincronizarJornadaVinculada(idPlantillaOriginal, fechaOriginal, partido) {
+  const diaOriginal = ctrlDia(fechaOriginal);
+  if (!diaOriginal) return;
+  const jornada = await Jornada.findOne({ where: { id_plantilla: idPlantillaOriginal, fecha: diaOriginal } });
+  if (!jornada) return;
+  jornada.id_plantilla = partido.id_plantilla;
+  jornada.fecha = ctrlDia(partido.fecha);
+  jornada.hora = horaDe(partido.fecha);
+  jornada.id_equipo_local = partido.id_equipo_local;
+  jornada.id_equipo_visitante = partido.id_equipo_visitante;
+  await jornada.save();
 }
 
 async function existePartidoDia(idPlantilla, fecha, omitirId = null) {
@@ -151,6 +173,8 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
+    const idPlantillaOriginal = partido.id_plantilla;
+    const fechaOriginal = partido.fecha;
     const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias } = req.body;
 
     const idPlantillaFinal = id_plantilla !== undefined ? id_plantilla : partido.id_plantilla;
@@ -194,6 +218,9 @@ async function actualizar(req, res, next) {
     if (id_equipo_visitante !== undefined) partido.id_equipo_visitante = id_equipo_visitante;
     if (incidencias !== undefined) partido.incidencias = incidencias;
     await partido.save();
+    if (id_plantilla !== undefined || fecha !== undefined || id_equipo_local !== undefined || id_equipo_visitante !== undefined) {
+      await sincronizarJornadaVinculada(idPlantillaOriginal, fechaOriginal, partido);
+    }
     if (resultado_incidencias !== undefined) {
       await guardarResultadoIncidencias(partido.id, resultado_incidencias);
     }
