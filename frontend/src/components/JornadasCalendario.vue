@@ -101,11 +101,24 @@ async function cargarTodasJornadas() {
 }
 
 const filtroTodasJornadas = ref('');
+const filtroCategoriaTabla = ref(null);
+const seleccionadasJornadas = ref([]);
+
+const opcionesCategoriaTabla = computed(() => {
+  const vistas = new Map();
+  for (const j of todasJornadas.value) {
+    const cat = j.plantilla?.categoria;
+    if (cat && !vistas.has(cat.id)) vistas.set(cat.id, cat.alias || cat.nombre);
+  }
+  return Array.from(vistas, ([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+});
 
 const todasJornadasFiltradas = computed(() => {
   const texto = filtroTodasJornadas.value.trim().toLowerCase();
-  if (!texto) return todasJornadas.value;
   return todasJornadas.value.filter((j) => {
+    if (filtroCategoriaTabla.value && j.plantilla?.categoria?.id !== filtroCategoriaTabla.value) return false;
+    if (!texto) return true;
     const campos = [
       categoriaNombre(j),
       String(j.jornada ?? ''),
@@ -116,6 +129,47 @@ const todasJornadasFiltradas = computed(() => {
     return campos.some((c) => String(c).toLowerCase().includes(texto));
   });
 });
+
+function eliminarSeleccionadasJornadas() {
+  if (!seleccionadasJornadas.value.length) return;
+  confirm.require({
+    message: `¿Seguro que quieres eliminar ${seleccionadasJornadas.value.length} jornada(s)? Esta acción no se puede deshacer.`,
+    header: 'Confirmar eliminación',
+    icon: 'pi pi-exclamation-triangle',
+    acceptLabel: 'Eliminar',
+    rejectLabel: 'Cancelar',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      const total = seleccionadasJornadas.value.length;
+      let ok = 0;
+      let errorMsg = '';
+      for (const item of [...seleccionadasJornadas.value]) {
+        try {
+          await categoriaCalendarioService.eliminar(item.id);
+          ok += 1;
+        } catch (err) {
+          errorMsg = err.response?.data?.message || '';
+        }
+      }
+      seleccionadasJornadas.value = [];
+      if (ok === total) {
+        toast.add({ severity: 'success', summary: 'Eliminadas', detail: `${total} jornada(s) eliminadas.`, life: 3000 });
+      } else if (ok > 0) {
+        toast.add({ severity: 'warn', summary: 'Eliminación parcial', detail: `${ok} de ${total} eliminadas. ${errorMsg}`.trim(), life: 5000 });
+      } else {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: errorMsg || 'No se pudieron eliminar las jornadas seleccionadas.',
+          life: 5000
+        });
+      }
+      await cargarNumeros();
+      await cargarTodasJornadas();
+      if (ok > 0) emitirCambio();
+    }
+  });
+}
 
 function confirmarEliminarJornada(item) {
   confirm.require({
@@ -613,10 +667,20 @@ function nombreJugadorEnForm(entry) {
     <div v-if="esCoordinador" class="mt-6">
       <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
         <h3 class="text-sm font-semibold text-club-green">Todas las jornadas</h3>
-        <InputText v-model="filtroTodasJornadas" placeholder="Buscar..." class="!py-2 w-full sm:w-64" />
+        <div class="flex items-center gap-2 flex-wrap">
+          <Button v-if="seleccionadasJornadas.length" :label="`Eliminar seleccionadas (${seleccionadasJornadas.length})`"
+                  icon="pi pi-trash" severity="danger" outlined size="small"
+                  class="!text-club-garnet !border-club-garnet/50 hover:!bg-club-garnet/5"
+                  @click="eliminarSeleccionadasJornadas" />
+          <Select v-model="filtroCategoriaTabla" :options="opcionesCategoriaTabla" optionLabel="label" optionValue="value"
+                  placeholder="Filtrar por categoría" showClear class="w-full sm:w-52" />
+          <InputText v-model="filtroTodasJornadas" placeholder="Buscar..." class="!py-2 w-full sm:w-64" />
+        </div>
       </div>
-      <DataTable :value="todasJornadasFiltradas" :loading="cargandoTodas" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
+      <DataTable :value="todasJornadasFiltradas" v-model:selection="seleccionadasJornadas" dataKey="id"
+                 :loading="cargandoTodas" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
                  sortField="fecha" :sortOrder="1" responsiveLayout="scroll" class="ar-datatable">
+        <Column selectionMode="multiple" headerStyle="width: 3rem" />
         <Column field="plantilla.categoria.nombre" header="Categoría" sortable>
           <template #body="{ data }">{{ categoriaNombre(data) }}</template>
         </Column>
