@@ -2,7 +2,7 @@
 /**
  * Vista de calendario en lista (para móvil): eventos de la semana agrupados por día y tipo.
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Button from 'primevue/button';
 import { useMediaQuery } from '../composables/useMediaQuery';
 
@@ -11,7 +11,7 @@ const props = defineProps({
   idCategoria: { type: [Number, String], default: null }
 });
 
-const emit = defineEmits(['event-click', 'date-click']);
+const emit = defineEmits(['event-click', 'date-click', 'semana-change']);
 
 const esMovil = useMediaQuery('(max-width: 639px)');
 const semanaOffset = ref(0);
@@ -60,6 +60,12 @@ const rangoSemana = computed(() => {
 function semanaAnterior() { semanaOffset.value--; }
 function semanaSiguiente() { semanaOffset.value++; }
 function semanaActual() { semanaOffset.value = 0; }
+
+/** Avisa al padre del rango visible para que pueda cargar eventos fuera de su
+ * ventana inicial (la carga inicial solo cubre unos pocos meses). */
+watch(inicioSemana, () => {
+  emit('semana-change', { inicio: inicioSemana.value.toISOString(), fin: finSemana.value.toISOString() });
+});
 
 function grupoDe(e) {
   if (e.tipo === 'partido') return e.jornada ? 'LIGA' : 'AMISTOSO';

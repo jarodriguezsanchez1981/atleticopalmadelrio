@@ -367,16 +367,22 @@ function refrescar() {
   }
 }
 
-async function fetchEventosMobile() {
+/** Ventana actualmente cargada en eventosLista, para saber cuándo hace falta recargar. */
+const rangoMovilCargado = ref({ desde: null, hasta: null });
+let fetchMovilSeq = 0;
+
+async function fetchEventosMobile(centroFecha) {
+  const seq = ++fetchMovilSeq;
   try {
-    const now = new Date();
-    const desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const hasta = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+    const base = centroFecha ? new Date(centroFecha) : new Date();
+    const desde = new Date(base.getFullYear(), base.getMonth() - 1, 1).toISOString();
+    const hasta = new Date(base.getFullYear(), base.getMonth() + 3, 0).toISOString();
     const eventos = await calendarioService.eventos({
       desde,
       hasta,
       id_categoria: filtroCategoria.value || undefined
     });
+    if (seq !== fetchMovilSeq) return; // ya se lanzó una petición más reciente, descartar esta
     const festivos = eventosFestivosFullCalendar(desde, hasta).map(f => ({
       id: f.id,
       tipo: 'festivo',
@@ -386,7 +392,28 @@ async function fetchEventosMobile() {
       categoria: null
     }));
     eventosLista.value = eventos.concat(festivos);
+    rangoMovilCargado.value = { desde, hasta };
   } catch {}
+}
+
+/** La vista de lista móvil solo carga inicialmente unos meses; si el usuario navega
+ * a una semana fuera de esa ventana (con los botones anterior/siguiente), se recarga
+ * centrada en la nueva semana. Debounce para colapsar clics rápidos seguidos, y las
+ * comprobaciones se encolan tras la petición en curso (en vez de lanzarse en paralelo)
+ * para que una respuesta más lenta no pueda pisar a una más rápida y perder el rango
+ * correcto que el usuario realmente está viendo. */
+let semanaChangeTimer = null;
+let fetchMovilPromise = Promise.resolve();
+function onSemanaChangeMovil({ inicio, fin }) {
+  clearTimeout(semanaChangeTimer);
+  semanaChangeTimer = setTimeout(() => {
+    fetchMovilPromise = fetchMovilPromise.then(() => {
+      const { desde, hasta } = rangoMovilCargado.value;
+      if (!desde || new Date(inicio) < new Date(desde) || new Date(fin) > new Date(hasta)) {
+        return fetchEventosMobile(inicio);
+      }
+    });
+  }, 300);
 }
 
 function onFormSaved() {
@@ -620,6 +647,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
         :id-categoria="filtroCategoria"
         @event-click="onEventClickMovil"
         @date-click="onDateClickMovil"
+        @semana-change="onSemanaChangeMovil"
       />
     </div>
 
