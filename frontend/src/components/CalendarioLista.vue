@@ -270,6 +270,13 @@ function lugarEvento(e) {
   padding: 4px 8px;
   margin-bottom: 4px;
 }
+.semana-nav :deep(.p-button) {
+  color: #fff;
+}
+.semana-nav :deep(.p-button:hover) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
 .semana-info {
   display: flex;
   align-items: center;
