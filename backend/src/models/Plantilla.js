@@ -6,6 +6,7 @@ const Plantilla = sequelize.define('Plantilla', {
   id_categoria: { type: DataTypes.INTEGER, allowNull: false },
   id_division: { type: DataTypes.INTEGER, allowNull: true },
   id_coordinador: { type: DataTypes.INTEGER, allowNull: true },
+  codigo_equipo_rfaf: { type: DataTypes.STRING(50), allowNull: true },
   id_temporada: { type: DataTypes.INTEGER, allowNull: false }
 }, {
   tableName: 'plantillas',
