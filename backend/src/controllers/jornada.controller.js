@@ -4,6 +4,14 @@ const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
 const PALMA_ID = 73;
 
+/** Combina la fecha (DATEONLY) y hora (TIME, opcional) de una jornada en el
+ * único campo DATETIME que usa el partido vinculado. */
+function fechaHoraPartido(fecha, hora) {
+  const dia = String(fecha).slice(0, 10);
+  const horaSql = hora ? String(hora).slice(0, 8) : '00:00:00';
+  return `${dia}T${horaSql}`;
+}
+
 const includes = [
   {
     model: Plantilla,
@@ -187,7 +195,7 @@ async function crear(req, res, next) {
     // Crear partido correspondiente para esta jornada
     const idUsuario = req.user?.id;
     await Partido.create({
-      id_plantilla, fecha, id_lugar: null, id_equipo_local, id_equipo_visitante,
+      id_plantilla, fecha: fechaHoraPartido(fecha, hora), id_lugar: null, id_equipo_local, id_equipo_visitante,
       id_usuario: idUsuario, incidencias: null
     });
 
@@ -266,7 +274,7 @@ async function actualizar(req, res, next) {
     // en su fecha/equipos antiguos y el evento parece desaparecer del calendario.
     if (partidoVinculado) {
       partidoVinculado.id_plantilla = item.id_plantilla;
-      partidoVinculado.fecha = item.fecha;
+      partidoVinculado.fecha = fechaHoraPartido(item.fecha, item.hora);
       partidoVinculado.id_equipo_local = item.id_equipo_local;
       partidoVinculado.id_equipo_visitante = item.id_equipo_visitante;
       await partidoVinculado.save();

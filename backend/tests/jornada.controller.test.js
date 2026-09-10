@@ -183,11 +183,30 @@ describe('Sección Jornadas · jornada.controller', () => {
     await promesa;
 
     expect(Partido.findOne).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
-    expect(partidoVinculado.fecha).toBe('2026-02-15');
+    expect(partidoVinculado.fecha).toBe('2026-02-15T18:30');
     expect(partidoVinculado.id_equipo_visitante).toBe(4);
     expect(partidoVinculado.id_equipo_local).toBe(2);
     expect(partidoVinculado.save).toHaveBeenCalled();
     expect(res._status).toBe(200);
+  });
+
+  it('actualizar propaga la hora al partido vinculado aunque no cambie la fecha', async () => {
+    const item = {
+      id: 1, id_plantilla: 5, id_equipo_local: 2, id_equipo_visitante: 3, fecha: '2026-01-01', hora: '10:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const partidoVinculado = { id: 500, id_plantilla: 5, fecha: '2026-01-01T10:00:00', id_equipo_local: 2, id_equipo_visitante: 3, save: vi.fn().mockResolvedValue() };
+    Jornada.findOne.mockResolvedValue(item);
+    Partido.findOne.mockResolvedValue(partidoVinculado);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { hora: '21:00' }
+    });
+    await promesa;
+
+    expect(partidoVinculado.fecha).toBe('2026-01-01T21:00');
+    expect(partidoVinculado.save).toHaveBeenCalled();
   });
 
   it('actualizar no falla si no encuentra el partido vinculado', async () => {
