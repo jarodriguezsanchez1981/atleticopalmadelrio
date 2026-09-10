@@ -161,7 +161,6 @@ const columns = computed(() => [
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false, enDetalle: false },
   { field: 'id_coordinador', header: 'Coordinador', type: 'select', options: opcionesCoordinador, required: false, enDetalle: false },
-  { field: 'codigo_equipo_rfaf', header: 'Código equipo RFAF', type: 'text', required: false, enDetalle: false, enTabla: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
   { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
 ]);
@@ -171,7 +170,6 @@ const emptyItem = {
   id_categoria: null,
   id_division: null,
   id_coordinador: null,
-  codigo_equipo_rfaf: '',
   ids_entrenadores: [],
   ids_delegados: [],
   jugadores: []

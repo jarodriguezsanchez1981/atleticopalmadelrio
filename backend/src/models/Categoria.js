@@ -5,6 +5,7 @@ const Categoria = sequelize.define('Categoria', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   nombre: { type: DataTypes.STRING(100), allowNull: false, unique: true },
   alias: { type: DataTypes.STRING(100), allowNull: true },
+  codigo_equipo_rfaf: { type: DataTypes.STRING(50), allowNull: true },
   id_tipofutbol: { type: DataTypes.INTEGER, allowNull: false },
   id_entrenador: { type: DataTypes.INTEGER, allowNull: true },
   tiempopartido: { type: DataTypes.INTEGER, allowNull: true },

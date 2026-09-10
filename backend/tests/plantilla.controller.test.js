@@ -133,35 +133,10 @@ describe('Sección Plantillas · plantilla.controller', () => {
       id_categoria: 1,
       id_temporada: 1,
       id_division: null,
-      id_coordinador: null,
-      codigo_equipo_rfaf: null
+      id_coordinador: null
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(11);
-  });
-
-  it('crear guarda codigo_equipo_rfaf cuando se indica', async () => {
-    Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
-    Plantilla.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 13, id_categoria: 1, id_temporada: 1, codigo_equipo_rfaf: '48466133' });
-    Plantilla.create.mockResolvedValue({ id: 13 });
-
-    const { promesa, res } = llamar(ctrl.crear, {
-      body: { id_categoria: 1, id_temporada: 1, codigo_equipo_rfaf: '48466133' }
-    });
-
-    await promesa;
-
-    expect(Plantilla.create).toHaveBeenCalledWith({
-      id_categoria: 1,
-      id_temporada: 1,
-      id_division: null,
-      id_coordinador: null,
-      codigo_equipo_rfaf: '48466133'
-    });
-    expect(res._status).toBe(201);
   });
 
   it('crear valida que el coordinador exista', async () => {
@@ -213,8 +188,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
       id_categoria: 1,
       id_temporada: 1,
       id_division: null,
-      id_coordinador: 4,
-      codigo_equipo_rfaf: null
+      id_coordinador: 4
     });
     expect(res._status).toBe(201);
   });
@@ -255,27 +229,6 @@ describe('Sección Plantillas · plantilla.controller', () => {
     await promesa;
 
     expect(plantilla.id_coordinador).toBe(4);
-    expect(plantilla.save).toHaveBeenCalled();
-    expect(res._status).toBe(200);
-  });
-
-  it('actualizar guarda codigo_equipo_rfaf cuando se indica', async () => {
-    const plantilla = { id: 1, id_categoria: 1, id_temporada: 1, id_division: null, id_coordinador: null, codigo_equipo_rfaf: null, save: vi.fn().mockResolvedValue() };
-    const actualizada = { id: 1, jugadores: [], entrenadores: [], delegados: [] };
-    Plantilla.findOne
-      .mockResolvedValueOnce(plantilla)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(actualizada);
-    Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
-
-    const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { codigo_equipo_rfaf: '48466133' }
-    });
-
-    await promesa;
-
-    expect(plantilla.codigo_equipo_rfaf).toBe('48466133');
     expect(plantilla.save).toHaveBeenCalled();
     expect(res._status).toBe(200);
   });
@@ -347,8 +300,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
       id_categoria: 1,
       id_temporada: 1,
       id_division: null,
-      id_coordinador: null,
-      codigo_equipo_rfaf: null
+      id_coordinador: null
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(10);

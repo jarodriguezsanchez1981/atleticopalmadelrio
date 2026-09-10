@@ -90,7 +90,7 @@ describe('Sección Categorías · categoria.controller', () => {
 
     expect(TipoFutbol.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_tipofutbol: 1,
+      nombre: 'Alevín', alias: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
       tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
@@ -108,7 +108,24 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: 'Ali', id_tipofutbol: 1,
+      nombre: 'Alevín', alias: 'Ali', codigo_equipo_rfaf: null, id_tipofutbol: 1,
+      tiempopartido: null, tiempoentrenamiento: null, orden: null
+    });
+    expect(res._status).toBe(201);
+  });
+
+  it('crear guarda codigo_equipo_rfaf si se envía', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    Categoria.create.mockResolvedValue({ id: 8 });
+    Categoria.findOne.mockResolvedValue({ id: 8, codigo_equipo_rfaf: '48466133' });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', codigo_equipo_rfaf: '48466133', id_tipofutbol: 1 }
+    });
+
+    await promesa;
+
+    expect(Categoria.create).toHaveBeenCalledWith({
+      nombre: 'Alevín', alias: null, codigo_equipo_rfaf: '48466133', id_tipofutbol: 1,
       tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
@@ -125,7 +142,7 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_tipofutbol: 1,
+      nombre: 'Alevín', alias: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
       tiempopartido: 90, tiempoentrenamiento: 60, orden: null
     });
     expect(res._status).toBe(201);
@@ -223,6 +240,18 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(categoria.alias).toBe('Nuevo Alias');
+    expect(categoria.save).toHaveBeenCalled();
+  });
+
+  it('actualizar guarda y limpia codigo_equipo_rfaf', async () => {
+    const categoria = { id: 1, nombre: 'Alevín', codigo_equipo_rfaf: null, save: vi.fn().mockResolvedValue() };
+    const actualizada = { id: 1, nombre: 'Alevín', codigo_equipo_rfaf: '48466133' };
+    Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce(actualizada);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { codigo_equipo_rfaf: '48466133' } });
+
+    await promesa;
+
+    expect(categoria.codigo_equipo_rfaf).toBe('48466133');
     expect(categoria.save).toHaveBeenCalled();
   });
 

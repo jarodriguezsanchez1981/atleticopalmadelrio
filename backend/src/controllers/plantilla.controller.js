@@ -198,7 +198,7 @@ async function sincronizarPromociones(plantilla, jugadores) {
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_equipo_rfaf, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados } = req.body;
     if (!id_categoria || !id_temporada) {
       return res.status(400).json({ message: 'Categoría y temporada son obligatorias.' });
     }
@@ -211,8 +211,7 @@ async function crear(req, res, next) {
       id_categoria,
       id_temporada,
       id_division: id_division || null,
-      id_coordinador: id_coordinador || null,
-      codigo_equipo_rfaf: codigo_equipo_rfaf || null
+      id_coordinador: id_coordinador || null
     });
 
     // Asociar jugadores con dorsal y talla
@@ -285,14 +284,13 @@ async function actualizar(req, res, next) {
   try {
     const plantilla = await Plantilla.findOne({ where: { id: req.params.id } });
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
-    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_equipo_rfaf, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados } = req.body;
 
     const nuevos = {
       id_categoria: id_categoria !== undefined ? id_categoria : plantilla.id_categoria,
       id_temporada: id_temporada !== undefined ? id_temporada : plantilla.id_temporada,
       id_division: id_division !== undefined ? (id_division || null) : plantilla.id_division,
-      id_coordinador: id_coordinador !== undefined ? (id_coordinador || null) : plantilla.id_coordinador,
-      codigo_equipo_rfaf: codigo_equipo_rfaf !== undefined ? (codigo_equipo_rfaf || null) : plantilla.codigo_equipo_rfaf
+      id_coordinador: id_coordinador !== undefined ? (id_coordinador || null) : plantilla.id_coordinador
     };
 
     const errorRef = await validarReferencias({ ...nuevos, jugadores, ids_entrenadores, ids_delegados });
