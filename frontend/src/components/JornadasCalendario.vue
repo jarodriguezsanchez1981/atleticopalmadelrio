@@ -66,6 +66,7 @@ async function cargarInit() {
   try {
     await cargarCatalogo();
     await cargarNumeros();
+    await cargarTodasJornadas();
   } finally {
     cargando.value = false;
   }
@@ -77,6 +78,23 @@ async function cargarNumeros() {
   numerosJornada.value = await categoriaCalendarioService.listarNumeros(params);
   if (numPagina.value >= numerosJornada.value.length) numPagina.value = 0;
   await cargarJornada();
+}
+
+/** Listado completo de jornadas (todas las plantillas/categorías), solo para coordinadores. */
+const todasJornadas = ref([]);
+const cargandoTodas = ref(false);
+const esCoordinador = computed(() => auth.rol === 'coordinador');
+
+async function cargarTodasJornadas() {
+  if (!esCoordinador.value) { todasJornadas.value = []; return; }
+  cargandoTodas.value = true;
+  try {
+    const params = {};
+    if (filtroPlantilla.value) params.id_plantilla = filtroPlantilla.value;
+    todasJornadas.value = await categoriaCalendarioService.listar(params);
+  } finally {
+    cargandoTodas.value = false;
+  }
 }
 
 async function cargarJornada() {
@@ -102,13 +120,13 @@ async function cargarJornada() {
 
 onMounted(async () => {
   await cargarInit();
-  unsubCambio = suscribirseCambio(() => { cargarCatalogo(); cargarNumeros(); });
+  unsubCambio = suscribirseCambio(() => { cargarCatalogo(); cargarNumeros(); cargarTodasJornadas(); });
 });
 onBeforeUnmount(() => {
   if (unsubCambio) unsubCambio();
 });
 
-watch(filtroPlantilla, () => cargarNumeros());
+watch(filtroPlantilla, () => { cargarNumeros(); cargarTodasJornadas(); });
 
 const opcionesPlantilla = computed(() =>
   filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value).map(p => ({
@@ -543,6 +561,38 @@ function nombreJugadorEnForm(entry) {
         <Button icon="pi pi-angle-double-right" text rounded size="small"
                 :disabled="numPagina >= totalPaginas - 1" @click="irPagina(totalPaginas - 1)" />
       </div>
+    </div>
+
+    <div v-if="esCoordinador" class="mt-6">
+      <h3 class="text-sm font-semibold text-club-green mb-2">Todas las jornadas</h3>
+      <DataTable :value="todasJornadas" :loading="cargandoTodas" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
+                 sortField="fecha" :sortOrder="1" responsiveLayout="scroll" class="ar-datatable">
+        <Column field="plantilla.categoria.nombre" header="Categoría" sortable>
+          <template #body="{ data }">{{ categoriaNombre(data) }}</template>
+        </Column>
+        <Column field="jornada" header="Jornada" sortable style="width: 90px" />
+        <Column field="fecha" header="Fecha" sortable>
+          <template #body="{ data }">{{ formatoFecha(data.fecha) }}</template>
+        </Column>
+        <Column field="hora" header="Hora" style="width: 80px">
+          <template #body="{ data }">{{ formatoHora(data.hora) }}</template>
+        </Column>
+        <Column header="Equipo Local">
+          <template #body="{ data }">{{ nombreEquipo(data.id_equipo_local) }}</template>
+        </Column>
+        <Column header="Equipo Visitante">
+          <template #body="{ data }">{{ nombreEquipo(data.id_equipo_visitante) }}</template>
+        </Column>
+        <Column header="Acciones" style="width: 80px">
+          <template #body="{ data }">
+            <Button v-if="puedeEditarPartido(data)" icon="pi pi-pencil" text rounded size="small"
+                    class="!text-club-green" v-tooltip.top="'Editar'" @click="abrirEdicion(data)" />
+          </template>
+        </Column>
+        <template #empty>
+          <div class="text-center text-ink-tertiary py-6">No hay jornadas registradas.</div>
+        </template>
+      </DataTable>
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-4xl">
