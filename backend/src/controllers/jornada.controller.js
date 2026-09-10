@@ -242,10 +242,13 @@ async function actualizar(req, res, next) {
     if (observaciones !== undefined) {
       item.observaciones = observaciones || null;
     }
+    // El partido asociado (misma plantilla + fecha originales) se busca siempre,
+    // no solo si cambian id_plantilla/fecha, porque también hay que mantenerlo
+    // sincronizado si solo cambian los equipos.
+    const partidoVinculado = await Partido.findOne({
+      where: { id_plantilla: idPlantillaOriginal, fecha: fechaOriginal }
+    });
     if (id_plantilla !== undefined || fecha !== undefined) {
-      const partidoVinculado = await Partido.findOne({
-        where: { id_plantilla: idPlantillaOriginal, fecha: fechaOriginal }
-      });
       const conflictoTipo = await otroTipoDeEventoMismoDia({
         models: { Entrenamiento, Partido, Torneo },
         idPlantilla: item.id_plantilla,
@@ -258,6 +261,16 @@ async function actualizar(req, res, next) {
       }
     }
     await item.save();
+    // Mantener el partido vinculado (usado por el Calendario) en sincronía con
+    // la jornada: si no se propagan estos cambios, el partido se queda "huérfano"
+    // en su fecha/equipos antiguos y el evento parece desaparecer del calendario.
+    if (partidoVinculado) {
+      partidoVinculado.id_plantilla = item.id_plantilla;
+      partidoVinculado.fecha = item.fecha;
+      partidoVinculado.id_equipo_local = item.id_equipo_local;
+      partidoVinculado.id_equipo_visitante = item.id_equipo_visitante;
+      await partidoVinculado.save();
+    }
     if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
       await guardarJugadores(item.id, jugadores_local, jugadores_visitante);
       await sincronizarSanciones(item, jugadores_local, jugadores_visitante);

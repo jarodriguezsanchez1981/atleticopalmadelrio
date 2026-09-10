@@ -166,6 +166,44 @@ describe('Sección Jornadas · jornada.controller', () => {
     expect(item.save).toHaveBeenCalled();
   });
 
+  it('actualizar sincroniza el partido vinculado al cambiar fecha, hora y equipos', async () => {
+    const item = {
+      id: 1, id_plantilla: 5, id_equipo_local: 2, id_equipo_visitante: 3, fecha: '2026-01-01', hora: '10:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const partidoVinculado = { id: 500, id_plantilla: 5, fecha: '2026-01-01', id_equipo_local: 2, id_equipo_visitante: 3, save: vi.fn().mockResolvedValue() };
+    Jornada.findOne.mockResolvedValue(item);
+    Equipo.findOne.mockResolvedValue({ id: 4 });
+    Partido.findOne.mockResolvedValue(partidoVinculado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { fecha: '2026-02-15', hora: '18:30', id_equipo_visitante: 4 }
+    });
+    await promesa;
+
+    expect(Partido.findOne).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
+    expect(partidoVinculado.fecha).toBe('2026-02-15');
+    expect(partidoVinculado.id_equipo_visitante).toBe(4);
+    expect(partidoVinculado.id_equipo_local).toBe(2);
+    expect(partidoVinculado.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
+  });
+
+  it('actualizar no falla si no encuentra el partido vinculado', async () => {
+    const item = { id: 1, id_plantilla: 5, fecha: '2026-01-01', save: vi.fn().mockResolvedValue() };
+    Jornada.findOne.mockResolvedValue(item);
+    Partido.findOne.mockResolvedValue(null);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { fecha: '2026-02-15' }
+    });
+    await promesa;
+
+    expect(item.fecha).toBe('2026-02-15');
+    expect(res._status).toBe(200);
+  });
+
   it('eliminar borra partidos asociados y la jornada', async () => {
     const jornada = { id: 1, id_plantilla: 5, fecha: '2026-01-01', destroy: vi.fn().mockResolvedValue() };
     Jornada.findOne.mockResolvedValue(jornada);
