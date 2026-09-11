@@ -387,6 +387,7 @@ async function guardar() {
     if (props.tipo === 'entrenamiento') {
       payload.id_lugar = form.value.id_lugar;
       payload.hasta = form.value.hasta ? form.value.hasta.toISOString() : null;
+      payload.recurrente = !!form.value.hasta;
     } else {
       payload.id_equipo_local = form.value.id_equipo_local;
       payload.id_equipo_visitante = form.value.id_equipo_visitante;
@@ -395,12 +396,20 @@ async function guardar() {
       payload.resultado_incidencias = form.value.resultado_incidencias || null;
     }
     const service = props.tipo === 'entrenamiento' ? entrenamientosService : partidosService;
+    let resultado;
     if (props.registroId) {
-      await service.actualizar(props.registroId, payload);
+      resultado = await service.actualizar(props.registroId, payload);
       toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Registro actualizado correctamente.', life: 3000 });
     } else {
-      await service.crear(payload);
+      resultado = await service.crear(payload);
       toast.add({ severity: 'success', summary: 'Creado', detail: 'Registro creado correctamente.', life: 3000 });
+    }
+    if (props.tipo === 'entrenamiento' && resultado?.generados > 1) {
+      let detalle = `Se han generado ${resultado.generados} entrenamientos semanales.`;
+      if (resultado.omitidos?.length) {
+        detalle += ` ${resultado.omitidos.length} semana(s) omitida(s) por tener ya otro evento.`;
+      }
+      toast.add({ severity: 'info', summary: 'Entrenamientos recurrentes', detail: detalle, life: 6000 });
     }
     cerrar();
     emit('saved');

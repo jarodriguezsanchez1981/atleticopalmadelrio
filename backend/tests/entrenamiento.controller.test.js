@@ -107,7 +107,64 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
       id_plantilla: 1, fecha: '2026-01-01', hasta: null, id_lugar: 2, id_usuario: 7, recurrente: 0
     });
     expect(res._status).toBe(201);
-    expect(res._json).toEqual({ id: 5, plantilla: null, lugar: null });
+    expect(res._json).toEqual({ id: 5, plantilla: null, lugar: null, generados: 1, omitidos: [] });
+  });
+
+  it('crear recurrente con fecha límite genera un entrenamiento por cada semana', async () => {
+    const creado = { id: 5 };
+    const completo = { id: 5, plantilla: null, lugar: null };
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: {
+        id_plantilla: 1, fecha: '2026-01-05T18:00:00', id_lugar: 2,
+        recurrente: true, hasta: '2026-01-26T18:00:00'
+      }
+    });
+    await promesa;
+
+    // 05, 12, 19, 26 de enero -> 4 semanas
+    expect(Entrenamiento.create).toHaveBeenCalledTimes(4);
+    expect(Entrenamiento.create).toHaveBeenNthCalledWith(1, {
+      id_plantilla: 1, fecha: '2026-01-05T18:00:00', hasta: '2026-01-26T18:00:00', id_lugar: 2, id_usuario: 7, recurrente: 1
+    });
+    expect(Entrenamiento.create).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      id_plantilla: 1, id_lugar: 2, id_usuario: 7, recurrente: 1
+    }));
+    expect(res._status).toBe(201);
+    expect(res._json.generados).toBe(4);
+    expect(res._json.omitidos).toEqual([]);
+  });
+
+  it('crear recurrente omite semanas donde ya hay otro evento y lo reporta', async () => {
+    const creado = { id: 5 };
+    const completo = { id: 5, plantilla: null, lugar: null };
+    Entrenamiento.count.mockResolvedValueOnce(0); // chequeo inicial: sin conflicto
+    Entrenamiento.count.mockResolvedValueOnce(1); // segunda semana: ya hay entrenamiento
+    Entrenamiento.count.mockResolvedValueOnce(0); // tercera semana: libre
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: {
+        id_plantilla: 1, fecha: '2026-01-05T18:00:00', id_lugar: 2,
+        recurrente: true, hasta: '2026-01-19T18:00:00'
+      }
+    });
+    await promesa;
+
+    expect(Entrenamiento.create).toHaveBeenCalledTimes(2);
+    expect(res._json.generados).toBe(2);
+    expect(res._json.omitidos).toHaveLength(1);
+    expect(res._json.omitidos[0].motivo).toBe('entrenamiento');
   });
 
   it('crear rechaza duplicado: misma plantilla el mismo día', async () => {
@@ -241,7 +298,30 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(entrenamiento.id_lugar).toBe(2);
     expect(entrenamiento.save).toHaveBeenCalled();
-    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null });
+    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [] });
+  });
+
+  it('actualizar genera la serie semanal al marcar recurrente con fecha límite', async () => {
+    const entrenamiento = {
+      id: 1, id_plantilla: 1, id_lugar: 2, fecha: '2026-01-05T18:00:00', recurrente: 0, hasta: null,
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 1, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { recurrente: true, hasta: '2026-01-19T18:00:00' }
+    });
+    await promesa;
+
+    expect(entrenamiento.save).toHaveBeenCalled();
+    // 05, 12, 19 -> 3 semanas, la primera ya existe (es el propio registro editado)
+    expect(Entrenamiento.create).toHaveBeenCalledTimes(2);
+    expect(res._json.generados).toBe(2);
   });
 
   it('eliminar elimina y responde 204', async () => {

@@ -81,8 +81,37 @@ async function crear(req, res, next) {
       recurrente: esRecurrente
     });
 
+    // Recurrente con fecha límite: generar un entrenamiento independiente por cada
+    // semana (mismo día de la semana, misma hora y lugar) hasta esa fecha.
+    let generados = 1;
+    const omitidos = [];
+    if (esRecurrente && hastaFecha) {
+      const siguientesFechas = calcularFechasSemanal(fecha, hastaFecha).slice(1);
+      for (const f of siguientesFechas) {
+        const conflictoSemana = await otroTipoDeEventoMismoDia({
+          models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha: f, tipoActual: null
+        });
+        if (conflictoSemana) {
+          omitidos.push({ fecha: f, motivo: conflictoSemana });
+          continue;
+        }
+        await Entrenamiento.create({
+          id_plantilla,
+          fecha: f,
+          hasta: hastaFecha,
+          id_lugar,
+          id_usuario: req.user?.id || null,
+          recurrente: 1
+        });
+        generados++;
+      }
+    }
+
     const completo = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
-    res.status(201).json(serialize(completo));
+    const respuesta = serialize(completo);
+    respuesta.generados = generados;
+    respuesta.omitidos = omitidos;
+    res.status(201).json(respuesta);
   } catch (err) { next(err); }
 }
 
@@ -111,8 +140,37 @@ async function actualizar(req, res, next) {
     }
     await entrenamiento.save();
 
+    // Si tras la edición queda recurrente con fecha límite, generar (o completar)
+    // la serie semanal; el chequeo de conflicto evita duplicar semanas ya creadas.
+    let generados = 0;
+    const omitidos = [];
+    if (entrenamiento.recurrente && entrenamiento.hasta) {
+      const siguientesFechas = calcularFechasSemanal(entrenamiento.fecha, entrenamiento.hasta).slice(1);
+      for (const f of siguientesFechas) {
+        const conflictoSemana = await otroTipoDeEventoMismoDia({
+          models: { Entrenamiento, Partido, Torneo }, idPlantilla: entrenamiento.id_plantilla, fecha: f, tipoActual: null
+        });
+        if (conflictoSemana) {
+          if (conflictoSemana !== 'entrenamiento') omitidos.push({ fecha: f, motivo: conflictoSemana });
+          continue;
+        }
+        await Entrenamiento.create({
+          id_plantilla: entrenamiento.id_plantilla,
+          fecha: f,
+          hasta: entrenamiento.hasta,
+          id_lugar: entrenamiento.id_lugar,
+          id_usuario: req.user?.id || null,
+          recurrente: 1
+        });
+        generados++;
+      }
+    }
+
     const actualizado = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
-    res.json(serialize(actualizado));
+    const respuesta = serialize(actualizado);
+    respuesta.generados = generados;
+    respuesta.omitidos = omitidos;
+    res.json(respuesta);
   } catch (err) { next(err); }
 }
 
