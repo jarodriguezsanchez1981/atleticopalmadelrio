@@ -67,6 +67,7 @@ const competicionNavItems = computed(() => {
 const adminNavItems = computed(() => {
   const items = [
     { label: 'Administración', icon: 'pi pi-cog', to: '/administracion', seccion: 'administracion' },
+    { label: 'Secciones', icon: 'pi pi-sort-alt', to: '/secciones', seccion: 'administracion' },
     { label: 'Cambios', icon: 'pi pi-history', to: '/cambios', seccion: 'cambios' }
   ];
   return items.filter((item) => auth.puedeVer(item.seccion));

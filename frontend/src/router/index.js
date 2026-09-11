@@ -125,6 +125,12 @@ const routes = [
         meta: { seccion: 'administracion' }
       },
       {
+        path: 'secciones',
+        name: 'secciones',
+        component: () => import('../views/secciones/Secciones.vue'),
+        meta: { seccion: 'administracion' }
+      },
+      {
         path: 'categoria-calendario',
         name: 'categoria-calendario',
         component: () => import('../views/categoriaCalendario/CategoriaCalendario.vue'),
