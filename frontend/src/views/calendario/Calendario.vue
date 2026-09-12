@@ -14,8 +14,6 @@ import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
@@ -49,35 +47,6 @@ const auth = useAuthStore();
 
 const esMovil = useMediaQuery('(max-width: 639px)');
 const eventosLista = ref([]);
-
-const PALMA_ID = 73;
-
-/** Listado completo de partidos, solo para coordinadores. Agrupado primero por
- * los partidos en los que PALMA juega como local, luego por orden de categoría. */
-const esCoordinador = computed(() => auth.rol === 'coordinador');
-const todosPartidos = ref([]);
-const cargandoPartidos = ref(false);
-
-async function cargarTodosPartidos() {
-  if (!esCoordinador.value) { todosPartidos.value = []; return; }
-  cargandoPartidos.value = true;
-  try {
-    todosPartidos.value = await partidosService.listar();
-  } finally {
-    cargandoPartidos.value = false;
-  }
-}
-
-const partidosOrdenados = computed(() => {
-  return [...todosPartidos.value].sort((a, b) => {
-    const localA = Number(a.id_equipo_local) === PALMA_ID ? 0 : 1;
-    const localB = Number(b.id_equipo_local) === PALMA_ID ? 0 : 1;
-    if (localA !== localB) return localA - localB;
-    const ordenA = a.plantilla?.categoria?.orden ?? 999;
-    const ordenB = b.plantilla?.categoria?.orden ?? 999;
-    return ordenA - ordenB;
-  });
-});
 
 const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
@@ -344,13 +313,6 @@ function nuevoDeTipo(tipo) {
   formVisible.value = true;
 }
 
-function abrirEdicionPartido(partido) {
-  formTipo.value = 'partido';
-  formRegistroId.value = partido.id;
-  formFechaDefecto.value = null;
-  formVisible.value = true;
-}
-
 function editarEvento() {
   const e = eventoSeleccionado.value;
   if (!e) return;
@@ -581,7 +543,7 @@ function agruparEventosDidMount(info) {
 
 let unsubCambio = null;
 onMounted(() => {
-  unsubCambio = suscribirseCambio(() => { refrescar(); cargarTodosPartidos(); });
+  unsubCambio = suscribirseCambio(() => refrescar());
 });
 onBeforeUnmount(() => {
   if (unsubCambio) unsubCambio();
@@ -630,7 +592,6 @@ const calendarOptions = {
 onMounted(async () => {
   categorias.value = await categoriasService.listar();
   if (esMovil.value) fetchEventosMobile();
-  await cargarTodosPartidos();
 });
 
 watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(); });
@@ -688,48 +649,6 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
         @date-click="onDateClickMovil"
         @semana-change="onSemanaChangeMovil"
       />
-    </div>
-
-    <div v-if="esCoordinador" class="mt-6">
-      <h3 class="text-sm font-semibold text-club-green mb-2">Todos los partidos</h3>
-      <DataTable :value="partidosOrdenados" :loading="cargandoPartidos" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
-                 responsiveLayout="scroll" class="ar-datatable">
-        <Column header="Categoría">
-          <template #body="{ data }">{{ data.plantilla?.categoria?.alias || data.plantilla?.categoria?.nombre || '—' }}</template>
-        </Column>
-        <Column header="Fecha">
-          <template #body="{ data }">{{ data.fecha ? new Date(data.fecha).toLocaleDateString('es-ES') : '—' }}</template>
-        </Column>
-        <Column header="Hora">
-          <template #body="{ data }">{{ formatearHora(data.fecha) }}</template>
-        </Column>
-        <Column header="Local">
-          <template #body="{ data }">
-            <span :class="{ 'font-semibold text-club-green': Number(data.id_equipo_local) === PALMA_ID }">
-              {{ data.equipoLocal?.nombre || '—' }}
-            </span>
-          </template>
-        </Column>
-        <Column header="Visitante">
-          <template #body="{ data }">
-            <span :class="{ 'font-semibold text-club-green': Number(data.id_equipo_visitante) === PALMA_ID }">
-              {{ data.equipoVisitante?.nombre || '—' }}
-            </span>
-          </template>
-        </Column>
-        <Column header="Lugar">
-          <template #body="{ data }">{{ data.lugar?.nombre || '—' }}</template>
-        </Column>
-        <Column header="Acciones" style="width: 80px">
-          <template #body="{ data }">
-            <Button icon="pi pi-pencil" text rounded size="small" class="!text-club-green"
-                    v-tooltip.top="'Editar'" @click="abrirEdicionPartido(data)" />
-          </template>
-        </Column>
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-6">No hay partidos registrados.</div>
-        </template>
-      </DataTable>
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-md">
