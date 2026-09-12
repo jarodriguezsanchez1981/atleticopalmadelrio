@@ -18,7 +18,7 @@ const includesBase = [
     model: Plantilla,
     as: 'plantilla',
     attributes: ['id', 'id_categoria', 'id_temporada'],
-    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }]
+    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento', 'orden'] }]
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },

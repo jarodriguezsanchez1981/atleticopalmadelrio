@@ -40,6 +40,18 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._json[0]).toEqual({ id: 1, id_equipo_local: 5, id_equipo_visitante: 6 });
   });
 
+  it('listar incluye el orden de la categoría (para poder agrupar por categoría en el listado)', async () => {
+    Partido.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar);
+
+    await promesa;
+
+    const { include } = Partido.findAll.mock.calls[0][0];
+    const plantillaInclude = include.find((i) => i.as === 'plantilla');
+    const categoriaInclude = plantillaInclude.include.find((i) => i.as === 'categoria');
+    expect(categoriaInclude.attributes).toContain('orden');
+  });
+
   it('listar filtra por categoría para un entrenador', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa } = llamar(ctrl.listar, {
