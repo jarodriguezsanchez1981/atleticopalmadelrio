@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
+import Message from 'primevue/message';
 import { useToast } from 'primevue/usetoast';
 import { equiposService } from '../../services';
 import { OPCIONES_COLOR } from '../../utils/coloresEquipacion';
@@ -9,6 +10,11 @@ import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
 
 const toast = useToast();
 const dtRef = ref();
+const errorEliminar = ref(null);
+
+function onDeleteError(data) {
+  errorEliminar.value = data;
+}
 
 const columns = [
   { field: 'escudo', header: 'Escudo', type: 'image' },
@@ -81,6 +87,7 @@ async function copiarDireccion(parte) {
     :service="equiposService"
     :emptyItem="emptyItem"
     @data-loaded="descargarEscudosExternos"
+    @delete-error="onDeleteError"
   >
     <template #cell-equipacion="{ data }">
       <div v-if="data.camiseta || data.calzonas || data.medias" class="flex items-center gap-2">
@@ -167,5 +174,19 @@ async function copiarDireccion(parte) {
       </div>
     </template>
   </CrudDataTable>
+
+  <Message v-if="errorEliminar" severity="error" :closable="true" @close="errorEliminar = null" class="mt-3">
+    <div class="space-y-2">
+      <p class="font-medium">{{ errorEliminar.message || 'No se pudo eliminar el equipo.' }}</p>
+      <div v-for="(bloq, i) in errorEliminar.bloqueantes" :key="i" class="text-sm">
+        <p class="text-ink-tertiary">
+          Registros en <strong>{{ bloq.tabla }}</strong> ({{ bloq.campo }}) que impiden el borrado:
+        </p>
+        <ul class="list-disc list-inside mt-1">
+          <li v-for="(linea, j) in bloq.detalle" :key="j">{{ linea }}</li>
+        </ul>
+      </div>
+    </div>
+  </Message>
 </SectionGuard>
 </template>

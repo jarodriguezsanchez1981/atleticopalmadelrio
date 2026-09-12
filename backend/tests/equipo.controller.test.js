@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Equipo } from './helpers/models.js';
+import { Equipo, Partido } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/equipo.controller.js';
@@ -10,6 +10,8 @@ describe('Sección Equipos · equipo.controller', () => {
     Equipo.findOne.mockReset();
     Equipo.create.mockReset();
     Equipo.destroy.mockReset();
+    Partido.findAll.mockReset();
+    Partido.findAll.mockResolvedValue([]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -162,5 +164,36 @@ describe('Sección Equipos · equipo.controller', () => {
     await promesa;
 
     expect(res._status).toBe(404);
+  });
+
+  it('eliminar rechaza con el detalle de los partidos que usan el equipo', async () => {
+    Partido.findAll.mockResolvedValue([
+      {
+        id: 10, id_equipo_local: 73, id_equipo_visitante: 5, fecha: '2026-09-13',
+        plantilla: { categoria: { nombre: 'Alevin A' }, temporada: { nombre: '2026/2027' } }
+      },
+      {
+        id: 11, id_equipo_local: 5, id_equipo_visitante: 73, fecha: '2026-09-20',
+        plantilla: { categoria: { nombre: 'Benjamin A' }, temporada: { nombre: '2026/2027' } }
+      }
+    ]);
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '5' } });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('No se puede eliminar: hay 2 partido(s) que usan este equipo.');
+    expect(res._json.bloqueantes).toEqual([
+      {
+        tabla: 'partidos',
+        campo: 'id_equipo_local / id_equipo_visitante',
+        cantidad: 2,
+        detalle: [
+          'Alevin A (2026/2027) · 2026-09-13 · como visitante',
+          'Benjamin A (2026/2027) · 2026-09-20 · como local'
+        ]
+      }
+    ]);
+    expect(Equipo.destroy).not.toHaveBeenCalled();
   });
 });

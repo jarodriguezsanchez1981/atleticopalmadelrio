@@ -47,7 +47,7 @@ const props = defineProps({
   seccion: { type: String, default: null }
 });
 
-const emit = defineEmits(['changed', 'data-loaded']);
+const emit = defineEmits(['changed', 'data-loaded', 'delete-error']);
 
 const permisoCrear = computed(() => props.canCreate && auth.puedeCrear(props.seccion));
 const permisoEditar = computed(() => props.canEdit && auth.puedeEditar(props.seccion));
@@ -596,6 +596,7 @@ function confirmarEliminar(item) {
       try {
         await props.service.eliminar(item.id);
         toast.add({ severity: 'success', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });
+        emit('delete-error', null);
         await cargar();
         emitirCambio();
       } catch (err) {
@@ -605,6 +606,7 @@ function confirmarEliminar(item) {
           detail: err.response?.data?.message || 'No se pudo eliminar el registro.',
           life: 5000
         });
+        emit('delete-error', err.response?.data || { message: err.message });
       }
     }
   });

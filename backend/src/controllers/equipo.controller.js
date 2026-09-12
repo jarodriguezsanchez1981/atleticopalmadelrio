@@ -1,4 +1,5 @@
-const { Equipo } = require('../models');
+const { Op } = require('sequelize');
+const { Equipo, Partido, Plantilla, Categoria, Temporada } = require('../models');
 const { descargar } = require('./util.controller');
 
 async function listar(req, res, next) {
@@ -54,9 +55,44 @@ async function actualizar(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/** Busca los partidos (única FK real que bloquea el borrado de un equipo) que
+ * referencian este equipo como local o visitante, para poder explicar el
+ * motivo exacto si el borrado no es posible. */
+async function buscarPartidosBloqueantes(idEquipo) {
+  return Partido.findAll({
+    where: { [Op.or]: [{ id_equipo_local: idEquipo }, { id_equipo_visitante: idEquipo }] },
+    include: [{
+      model: Plantilla,
+      as: 'plantilla',
+      attributes: ['id'],
+      include: [
+        { model: Categoria, as: 'categoria', attributes: ['nombre'] },
+        { model: Temporada, as: 'temporada', attributes: ['nombre'] }
+      ]
+    }],
+    order: [['fecha', 'ASC']],
+    limit: 30
+  });
+}
+
 async function eliminar(req, res, next) {
   try {
-    const eliminado = await Equipo.destroy({ where: { id: req.params.id } });
+    const idEquipo = req.params.id;
+    const partidosVinculados = await buscarPartidosBloqueantes(idEquipo);
+    if (partidosVinculados.length) {
+      const detalle = partidosVinculados.map((p) => {
+        const rol = Number(p.id_equipo_local) === Number(idEquipo) ? 'local' : 'visitante';
+        const categoria = p.plantilla?.categoria?.nombre || '—';
+        const temporada = p.plantilla?.temporada?.nombre || '—';
+        const fecha = p.fecha ? new Date(p.fecha).toISOString().slice(0, 10) : '—';
+        return `${categoria} (${temporada}) · ${fecha} · como ${rol}`;
+      });
+      return res.status(409).json({
+        message: `No se puede eliminar: hay ${partidosVinculados.length} partido(s) que usan este equipo.`,
+        bloqueantes: [{ tabla: 'partidos', campo: 'id_equipo_local / id_equipo_visitante', cantidad: partidosVinculados.length, detalle }]
+      });
+    }
+    const eliminado = await Equipo.destroy({ where: { id: idEquipo } });
     if (!eliminado) return res.status(404).json({ message: 'Equipo no encontrado.' });
     res.status(204).send();
   } catch (err) { next(err); }
