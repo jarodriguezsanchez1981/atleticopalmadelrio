@@ -20,6 +20,7 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import * as XLSX from '@e965/xlsx';
+import EquipacionPrenda from './EquipacionPrenda.vue';
 import {
   categoriaCalendarioService, plantillasService, equiposService,
   jugadoresService, equiposJugadoresService, temporadasService
@@ -270,6 +271,18 @@ function nombreEquipo(id) {
 
 function escudoEquipo(id) {
   return equipos.value.find(e => e.id === id)?.escudo || null;
+}
+
+function camisetaEquipo(id) {
+  return equipos.value.find(e => e.id === id)?.camiseta || null;
+}
+
+function calzonasEquipo(id) {
+  return equipos.value.find(e => e.id === id)?.calzonas || null;
+}
+
+function mediasEquipo(id) {
+  return equipos.value.find(e => e.id === id)?.medias || null;
 }
 
 function formatoFecha(fecha) {
@@ -628,12 +641,22 @@ function nombreJugadorEnForm(entry) {
                 <img v-if="escudoEquipo(partido.id_equipo_local)" :src="escudoEquipo(partido.id_equipo_local)"
                      alt="" class="equipo-escudo" />
                 <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</span>
+                <div class="equipo-kit">
+                  <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_local)" :size="16" />
+                  <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_local)" :size="16" />
+                  <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_local)" :size="16" />
+                </div>
               </div>
               <div class="partido-vs">vs</div>
               <div class="equipo">
                 <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
                      alt="" class="equipo-escudo" />
                 <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</span>
+                <div class="equipo-kit">
+                  <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_visitante)" :size="16" />
+                  <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_visitante)" :size="16" />
+                  <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_visitante)" :size="16" />
+                </div>
               </div>
             </div>
             <div v-if="categoriaNombre(partido)" class="partido-categoria">
@@ -1024,6 +1047,12 @@ function nombreJugadorEnForm(entry) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.equipo-kit {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 .partido-vs {
   font-size: 0.65rem;
