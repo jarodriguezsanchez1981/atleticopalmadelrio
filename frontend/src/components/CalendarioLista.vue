@@ -98,7 +98,15 @@ const dias = computed(() => {
     .sort((a, b) => a.clave.localeCompare(b.clave))
     .map((g) => {
       const grupos = new Map();
-      for (const item of [...g.items].sort((a, b) => new Date(a.inicio || a.fecha) - new Date(b.inicio || b.fecha))) {
+      const itemsOrdenados = [...g.items].sort((a, b) => {
+        const porHora = new Date(a.inicio || a.fecha) - new Date(b.inicio || b.fecha);
+        if (porHora !== 0) return porHora;
+        // A igualdad de hora, los partidos en los que PALMA juega como local van primero.
+        const localA = a.tipo === 'partido' && a.es_local ? 0 : 1;
+        const localB = b.tipo === 'partido' && b.es_local ? 0 : 1;
+        return localA - localB;
+      });
+      for (const item of itemsOrdenados) {
         const grp = grupoDe(item);
         if (!grupos.has(grp)) grupos.set(grp, []);
         grupos.get(grp).push(item);

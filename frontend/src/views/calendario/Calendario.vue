@@ -193,24 +193,14 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
       id_categoria: filtroCategoria.value || undefined
     });
 
-    const gruposPorDia = new Map();
     const conGrupo = eventos.map(e => {
       const miGrupo = e.tipo === 'partido'
         ? (e.jornada ? 'LIGA' : 'AMISTOSO')
         : (e.tipo === 'torneo' ? 'TORNEO' : 'ENTRENAMIENTO');
-      const miGrupoOrden = { LIGA: 1, AMISTOSO: 2, TORNEO: 3, ENTRENAMIENTO: 4 }[miGrupo];
-      const diaKey = String(e.inicio || '').slice(0, 10);
-      const key = `${diaKey}__${miGrupo}`;
-      let bucket = gruposPorDia.get(key);
-      if (!bucket) {
-        bucket = { firstId: null, firstInicio: null };
-        gruposPorDia.set(key, bucket);
-      }
-      const inicio = e.inicio ? new Date(e.inicio).getTime() : Infinity;
-      if (bucket.firstInicio == null || inicio < bucket.firstInicio) {
-        bucket.firstInicio = inicio;
-        bucket.firstId = e.id;
-      }
+      // Los partidos (liga o amistoso) se agrupan juntos por hora, con los partidos en los
+      // que PALMA juega como local por delante; torneos y entrenamientos van después, como hasta ahora.
+      const grupoOrden = { LIGA: 1, AMISTOSO: 1, TORNEO: 2, ENTRENAMIENTO: 3 }[miGrupo];
+      const esLocalOrden = e.tipo === 'partido' ? (e.es_local ? 0 : 1) : 0;
       return {
         id: e.id,
         title: e.titulo,
@@ -218,15 +208,33 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
         color: e.tipo === 'partido' ? COLOR_PARTIDO : (e.tipo === 'torneo' ? COLOR_TORNEO : COLOR_ENTRENAMIENTO),
         extendedProps: e,
         miGrupo,
-        miGrupoOrden
+        grupoOrden,
+        esLocalOrden
       };
     });
+
+    // Cabecera de grupo (LIGA/AMISTOSO/TORNEO/ENTRENAMIENTO): se marca sobre el primer evento
+    // de cada (día, tipo) según el mismo orden con el que FullCalendar los va a pintar
+    // (eventOrder: 'grupoOrden,start,esLocalOrden'), para que la cabecera caiga siempre
+    // en el evento que realmente se ve primero, incluso con varios partidos a la misma hora.
+    const ordenados = [...conGrupo].sort((a, b) => {
+      if (a.grupoOrden !== b.grupoOrden) return a.grupoOrden - b.grupoOrden;
+      const ta = a.start ? new Date(a.start).getTime() : Infinity;
+      const tb = b.start ? new Date(b.start).getTime() : Infinity;
+      if (ta !== tb) return ta - tb;
+      return a.esLocalOrden - b.esLocalOrden;
+    });
+    const primerPorGrupo = new Map();
+    for (const ev of ordenados) {
+      const diaKey = String(ev.start || '').slice(0, 10);
+      const key = `${diaKey}__${ev.miGrupo}`;
+      if (!primerPorGrupo.has(key)) primerPorGrupo.set(key, ev.id);
+    }
 
     const mapeados = conGrupo.map(ev => {
       const diaKey = String(ev.start || '').slice(0, 10);
       const key = `${diaKey}__${ev.miGrupo}`;
-      const bucket = gruposPorDia.get(key);
-      const esPrimeroGrupo = bucket && bucket.firstId === ev.id;
+      const esPrimeroGrupo = primerPorGrupo.get(key) === ev.id;
       ev.extendedProps = { ...ev.extendedProps, esPrimeroGrupo, miGrupo: ev.miGrupo };
       return ev;
     });
@@ -586,7 +594,7 @@ const calendarOptions = {
   selectable: false,
   dayMaxEvents: false,
   fixedWeekCount: false,
-  eventOrder: 'miGrupoOrden,start'
+  eventOrder: 'grupoOrden,start,esLocalOrden'
 };
 
 onMounted(async () => {
