@@ -191,7 +191,13 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.seccion && !auth.puedeVer(to.meta.seccion)) {
-    return { name: auth.primeraSeccion };
+    const destino = auth.primeraSeccion;
+    // Si el usuario no tiene ninguna sección permitida, `primeraSeccion` cae en el
+    // valor por defecto ('calendario') aunque tampoco tenga permiso para verlo: redirigir
+    // ahí formaría un bucle infinito de redirecciones que congela la pestaña. En ese caso
+    // se deja pasar la navegación: SectionGuard se encarga de mostrar el aviso de "sin permiso".
+    if (destino === to.name) return true;
+    return { name: destino };
   }
 
   return true;
