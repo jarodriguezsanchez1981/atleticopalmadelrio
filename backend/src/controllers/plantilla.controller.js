@@ -1,4 +1,4 @@
-const { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Jornada, JornadaJugador } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Partido, PartidoJugador } = require('../models');
 
 const includes = [
   { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'orden'] },
@@ -48,16 +48,16 @@ async function adjuntarPosiciones(plantillas) {
   return plantillas;
 }
 
-/** Cuenta, por jugador, cuántas veces ha sido convocado (jornada_jugadores) en una
+/** Cuenta, por jugador, cuántas veces ha sido convocado (partido_jugadores) en una
  * categoría superior (orden mayor) a la indicada. */
 async function contarVecesConvocadoSuperior(idsJugadores, ordenActual) {
   const mapa = new Map();
   if (!idsJugadores.length || ordenActual == null) return mapa;
-  const registros = await JornadaJugador.findAll({
+  const registros = await PartidoJugador.findAll({
     where: { id_jugador: idsJugadores },
     include: [{
-      model: Jornada,
-      as: 'jornada',
+      model: Partido,
+      as: 'partido',
       attributes: ['id'],
       required: true,
       include: [{
@@ -70,7 +70,7 @@ async function contarVecesConvocadoSuperior(idsJugadores, ordenActual) {
     }]
   });
   registros.forEach((r) => {
-    const orden = r.jornada?.plantilla?.categoria?.orden;
+    const orden = r.partido?.plantilla?.categoria?.orden;
     if (orden == null || Number(orden) <= Number(ordenActual)) return;
     mapa.set(r.id_jugador, (mapa.get(r.id_jugador) || 0) + 1);
   });

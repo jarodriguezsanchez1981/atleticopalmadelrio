@@ -56,7 +56,7 @@ export function createModelsMock() {
     PlantillaEntrenador: createModelMock(),
     PlantillaDelegado: createModelMock(),
     Jornada: createModelMock(),
-    JornadaJugador: createModelMock(),
+    PartidoJugador: createModelMock(),
     Sancion: createModelMock(),
     Torneo: createModelMock(),
     Cambio: createModelMock(),
@@ -98,7 +98,7 @@ export const PlantillaJugador = models.PlantillaJugador;
 export const PlantillaEntrenador = models.PlantillaEntrenador;
 export const PlantillaDelegado = models.PlantillaDelegado;
 export const Jornada = models.Jornada;
-export const JornadaJugador = models.JornadaJugador;
+export const PartidoJugador = models.PartidoJugador;
 export const Sancion = models.Sancion;
 export const Torneo = models.Torneo;
 export const Cambio = models.Cambio;

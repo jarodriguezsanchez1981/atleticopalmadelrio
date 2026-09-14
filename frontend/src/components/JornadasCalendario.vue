@@ -435,7 +435,7 @@ async function abrirEdicion(item) {
   form.observaciones = item.observaciones || '';
   const local = [];
   const visitante = [];
-  (item.jornadaJugadores || []).forEach(jj => {
+  (item.partidoJugadores || []).forEach(jj => {
     const entrada = {
       id_jugador: jj.id_jugador ?? null,
       id_equipo_jugador: jj.id_equipo_jugador ?? null,

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Jornada, JornadaJugador, Plantilla, Equipo, Partido, Sancion } from './helpers/models.js';
+import { Jornada, PartidoJugador, Plantilla, Equipo, Partido, Sancion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/jornada.controller.js';
@@ -10,8 +10,8 @@ describe('Sección Jornadas · jornada.controller', () => {
     Jornada.findOne.mockReset();
     Jornada.create.mockReset();
     Jornada.destroy.mockReset();
-    JornadaJugador.destroy.mockReset();
-    JornadaJugador.bulkCreate.mockReset();
+    PartidoJugador.destroy.mockReset();
+    PartidoJugador.bulkCreate.mockReset();
     Plantilla.findOne.mockReset();
     Equipo.findOne.mockReset();
     Partido.create.mockReset();
@@ -42,6 +42,15 @@ describe('Sección Jornadas · jornada.controller', () => {
     const { promesa, res } = llamar(ctrl.obtener, { params: { id: '99' } });
     await promesa;
     expect(res._status).toBe(404);
+  });
+
+  it('obtener aplana partido.partidoJugadores a un array partidoJugadores de nivel superior', async () => {
+    const convocados = [{ id_jugador: 5, es_local: true, goles: 1 }];
+    Jornada.findOne.mockResolvedValue({ id: 1, partido: { id: 500, partidoJugadores: convocados } });
+    const { promesa, res } = llamar(ctrl.obtener, { params: { id: '1' } });
+    await promesa;
+    expect(res._json.partidoJugadores).toEqual(convocados);
+    expect(res._json.partido).toBeUndefined();
   });
 
   it('crear valida campos obligatorios', async () => {
@@ -85,6 +94,7 @@ describe('Sección Jornadas · jornada.controller', () => {
       .mockResolvedValueOnce(null)   // duplicado: ninguno
       .mockResolvedValueOnce({ id: 10, jornada: 1 }); // respuesta
     Jornada.create.mockResolvedValue({ id: 10 });
+    Partido.create.mockResolvedValue({ id: 500 });
 
     const { promesa, res } = llamar(ctrl.crear, {
       body: { id_plantilla: 1, id_equipo_local: 2, id_equipo_visitante: 3, jornada: 1, fecha: '2026-01-01' }
@@ -104,6 +114,7 @@ describe('Sección Jornadas · jornada.controller', () => {
       .mockResolvedValueOnce(null)   // duplicado: ninguno
       .mockResolvedValueOnce({ id: 10, jornada: 1 }); // respuesta
     Jornada.create.mockResolvedValue({ id: 10 });
+    Partido.create.mockResolvedValue({ id: 500 });
 
     const { promesa, res } = llamar(ctrl.crear, {
       body: {
@@ -114,11 +125,11 @@ describe('Sección Jornadas · jornada.controller', () => {
     });
     await promesa;
 
-    expect(JornadaJugador.destroy).toHaveBeenCalledWith({ where: { id_jornada: 10 } });
-    expect(JornadaJugador.bulkCreate).toHaveBeenCalledWith(
+    expect(PartidoJugador.destroy).toHaveBeenCalledWith({ where: { id_partido: 500 } });
+    expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ id_jornada: 10, id_jugador: 5, es_local: true, tarjeta_amarilla: 1, goles: 2 }),
-        expect.objectContaining({ id_jornada: 10, id_jugador: 6, es_local: false, tarjeta_roja: 1 })
+        expect.objectContaining({ id_partido: 500, id_jugador: 5, es_local: true, tarjeta_amarilla: 1, goles: 2 }),
+        expect.objectContaining({ id_partido: 500, id_jugador: 6, es_local: false, tarjeta_roja: 1 })
       ]),
       { ignoreDuplicates: true }
     );
@@ -132,6 +143,7 @@ describe('Sección Jornadas · jornada.controller', () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: 10, jornada: 1 });
     Jornada.create.mockResolvedValue({ id: 10, id_plantilla: 1, fecha: '2026-01-01', id_equipo_local: 73, id_equipo_visitante: 3 });
+    Partido.create.mockResolvedValue({ id: 500 });
     Partido.findOne.mockResolvedValue({ id: 500 });
     Sancion.findOne.mockResolvedValue(null);
 

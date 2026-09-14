@@ -1,4 +1,4 @@
-const { Jornada, JornadaJugador, Equipo, EquipoJugador, Plantilla, Categoria, Temporada, Partido, Jugador, Sancion, Entrenamiento, Torneo } = require('../models');
+const { Jornada, PartidoJugador, Equipo, EquipoJugador, Plantilla, Categoria, Temporada, Partido, Jugador, Sancion, Entrenamiento, Torneo } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
@@ -10,6 +10,26 @@ function fechaHoraPartido(fecha, hora) {
   const dia = String(fecha).slice(0, 10);
   const horaSql = hora ? String(hora).slice(0, 8) : '00:00:00';
   return `${dia}T${horaSql}`;
+}
+
+/** Los convocados/tarjetas/goles se guardan en partido_jugadores, colgados del
+ * partido vinculado a la jornada (no de la jornada directamente), así que hay que
+ * atravesar esa relación para leerlos. */
+function includePartidoJugadores() {
+  return {
+    model: Partido,
+    as: 'partido',
+    attributes: ['id'],
+    include: [{
+      model: PartidoJugador,
+      as: 'partidoJugadores',
+      attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles'],
+      include: [
+        { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
+        { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }
+      ]
+    }]
+  };
 }
 
 const includes = [
@@ -31,15 +51,7 @@ const includes = [
     as: 'equipoVisitante',
     attributes: ['id', 'nombre']
   },
-  {
-    model: JornadaJugador,
-    as: 'jornadaJugadores',
-    attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles'],
-    include: [
-      { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
-      { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }
-    ]
-  }
+  includePartidoJugadores()
 ];
 
 /** Detalle: incluye escudo de los equipos para la vista de detalle. */
@@ -54,24 +66,26 @@ const includesDetalle = [
   },
   { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo'] },
   { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo'] },
-  {
-    model: JornadaJugador,
-    as: 'jornadaJugadores',
-    attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles'],
-    include: [
-      { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
-      { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }
-    ]
-  }
+  includePartidoJugadores()
 ];
 
-/** Guarda los jugadores convocados de una jornada (local y visitante). */
-async function guardarJugadores(idJornada, jugadoresLocal, jugadoresVisitante) {
-  await JornadaJugador.destroy({ where: { id_jornada: idJornada } });
+/** Aplana partido.partidoJugadores a un array partidoJugadores de nivel superior
+ * (la forma que ya esperaba el frontend cuando colgaba directamente de la jornada). */
+function serializeJornada(item) {
+  if (!item) return item;
+  const json = item.toJSON ? item.toJSON() : item;
+  json.partidoJugadores = json.partido?.partidoJugadores || [];
+  delete json.partido;
+  return json;
+}
+
+/** Guarda los jugadores convocados (local y visitante) del partido vinculado a una jornada. */
+async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
+  await PartidoJugador.destroy({ where: { id_partido: idPartido } });
   const filas = [];
   const anadir = (j, esLocal) => {
     filas.push({
-      id_jornada: idJornada,
+      id_partido: idPartido,
       id_jugador: j.id_jugador ?? null,
       id_equipo_jugador: j.id_equipo_jugador ?? null,
       es_local: esLocal,
@@ -83,7 +97,7 @@ async function guardarJugadores(idJornada, jugadoresLocal, jugadoresVisitante) {
   (jugadoresLocal || []).forEach((j) => anadir(j, true));
   (jugadoresVisitante || []).forEach((j) => anadir(j, false));
   if (filas.length) {
-    await JornadaJugador.bulkCreate(filas, { ignoreDuplicates: true });
+    await PartidoJugador.bulkCreate(filas, { ignoreDuplicates: true });
   }
 }
 
@@ -137,7 +151,7 @@ async function listar(req, res, next) {
       include: includesConCategoria(includes, categoriaDelUsuario(req)),
       order: [['fecha', 'ASC'], ['jornada', 'ASC']]
     });
-    res.json(items);
+    res.json(items.map(serializeJornada));
   } catch (err) { next(err); }
 }
 
@@ -148,7 +162,7 @@ async function obtener(req, res, next) {
       include: includesDetalle
     });
     if (!item) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
-    res.json(item);
+    res.json(serializeJornada(item));
   } catch (err) { next(err); }
 }
 
@@ -194,16 +208,16 @@ async function crear(req, res, next) {
 
     // Crear partido correspondiente para esta jornada
     const idUsuario = req.user?.id;
-    await Partido.create({
+    const partidoCreado = await Partido.create({
       id_plantilla, id_jornada: creado.id, fecha: fechaHoraPartido(fecha, hora), id_lugar: null, id_equipo_local, id_equipo_visitante,
       id_usuario: idUsuario, incidencias: null
     });
 
-    await guardarJugadores(creado.id, jugadores_local, jugadores_visitante);
+    await guardarJugadores(partidoCreado.id, jugadores_local, jugadores_visitante);
     await sincronizarSanciones(creado, jugadores_local, jugadores_visitante);
 
     const respuesta = await Jornada.findOne({ where: { id: creado.id }, include: includes });
-    res.status(201).json(respuesta);
+    res.status(201).json(serializeJornada(respuesta));
   } catch (err) { next(err); }
 }
 
@@ -275,12 +289,12 @@ async function actualizar(req, res, next) {
       partidoVinculado.id_equipo_visitante = item.id_equipo_visitante;
       await partidoVinculado.save();
     }
-    if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
-      await guardarJugadores(item.id, jugadores_local, jugadores_visitante);
+    if ((jugadores_local !== undefined || jugadores_visitante !== undefined) && partidoVinculado) {
+      await guardarJugadores(partidoVinculado.id, jugadores_local, jugadores_visitante);
       await sincronizarSanciones(item, jugadores_local, jugadores_visitante);
     }
     const actualizado = await Jornada.findOne({ where: { id: item.id }, include: includes });
-    res.json(actualizado);
+    res.json(serializeJornada(actualizado));
   } catch (err) { next(err); }
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion, JornadaJugador } from './helpers/models.js';
+import { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion, PartidoJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/plantilla.controller.js';
@@ -30,8 +30,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Promocion.findOrCreate.mockReset();
     Promocion.destroy.mockReset();
     Promocion.bulkCreate.mockReset();
-    JornadaJugador.findAll.mockReset();
-    JornadaJugador.findAll.mockResolvedValue([]);
+    PartidoJugador.findAll.mockReset();
+    PartidoJugador.findAll.mockResolvedValue([]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -87,14 +87,14 @@ describe('Sección Plantillas · plantilla.controller', () => {
       jugadores: [jugador5, jugador6]
     };
     Plantilla.findOne.mockResolvedValue(plantilla);
-    JornadaJugador.findAll.mockResolvedValue([
+    PartidoJugador.findAll.mockResolvedValue([
       // jugador 5: convocado dos veces por categorías superiores (orden 6 y 7)
-      { id_jugador: 5, jornada: { plantilla: { categoria: { orden: 6 } } } },
-      { id_jugador: 5, jornada: { plantilla: { categoria: { orden: 7 } } } },
+      { id_jugador: 5, partido: { plantilla: { categoria: { orden: 6 } } } },
+      { id_jugador: 5, partido: { plantilla: { categoria: { orden: 7 } } } },
       // jugador 5: convocado también en su propia categoría (orden 5) -> no cuenta
-      { id_jugador: 5, jornada: { plantilla: { categoria: { orden: 5 } } } },
+      { id_jugador: 5, partido: { plantilla: { categoria: { orden: 5 } } } },
       // jugador 6: convocado en una categoría inferior (orden 3) -> no cuenta
-      { id_jugador: 6, jornada: { plantilla: { categoria: { orden: 3 } } } }
+      { id_jugador: 6, partido: { plantilla: { categoria: { orden: 3 } } } }
     ]);
 
     const { promesa } = llamar(ctrl.obtener, { params: { id: '1' } });

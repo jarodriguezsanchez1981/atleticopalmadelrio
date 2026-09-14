@@ -18,7 +18,7 @@ const Resultado = require('./Resultado');
 const TipoFutbol = require('./TipoFutbol');
 const Patrocinador = require('./Patrocinador');
 const Jornada = require('./Jornada');
-const JornadaJugador = require('./JornadaJugador');
+const PartidoJugador = require('./PartidoJugador');
 const Torneo = require('./Torneo');
 const Sancion = require('./Sancion');
 const Plantilla = require('./Plantilla');
@@ -118,12 +118,12 @@ TipoFutbol.belongsToMany(Lugar, {
 Plantilla.hasMany(Jornada, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'jornadas' });
 Jornada.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
-// ---- Jornada <-> Jugador (jugadores convocados con tarjetas y goles) ----
-Jornada.hasMany(JornadaJugador, { foreignKey: 'id_jornada', sourceKey: 'id', as: 'jornadaJugadores', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
-JornadaJugador.belongsTo(Jornada, { foreignKey: 'id_jornada', targetKey: 'id', as: 'jornada' });
-JornadaJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
-Jugador.hasMany(JornadaJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'jornadasJugador' });
-JornadaJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+// ---- Partido <-> Jugador (jugadores convocados con tarjetas y goles) ----
+Partido.hasMany(PartidoJugador, { foreignKey: 'id_partido', sourceKey: 'id', as: 'partidoJugadores', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+PartidoJugador.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
+PartidoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
+Jugador.hasMany(PartidoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'partidosJugador' });
+PartidoJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
 // ---- Torneo ----
 Torneo.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
@@ -247,7 +247,7 @@ module.exports = {
   TipoFutbol,
   Patrocinador,
   Jornada,
-  JornadaJugador,
+  PartidoJugador,
   Torneo,
   Sancion,
   Plantilla,

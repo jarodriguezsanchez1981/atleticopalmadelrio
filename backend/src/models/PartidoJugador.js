@@ -1,9 +1,9 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
-const JornadaJugador = sequelize.define('JornadaJugador', {
+const PartidoJugador = sequelize.define('PartidoJugador', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  id_jornada: { type: DataTypes.INTEGER, allowNull: false },
+  id_partido: { type: DataTypes.INTEGER, allowNull: false },
   id_jugador: { type: DataTypes.INTEGER, allowNull: true },
   id_equipo_jugador: { type: DataTypes.INTEGER, allowNull: true },
   es_local: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
@@ -11,8 +11,8 @@ const JornadaJugador = sequelize.define('JornadaJugador', {
   tarjeta_roja: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   goles: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }
 }, {
-  tableName: 'jornada_jugadores',
+  tableName: 'partido_jugadores',
   timestamps: false
 });
 
-module.exports = JornadaJugador;
+module.exports = PartidoJugador;
