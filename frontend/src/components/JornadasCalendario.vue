@@ -11,7 +11,6 @@ import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import DatePicker from 'primevue/datepicker';
-import Textarea from 'primevue/textarea';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import ProgressBar from 'primevue/progressbar';
@@ -22,15 +21,12 @@ import { useConfirm } from 'primevue/useconfirm';
 import * as XLSX from '@e965/xlsx';
 import EquipacionPrenda from './EquipacionPrenda.vue';
 import {
-  categoriaCalendarioService, plantillasService, equiposService,
-  jugadoresService, equiposJugadoresService, temporadasService
+  categoriaCalendarioService, plantillasService, equiposService, temporadasService
 } from '../services';
 import { useMediaQuery } from '../composables/useMediaQuery';
 import { useAuthStore } from '../stores/auth.store';
 import { suscribirseCambio, emitirCambio } from '../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../utils/temporadaActual';
-
-const PALMA_ID = 73;
 
 const esMovil = useMediaQuery('(max-width: 639px)');
 const auth = useAuthStore();
@@ -40,8 +36,6 @@ const confirm = useConfirm();
 const plantillas = ref([]);
 const temporadas = ref([]);
 const equipos = ref([]);
-const jugadores = ref([]);
-const equiposJugadores = ref([]);
 const numerosJornada = ref([]);
 const jornadaActual = ref([]);
 const numPagina = ref(0);
@@ -51,18 +45,14 @@ const filtroPlantilla = ref(null);
 let unsubCambio = null;
 
 async function cargarCatalogo() {
-  const [pls, temps, eqs, jugs, eqjugs] = await Promise.all([
+  const [pls, temps, eqs] = await Promise.all([
     plantillasService.listar(),
     temporadasService.listar(),
-    equiposService.listar(),
-    jugadoresService.listar(),
-    equiposJugadoresService.listar().catch(() => [])
+    equiposService.listar()
   ]);
   plantillas.value = pls;
   temporadas.value = temps;
   equipos.value = eqs;
-  jugadores.value = jugs;
-  equiposJugadores.value = eqjugs;
 }
 
 async function cargarInit() {
@@ -394,8 +384,7 @@ const guardando = ref(false);
 const editandoId = ref(null);
 const form = reactive({
   id_plantilla: null, id_equipo_local: null, id_equipo_visitante: null,
-  jornada: null, fecha: null, hora: null, incidencias: '', observaciones: '',
-  jugadores_local: [], jugadores_visitante: []
+  jornada: null, fecha: null, hora: null
 });
 
 function toFechaSQL(d) {
@@ -411,10 +400,6 @@ function resetForm() {
   form.jornada = numActual.value || null;
   form.fecha = null;
   form.hora = null;
-  form.incidencias = '';
-  form.observaciones = '';
-  form.jugadores_local = [];
-  form.jugadores_visitante = [];
 }
 
 function abrirNuevaJornada() {
@@ -431,23 +416,6 @@ async function abrirEdicion(item) {
   form.jornada = item.jornada;
   form.fecha = item.fecha ? new Date(`${String(item.fecha).slice(0, 10)}T12:00:00`) : null;
   form.hora = String(item.hora || '').slice(0, 5) || null;
-  form.incidencias = item.incidencias || '';
-  form.observaciones = item.observaciones || '';
-  const local = [];
-  const visitante = [];
-  (item.partidoJugadores || []).forEach(jj => {
-    const entrada = {
-      id_jugador: jj.id_jugador ?? null,
-      id_equipo_jugador: jj.id_equipo_jugador ?? null,
-      tarjeta_amarilla: jj.tarjeta_amarilla || 0,
-      tarjeta_roja: jj.tarjeta_roja || 0,
-      goles: jj.goles || 0
-    };
-    if (jj.es_local) local.push(entrada);
-    else visitante.push(entrada);
-  });
-  form.jugadores_local = local;
-  form.jugadores_visitante = visitante;
   dialogVisible.value = true;
 }
 
@@ -468,11 +436,7 @@ async function guardar() {
       id_equipo_visitante: form.id_equipo_visitante,
       jornada: form.jornada,
       fecha: toFechaSQL(form.fecha),
-      hora: form.hora || null,
-      incidencias: form.incidencias || null,
-      observaciones: form.observaciones || null,
-      jugadores_local: form.jugadores_local,
-      jugadores_visitante: form.jugadores_visitante
+      hora: form.hora || null
     };
     if (editandoId.value) {
       await categoriaCalendarioService.actualizar(editandoId.value, payload);
@@ -491,91 +455,6 @@ async function guardar() {
   }
 }
 
-// ---------- Gestión de jugadores en el formulario ----------
-const nuevoJugadorLocal = ref(null);
-const nuevoJugadorVisitante = ref(null);
-const keySelectLocal = ref(0);
-const keySelectVisitante = ref(0);
-
-function jugadorInfo(id) {
-  return jugadores.value.find(j => j.id === id);
-}
-
-/** Jugadores de una plantilla (para el lado PALMA). */
-function plantillaJugadores() {
-  const p = plantillas.value.find(pl => pl.id === form.id_plantilla);
-  return (p?.jugadores || []).map(j => ({ id: j.id, nombre: j.nombre, apellidos: j.apellidos }));
-}
-
-/** Opciones de jugadores de un lado según su equipo: PALMA -> plantilla, resto -> equipos_jugadores. */
-function jugadoresEquipoDe(lado) {
-  const idEquipo = lado === 'local' ? form.id_equipo_local : form.id_equipo_visitante;
-  if (Number(idEquipo) === PALMA_ID) {
-    return plantillaJugadores()
-      .map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id, tipo: 'jugador' }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
-  }
-  return equiposJugadores.value
-    .filter(ej => Number(ej.id_equipo) === Number(idEquipo))
-    .map(ej => ({ label: `${ej.nombre} ${ej.apellidos}`, value: ej.id, tipo: 'equipo_jugador' }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
-}
-
-function valorJugador(j) {
-  return j?.id_jugador ?? j?.id_equipo_jugador ?? null;
-}
-
-const opcionesJugadorLocalDisponibles = computed(() => {
-  const usados = new Set((form.jugadores_local || []).map(valorJugador));
-  return jugadoresEquipoDe('local').filter(o => !usados.has(o.value));
-});
-
-const opcionesJugadorVisitanteDisponibles = computed(() => {
-  const usados = new Set((form.jugadores_visitante || []).map(valorJugador));
-  return jugadoresEquipoDe('visitante').filter(o => !usados.has(o.value));
-});
-
-function addJugador(lado) {
-  const nuevo = lado === 'local' ? nuevoJugadorLocal.value : nuevoJugadorVisitante.value;
-  if (!nuevo) return;
-  const opt = jugadoresEquipoDe(lado).find(o => o.value === nuevo);
-  if (!opt) return;
-  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
-  if (!form[campo]) form[campo] = [];
-  if (!form[campo].some(j => valorJugador(j) === opt.value)) {
-    const entrada = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 };
-    if (opt.tipo === 'jugador') entrada.id_jugador = opt.value;
-    else entrada.id_equipo_jugador = opt.value;
-    form[campo].push(entrada);
-  }
-  if (lado === 'local') {
-    nuevoJugadorLocal.value = null;
-    keySelectLocal.value++;
-  } else {
-    nuevoJugadorVisitante.value = null;
-    keySelectVisitante.value++;
-  }
-}
-
-function removeJugador(lado, valor) {
-  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
-  form[campo] = (form[campo] || []).filter(j => valorJugador(j) !== valor);
-}
-
-/** Nombre legible de un jugador añadido en el formulario. */
-function nombreJugadorEnForm(entry) {
-  if (entry?.id_jugador) {
-    const dePlantilla = plantillaJugadores().find(j => j.id === entry.id_jugador);
-    if (dePlantilla) return `${dePlantilla.nombre} ${dePlantilla.apellidos}`;
-    const j = jugadorInfo(entry.id_jugador);
-    return j ? `${j.nombre} ${j.apellidos}` : '—';
-  }
-  if (entry?.id_equipo_jugador) {
-    const ej = equiposJugadores.value.find(e => e.id === entry.id_equipo_jugador);
-    return ej ? `${ej.nombre} ${ej.apellidos}` : '—';
-  }
-  return '—';
-}
 </script>
 
 <template>
@@ -736,7 +615,7 @@ function nombreJugadorEnForm(entry) {
       </DataTable>
     </div>
 
-    <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-4xl">
+    <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-2xl">
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -773,98 +652,6 @@ function nombreJugadorEnForm(entry) {
           <div class="flex flex-col gap-1.5">
             <label class="text-sm font-medium text-ink-secondary">Hora</label>
             <InputText v-model="form.hora" placeholder="HH:mm" maxlength="5" inputmode="numeric" class="w-full" />
-          </div>
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Incidencias</label>
-          <Textarea v-model="form.incidencias" rows="2" class="w-full" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Observaciones</label>
-          <Textarea v-model="form.observaciones" rows="2" class="w-full" />
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Local</h3>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
-              <thead>
-                <tr class="bg-club-green/5">
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Goles</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="j in (form.jugadores_local || [])" :key="valorJugador(j)">
-                  <td class="text-center border border-line p-2 text-sm">{{ nombreJugadorEnForm(j) }}</td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_amarilla" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_roja" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.goles" :min="0" :max="99" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
-                            @click="removeJugador('local', valorJugador(j))" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="flex gap-2 mt-2">
-            <Select :key="keySelectLocal" v-model="nuevoJugadorLocal" :options="opcionesJugadorLocalDisponibles"
-                    optionLabel="label" optionValue="value" placeholder="Seleccionar jugador local"
-                    class="flex-1" filter showClear />
-            <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
-                    @click="addJugador('local')" />
-          </div>
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Visitante</h3>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
-              <thead>
-                <tr class="bg-club-green/5">
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Goles</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="j in (form.jugadores_visitante || [])" :key="valorJugador(j)">
-                  <td class="text-center border border-line p-2 text-sm">{{ nombreJugadorEnForm(j) }}</td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_amarilla" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_roja" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.goles" :min="0" :max="99" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
-                            @click="removeJugador('visitante', valorJugador(j))" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="flex gap-2 mt-2">
-            <Select :key="keySelectVisitante" v-model="nuevoJugadorVisitante" :options="opcionesJugadorVisitanteDisponibles"
-                    optionLabel="label" optionValue="value" placeholder="Seleccionar jugador visitante"
-                    class="flex-1" filter showClear />
-            <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
-                    @click="addJugador('visitante')" />
           </div>
         </div>
 
