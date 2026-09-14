@@ -161,10 +161,10 @@ const columns = computed(() => [
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false, enDetalle: false },
   { field: 'id_coordinador', header: 'Coordinador', type: 'select', options: opcionesCoordinador, required: false, enDetalle: false },
-  { field: 'codigo_competicion', header: 'Cód. Competición', type: 'text', required: false, enDetalle: false },
-  { field: 'codigo_grupo', header: 'Cód. Grupo', type: 'text', required: false, enDetalle: false },
-  { field: 'codigo_temporada', header: 'Cód. Temporada', type: 'text', required: false, enDetalle: false },
-  { field: 'codigo_equipo', header: 'Cód. Equipo', type: 'text', required: false, enDetalle: false },
+  { field: 'codigo_competicion', header: 'Cód. Competición', type: 'text', required: false, enDetalle: false, enTabla: false },
+  { field: 'codigo_grupo', header: 'Cód. Grupo', type: 'text', required: false, enDetalle: false, enTabla: false },
+  { field: 'codigo_temporada', header: 'Cód. Temporada', type: 'text', required: false, enDetalle: false, enTabla: false },
+  { field: 'codigo_equipo', header: 'Cód. Equipo', type: 'text', required: false, enDetalle: false, enTabla: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
   { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
 ]);
