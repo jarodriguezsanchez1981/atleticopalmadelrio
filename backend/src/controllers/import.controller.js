@@ -220,11 +220,11 @@ async function importarJornadas(filas, res) {
       }
 
       // Crear jornada
-      await models.Jornada.create(datos);
+      const jornadaCreada = await models.Jornada.create(datos);
 
-      // Crear partido correspondiente
+      // Crear partido correspondiente, vinculado a la jornada
       await models.Partido.create({
-        id_plantilla: datos.id_plantilla, fecha: datos.fecha, id_lugar: null,
+        id_plantilla: datos.id_plantilla, id_jornada: jornadaCreada.id, fecha: datos.fecha, id_lugar: null,
         id_equipo_local: datos.id_equipo_local, id_equipo_visitante: datos.id_equipo_visitante,
         id_usuario: 1, incidencias: null
       });

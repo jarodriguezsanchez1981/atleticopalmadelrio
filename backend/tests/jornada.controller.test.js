@@ -93,6 +93,7 @@ describe('Sección Jornadas · jornada.controller', () => {
 
     expect(Jornada.create).toHaveBeenCalled();
     expect(Partido.create).toHaveBeenCalledTimes(1);
+    expect(Partido.create).toHaveBeenCalledWith(expect.objectContaining({ id_jornada: 10 }));
     expect(res._status).toBe(201);
   });
 
@@ -182,7 +183,7 @@ describe('Sección Jornadas · jornada.controller', () => {
     });
     await promesa;
 
-    expect(Partido.findOne).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
+    expect(Partido.findOne).toHaveBeenCalledWith({ where: { id_jornada: 1 } });
     expect(partidoVinculado.fecha).toBe('2026-02-15T18:30');
     expect(partidoVinculado.id_equipo_visitante).toBe(4);
     expect(partidoVinculado.id_equipo_local).toBe(2);
@@ -229,7 +230,7 @@ describe('Sección Jornadas · jornada.controller', () => {
     Partido.destroy.mockResolvedValue(2);
     const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
     await promesa;
-    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 5, fecha: '2026-01-01' } });
+    expect(Partido.destroy).toHaveBeenCalledWith({ where: { id_jornada: 1 } });
     expect(jornada.destroy).toHaveBeenCalled();
     expect(res._status).toBe(204);
   });

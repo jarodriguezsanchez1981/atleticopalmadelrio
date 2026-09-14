@@ -159,6 +159,17 @@ describe('Calendario · calendario.controller', () => {
     expect(res._json[1].jornada).toBeNull();
   });
 
+  it('etiqueta como Liga (con su número) un partido con id_jornada, vía la relación jornadaRef', async () => {
+    const partidoDeLiga = { ...partido, id_jornada: 7, jornadaRef: { id: 7, jornada: 3 } };
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.findAll.mockResolvedValue([partidoDeLiga]);
+    const { promesa, res } = llamar(ctrl.eventos);
+
+    await promesa;
+
+    expect(res._json[0].jornada).toBe(3);
+  });
+
   it('propaga el filtro por plantilla al entrenamiento base', async () => {
     Jornada.findAll.mockResolvedValue([]);
     Entrenamiento.findAll.mockResolvedValue([]);

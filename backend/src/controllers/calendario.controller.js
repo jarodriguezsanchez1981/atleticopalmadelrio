@@ -4,8 +4,8 @@ const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCa
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados como eventos
- * para FullCalendar.
- * Solo se muestran partidos que tengan una jornada asociada (misma plantilla y fecha).
+ * para FullCalendar. Un partido con id_jornada se etiqueta como Liga (con su número de
+ * jornada); sin id_jornada, como Amistoso.
  */
 async function eventos(req, res, next) {
   try {
@@ -33,7 +33,6 @@ async function eventos(req, res, next) {
 
     // ---- Consultas ----
     const promesas = [];
-    let jornadas = [];
 
     if (incluirEntrenamientos) {
       const whereEntrenamiento = {};
@@ -55,27 +54,10 @@ async function eventos(req, res, next) {
       promesas.push(Promise.resolve([]));
     }
 
-    // Para partidos: buscar jornadas para clasificar Liga/Amistoso
+    // Para partidos: el número de jornada (si lo tiene, para clasificar Liga/Amistoso)
+    // se lee directamente del partido a través de id_jornada, sin necesidad de emparejar
+    // por plantilla+fecha.
     if (incluirPartidos) {
-      const whereJornada = {};
-      if (id_plantilla) whereJornada.id_plantilla = id_plantilla;
-      if (fechaDesde || fechaHasta) {
-        whereJornada.fecha = {};
-        if (fechaDesde) whereJornada.fecha[Op.gte] = fechaDesde;
-        if (fechaHasta) whereJornada.fecha[Op.lte] = fechaHasta;
-      }
-
-      // Consultar todas las jornadas del rango (para clasificar Liga/Amistoso)
-      jornadas = await Jornada.findAll({
-        where: whereJornada,
-        attributes: ['id_plantilla', 'fecha', 'jornada', 'id_equipo_local', 'id_equipo_visitante'],
-        include: [
-          { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
-          { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] }
-        ]
-      });
-      jornadas = jornadas.map(j => j.toJSON());
-
       const wherePartido = {};
       if (id_plantilla) wherePartido.id_plantilla = id_plantilla;
       if (fechaDesde || fechaHasta) {
@@ -87,7 +69,8 @@ async function eventos(req, res, next) {
         ...plantillaFiltrada,
         { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
         { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
-        { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
+        { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] },
+        { model: Jornada, as: 'jornadaRef', attributes: ['id', 'jornada'] }
       ];
       promesas.push(Partido.findAll({ where: wherePartido, include: includesPartido }));
     } else {
@@ -137,12 +120,6 @@ async function eventos(req, res, next) {
     const PALMA_ID = 73;
 
     const eventosPartido = partidos.map((p) => {
-      // Buscar jornada correspondiente a este partido
-      const jornadaMatch = jornadas.find(j =>
-        j.id_plantilla === p.id_plantilla &&
-        new Date(j.fecha).toISOString().split('T')[0] === new Date(p.fecha).toISOString().split('T')[0]
-      );
-
       // PALMA es local cuando su id coincide con el equipo local del partido
       const esLocal = (p.equipoLocal?.id ?? p.id_equipo_local) === PALMA_ID;
 
@@ -164,7 +141,7 @@ async function eventos(req, res, next) {
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
         resultado: p.Resultados?.[0]?.resultado || null,
-        jornada: jornadaMatch ? jornadaMatch.jornada : null
+        jornada: p.jornadaRef ? p.jornadaRef.jornada : null
       };
     });
 

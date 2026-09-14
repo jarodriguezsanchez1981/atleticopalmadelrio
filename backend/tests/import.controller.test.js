@@ -116,6 +116,9 @@ describe('Importación masiva · import.controller', () => {
       expect(Jornada.create).toHaveBeenCalledWith(
         expect.objectContaining({ id_plantilla: 5, id_equipo_local: 10, id_equipo_visitante: 10, jornada: 3, fecha: '2026-03-01' })
       );
+      expect(Partido.create).toHaveBeenCalledWith(
+        expect.objectContaining({ id_jornada: 100 })
+      );
     });
 
     it('reconoce cabeceras con espacios, guion bajo y acentos ("Equipo Local", "equipo_local")', async () => {

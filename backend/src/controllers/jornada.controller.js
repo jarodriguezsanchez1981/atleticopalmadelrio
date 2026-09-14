@@ -92,7 +92,7 @@ async function guardarJugadores(idJornada, jugadoresLocal, jugadoresVisitante) {
  * (id 73) que tengan tarjetas en la jornada, ligadas al partido de la jornada.
  */
 async function sincronizarSanciones(jornada, jugadoresLocal, jugadoresVisitante) {
-  const partido = await Partido.findOne({ where: { id_plantilla: jornada.id_plantilla, fecha: jornada.fecha } });
+  const partido = await Partido.findOne({ where: { id_jornada: jornada.id } });
   if (!partido) return;
 
   const esPalmaLocal = Number(jornada.id_equipo_local) === PALMA_ID;
@@ -195,7 +195,7 @@ async function crear(req, res, next) {
     // Crear partido correspondiente para esta jornada
     const idUsuario = req.user?.id;
     await Partido.create({
-      id_plantilla, fecha: fechaHoraPartido(fecha, hora), id_lugar: null, id_equipo_local, id_equipo_visitante,
+      id_plantilla, id_jornada: creado.id, fecha: fechaHoraPartido(fecha, hora), id_lugar: null, id_equipo_local, id_equipo_visitante,
       id_usuario: idUsuario, incidencias: null
     });
 
@@ -211,8 +211,6 @@ async function actualizar(req, res, next) {
   try {
     const item = await Jornada.findOne({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
-    const idPlantillaOriginal = item.id_plantilla;
-    const fechaOriginal = item.fecha;
     const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora, incidencias, observaciones, jugadores_local, jugadores_visitante } = req.body;
     if (id_equipo_local && id_equipo_visitante && id_equipo_local === id_equipo_visitante) {
       return res.status(400).json({ message: 'El equipo local y el visitante no pueden ser el mismo.' });
@@ -250,12 +248,10 @@ async function actualizar(req, res, next) {
     if (observaciones !== undefined) {
       item.observaciones = observaciones || null;
     }
-    // El partido asociado (misma plantilla + fecha originales) se busca siempre,
-    // no solo si cambian id_plantilla/fecha, porque también hay que mantenerlo
-    // sincronizado si solo cambian los equipos.
-    const partidoVinculado = await Partido.findOne({
-      where: { id_plantilla: idPlantillaOriginal, fecha: fechaOriginal }
-    });
+    // El partido asociado (vinculado por id_jornada) se busca siempre, no solo si
+    // cambian id_plantilla/fecha, porque también hay que mantenerlo sincronizado
+    // si solo cambian los equipos.
+    const partidoVinculado = await Partido.findOne({ where: { id_jornada: item.id } });
     if (id_plantilla !== undefined || fecha !== undefined) {
       const conflictoTipo = await otroTipoDeEventoMismoDia({
         models: { Entrenamiento, Partido, Torneo },
@@ -292,12 +288,11 @@ async function eliminar(req, res, next) {
   try {
     const jornadaId = req.params.id;
 
-    // Obtener la jornada para saber id_plantilla y fecha
     const jornada = await Jornada.findOne({ where: { id: jornadaId } });
     if (!jornada) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
 
-    // Eliminar partidos de esta jornada (misma plantilla + fecha)
-    await Partido.destroy({ where: { id_plantilla: jornada.id_plantilla, fecha: jornada.fecha } });
+    // Eliminar el partido vinculado a esta jornada
+    await Partido.destroy({ where: { id_jornada: jornada.id } });
 
     // Eliminar la jornada
     await jornada.destroy();

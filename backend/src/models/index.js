@@ -136,6 +136,11 @@ Jornada.belongsTo(Equipo, { foreignKey: 'id_equipo_local', targetKey: 'id', as: 
 Equipo.hasMany(Jornada, { foreignKey: 'id_equipo_visitante', sourceKey: 'id', as: 'jornadasVisitante' });
 Jornada.belongsTo(Equipo, { foreignKey: 'id_equipo_visitante', targetKey: 'id', as: 'equipoVisitante', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
+// ---- Jornada <-> Partido (el partido de calendario de una jornada de liga; un
+// partido sin jornada es un amistoso) ----
+Jornada.hasOne(Partido, { foreignKey: 'id_jornada', sourceKey: 'id', as: 'partido', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+Partido.belongsTo(Jornada, { foreignKey: 'id_jornada', targetKey: 'id', as: 'jornadaRef', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+
 // ---- Plantillas ----
 Plantilla.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria' });
 Categoria.hasMany(Plantilla, { foreignKey: 'id_categoria', sourceKey: 'id', as: 'plantillas' });

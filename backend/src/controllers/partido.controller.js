@@ -79,13 +79,13 @@ function horaDe(fecha) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`;
 }
 
-/** Mantiene en sincronía la jornada vinculada (misma plantilla + fecha originales)
- * cuando se edita un partido directamente: si no se propaga, la jornada se queda
- * apuntando a la fecha/equipos antiguos y desaparece de "Jornadas". */
-async function sincronizarJornadaVinculada(idPlantillaOriginal, fechaOriginal, partido) {
-  const diaOriginal = ctrlDia(fechaOriginal);
-  if (!diaOriginal) return;
-  const jornada = await Jornada.findOne({ where: { id_plantilla: idPlantillaOriginal, fecha: diaOriginal } });
+/** Mantiene en sincronía la jornada vinculada (por id_jornada) cuando se edita un
+ * partido directamente: si no se propaga, la jornada se queda apuntando a la
+ * fecha/equipos antiguos y desaparece de "Jornadas". Un partido sin id_jornada
+ * es un amistoso, no tiene jornada que sincronizar. */
+async function sincronizarJornadaVinculada(partido) {
+  if (!partido.id_jornada) return;
+  const jornada = await Jornada.findByPk(partido.id_jornada);
   if (!jornada) return;
   jornada.id_plantilla = partido.id_plantilla;
   jornada.fecha = ctrlDia(partido.fecha);
@@ -173,8 +173,6 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const idPlantillaOriginal = partido.id_plantilla;
-    const fechaOriginal = partido.fecha;
     const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias } = req.body;
 
     const idPlantillaFinal = id_plantilla !== undefined ? id_plantilla : partido.id_plantilla;
@@ -219,7 +217,7 @@ async function actualizar(req, res, next) {
     if (incidencias !== undefined) partido.incidencias = incidencias;
     await partido.save();
     if (id_plantilla !== undefined || fecha !== undefined || id_equipo_local !== undefined || id_equipo_visitante !== undefined) {
-      await sincronizarJornadaVinculada(idPlantillaOriginal, fechaOriginal, partido);
+      await sincronizarJornadaVinculada(partido);
     }
     if (resultado_incidencias !== undefined) {
       await guardarResultadoIncidencias(partido.id, resultado_incidencias);
