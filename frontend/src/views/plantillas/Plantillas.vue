@@ -164,6 +164,7 @@ const columns = computed(() => [
   { field: 'codigo_competicion', header: 'Cód. Competición', type: 'text', required: false, enDetalle: false },
   { field: 'codigo_grupo', header: 'Cód. Grupo', type: 'text', required: false, enDetalle: false },
   { field: 'codigo_temporada', header: 'Cód. Temporada', type: 'text', required: false, enDetalle: false },
+  { field: 'codigo_equipo', header: 'Cód. Equipo', type: 'text', required: false, enDetalle: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
   { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
 ]);
@@ -176,6 +177,7 @@ const emptyItem = {
   codigo_competicion: '',
   codigo_grupo: '',
   codigo_temporada: '',
+  codigo_equipo: '',
   ids_entrenadores: [],
   ids_delegados: [],
   jugadores: []

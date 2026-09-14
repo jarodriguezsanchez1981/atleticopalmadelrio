@@ -198,7 +198,7 @@ async function sincronizarPromociones(plantilla, jugadores) {
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, codigo_equipo, jugadores, ids_entrenadores, ids_delegados } = req.body;
     if (!id_categoria || !id_temporada) {
       return res.status(400).json({ message: 'Categoría y temporada son obligatorias.' });
     }
@@ -214,7 +214,8 @@ async function crear(req, res, next) {
       id_coordinador: id_coordinador || null,
       codigo_competicion: codigo_competicion || null,
       codigo_grupo: codigo_grupo || null,
-      codigo_temporada: codigo_temporada || null
+      codigo_temporada: codigo_temporada || null,
+      codigo_equipo: codigo_equipo || null
     });
 
     // Asociar jugadores con dorsal y talla
@@ -287,7 +288,7 @@ async function actualizar(req, res, next) {
   try {
     const plantilla = await Plantilla.findOne({ where: { id: req.params.id } });
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
-    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, codigo_equipo, jugadores, ids_entrenadores, ids_delegados } = req.body;
 
     const nuevos = {
       id_categoria: id_categoria !== undefined ? id_categoria : plantilla.id_categoria,
@@ -296,7 +297,8 @@ async function actualizar(req, res, next) {
       id_coordinador: id_coordinador !== undefined ? (id_coordinador || null) : plantilla.id_coordinador,
       codigo_competicion: codigo_competicion !== undefined ? (codigo_competicion || null) : plantilla.codigo_competicion,
       codigo_grupo: codigo_grupo !== undefined ? (codigo_grupo || null) : plantilla.codigo_grupo,
-      codigo_temporada: codigo_temporada !== undefined ? (codigo_temporada || null) : plantilla.codigo_temporada
+      codigo_temporada: codigo_temporada !== undefined ? (codigo_temporada || null) : plantilla.codigo_temporada,
+      codigo_equipo: codigo_equipo !== undefined ? (codigo_equipo || null) : plantilla.codigo_equipo
     };
 
     const errorRef = await validarReferencias({ ...nuevos, jugadores, ids_entrenadores, ids_delegados });

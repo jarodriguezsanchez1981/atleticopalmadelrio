@@ -136,7 +136,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
       id_coordinador: null,
       codigo_competicion: null,
       codigo_grupo: null,
-      codigo_temporada: null
+      codigo_temporada: null,
+      codigo_equipo: null
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(11);
@@ -194,12 +195,13 @@ describe('Sección Plantillas · plantilla.controller', () => {
       id_coordinador: 4,
       codigo_competicion: null,
       codigo_grupo: null,
-      codigo_temporada: null
+      codigo_temporada: null,
+      codigo_equipo: null
     });
     expect(res._status).toBe(201);
   });
 
-  it('crear guarda los códigos de competición/grupo/temporada de la RFAF cuando se indican', async () => {
+  it('crear guarda los códigos de competición/grupo/temporada/equipo de la RFAF cuando se indican', async () => {
     mockReferenciasOk();
     Plantilla.findOne
       .mockResolvedValueOnce(null)
@@ -207,7 +209,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Plantilla.create.mockResolvedValue({ id: 13 });
 
     const { promesa } = llamar(ctrl.crear, {
-      body: { id_categoria: 1, id_temporada: 1, codigo_competicion: 'C1', codigo_grupo: 'G2', codigo_temporada: 'T3' }
+      body: { id_categoria: 1, id_temporada: 1, codigo_competicion: 'C1', codigo_grupo: 'G2', codigo_temporada: 'T3', codigo_equipo: 'E4' }
     });
 
     await promesa;
@@ -215,14 +217,15 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(Plantilla.create).toHaveBeenCalledWith(expect.objectContaining({
       codigo_competicion: 'C1',
       codigo_grupo: 'G2',
-      codigo_temporada: 'T3'
+      codigo_temporada: 'T3',
+      codigo_equipo: 'E4'
     }));
   });
 
-  it('actualizar guarda los códigos de competición/grupo/temporada de la RFAF cuando se indican', async () => {
+  it('actualizar guarda los códigos de competición/grupo/temporada/equipo de la RFAF cuando se indican', async () => {
     const plantilla = {
       id: 1, id_categoria: 1, id_temporada: 1, id_division: null, id_coordinador: null,
-      codigo_competicion: null, codigo_grupo: null, codigo_temporada: null, save: vi.fn().mockResolvedValue()
+      codigo_competicion: null, codigo_grupo: null, codigo_temporada: null, codigo_equipo: null, save: vi.fn().mockResolvedValue()
     };
     const actualizada = { id: 1, jugadores: [], entrenadores: [], delegados: [] };
     Plantilla.findOne
@@ -232,7 +235,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     mockReferenciasOk();
 
     const { promesa } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { codigo_competicion: 'C1', codigo_grupo: 'G2', codigo_temporada: 'T3' }
+      params: { id: '1' }, body: { codigo_competicion: 'C1', codigo_grupo: 'G2', codigo_temporada: 'T3', codigo_equipo: 'E4' }
     });
 
     await promesa;
@@ -240,6 +243,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(plantilla.codigo_competicion).toBe('C1');
     expect(plantilla.codigo_grupo).toBe('G2');
     expect(plantilla.codigo_temporada).toBe('T3');
+    expect(plantilla.codigo_equipo).toBe('E4');
     expect(plantilla.save).toHaveBeenCalled();
   });
 
@@ -353,7 +357,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
       id_coordinador: null,
       codigo_competicion: null,
       codigo_grupo: null,
-      codigo_temporada: null
+      codigo_temporada: null,
+      codigo_equipo: null
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(10);
