@@ -3,15 +3,19 @@ import { ref, watch, computed } from 'vue';
 import Dialog from 'primevue/dialog';
 import Textarea from 'primevue/textarea';
 import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import {
   entrenamientosService, partidosService, plantillasService,
-  lugaresService, equiposService, calendarioService, temporadasService
+  lugaresService, equiposService, calendarioService, temporadasService,
+  jugadoresService, equiposJugadoresService
 } from '../services';
 import { filtrarPlantillasTemporadaActual } from '../utils/temporadaActual';
+
+const PALMA_ID = 73;
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -30,6 +34,8 @@ const plantillas = ref([]);
 const temporadas = ref([]);
 const lugares = ref([]);
 const equipos = ref([]);
+const jugadores = ref([]);
+const equiposJugadores = ref([]);
 const cargandoCatalogo = ref(false);
 const guardando = ref(false);
 
@@ -80,7 +86,9 @@ function resetForm() {
     id_equipo_local: null,
     id_equipo_visitante: null,
     incidencias: '',
-    resultado_incidencias: ''
+    resultado_incidencias: '',
+    jugadores_local: [],
+    jugadores_visitante: []
   };
 }
 
@@ -88,12 +96,16 @@ async function cargarCatalogo() {
   cargandoCatalogo.value = true;
   try {
     const promesas = [plantillasService.listar(), temporadasService.listar(), lugaresService.listar()];
-    if (props.tipo === 'partido') promesas.push(equiposService.listar());
-    const [pls, temps, lugs, eqs] = await Promise.all(promesas);
+    if (props.tipo === 'partido') {
+      promesas.push(equiposService.listar(), jugadoresService.listar(), equiposJugadoresService.listar().catch(() => []));
+    }
+    const [pls, temps, lugs, eqs, jugs, eqjugs] = await Promise.all(promesas);
     plantillas.value = pls;
     temporadas.value = temps;
     lugares.value = lugs;
     if (eqs) equipos.value = eqs;
+    if (jugs) jugadores.value = jugs;
+    if (eqjugs) equiposJugadores.value = eqjugs;
   } finally {
     cargandoCatalogo.value = false;
   }
@@ -106,6 +118,19 @@ async function cargarRegistro() {
     const item = props.tipo === 'entrenamiento'
       ? await entrenamientosService.obtener(props.registroId)
       : await partidosService.obtener(props.registroId);
+    const jugadoresLocal = [];
+    const jugadoresVisitante = [];
+    (item.partidoJugadores || []).forEach((pj) => {
+      const entrada = {
+        id_jugador: pj.id_jugador ?? null,
+        id_equipo_jugador: pj.id_equipo_jugador ?? null,
+        tarjeta_amarilla: pj.tarjeta_amarilla || 0,
+        tarjeta_roja: pj.tarjeta_roja || 0,
+        goles: pj.goles || 0
+      };
+      if (pj.es_local) jugadoresLocal.push(entrada);
+      else jugadoresVisitante.push(entrada);
+    });
     form.value = {
       id_plantilla: item.id_plantilla ?? item.plantilla?.id ?? null,
       fecha: item.fecha ? new Date(item.fecha) : null,
@@ -114,7 +139,9 @@ async function cargarRegistro() {
       id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
       id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
-      resultado_incidencias: item.resultado_incidencias || ''
+      resultado_incidencias: item.resultado_incidencias || '',
+      jugadores_local: jugadoresLocal,
+      jugadores_visitante: jugadoresVisitante
     };
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el registro.', life: 4000 });
@@ -268,6 +295,92 @@ function nombrePlantilla(idPl) {
   return plantillas.value.find((p) => p.id === idPl)?.categoria?.nombre || '?';
 }
 
+// ---------- Jugadores convocados (solo tipo 'partido') ----------
+const nuevoJugadorLocal = ref(null);
+const nuevoJugadorVisitante = ref(null);
+const keySelectJugadorLocal = ref(0);
+const keySelectJugadorVisitante = ref(0);
+
+function jugadorInfo(id) {
+  return jugadores.value.find((j) => j.id === id);
+}
+
+/** Jugadores de una plantilla (para el lado PALMA). */
+function plantillaJugadores() {
+  const p = plantillas.value.find((pl) => pl.id === form.value.id_plantilla);
+  return (p?.jugadores || []).map((j) => ({ id: j.id, nombre: j.nombre, apellidos: j.apellidos }));
+}
+
+/** Opciones de jugadores de un lado según su equipo: PALMA -> plantilla, resto -> equipos_jugadores. */
+function jugadoresEquipoDe(lado) {
+  const idEquipo = lado === 'local' ? form.value.id_equipo_local : form.value.id_equipo_visitante;
+  if (Number(idEquipo) === PALMA_ID) {
+    return plantillaJugadores()
+      .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id, tipo: 'jugador' }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+  }
+  return equiposJugadores.value
+    .filter((ej) => Number(ej.id_equipo) === Number(idEquipo))
+    .map((ej) => ({ label: `${ej.nombre} ${ej.apellidos}`, value: ej.id, tipo: 'equipo_jugador' }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+}
+
+function valorJugadorConvocado(j) {
+  return j?.id_jugador ?? j?.id_equipo_jugador ?? null;
+}
+
+const opcionesJugadorLocalDisponibles = computed(() => {
+  const usados = new Set((form.value.jugadores_local || []).map(valorJugadorConvocado));
+  return jugadoresEquipoDe('local').filter((o) => !usados.has(o.value));
+});
+
+const opcionesJugadorVisitanteDisponibles = computed(() => {
+  const usados = new Set((form.value.jugadores_visitante || []).map(valorJugadorConvocado));
+  return jugadoresEquipoDe('visitante').filter((o) => !usados.has(o.value));
+});
+
+function addJugadorConvocado(lado) {
+  const nuevo = lado === 'local' ? nuevoJugadorLocal.value : nuevoJugadorVisitante.value;
+  if (!nuevo) return;
+  const opt = jugadoresEquipoDe(lado).find((o) => o.value === nuevo);
+  if (!opt) return;
+  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
+  if (!form.value[campo]) form.value[campo] = [];
+  if (!form.value[campo].some((j) => valorJugadorConvocado(j) === opt.value)) {
+    const entrada = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 };
+    if (opt.tipo === 'jugador') entrada.id_jugador = opt.value;
+    else entrada.id_equipo_jugador = opt.value;
+    form.value[campo].push(entrada);
+  }
+  if (lado === 'local') {
+    nuevoJugadorLocal.value = null;
+    keySelectJugadorLocal.value++;
+  } else {
+    nuevoJugadorVisitante.value = null;
+    keySelectJugadorVisitante.value++;
+  }
+}
+
+function removeJugadorConvocado(lado, valor) {
+  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
+  form.value[campo] = (form.value[campo] || []).filter((j) => valorJugadorConvocado(j) !== valor);
+}
+
+/** Nombre legible de un jugador añadido en el formulario. */
+function nombreJugadorConvocado(entry) {
+  if (entry?.id_jugador) {
+    const dePlantilla = plantillaJugadores().find((j) => j.id === entry.id_jugador);
+    if (dePlantilla) return `${dePlantilla.nombre} ${dePlantilla.apellidos}`;
+    const j = jugadorInfo(entry.id_jugador);
+    return j ? `${j.nombre} ${j.apellidos}` : '—';
+  }
+  if (entry?.id_equipo_jugador) {
+    const ej = equiposJugadores.value.find((e) => e.id === entry.id_equipo_jugador);
+    return ej ? `${ej.nombre} ${ej.apellidos}` : '—';
+  }
+  return '—';
+}
+
 function entrenamientoEnConflicto() {
   if (props.tipo !== 'entrenamiento' || form.value.id_plantilla == null || !form.value.fecha) return null;
   const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
@@ -394,6 +507,8 @@ async function guardar() {
       payload.id_lugar = esEquipoLocalPalma.value ? form.value.id_lugar : null;
       payload.incidencias = form.value.incidencias;
       payload.resultado_incidencias = form.value.resultado_incidencias || null;
+      payload.jugadores_local = form.value.jugadores_local || [];
+      payload.jugadores_visitante = form.value.jugadores_visitante || [];
     }
     const service = props.tipo === 'entrenamiento' ? entrenamientosService : partidosService;
     let resultado;
@@ -427,7 +542,7 @@ async function guardar() {
 </script>
 
 <template>
-  <Dialog :visible="visible" modal class="w-full max-w-lg" @update:visible="cerrar">
+  <Dialog :visible="visible" modal :class="tipo === 'partido' ? 'w-full max-w-4xl' : 'w-full max-w-lg'" @update:visible="cerrar">
     <template #header>
       <div class="flex items-center gap-2">
         <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -578,6 +693,90 @@ async function guardar() {
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Incidencias</label>
           <Textarea v-model="form.incidencias" rows="3" class="w-full" />
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Local</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr class="bg-club-green/5">
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Goles</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="j in (form.jugadores_local || [])" :key="valorJugadorConvocado(j)">
+                  <td class="text-center border border-line p-2 text-sm">{{ nombreJugadorConvocado(j) }}</td>
+                  <td class="text-center border border-line p-2">
+                    <InputNumber v-model="j.tarjeta_amarilla" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
+                  </td>
+                  <td class="text-center border border-line p-2">
+                    <InputNumber v-model="j.tarjeta_roja" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
+                  </td>
+                  <td class="text-center border border-line p-2">
+                    <InputNumber v-model="j.goles" :min="0" :max="99" class="!w-20" inputClass="!w-20 !text-center" />
+                  </td>
+                  <td class="text-center border border-line p-2">
+                    <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
+                            @click="removeJugadorConvocado('local', valorJugadorConvocado(j))" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex gap-2 mt-2">
+            <Select :key="keySelectJugadorLocal" v-model="nuevoJugadorLocal" :options="opcionesJugadorLocalDisponibles"
+                    optionLabel="label" optionValue="value" placeholder="Seleccionar jugador local"
+                    class="flex-1" filter showClear />
+            <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
+                    @click="addJugadorConvocado('local')" />
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Visitante</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr class="bg-club-green/5">
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Goles</th>
+                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="j in (form.jugadores_visitante || [])" :key="valorJugadorConvocado(j)">
+                  <td class="text-center border border-line p-2 text-sm">{{ nombreJugadorConvocado(j) }}</td>
+                  <td class="text-center border border-line p-2">
+                    <InputNumber v-model="j.tarjeta_amarilla" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
+                  </td>
+                  <td class="text-center border border-line p-2">
+                    <InputNumber v-model="j.tarjeta_roja" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
+                  </td>
+                  <td class="text-center border border-line p-2">
+                    <InputNumber v-model="j.goles" :min="0" :max="99" class="!w-20" inputClass="!w-20 !text-center" />
+                  </td>
+                  <td class="text-center border border-line p-2">
+                    <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
+                            @click="removeJugadorConvocado('visitante', valorJugadorConvocado(j))" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="flex gap-2 mt-2">
+            <Select :key="keySelectJugadorVisitante" v-model="nuevoJugadorVisitante" :options="opcionesJugadorVisitanteDisponibles"
+                    optionLabel="label" optionValue="value" placeholder="Seleccionar jugador visitante"
+                    class="flex-1" filter showClear />
+            <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
+                    @click="addJugadorConvocado('visitante')" />
+          </div>
         </div>
       </template>
 

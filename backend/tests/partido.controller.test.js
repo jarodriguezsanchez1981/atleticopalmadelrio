@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Resultado, Entrenamiento, Torneo, Jornada } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Resultado, Entrenamiento, Torneo, Jornada, PartidoJugador, Sancion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -20,6 +20,11 @@ describe('Sección Partidos · partido.controller', () => {
     Entrenamiento.count.mockReset();
     Torneo.count.mockReset();
     Jornada.findOne.mockReset();
+    PartidoJugador.destroy.mockReset();
+    PartidoJugador.bulkCreate.mockReset();
+    Sancion.findOne.mockReset();
+    Sancion.create.mockReset();
+    Sancion.destroy.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -281,6 +286,38 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._json).toEqual({ id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
   });
 
+  it('crear guarda los jugadores convocados y genera sanciones para el PALMA con tarjetas', async () => {
+    Partido.count.mockResolvedValue(0);
+    Partido.findAll.mockResolvedValue([]);
+    const creado = { id: 5, id_equipo_local: 73, id_equipo_visitante: 7 };
+    const completo = { id: 5, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.create.mockResolvedValue(creado);
+    Partido.findByPk.mockResolvedValue(completo);
+    Sancion.findOne.mockResolvedValue(null);
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: {
+        id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_equipo_local: 73, id_equipo_visitante: 7,
+        jugadores_local: [{ id_jugador: 5, tarjeta_amarilla: 2, tarjeta_roja: 0, goles: 1 }],
+        jugadores_visitante: [{ id_jugador: 6, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 }]
+      }
+    });
+    await promesa;
+
+    expect(PartidoJugador.destroy).toHaveBeenCalledWith({ where: { id_partido: 5 } });
+    expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id_partido: 5, id_jugador: 5, es_local: true, tarjeta_amarilla: 2, goles: 1 }),
+        expect.objectContaining({ id_partido: 5, id_jugador: 6, es_local: false })
+      ]),
+      { ignoreDuplicates: true }
+    );
+    // Solo el jugador del PALMA (local, id 73) con tarjetas genera sanción; el visitante sin tarjetas no.
+    expect(Sancion.create).toHaveBeenCalledWith({ id_partido: 5, id_jugador: 5, amarilla: 2, roja: 0 });
+    expect(Sancion.create).not.toHaveBeenCalledWith(expect.objectContaining({ id_jugador: 6 }));
+    expect(res._status).toBe(201);
+  });
+
   it('crear rechaza si el lugar está ocupado a esa hora', async () => {
     Partido.count.mockResolvedValue(0);
     Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempopartido: 90 } });
@@ -364,6 +401,26 @@ describe('Sección Partidos · partido.controller', () => {
     await promesa;
 
     expect(res._status).toBe(404);
+  });
+
+  it('actualizar guarda los jugadores convocados cuando se envían', async () => {
+    const partido = { id: 1, id_equipo_local: 73, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    Sancion.findOne.mockResolvedValue(null);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { jugadores_local: [{ id_jugador: 9, tarjeta_roja: 1 }], jugadores_visitante: [] }
+    });
+    await promesa;
+
+    expect(PartidoJugador.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
+    expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id_partido: 1, id_jugador: 9, es_local: true, tarjeta_roja: 1 })]),
+      { ignoreDuplicates: true }
+    );
+    expect(Sancion.create).toHaveBeenCalledWith({ id_partido: 1, id_jugador: 9, amarilla: 0, roja: 1 });
   });
 
   it('actualizar guarda los cambios', async () => {

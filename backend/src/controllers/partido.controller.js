@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Entrenamiento, Torneo, Jornada } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, EquipoJugador, Sancion } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
@@ -13,6 +13,62 @@ async function guardarResultadoIncidencias(idPartido, incidencias) {
   await Resultado.create({ id_partido: idPartido, resultado: '', incidencias: incidencias || null });
 }
 
+/** Guarda los jugadores convocados (local y visitante) de un partido. */
+async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
+  await PartidoJugador.destroy({ where: { id_partido: idPartido } });
+  const filas = [];
+  const anadir = (j, esLocal) => {
+    filas.push({
+      id_partido: idPartido,
+      id_jugador: j.id_jugador ?? null,
+      id_equipo_jugador: j.id_equipo_jugador ?? null,
+      es_local: esLocal,
+      tarjeta_amarilla: j.tarjeta_amarilla || 0,
+      tarjeta_roja: j.tarjeta_roja || 0,
+      goles: j.goles || 0
+    });
+  };
+  (jugadoresLocal || []).forEach((j) => anadir(j, true));
+  (jugadoresVisitante || []).forEach((j) => anadir(j, false));
+  if (filas.length) {
+    await PartidoJugador.bulkCreate(filas, { ignoreDuplicates: true });
+  }
+}
+
+/** Crea/actualiza sanciones para los jugadores del PALMA DEL RIO ATLETICO C.F.
+ * (id 73) que tengan tarjetas en el partido. */
+async function sincronizarSanciones(partido, jugadoresLocal, jugadoresVisitante) {
+  const esPalmaLocal = Number(partido.id_equipo_local) === PALMA_ID;
+  const esPalmaVisitante = Number(partido.id_equipo_visitante) === PALMA_ID;
+
+  const palmaJugadores = [];
+  if (esPalmaLocal) {
+    (jugadoresLocal || []).forEach((j) => palmaJugadores.push({
+      id_jugador: j.id_jugador, amarilla: Number(j.tarjeta_amarilla) || 0, roja: Number(j.tarjeta_roja) || 0
+    }));
+  }
+  if (esPalmaVisitante) {
+    (jugadoresVisitante || []).forEach((j) => palmaJugadores.push({
+      id_jugador: j.id_jugador, amarilla: Number(j.tarjeta_amarilla) || 0, roja: Number(j.tarjeta_roja) || 0
+    }));
+  }
+
+  for (const pj of palmaJugadores) {
+    const existente = await Sancion.findOne({ where: { id_partido: partido.id, id_jugador: pj.id_jugador } });
+    if (pj.amarilla <= 0 && pj.roja <= 0) {
+      if (existente) await existente.destroy();
+      continue;
+    }
+    if (existente) {
+      existente.amarilla = pj.amarilla;
+      existente.roja = pj.roja;
+      await existente.save();
+    } else {
+      await Sancion.create({ id_partido: partido.id, id_jugador: pj.id_jugador, amarilla: pj.amarilla, roja: pj.roja });
+    }
+  }
+}
+
 const includesBase = [
   {
     model: Plantilla,
@@ -23,7 +79,16 @@ const includesBase = [
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] },
-  { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
+  { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] },
+  {
+    model: PartidoJugador,
+    as: 'partidoJugadores',
+    attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles'],
+    include: [
+      { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
+      { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }
+    ]
+  }
 ];
 
 function serialize(partido) {
@@ -131,7 +196,7 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias, jugadores_local, jugadores_visitante } = req.body;
     if (!id_plantilla || !fecha || !id_equipo_local || !id_equipo_visitante) {
       return res.status(400).json({ message: 'Plantilla, fecha, equipo local y equipo visitante son obligatorios.' });
     }
@@ -164,6 +229,10 @@ async function crear(req, res, next) {
       incidencias: incidencias || null
     });
     await guardarResultadoIncidencias(partido.id, resultado_incidencias);
+    if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
+      await guardarJugadores(partido.id, jugadores_local, jugadores_visitante);
+      await sincronizarSanciones(partido, jugadores_local, jugadores_visitante);
+    }
     const creado = await Partido.findByPk(partido.id, { include: includesBase });
     res.status(201).json(serialize(creado));
   } catch (err) { next(err); }
@@ -173,7 +242,7 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias, jugadores_local, jugadores_visitante } = req.body;
 
     const idPlantillaFinal = id_plantilla !== undefined ? id_plantilla : partido.id_plantilla;
     const fechaFinal = fecha !== undefined ? fecha : partido.fecha;
@@ -221,6 +290,10 @@ async function actualizar(req, res, next) {
     }
     if (resultado_incidencias !== undefined) {
       await guardarResultadoIncidencias(partido.id, resultado_incidencias);
+    }
+    if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
+      await guardarJugadores(partido.id, jugadores_local, jugadores_visitante);
+      await sincronizarSanciones(partido, jugadores_local, jugadores_visitante);
     }
     const actualizado = await Partido.findByPk(partido.id, { include: includesBase });
     res.json(serialize(actualizado));
