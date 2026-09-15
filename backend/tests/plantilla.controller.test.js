@@ -137,7 +137,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
       codigo_competicion: null,
       codigo_grupo: null,
       codigo_temporada: null,
-      codigo_equipo: null
+      codigo_equipo: null,
+      codigo_primaria: '1000120'
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(11);
@@ -196,7 +197,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
       codigo_competicion: null,
       codigo_grupo: null,
       codigo_temporada: null,
-      codigo_equipo: null
+      codigo_equipo: null,
+      codigo_primaria: '1000120'
     });
     expect(res._status).toBe(201);
   });
@@ -358,7 +360,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
       codigo_competicion: null,
       codigo_grupo: null,
       codigo_temporada: null,
-      codigo_equipo: null
+      codigo_equipo: null,
+      codigo_primaria: '1000120'
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(10);
