@@ -7,10 +7,27 @@ const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
 
 /** Guarda (upsert) las incidencias del resultado en la tabla resultados. */
+/** Guarda (upsert) solo las incidencias del resultado, preservando el resultado
+ * (marcador) si ya existía uno guardado desde la sección Resultados: no se debe
+ * perder al editar el partido y tocar solo sus incidencias. */
 async function guardarResultadoIncidencias(idPartido, incidencias) {
-  await Resultado.destroy({ where: { id_partido: idPartido } });
-  if (incidencias == null || incidencias === '') return;
-  await Resultado.create({ id_partido: idPartido, resultado: '', incidencias: incidencias || null });
+  const existente = await Resultado.findOne({ where: { id_partido: idPartido } });
+  if (incidencias == null || incidencias === '') {
+    if (!existente) return;
+    if (existente.resultado) {
+      existente.incidencias = null;
+      await existente.save();
+    } else {
+      await existente.destroy();
+    }
+    return;
+  }
+  if (existente) {
+    existente.incidencias = incidencias;
+    await existente.save();
+  } else {
+    await Resultado.create({ id_partido: idPartido, resultado: '', incidencias });
+  }
 }
 
 /** Guarda los jugadores convocados (local y visitante) de un partido. */

@@ -149,6 +149,12 @@ const routes = [
         meta: { seccion: 'sanciones' }
       },
       {
+        path: 'resultados',
+        name: 'resultados',
+        component: () => import('../views/resultados/Resultados.vue'),
+        meta: { seccion: 'resultados' }
+      },
+      {
         path: 'informes',
         name: 'informes',
         component: () => import('../views/informes/Informes.vue'),

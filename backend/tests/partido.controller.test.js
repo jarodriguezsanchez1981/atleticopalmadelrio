@@ -479,6 +479,42 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._status).toBe(200);
   });
 
+  it('actualizar preserva el resultado (marcador) al guardar solo incidencias', async () => {
+    const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    const resultadoExistente = { id: 9, id_partido: 1, resultado: '2-1', incidencias: null, save: vi.fn().mockResolvedValue() };
+    Resultado.findOne.mockResolvedValue(resultadoExistente);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { resultado_incidencias: 'Partido suspendido 10 min por lluvia' }
+    });
+    await promesa;
+
+    expect(Resultado.create).not.toHaveBeenCalled();
+    expect(Resultado.destroy).not.toHaveBeenCalled();
+    expect(resultadoExistente.resultado).toBe('2-1');
+    expect(resultadoExistente.incidencias).toBe('Partido suspendido 10 min por lluvia');
+    expect(resultadoExistente.save).toHaveBeenCalled();
+  });
+
+  it('actualizar no borra el resultado al vaciar las incidencias, solo las incidencias', async () => {
+    const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    const resultadoExistente = { id: 9, id_partido: 1, resultado: '2-1', incidencias: 'Algo', save: vi.fn().mockResolvedValue(), destroy: vi.fn().mockResolvedValue() };
+    Resultado.findOne.mockResolvedValue(resultadoExistente);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { resultado_incidencias: '' }
+    });
+    await promesa;
+
+    expect(resultadoExistente.destroy).not.toHaveBeenCalled();
+    expect(resultadoExistente.incidencias).toBeNull();
+    expect(resultadoExistente.save).toHaveBeenCalled();
+  });
+
   it('serialize expone resultado_incidencias desde resultados', async () => {
     const partido = {
       id: 1, id_equipo_local: 5, id_equipo_visitante: 6,
