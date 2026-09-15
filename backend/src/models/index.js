@@ -14,7 +14,6 @@ const Entrenador = require('./Entrenador');
 const Entrenamiento = require('./Entrenamiento');
 const Partido = require('./Partido');
 const Equipo = require('./Equipo');
-const Resultado = require('./Resultado');
 const TipoFutbol = require('./TipoFutbol');
 const Patrocinador = require('./Patrocinador');
 const Jornada = require('./Jornada');
@@ -82,9 +81,6 @@ Sancion.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'par
 
 Jugador.hasMany(Sancion, { foreignKey: 'id_jugador', sourceKey: 'id', onDelete: 'CASCADE', as: 'sanciones' });
 Sancion.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
-
-Partido.hasMany(Resultado, { foreignKey: 'id_partido', sourceKey: 'id', onDelete: 'CASCADE' });
-Resultado.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
 
 Usuario.hasMany(Entrenamiento, { foreignKey: 'id_usuario', sourceKey: 'id' });
 Entrenamiento.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
@@ -243,7 +239,6 @@ module.exports = {
   Entrenamiento,
   Partido,
   Equipo,
-  Resultado,
   TipoFutbol,
   Patrocinador,
   Jornada,

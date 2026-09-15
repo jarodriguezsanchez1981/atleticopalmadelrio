@@ -49,7 +49,6 @@ export function createModelsMock() {
     Entrenamiento: createModelMock(),
     Partido: createModelMock(),
     Equipo: createModelMock(),
-    Resultado: createModelMock(),
     Patrocinador: createModelMock(),
     Plantilla: createModelMock(),
     PlantillaJugador: createModelMock(),
@@ -91,7 +90,6 @@ export const Entrenador = models.Entrenador;
 export const Entrenamiento = models.Entrenamiento;
 export const Partido = models.Partido;
 export const Equipo = models.Equipo;
-export const Resultado = models.Resultado;
 export const Patrocinador = models.Patrocinador;
 export const Plantilla = models.Plantilla;
 export const PlantillaJugador = models.PlantillaJugador;

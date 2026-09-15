@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Resultado, Entrenamiento, Torneo, Jornada, PartidoJugador, Sancion } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, Sancion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -12,9 +12,6 @@ describe('Sección Partidos · partido.controller', () => {
     Partido.create.mockReset();
     Partido.destroy.mockReset();
     Partido.count.mockReset();
-    Resultado.destroy.mockReset();
-    Resultado.create.mockReset();
-    Resultado.findOne.mockReset();
     Plantilla.findOne.mockReset();
     Categoria.findOne.mockReset();
     Entrenamiento.count.mockReset();
@@ -280,7 +277,8 @@ describe('Sección Partidos · partido.controller', () => {
       id_equipo_local: 6,
       id_equipo_visitante: 7,
       id_usuario: 7,
-      incidencias: null
+      incidencias: null,
+      resultado: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
@@ -479,53 +477,19 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._status).toBe(200);
   });
 
-  it('actualizar preserva el resultado (marcador) al guardar solo incidencias', async () => {
+  it('actualizar guarda el resultado directamente en el partido', async () => {
     const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    const actualizado = { id: 1, resultado: '2-1', plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
     Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
-    const resultadoExistente = { id: 9, id_partido: 1, resultado: '2-1', incidencias: null, save: vi.fn().mockResolvedValue() };
-    Resultado.findOne.mockResolvedValue(resultadoExistente);
 
-    const { promesa } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { resultado_incidencias: 'Partido suspendido 10 min por lluvia' }
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { resultado: '2-1' }
     });
     await promesa;
 
-    expect(Resultado.create).not.toHaveBeenCalled();
-    expect(Resultado.destroy).not.toHaveBeenCalled();
-    expect(resultadoExistente.resultado).toBe('2-1');
-    expect(resultadoExistente.incidencias).toBe('Partido suspendido 10 min por lluvia');
-    expect(resultadoExistente.save).toHaveBeenCalled();
-  });
-
-  it('actualizar no borra el resultado al vaciar las incidencias, solo las incidencias', async () => {
-    const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
-    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
-    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
-    const resultadoExistente = { id: 9, id_partido: 1, resultado: '2-1', incidencias: 'Algo', save: vi.fn().mockResolvedValue(), destroy: vi.fn().mockResolvedValue() };
-    Resultado.findOne.mockResolvedValue(resultadoExistente);
-
-    const { promesa } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { resultado_incidencias: '' }
-    });
-    await promesa;
-
-    expect(resultadoExistente.destroy).not.toHaveBeenCalled();
-    expect(resultadoExistente.incidencias).toBeNull();
-    expect(resultadoExistente.save).toHaveBeenCalled();
-  });
-
-  it('serialize expone resultado_incidencias desde resultados', async () => {
-    const partido = {
-      id: 1, id_equipo_local: 5, id_equipo_visitante: 6,
-      Resultados: [{ id: 7, resultado: '2-1', incidencias: null }]
-    };
-    Partido.findAll.mockResolvedValue([partido]);
-    const { promesa, res } = llamar(ctrl.listar);
-
-    await promesa;
-
-    expect(res._json[0].resultado_incidencias).toBeNull();
+    expect(partido.resultado).toBe('2-1');
+    expect(partido.save).toHaveBeenCalled();
+    expect(res._json.resultado).toBe('2-1');
   });
 
   it('actualizar rechaza si al cambiar de fecha el lugar está ocupado', async () => {

@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada, Torneo } = require('../models');
+const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Torneo } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 /**
@@ -69,7 +69,6 @@ async function eventos(req, res, next) {
         ...plantillaFiltrada,
         { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
         { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
-        { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] },
         { model: Jornada, as: 'jornadaRef', attributes: ['id', 'jornada'] }
       ];
       promesas.push(Partido.findAll({ where: wherePartido, include: includesPartido }));
@@ -140,7 +139,7 @@ async function eventos(req, res, next) {
         incidencias: p.incidencias,
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
-        resultado: p.Resultados?.[0]?.resultado || null,
+        resultado: p.resultado || null,
         jornada: p.jornadaRef ? p.jornadaRef.jornada : null
       };
     });

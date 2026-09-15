@@ -10,7 +10,8 @@ const Partido = sequelize.define('Partido', {
   id_equipo_local: { type: DataTypes.INTEGER, allowNull: false },
   id_equipo_visitante: { type: DataTypes.INTEGER, allowNull: false },
   id_usuario: { type: DataTypes.INTEGER, allowNull: true },
-  incidencias: { type: DataTypes.TEXT, allowNull: true }
+  incidencias: { type: DataTypes.TEXT, allowNull: true },
+  resultado: { type: DataTypes.STRING(255), allowNull: true }
 }, {
   tableName: 'partidos'
 });

@@ -1,34 +1,10 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, EquipoJugador, Sancion } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, EquipoJugador, Sancion } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
-
-/** Guarda (upsert) las incidencias del resultado en la tabla resultados. */
-/** Guarda (upsert) solo las incidencias del resultado, preservando el resultado
- * (marcador) si ya existía uno guardado desde la sección Resultados: no se debe
- * perder al editar el partido y tocar solo sus incidencias. */
-async function guardarResultadoIncidencias(idPartido, incidencias) {
-  const existente = await Resultado.findOne({ where: { id_partido: idPartido } });
-  if (incidencias == null || incidencias === '') {
-    if (!existente) return;
-    if (existente.resultado) {
-      existente.incidencias = null;
-      await existente.save();
-    } else {
-      await existente.destroy();
-    }
-    return;
-  }
-  if (existente) {
-    existente.incidencias = incidencias;
-    await existente.save();
-  } else {
-    await Resultado.create({ id_partido: idPartido, resultado: '', incidencias });
-  }
-}
 
 /** Guarda los jugadores convocados (local y visitante) de un partido. */
 async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
@@ -96,7 +72,6 @@ const includesBase = [
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
   { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] },
-  { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] },
   {
     model: PartidoJugador,
     as: 'partidoJugadores',
@@ -109,12 +84,7 @@ const includesBase = [
 ];
 
 function serialize(partido) {
-  const json = partido.toJSON ? partido.toJSON() : partido;
-  const res = Array.isArray(json.Resultados) ? json.Resultados[0] : null;
-  if (res) {
-    json.resultado_incidencias = res.incidencias;
-  }
-  return json;
+  return partido.toJSON ? partido.toJSON() : partido;
 }
 
 async function listar(req, res, next) {
@@ -213,7 +183,7 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias, jugadores_local, jugadores_visitante } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, incidencias, jugadores_local, jugadores_visitante } = req.body;
     if (!id_plantilla || !fecha || !id_equipo_local || !id_equipo_visitante) {
       return res.status(400).json({ message: 'Plantilla, fecha, equipo local y equipo visitante son obligatorios.' });
     }
@@ -243,9 +213,9 @@ async function crear(req, res, next) {
       id_equipo_local,
       id_equipo_visitante,
       id_usuario: req.user?.id || null,
-      incidencias: incidencias || null
+      incidencias: incidencias || null,
+      resultado: resultado || null
     });
-    await guardarResultadoIncidencias(partido.id, resultado_incidencias);
     if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
       await guardarJugadores(partido.id, jugadores_local, jugadores_visitante);
       await sincronizarSanciones(partido, jugadores_local, jugadores_visitante);
@@ -259,7 +229,7 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado_incidencias, incidencias, jugadores_local, jugadores_visitante } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, incidencias, jugadores_local, jugadores_visitante } = req.body;
 
     const idPlantillaFinal = id_plantilla !== undefined ? id_plantilla : partido.id_plantilla;
     const fechaFinal = fecha !== undefined ? fecha : partido.fecha;
@@ -301,12 +271,10 @@ async function actualizar(req, res, next) {
     }
     if (id_equipo_visitante !== undefined) partido.id_equipo_visitante = id_equipo_visitante;
     if (incidencias !== undefined) partido.incidencias = incidencias;
+    if (resultado !== undefined) partido.resultado = resultado || null;
     await partido.save();
     if (id_plantilla !== undefined || fecha !== undefined || id_equipo_local !== undefined || id_equipo_visitante !== undefined) {
       await sincronizarJornadaVinculada(partido);
-    }
-    if (resultado_incidencias !== undefined) {
-      await guardarResultadoIncidencias(partido.id, resultado_incidencias);
     }
     if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
       await guardarJugadores(partido.id, jugadores_local, jugadores_visitante);

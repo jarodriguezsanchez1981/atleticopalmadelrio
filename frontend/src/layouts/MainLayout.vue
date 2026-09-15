@@ -23,7 +23,7 @@ const CLUB_SECTIONS = [
   'lugares', 'material', 'entrenamientos'
 ];
 
-const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'resultados', 'informes'];
+const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'informes'];
 
 const ADMIN_SECTIONS = ['administracion', 'cambios'];
 
@@ -59,7 +59,6 @@ const competicionNavItems = computed(() => {
     { label: 'Jugadores de Equipos', icon: 'pi pi-user', to: '/equipos-jugadores', seccion: 'equipos_jugadores' },
     { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
     { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' },
-    { label: 'Resultados', icon: 'pi pi-chart-bar', to: '/resultados', seccion: 'resultados' },
     { label: 'Informes', icon: 'pi pi-file', to: '/informes', seccion: 'informes' }
   ];
   return items.filter((item) => auth.puedeVer(item.seccion));

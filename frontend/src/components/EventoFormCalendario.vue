@@ -86,7 +86,7 @@ function resetForm() {
     id_equipo_local: null,
     id_equipo_visitante: null,
     incidencias: '',
-    resultado_incidencias: '',
+    resultado: '',
     jugadores_local: [],
     jugadores_visitante: []
   };
@@ -139,7 +139,7 @@ async function cargarRegistro() {
       id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
       id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
-      resultado_incidencias: item.resultado_incidencias || '',
+      resultado: item.resultado || '',
       jugadores_local: jugadoresLocal,
       jugadores_visitante: jugadoresVisitante
     };
@@ -506,7 +506,7 @@ async function guardar() {
       payload.id_equipo_visitante = form.value.id_equipo_visitante;
       payload.id_lugar = esEquipoLocalPalma.value ? form.value.id_lugar : null;
       payload.incidencias = form.value.incidencias;
-      payload.resultado_incidencias = form.value.resultado_incidencias || null;
+      payload.resultado = form.value.resultado || null;
       payload.jugadores_local = form.value.jugadores_local || [];
       payload.jugadores_visitante = form.value.jugadores_visitante || [];
     }
@@ -688,6 +688,11 @@ async function guardar() {
             <template v-if="ubicacionEquipoLocal">{{ ubicacionEquipoLocal }}</template>
             <span v-else class="text-ink-tertiary">Sin ubicación registrada</span>
           </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Resultado</label>
+          <InputText v-model="form.resultado" placeholder="2-1" class="w-full" />
         </div>
 
         <div class="flex flex-col gap-1.5">
