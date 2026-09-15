@@ -183,7 +183,7 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, incidencias, jugadores_local, jugadores_visitante } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, codigo_acta, incidencias, jugadores_local, jugadores_visitante } = req.body;
     if (!id_plantilla || !fecha || !id_equipo_local || !id_equipo_visitante) {
       return res.status(400).json({ message: 'Plantilla, fecha, equipo local y equipo visitante son obligatorios.' });
     }
@@ -214,7 +214,8 @@ async function crear(req, res, next) {
       id_equipo_visitante,
       id_usuario: req.user?.id || null,
       incidencias: incidencias || null,
-      resultado: resultado || null
+      resultado: resultado || null,
+      codigo_acta: codigo_acta || null
     });
     if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
       await guardarJugadores(partido.id, jugadores_local, jugadores_visitante);
@@ -229,7 +230,7 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, incidencias, jugadores_local, jugadores_visitante } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, codigo_acta, incidencias, jugadores_local, jugadores_visitante } = req.body;
 
     const idPlantillaFinal = id_plantilla !== undefined ? id_plantilla : partido.id_plantilla;
     const fechaFinal = fecha !== undefined ? fecha : partido.fecha;
@@ -272,6 +273,7 @@ async function actualizar(req, res, next) {
     if (id_equipo_visitante !== undefined) partido.id_equipo_visitante = id_equipo_visitante;
     if (incidencias !== undefined) partido.incidencias = incidencias;
     if (resultado !== undefined) partido.resultado = resultado || null;
+    if (codigo_acta !== undefined) partido.codigo_acta = codigo_acta || null;
     await partido.save();
     if (id_plantilla !== undefined || fecha !== undefined || id_equipo_local !== undefined || id_equipo_visitante !== undefined) {
       await sincronizarJornadaVinculada(partido);
