@@ -44,6 +44,12 @@ const cargandoJornada = ref(false);
 const filtroPlantilla = ref(null);
 let unsubCambio = null;
 
+/** Al filtrar por categoría se listan todas sus jornadas de golpe, paginadas de 10 en 10. */
+const BLOQUE_JORNADAS = 10;
+const jornadasFiltradasLista = ref([]);
+const cargandoListaFiltrada = ref(false);
+const paginaBloque = ref(0);
+
 async function cargarCatalogo() {
   const [pls, temps, eqs] = await Promise.all([
     plantillasService.listar(),
@@ -71,7 +77,23 @@ async function cargarNumeros() {
   if (filtroPlantilla.value) params.id_plantilla = filtroPlantilla.value;
   numerosJornada.value = await categoriaCalendarioService.listarNumeros(params);
   if (numPagina.value >= numerosJornada.value.length) numPagina.value = 0;
-  await cargarJornada();
+  if (filtroPlantilla.value) {
+    await cargarListaFiltrada();
+  } else {
+    await cargarJornada();
+  }
+}
+
+async function cargarListaFiltrada() {
+  if (!filtroPlantilla.value) { jornadasFiltradasLista.value = []; return; }
+  cargandoListaFiltrada.value = true;
+  try {
+    const items = await categoriaCalendarioService.listar({ id_plantilla: filtroPlantilla.value });
+    jornadasFiltradasLista.value = items.slice().sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
+    paginaBloque.value = 0;
+  } finally {
+    cargandoListaFiltrada.value = false;
+  }
 }
 
 /** Listado completo de jornadas (todas las plantillas/categorías), solo para coordinadores. */
@@ -236,9 +258,32 @@ const opcionesEquipo = computed(() =>
 const numActual = computed(() => numerosJornada.value[numPagina.value] || null);
 const totalPaginas = computed(() => numerosJornada.value.length);
 
+/** Bloque de hasta 10 jornadas visible cuando se filtra por categoría. */
+const totalBloques = computed(() => Math.max(1, Math.ceil(jornadasFiltradasLista.value.length / BLOQUE_JORNADAS)));
+const bloqueVisible = computed(() =>
+  jornadasFiltradasLista.value.slice(paginaBloque.value * BLOQUE_JORNADAS, (paginaBloque.value + 1) * BLOQUE_JORNADAS)
+);
+const categoriaFiltradaLabel = computed(() =>
+  jornadasFiltradasLista.value[0] ? categoriaNombre(jornadasFiltradasLista.value[0]) : ''
+);
+const partidosVisibles = computed(() => filtroPlantilla.value ? bloqueVisible.value : jornadaActual.value);
+const siguienteJornadaSugerida = computed(() => {
+  if (!filtroPlantilla.value) return numActual.value || null;
+  const maxJ = jornadasFiltradasLista.value.reduce((m, j) => Math.max(m, j.jornada || 0), 0);
+  return maxJ + 1;
+});
+
+function irBloque(idx) {
+  if (idx >= 0 && idx < totalBloques.value && idx !== paginaBloque.value) {
+    paginaBloque.value = idx;
+  }
+}
+function bloqueAnterior() { irBloque(paginaBloque.value - 1); }
+function bloqueSiguiente() { irBloque(paginaBloque.value + 1); }
+
 /** Plantillas de la temporada actual sin partido creado en la jornada que se está viendo. */
 const plantillasSinJornada = computed(() => {
-  if (numActual.value == null) return [];
+  if (numActual.value == null || filtroPlantilla.value) return [];
   const base = filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
     .filter(p => !filtroPlantilla.value || p.id === filtroPlantilla.value);
   const idsConPartido = new Set(jornadaActual.value.map(j => j.id_plantilla));
@@ -399,7 +444,7 @@ function resetForm() {
   form.id_plantilla = filtroPlantilla.value || null;
   form.id_equipo_local = null;
   form.id_equipo_visitante = null;
-  form.jornada = numActual.value || null;
+  form.jornada = siguienteJornadaSugerida.value || null;
   form.fecha = null;
   form.hora = null;
 }
@@ -496,9 +541,9 @@ async function guardar() {
     </div>
 
     <div v-else>
-      <div v-if="cargandoJornada" class="text-center py-8 text-ink-tertiary">
+      <div v-if="filtroPlantilla ? cargandoListaFiltrada : cargandoJornada" class="text-center py-8 text-ink-tertiary">
         <i class="pi pi-spin pi-spinner text-xl block mb-2"></i>
-        Cargando jornada {{ numActual }}...
+        Cargando{{ filtroPlantilla ? '' : ` jornada ${numActual}` }}...
       </div>
 
       <Message v-if="plantillasSinJornada.length" severity="warn" :closable="false" class="mb-3">
@@ -507,12 +552,16 @@ async function guardar() {
 
       <div class="jornada-bloque">
         <div class="jornada-header">
-          <span class="jornada-num">J {{ numActual }}</span>
-          <span class="text-xs text-white/80">{{ jornadaActual.length }} partido{{ jornadaActual.length !== 1 ? 's' : '' }}</span>
+          <span v-if="filtroPlantilla" class="jornada-num">{{ categoriaFiltradaLabel }}</span>
+          <span v-else class="jornada-num">J {{ numActual }}</span>
+          <span class="text-xs text-white/80">
+            {{ filtroPlantilla ? jornadasFiltradasLista.length : jornadaActual.length }}
+            {{ filtroPlantilla ? 'jornada' : 'partido' }}{{ (filtroPlantilla ? jornadasFiltradasLista.length : jornadaActual.length) !== 1 ? 's' : '' }}
+          </span>
         </div>
 
         <div class="jornada-partidos">
-          <div v-for="partido in jornadaActual" :key="partido.id" class="partido-card">
+          <div v-for="partido in partidosVisibles" :key="partido.id" class="partido-card">
             <div class="partido-fecha" v-if="partido.fecha">
               <div class="text-xs font-semibold text-club-green">{{ formatoFecha(partido.fecha) }}</div>
               <div v-if="partido.hora" class="text-[0.65rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
@@ -528,7 +577,10 @@ async function guardar() {
                   <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_local)" :size="16" />
                 </div>
               </div>
-              <div class="partido-vs">vs</div>
+              <div class="partido-vs-wrap">
+                <div v-if="filtroPlantilla" class="partido-jornada-label">Jornada {{ partido.jornada }}</div>
+                <div class="partido-vs">vs</div>
+              </div>
               <div class="equipo">
                 <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
                      alt="" class="equipo-escudo" />
@@ -550,7 +602,23 @@ async function guardar() {
         </div>
       </div>
 
-      <div class="flex items-center justify-center gap-2 mt-3">
+      <div v-if="filtroPlantilla" class="flex items-center justify-center gap-2 mt-3">
+        <Button icon="pi pi-angle-double-left" text rounded size="small"
+                :disabled="paginaBloque <= 0" @click="irBloque(0)" />
+        <Button icon="pi pi-chevron-left" text rounded size="small"
+                :disabled="paginaBloque <= 0" @click="bloqueAnterior" />
+        <span class="text-sm font-semibold text-club-green">
+          Jornadas {{ paginaBloque * BLOQUE_JORNADAS + 1 }}-{{ Math.min((paginaBloque + 1) * BLOQUE_JORNADAS, jornadasFiltradasLista.length) }}
+          <span class="text-xs font-normal text-ink-tertiary ml-1">
+            ({{ paginaBloque + 1 }} / {{ totalBloques }})
+          </span>
+        </span>
+        <Button icon="pi pi-chevron-right" text rounded size="small"
+                :disabled="paginaBloque >= totalBloques - 1" @click="bloqueSiguiente" />
+        <Button icon="pi pi-angle-double-right" text rounded size="small"
+                :disabled="paginaBloque >= totalBloques - 1" @click="irBloque(totalBloques - 1)" />
+      </div>
+      <div v-else class="flex items-center justify-center gap-2 mt-3">
         <Button icon="pi pi-angle-double-left" text rounded size="small"
                 :disabled="numPagina <= 0" @click="irPagina(0)" />
         <Button icon="pi pi-chevron-left" text rounded size="small"
@@ -842,6 +910,19 @@ async function guardar() {
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+}
+.partido-vs-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.partido-jornada-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #0F3D22;
+  white-space: nowrap;
 }
 .partido-vs {
   font-size: 0.65rem;
