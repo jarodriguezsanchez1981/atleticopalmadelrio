@@ -105,6 +105,8 @@ const opcionesCategoriaTabla = computed(() => {
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 });
 
+const filasTablaJornadas = computed(() => (filtroCategoriaTabla.value ? 10 : 15));
+
 const todasJornadasFiltradas = computed(() => {
   const texto = filtroTodasJornadas.value.trim().toLowerCase();
   return todasJornadas.value.filter((j) => {
@@ -580,7 +582,7 @@ async function guardar() {
         </div>
       </div>
       <DataTable :value="todasJornadasFiltradas" v-model:selection="seleccionadasJornadas" dataKey="id"
-                 :loading="cargandoTodas" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
+                 :loading="cargandoTodas" paginator :rows="filasTablaJornadas" :rowsPerPageOptions="[10, 15, 30, 50]"
                  sortField="fecha" :sortOrder="1" responsiveLayout="scroll" class="ar-datatable">
         <Column selectionMode="multiple" headerStyle="width: 3rem" />
         <Column field="plantilla.categoria.nombre" header="Categoría" sortable>
