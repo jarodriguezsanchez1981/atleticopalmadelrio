@@ -591,7 +591,7 @@ async function guardar() {
           </span>
         </div>
 
-        <div class="jornada-partidos">
+        <div v-if="!esMovil" class="jornada-partidos">
           <table class="jornada-tabla">
             <tbody>
               <tr v-for="partido in partidosVisibles" :key="partido.id">
@@ -657,6 +657,55 @@ async function guardar() {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div v-else class="jornada-partidos-movil">
+          <div v-for="partido in partidosVisibles" :key="partido.id"
+               class="bg-white rounded-xl border border-line p-3 relative partido-card-movil">
+            <div class="flex">
+              <div class="flex-1 flex flex-col gap-1.5 min-w-0">
+                <div class="flex items-center gap-2">
+                  <img v-if="escudoEquipo(partido.id_equipo_local)" :src="escudoEquipo(partido.id_equipo_local)"
+                       alt="" class="equipo-escudo" />
+                  <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</span>
+                </div>
+                <div class="flex items-center justify-center gap-2">
+                  <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
+                    {{ golesLocalNum(partido) }}
+                  </span>
+                  <div class="flex flex-col items-center">
+                    <span v-if="filtroPlantilla" class="partido-jornada-label">Jornada {{ partido.jornada }}</span>
+                    <span class="partido-vs">VS</span>
+                  </div>
+                  <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
+                    {{ golesVisitanteNum(partido) }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
+                       alt="" class="equipo-escudo" />
+                  <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</span>
+                </div>
+              </div>
+              <div class="border-l border-line flex flex-col items-center justify-center px-3 min-w-[64px] flex-shrink-0">
+                <div v-if="partido.fecha" class="text-xs font-semibold text-club-green text-center">{{ formatoFecha(partido.fecha) }}</div>
+                <div v-if="partido.hora" class="text-[0.65rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
+              </div>
+            </div>
+            <div class="flex items-center justify-center gap-1 mt-2">
+              <span v-if="categoriaNombre(partido)" class="partido-categoria">{{ categoriaNombre(partido) }}</span>
+              <i v-if="colisionCamiseta(partido)" class="pi pi-exclamation-triangle aviso-camiseta"
+                 v-tooltip.top="'El equipo visitante tiene que traer 2ª Equipación'"></i>
+            </div>
+            <div v-if="puedeEditarPartido(partido)" class="partido-acciones">
+              <Button icon="pi pi-pencil" text rounded size="small"
+                      class="!w-7 !h-7 !text-club-green" v-tooltip.top="'Editar'"
+                      @click="abrirEdicion(partido)" />
+              <Button icon="pi pi-trash" text rounded size="small" severity="danger"
+                      class="!w-7 !h-7" v-tooltip.top="'Eliminar'"
+                      @click="confirmarEliminarJornada(partido)" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1003,10 +1052,26 @@ async function guardar() {
   gap: 2px;
 }
 
-@media (max-width: 639px) {
-  .col-nombre {
-    font-size: 0.7rem;
-    max-width: 100px;
-  }
+.jornada-partidos-movil {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.equipo-nombre {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1E293B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.partido-acciones {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 0;
 }
 </style>

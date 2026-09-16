@@ -87,7 +87,13 @@ const dias = computed(() => {
     return String(e.categoria?.id ?? e.plantilla?.categoria?.id ?? '') === String(props.idCategoria);
   });
 
+  // Siempre se muestran los 7 días de la semana (aunque no tengan eventos), para
+  // que la vista de lista coincida con la semana completa de la vista de calendario.
   const mapa = new Map();
+  for (let d = new Date(inicioSemana.value); d <= finSemana.value; d.setDate(d.getDate() + 1)) {
+    const clave = claveFecha(d);
+    mapa.set(clave, { clave, items: [] });
+  }
   for (const e of eventosFiltrados) {
     const clave = claveFecha(e.inicio || e.fecha);
     if (!mapa.has(clave)) mapa.set(clave, { clave, items: [] });
@@ -165,10 +171,6 @@ function lugarEvento(e) {
       <Button icon="pi pi-chevron-right" text rounded size="small" @click="semanaSiguiente" />
     </div>
 
-    <div v-if="!dias.length" class="sin-eventos">
-      Sin eventos esta semana.
-    </div>
-
     <div v-for="dia in dias" :key="dia.clave" class="dia">
       <div
         class="dia-cabecera"
@@ -176,6 +178,10 @@ function lugarEvento(e) {
         @click="$emit('date-click', dia.clave)"
       >
         {{ formatearDia(dia.fecha) }}
+      </div>
+
+      <div v-if="!dia.grupos.length" class="dia-sin-eventos">
+        Sin eventos ese día.
       </div>
 
       <div v-for="g in dia.grupos" :key="g.grupo" class="grupo">
@@ -263,11 +269,11 @@ function lugarEvento(e) {
   color: #64748B;
   font-size: 0.7rem;
 }
-.sin-eventos {
-  text-align: center;
-  color: #64748B;
-  padding: 24px 0;
-  font-size: 0.85rem;
+.dia-sin-eventos {
+  color: #94A3B8;
+  font-size: 0.75rem;
+  font-style: italic;
+  padding: 4px 2px 2px;
 }
 .semana-nav {
   display: flex;
