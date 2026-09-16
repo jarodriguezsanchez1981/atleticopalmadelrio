@@ -19,7 +19,7 @@ function includePartidoJugadores() {
   return {
     model: Partido,
     as: 'partido',
-    attributes: ['id'],
+    attributes: ['id', 'resultado'],
     include: [{
       model: PartidoJugador,
       as: 'partidoJugadores',
@@ -75,6 +75,7 @@ function serializeJornada(item) {
   if (!item) return item;
   const json = item.toJSON ? item.toJSON() : item;
   json.partidoJugadores = json.partido?.partidoJugadores || [];
+  json.resultado = json.partido?.resultado || null;
   delete json.partido;
   return json;
 }

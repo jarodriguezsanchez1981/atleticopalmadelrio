@@ -339,6 +339,30 @@ function categoriaNombre(j) {
   return j.plantilla?.categoria?.alias || j.plantilla?.categoria?.nombre || '';
 }
 
+/** partidos.resultado se guarda como "golesLocal-golesVisitante" (p.ej. "2-1"). */
+function golesResultado(resultado) {
+  const m = String(resultado ?? '').trim().match(/^(\d+)\s*-\s*(\d+)$/);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+
+function golesLocalNum(partido) {
+  return golesResultado(partido.resultado)?.[0] ?? null;
+}
+
+function golesVisitanteNum(partido) {
+  return golesResultado(partido.resultado)?.[1] ?? null;
+}
+
+/** Azul si ese lado ganó, rojo si perdió, negro si empate. */
+function claseResultado(partido, esLocal) {
+  const goles = golesResultado(partido.resultado);
+  if (!goles) return '';
+  const [gl, gv] = goles;
+  if (gl === gv) return 'gol-empate';
+  const localGana = gl > gv;
+  return (esLocal ? localGana : !localGana) ? 'gol-ganador' : 'gol-perdedor';
+}
+
 /** Visible solo si el usuario puede editar la sección y (es coordinador o tiene asignada esa categoría). */
 function puedeEditarPartido(partido) {
   if (!auth.puedeEditar('categoria_calendario')) return false;
@@ -561,44 +585,69 @@ async function guardar() {
         </div>
 
         <div class="jornada-partidos">
-          <div v-for="partido in partidosVisibles" :key="partido.id" class="partido-card">
-            <div class="partido-fecha" v-if="partido.fecha">
-              <div class="text-xs font-semibold text-club-green">{{ formatoFecha(partido.fecha) }}</div>
-              <div v-if="partido.hora" class="text-[0.65rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
-            </div>
-            <div class="partido-equipos">
-              <div class="equipo">
-                <img v-if="escudoEquipo(partido.id_equipo_local)" :src="escudoEquipo(partido.id_equipo_local)"
-                     alt="" class="equipo-escudo" />
-                <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</span>
-                <div class="equipo-kit">
-                  <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_local)" :size="16" />
-                  <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_local)" :size="16" />
-                  <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_local)" :size="16" />
-                </div>
-              </div>
-              <div class="partido-vs-wrap">
-                <div v-if="filtroPlantilla" class="partido-jornada-label">Jornada {{ partido.jornada }}</div>
-                <div class="partido-vs">vs</div>
-              </div>
-              <div class="equipo">
-                <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
-                     alt="" class="equipo-escudo" />
-                <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</span>
-                <div class="equipo-kit">
-                  <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_visitante)" :size="16" />
-                  <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_visitante)" :size="16" />
-                  <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_visitante)" :size="16" />
-                </div>
-              </div>
-            </div>
-            <div v-if="categoriaNombre(partido)" class="partido-categoria">
-              {{ categoriaNombre(partido) }}
-            </div>
-            <Button v-if="puedeEditarPartido(partido)" icon="pi pi-pencil" text rounded size="small"
-                    class="!w-7 !h-7 !text-club-green partido-editar" v-tooltip.top="'Editar'"
-                    @click="abrirEdicion(partido)" />
-          </div>
+          <table class="jornada-tabla">
+            <tbody>
+              <tr v-for="partido in partidosVisibles" :key="partido.id">
+                <td class="col-fecha">
+                  <template v-if="partido.fecha">
+                    <div class="text-xs font-semibold text-club-green">{{ formatoFecha(partido.fecha) }}</div>
+                    <div v-if="partido.hora" class="text-[0.65rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
+                  </template>
+                </td>
+                <td class="col-escudo">
+                  <img v-if="escudoEquipo(partido.id_equipo_local)" :src="escudoEquipo(partido.id_equipo_local)"
+                       alt="" class="equipo-escudo" />
+                </td>
+                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</td>
+                <td class="col-kit">
+                  <div class="equipo-kit">
+                    <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_local)" :size="16" />
+                    <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_local)" :size="16" />
+                    <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_local)" :size="16" />
+                  </div>
+                </td>
+                <td class="col-goles">
+                  <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
+                    {{ golesLocalNum(partido) }}
+                  </span>
+                </td>
+                <td class="col-vs">
+                  <div v-if="filtroPlantilla" class="partido-jornada-label">Jornada {{ partido.jornada }}</div>
+                  <div class="partido-vs">VS</div>
+                </td>
+                <td class="col-goles">
+                  <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
+                    {{ golesVisitanteNum(partido) }}
+                  </span>
+                </td>
+                <td class="col-kit">
+                  <div class="equipo-kit">
+                    <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_visitante)" :size="16" />
+                    <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_visitante)" :size="16" />
+                    <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_visitante)" :size="16" />
+                  </div>
+                </td>
+                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</td>
+                <td class="col-escudo">
+                  <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
+                       alt="" class="equipo-escudo" />
+                </td>
+                <td class="col-categoria">
+                  <span v-if="categoriaNombre(partido)" class="partido-categoria">{{ categoriaNombre(partido) }}</span>
+                </td>
+                <td class="col-acciones">
+                  <div class="acciones-cell">
+                    <Button v-if="puedeEditarPartido(partido)" icon="pi pi-pencil" text rounded size="small"
+                            class="!w-7 !h-7 !text-club-green" v-tooltip.top="'Editar'"
+                            @click="abrirEdicion(partido)" />
+                    <Button v-if="puedeEditarPartido(partido)" icon="pi pi-trash" text rounded size="small" severity="danger"
+                            class="!w-7 !h-7" v-tooltip.top="'Eliminar'"
+                            @click="confirmarEliminarJornada(partido)" />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -668,6 +717,16 @@ async function guardar() {
         </Column>
         <Column header="Equipo Visitante">
           <template #body="{ data }">{{ nombreEquipo(data.id_equipo_visitante) }}</template>
+        </Column>
+        <Column header="Resultado" style="width: 110px">
+          <template #body="{ data }">
+            <span v-if="golesLocalNum(data) !== null">
+              <span class="gol-numero" :class="claseResultado(data, true)">{{ golesLocalNum(data) }}</span>
+              <span class="text-ink-tertiary"> VS </span>
+              <span class="gol-numero" :class="claseResultado(data, false)">{{ golesVisitanteNum(data) }}</span>
+            </span>
+            <span v-else>—</span>
+          </template>
         </Column>
         <Column header="Acciones" style="width: 100px">
           <template #body="{ data }">
@@ -848,75 +907,45 @@ async function guardar() {
 }
 .jornada-partidos {
   padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  overflow-x: auto;
 }
-.partido-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  padding-right: 34px;
-  border: 1px solid #F1F5F9;
-  border-radius: 6px;
-  background: #FAFAF8;
+.jornada-tabla {
+  width: 100%;
+  border-collapse: collapse;
 }
-.partido-editar {
-  position: absolute;
-  top: 4px;
-  right: 4px;
+.jornada-tabla tr {
+  border-bottom: 1px solid #F1F5F9;
 }
-.partido-fecha {
-  min-width: 60px;
+.jornada-tabla tr:last-child {
+  border-bottom: none;
+}
+.jornada-tabla td {
   text-align: center;
-  flex-shrink: 0;
+  vertical-align: middle;
+  padding: 6px 4px;
 }
-.partido-equipos {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.equipo {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.equipo:last-child {
-  flex-direction: row-reverse;
-  text-align: right;
-}
-.equipo-escudo {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-.equipo-nombre {
+.col-nombre {
   font-size: 0.75rem;
   font-weight: 600;
   color: #1E293B;
-  white-space: nowrap;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jornada-tabla td.col-nombre {
+  text-align: left;
+}
+.equipo-escudo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
 }
 .equipo-kit {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  flex-shrink: 0;
-}
-.partido-vs-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
 }
 .partido-jornada-label {
   font-size: 0.6rem;
@@ -929,7 +958,19 @@ async function guardar() {
   font-weight: 700;
   color: #94A3B8;
   text-transform: uppercase;
-  flex-shrink: 0;
+}
+.gol-numero {
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.gol-ganador {
+  color: #2563EB;
+}
+.gol-perdedor {
+  color: #DC2626;
+}
+.gol-empate {
+  color: #0F172A;
 }
 .partido-categoria {
   font-size: 0.6rem;
@@ -938,27 +979,19 @@ async function guardar() {
   background: #EDE9FE;
   padding: 1px 6px;
   border-radius: 4px;
-  flex-shrink: 0;
   white-space: nowrap;
+}
+.acciones-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
 }
 
 @media (max-width: 639px) {
-  .partido-card {
-    flex-wrap: wrap;
-  }
-  .partido-fecha {
-    min-width: auto;
-    width: 100%;
-    text-align: left;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    border-bottom: 1px solid #F1F5F9;
-    padding-bottom: 4px;
-    margin-bottom: 2px;
-  }
-  .equipo-nombre {
+  .col-nombre {
     font-size: 0.7rem;
+    max-width: 100px;
   }
 }
 </style>
