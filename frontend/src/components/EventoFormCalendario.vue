@@ -42,6 +42,9 @@ const guardando = ref(false);
 const form = ref({});
 const partidosDelDia = ref([]);
 const entrenamientosDelDia = ref([]);
+/** Si ya se ha indicado explícitamente una hora para el partido (no basta con
+ * el valor por defecto al elegir solo el día, que se muestra a medianoche). */
+const horaPartidoTocada = ref(false);
 
 function claveDia(fecha) {
   if (!fecha) return null;
@@ -90,6 +93,7 @@ function resetForm() {
     jugadores_local: [],
     jugadores_visitante: []
   };
+  horaPartidoTocada.value = false;
 }
 
 async function cargarCatalogo() {
@@ -143,6 +147,7 @@ async function cargarRegistro() {
       jugadores_local: jugadoresLocal,
       jugadores_visitante: jugadoresVisitante
     };
+    if (props.tipo === 'partido') horaPartidoTocada.value = true;
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el registro.', life: 4000 });
     cerrar();
@@ -167,6 +172,9 @@ watch(
   () => form.value?.fecha,
   (nueva, anterior) => {
     if (props.tipo === 'entrenamiento' && !props.registroId && nueva && anterior) {
+      form.value.id_lugar = null;
+    }
+    if (props.tipo === 'partido' && !props.registroId && !horaEstablecida.value) {
       form.value.id_lugar = null;
     }
     cargarPartidosDelDia();
@@ -219,7 +227,7 @@ const opcionesLugar = computed(() => {
     ? lugares.value.filter((l) => (l.ids_tipos_futbol || []).includes(cat.id_tipofutbol))
     : lugares.value;
 
-  const ocupados = props.tipo === 'entrenamiento' ? lugaresOcupadosEntrenamiento.value : new Set();
+  const ocupados = props.tipo === 'entrenamiento' ? lugaresOcupadosEntrenamiento.value : lugaresOcupadosPartido.value;
   return filtradas
     .filter((l) => !ocupados.has(l.id))
     .map((l) => ({ label: l.nombre, value: l.id }))
@@ -239,6 +247,30 @@ const lugaresOcupadosEntrenamiento = computed(() => {
     if (inicio.getTime() < eFin && eInicio.getTime() < fin && e.id_lugar != null) {
       set.add(e.id_lugar);
     }
+  });
+  return set;
+});
+
+/** Hora del partido establecida (no basta con haber elegido solo el día). */
+const horaEstablecida = computed(() => {
+  if (props.tipo !== 'partido') return true;
+  return !!form.value.fecha && horaPartidoTocada.value;
+});
+
+/** Lugares con otro partido que se solaparía en el tiempo según categoria.tiempopartido. */
+const lugaresOcupadosPartido = computed(() => {
+  const set = new Set();
+  if (props.tipo !== 'partido' || !horaEstablecida.value || !form.value.fecha) return set;
+  const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
+  if (Number.isNaN(inicio.getTime())) return set;
+  const fin = inicio.getTime() + duracionPlantilla(form.value.id_plantilla) * 60000;
+  partidosDelDia.value.forEach((p) => {
+    const pLugar = p.id_lugar ?? p.lugar?.id ?? null;
+    if (pLugar == null) return;
+    const pInicio = new Date(p.fecha).getTime();
+    if (Number.isNaN(pInicio)) return;
+    const pFin = pInicio + ((p.plantilla?.categoria?.tiempopartido) || 90) * 60000;
+    if (inicio.getTime() < pFin && pInicio < fin) set.add(pLugar);
   });
   return set;
 });
@@ -435,6 +467,7 @@ function onHoraInput(campo, value) {
   if (form.value[campo]) {
     form.value[campo] = combinarFechaHora(form.value[campo], value);
   }
+  if (campo === 'fecha' && props.tipo === 'partido') horaPartidoTocada.value = true;
 }
 
 function onFechaChange(campo, value) {
@@ -677,8 +710,11 @@ async function guardar() {
           <label class="text-sm font-medium text-ink-secondary">Lugar <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   class="w-full" placeholder="Selecciona un lugar"
-                  showClear :loading="cargandoCatalogo" />
-          <p v-if="textoConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
+                  showClear :loading="cargandoCatalogo" :disabled="!horaEstablecida" />
+          <p v-if="!horaEstablecida" class="text-xs text-ink-tertiary">
+            Indica la hora del partido para poder elegir el lugar.
+          </p>
+          <p v-else-if="textoConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
             <i class="pi pi-exclamation-circle"></i> {{ textoConflicto() }}
           </p>
         </div>
