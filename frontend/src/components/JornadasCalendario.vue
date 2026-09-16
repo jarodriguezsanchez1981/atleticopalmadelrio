@@ -339,6 +339,13 @@ function categoriaNombre(j) {
   return j.plantilla?.categoria?.alias || j.plantilla?.categoria?.nombre || '';
 }
 
+/** Mismo color de camiseta en ambos equipos: el visitante debe traer 2ª equipación. */
+function colisionCamiseta(partido) {
+  const local = camisetaEquipo(partido.id_equipo_local);
+  const visitante = camisetaEquipo(partido.id_equipo_visitante);
+  return !!local && !!visitante && local === visitante;
+}
+
 /** partidos.resultado se guarda como "golesLocal-golesVisitante" (p.ej. "2-1"). */
 function golesResultado(resultado) {
   const m = String(resultado ?? '').trim().match(/^(\d+)\s*-\s*(\d+)$/);
@@ -634,6 +641,8 @@ async function guardar() {
                 </td>
                 <td class="col-categoria">
                   <span v-if="categoriaNombre(partido)" class="partido-categoria">{{ categoriaNombre(partido) }}</span>
+                  <i v-if="colisionCamiseta(partido)" class="pi pi-exclamation-triangle aviso-camiseta"
+                     v-tooltip.top="'El equipo visitante tiene que traer 2ª Equipación'"></i>
                 </td>
                 <td class="col-acciones">
                   <div class="acciones-cell">
@@ -980,6 +989,12 @@ async function guardar() {
   padding: 1px 6px;
   border-radius: 4px;
   white-space: nowrap;
+}
+.aviso-camiseta {
+  color: #D97706;
+  font-size: 0.9rem;
+  margin-left: 6px;
+  cursor: help;
 }
 .acciones-cell {
   display: flex;
