@@ -131,6 +131,10 @@ async function actualizar(req, res, next) {
         return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
       }
     }
+    const serieIdPlantilla = entrenamiento.id_plantilla;
+    const serieRecurrente = entrenamiento.recurrente;
+    const serieHasta = entrenamiento.hasta;
+
     if (id_plantilla !== undefined) entrenamiento.id_plantilla = id_plantilla;
     if (fecha !== undefined) entrenamiento.fecha = fecha;
     if (id_lugar !== undefined) entrenamiento.id_lugar = id_lugar;
@@ -139,6 +143,25 @@ async function actualizar(req, res, next) {
       entrenamiento.hasta = recurrente && hasta ? hasta : null;
     }
     await entrenamiento.save();
+
+    // El lugar es un dato de la serie, no de una sesión concreta: si este
+    // entrenamiento pertenece a una serie recurrente (misma plantilla y misma
+    // fecha límite), propagar el cambio de lugar al resto de sus semanas.
+    let propagados = 0;
+    if (id_lugar !== undefined && serieRecurrente && serieHasta) {
+      const [afectados] = await Entrenamiento.update(
+        { id_lugar },
+        {
+          where: {
+            id_plantilla: serieIdPlantilla,
+            recurrente: 1,
+            hasta: serieHasta,
+            id: { [Op.ne]: entrenamiento.id }
+          }
+        }
+      );
+      propagados = afectados;
+    }
 
     // Si tras la edición queda recurrente con fecha límite, generar (o completar)
     // la serie semanal; el chequeo de conflicto evita duplicar semanas ya creadas.
@@ -170,6 +193,7 @@ async function actualizar(req, res, next) {
     const respuesta = serialize(actualizado);
     respuesta.generados = generados;
     respuesta.omitidos = omitidos;
+    respuesta.propagados = propagados;
     res.json(respuesta);
   } catch (err) { next(err); }
 }

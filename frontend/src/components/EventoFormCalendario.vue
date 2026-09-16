@@ -559,6 +559,14 @@ async function guardar() {
       }
       toast.add({ severity: 'info', summary: 'Entrenamientos recurrentes', detail: detalle, life: 6000 });
     }
+    if (props.tipo === 'entrenamiento' && resultado?.propagados > 0) {
+      toast.add({
+        severity: 'info',
+        summary: 'Serie actualizada',
+        detail: `El lugar se ha actualizado también en ${resultado.propagados} sesión(es) más de esta serie.`,
+        life: 6000
+      });
+    }
     cerrar();
     emit('saved');
   } catch (err) {

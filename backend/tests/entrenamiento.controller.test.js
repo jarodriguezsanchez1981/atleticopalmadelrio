@@ -10,6 +10,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     Entrenamiento.findAll.mockReset();
     Entrenamiento.findByPk.mockReset();
     Entrenamiento.create.mockReset();
+    Entrenamiento.update.mockReset();
     Entrenamiento.destroy.mockReset();
     Entrenamiento.count.mockReset();
     Plantilla.findOne.mockReset();
@@ -298,7 +299,43 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(entrenamiento.id_lugar).toBe(2);
     expect(entrenamiento.save).toHaveBeenCalled();
-    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [] });
+    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [], propagados: 0 });
+  });
+
+  it('actualizar propaga el cambio de lugar al resto de semanas de una serie recurrente', async () => {
+    const entrenamiento = {
+      id: 5, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 1, hasta: '2026-01-19T18:00:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 5, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    Entrenamiento.update.mockResolvedValue([2]);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2 } });
+    await promesa;
+
+    expect(Entrenamiento.update).toHaveBeenCalledWith(
+      { id_lugar: 2 },
+      { where: { id_plantilla: 3, recurrente: 1, hasta: '2026-01-19T18:00:00', id: { [Op.ne]: 5 } } }
+    );
+    expect(res._json.propagados).toBe(2);
+  });
+
+  it('actualizar no propaga el lugar si el entrenamiento no es de una serie recurrente', async () => {
+    const entrenamiento = {
+      id: 6, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 0, hasta: null,
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 6, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '6' }, body: { id_lugar: 2 } });
+    await promesa;
+
+    expect(Entrenamiento.update).not.toHaveBeenCalled();
+    expect(res._json.propagados).toBe(0);
   });
 
   it('actualizar genera la serie semanal al marcar recurrente con fecha límite', async () => {
