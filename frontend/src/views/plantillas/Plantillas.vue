@@ -130,7 +130,7 @@ function opcionesCoordinador(form) {
   const idTipoFutbol = categoria?.id_tipofutbol ?? null;
   if (!idTipoFutbol) return [];
   return coordinadores.value
-    .filter(c => c.id_tipofutbol === idTipoFutbol)
+    .filter(c => (c.ids_tipos_futbol || []).includes(idTipoFutbol))
     .map(c => ({ label: `${c.nombre} ${c.apellidos}`, value: c.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 }

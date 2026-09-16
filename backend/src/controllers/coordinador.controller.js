@@ -1,20 +1,30 @@
 const { Coordinador, TipoFutbol, Plantilla, Categoria } = require('../models');
 
 const includes = [
-  { model: TipoFutbol, as: 'tipofutbol', attributes: ['id', 'nombre'] }
+  { model: TipoFutbol, as: 'tiposFutbol', attributes: ['id', 'nombre'], through: { attributes: [] } }
 ];
 
-async function validarTipoFutbol(id_tipofutbol) {
-  if (!id_tipofutbol) return null;
-  const existe = await TipoFutbol.findOne({ where: { id: id_tipofutbol } });
-  if (!existe) return 'El tipo de fútbol indicado no existe.';
-  return null;
+function normalizeIds(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(Number).filter(Boolean))];
 }
 
-/** Asigna el coordinador a todas las plantillas cuya categoría comparte su tipo de fútbol. */
-async function asignarACoordinadorEnPlantillas(coordinador) {
-  if (!coordinador.id_tipofutbol) return;
-  const categorias = await Categoria.findAll({ where: { id_tipofutbol: coordinador.id_tipofutbol }, attributes: ['id'] });
+async function verificarTipos(ids) {
+  if (!ids.length) return true;
+  const contados = await TipoFutbol.count({ where: { id: ids } });
+  return contados === ids.length;
+}
+
+function serialize(coordinador) {
+  const json = coordinador.toJSON ? coordinador.toJSON() : coordinador;
+  json.ids_tipos_futbol = (json.tiposFutbol || []).map((t) => t.id);
+  return json;
+}
+
+/** Asigna el coordinador a todas las plantillas cuya categoría comparta alguno de sus tipos de fútbol. */
+async function asignarACoordinadorEnPlantillas(coordinador, idsTipos) {
+  if (!idsTipos.length) return;
+  const categorias = await Categoria.findAll({ where: { id_tipofutbol: idsTipos }, attributes: ['id'] });
   const idsCategorias = categorias.map((c) => c.id);
   if (!idsCategorias.length) return;
   await Plantilla.update(
@@ -26,7 +36,7 @@ async function asignarACoordinadorEnPlantillas(coordinador) {
 async function listar(req, res, next) {
   try {
     const coordinadores = await Coordinador.findAll({ include: includes, order: [['apellidos', 'ASC']] });
-    res.json(coordinadores);
+    res.json(coordinadores.map(serialize));
   } catch (err) { next(err); }
 }
 
@@ -34,24 +44,26 @@ async function obtener(req, res, next) {
   try {
     const coordinador = await Coordinador.findOne({ where: { id: req.params.id }, include: includes });
     if (!coordinador) return res.status(404).json({ message: 'Coordinador no encontrado.' });
-    res.json(coordinador);
+    res.json(serialize(coordinador));
   } catch (err) { next(err); }
 }
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, id_tipofutbol, email, telefono } = req.body;
+    const { nombre, apellidos, email, telefono } = req.body;
     if (!nombre || !apellidos) {
       return res.status(400).json({ message: 'Nombre y apellidos son obligatorios.' });
     }
-    const errorTipo = await validarTipoFutbol(id_tipofutbol);
-    if (errorTipo) return res.status(400).json({ message: errorTipo });
+    const idsTipos = normalizeIds(req.body.ids_tipos_futbol);
+    const ok = await verificarTipos(idsTipos);
+    if (!ok) return res.status(400).json({ message: 'Algún tipo de fútbol indicado no existe.' });
     const coordinador = await Coordinador.create({
-      nombre, apellidos, id_tipofutbol: id_tipofutbol || null, email: email || null, telefono: telefono || null
+      nombre, apellidos, email: email || null, telefono: telefono || null
     });
-    await asignarACoordinadorEnPlantillas(coordinador);
+    if (idsTipos.length) await coordinador.setTiposFutbol(idsTipos);
+    await asignarACoordinadorEnPlantillas(coordinador, idsTipos);
     const completo = await Coordinador.findOne({ where: { id: coordinador.id }, include: includes });
-    res.status(201).json(completo);
+    res.status(201).json(serialize(completo));
   } catch (err) { next(err); }
 }
 
@@ -59,19 +71,21 @@ async function actualizar(req, res, next) {
   try {
     const coordinador = await Coordinador.findOne({ where: { id: req.params.id } });
     if (!coordinador) return res.status(404).json({ message: 'Coordinador no encontrado.' });
-    const { nombre, apellidos, id_tipofutbol, email, telefono } = req.body;
-    if (id_tipofutbol !== undefined) {
-      const errorTipo = await validarTipoFutbol(id_tipofutbol);
-      if (errorTipo) return res.status(400).json({ message: errorTipo });
-      coordinador.id_tipofutbol = id_tipofutbol || null;
-    }
+    const { nombre, apellidos, email, telefono } = req.body;
     if (nombre !== undefined) coordinador.nombre = nombre;
     if (apellidos !== undefined) coordinador.apellidos = apellidos;
     if (email !== undefined) coordinador.email = email || null;
     if (telefono !== undefined) coordinador.telefono = telefono || null;
     await coordinador.save();
+    if (req.body.ids_tipos_futbol !== undefined) {
+      const idsTipos = normalizeIds(req.body.ids_tipos_futbol);
+      const ok = await verificarTipos(idsTipos);
+      if (!ok) return res.status(400).json({ message: 'Algún tipo de fútbol indicado no existe.' });
+      await coordinador.setTiposFutbol(idsTipos);
+      await asignarACoordinadorEnPlantillas(coordinador, idsTipos);
+    }
     const actualizado = await Coordinador.findOne({ where: { id: coordinador.id }, include: includes });
-    res.json(actualizado);
+    res.json(serialize(actualizado));
   } catch (err) { next(err); }
 }
 

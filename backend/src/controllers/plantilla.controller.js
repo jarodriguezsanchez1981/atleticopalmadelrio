@@ -1,4 +1,4 @@
-const { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Partido, PartidoJugador } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Coordinador, TipoFutbol, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Partido, PartidoJugador } = require('../models');
 
 const includes = [
   { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'orden'] },
@@ -137,9 +137,13 @@ async function validarReferencias({ id_categoria, id_temporada, id_division, id_
     if (!existe) return 'La división indicada no existe.';
   }
   if (id_coordinador) {
-    const coordinador = await Coordinador.findOne({ where: { id: id_coordinador } });
+    const coordinador = await Coordinador.findOne({
+      where: { id: id_coordinador },
+      include: [{ model: TipoFutbol, as: 'tiposFutbol', attributes: ['id'] }]
+    });
     if (!coordinador) return 'El coordinador indicado no existe.';
-    if (categoria.id_tipofutbol && coordinador.id_tipofutbol !== categoria.id_tipofutbol) {
+    const idsTiposCoordinador = (coordinador.tiposFutbol || []).map((t) => t.id);
+    if (categoria.id_tipofutbol && idsTiposCoordinador.length && !idsTiposCoordinador.includes(categoria.id_tipofutbol)) {
       return 'El coordinador indicado no coincide con el tipo de fútbol de la categoría.';
     }
   }

@@ -91,8 +91,22 @@ Partido.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usu
 TipoFutbol.hasMany(Categoria, { foreignKey: 'id_tipofutbol', sourceKey: 'id' });
 Categoria.belongsTo(TipoFutbol, { foreignKey: 'id_tipofutbol', targetKey: 'id', as: 'tipofutbol', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
 
-TipoFutbol.hasMany(Coordinador, { foreignKey: 'id_tipofutbol', sourceKey: 'id', as: 'coordinadores' });
-Coordinador.belongsTo(TipoFutbol, { foreignKey: 'id_tipofutbol', targetKey: 'id', as: 'tipofutbol' });
+Coordinador.belongsToMany(TipoFutbol, {
+  through: 'coordinador_tipofutbol',
+  foreignKey: 'id_coordinador',
+  sourceKey: 'id',
+  otherKey: 'id_tipofutbol',
+  as: 'tiposFutbol',
+  timestamps: false
+});
+TipoFutbol.belongsToMany(Coordinador, {
+  through: 'coordinador_tipofutbol',
+  foreignKey: 'id_tipofutbol',
+  sourceKey: 'id',
+  otherKey: 'id_coordinador',
+  as: 'coordinadores',
+  timestamps: false
+});
 
 Lugar.belongsToMany(TipoFutbol, {
   through: 'lugar_tipofutbol',

@@ -162,7 +162,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
   it('crear rechaza un coordinador cuyo tipo de fútbol no coincide con el de la categoría', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1, id_tipofutbol: 1 }); // categoría Fútbol 7
     Temporada.findOne.mockResolvedValue({ id: 1 });
-    Coordinador.findOne.mockResolvedValue({ id: 4, id_tipofutbol: 2 }); // coordinador Fútbol 11
+    Coordinador.findOne.mockResolvedValue({ id: 4, tiposFutbol: [{ id: 2 }] }); // coordinador Fútbol 11
     const { promesa, res } = llamar(ctrl.crear, {
       body: { id_categoria: 1, id_temporada: 1, id_coordinador: 4 }
     });
@@ -254,7 +254,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Plantilla.findOne.mockResolvedValueOnce(plantilla);
     Categoria.findOne.mockResolvedValue({ id: 1, id_tipofutbol: 1 });
     Temporada.findOne.mockResolvedValue({ id: 1 });
-    Coordinador.findOne.mockResolvedValue({ id: 4, id_tipofutbol: 2 });
+    Coordinador.findOne.mockResolvedValue({ id: 4, tiposFutbol: [{ id: 2 }] });
 
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' }, body: { id_coordinador: 4 }

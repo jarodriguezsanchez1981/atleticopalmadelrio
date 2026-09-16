@@ -26,15 +26,17 @@ const opcionesTipoFutbol = computed(() =>
 const columns = computed(() => [
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'apellidos', header: 'Apellidos', type: 'text', required: true },
-  { field: 'id_tipofutbol', header: 'Tipo de fútbol', type: 'select', options: opcionesTipoFutbol.value },
+  { field: 'ids_tipos_futbol', header: 'Tipos de fútbol', type: 'multiselect', relation: 'tiposFutbol', options: opcionesTipoFutbol.value },
   { field: 'email', header: 'Email', type: 'text' },
   { field: 'telefono', header: 'Teléfono', type: 'text' }
 ]);
 
-const emptyItem = { nombre: '', apellidos: '', id_tipofutbol: null, email: '', telefono: '' };
+const emptyItem = { nombre: '', apellidos: '', ids_tipos_futbol: [], email: '', telefono: '' };
 
-function nombreTipoFutbol(id) {
-  return tiposFutbol.value.find(t => t.id === id)?.nombre || '—';
+function nombreTipos(data) {
+  if (data.tiposFutbol?.length) return data.tiposFutbol.map(t => t.nombre).join(', ');
+  const ids = data.ids_tipos_futbol || [];
+  return ids.map(id => opcionesTipoFutbol.value.find(o => o.value === id)?.label || id).join(', ') || '—';
 }
 </script>
 
@@ -48,8 +50,11 @@ function nombreTipoFutbol(id) {
     :emptyItem="emptyItem"
     :canExport="true"
   >
-    <template #cell-id_tipofutbol="{ data }">
-      {{ data.tipofutbol?.nombre || nombreTipoFutbol(data.id_tipofutbol) }}
+    <template #cell-ids_tipos_futbol="{ data }">
+      {{ nombreTipos(data) }}
+    </template>
+    <template #detail-ids_tipos_futbol="{ data }">
+      {{ nombreTipos(data) }}
     </template>
   </CrudDataTable>
 </SectionGuard>
