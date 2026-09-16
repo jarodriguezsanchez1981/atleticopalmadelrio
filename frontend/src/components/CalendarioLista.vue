@@ -196,6 +196,9 @@ function lugarEvento(e) {
           @click="$emit('event-click', e)"
         >
           <span class="hora">{{ formatearHora(e.inicio || e.fecha) }}</span>
+          <i v-if="e.tipo === 'partido'"
+             :class="e.es_local ? 'pi pi-home lv-icon lv-local' : 'pi pi-arrow-right-arrow-left lv-icon lv-visitante'"
+             v-tooltip.top="e.es_local ? 'Local' : 'Visitante'"></i>
           <span class="nombre">{{ nombreEvento(e) }}</span>
           <span v-if="lugarEvento(e)" class="lugar">{{ lugarEvento(e) }}</span>
         </button>
@@ -259,6 +262,15 @@ function lugarEvento(e) {
   font-weight: 700;
   color: #0F3D22;
   min-width: 34px;
+}
+.lv-icon {
+  font-size: 0.7rem;
+}
+.lv-local {
+  color: rgb(16 185 129);
+}
+.lv-visitante {
+  color: rgb(79 70 229);
 }
 .nombre {
   font-weight: 600;
