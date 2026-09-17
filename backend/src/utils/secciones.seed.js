@@ -1,4 +1,5 @@
 const SECCIONES = [
+  { clave: 'dashboard', nombre: 'Dashboard', icono: 'pi pi-th-large', orden: 5 },
   { clave: 'calendario', nombre: 'Calendario', icono: 'pi pi-calendar', orden: 10 },
   { clave: 'entrenamientos', nombre: 'Entrenamientos', icono: 'pi pi-stopwatch', orden: 20 },
   { clave: 'entrenamientos_jugadores', nombre: 'Entrenamientos Jugadores', icono: 'pi pi-check-square', orden: 22 },

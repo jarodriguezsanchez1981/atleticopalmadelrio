@@ -26,7 +26,7 @@ import {
 import { useMediaQuery } from '../composables/useMediaQuery';
 import { useAuthStore } from '../stores/auth.store';
 import { suscribirseCambio, emitirCambio } from '../utils/cambioBus';
-import { filtrarPlantillasTemporadaActual } from '../utils/temporadaActual';
+import { filtrarPlantillasTemporadaActual, obtenerTemporadaActual } from '../utils/temporadaActual';
 
 const esMovil = useMediaQuery('(max-width: 639px)');
 const auth = useAuthStore();
@@ -257,6 +257,7 @@ const opcionesEquipo = computed(() =>
 
 const numActual = computed(() => numerosJornada.value[numPagina.value] || null);
 const totalPaginas = computed(() => numerosJornada.value.length);
+const temporadaActualNombre = computed(() => obtenerTemporadaActual(temporadas.value)?.nombre || '—');
 
 /** Bloque de hasta 10 jornadas visible cuando se filtra por categoría. */
 const totalBloques = computed(() => Math.max(1, Math.ceil(jornadasFiltradasLista.value.length / BLOQUE_JORNADAS)));
@@ -583,12 +584,14 @@ async function guardar() {
 
       <div class="jornada-bloque">
         <div class="jornada-header">
-          <span v-if="filtroPlantilla" class="jornada-num">{{ categoriaFiltradaLabel }}</span>
-          <span v-else class="jornada-num">J {{ numActual }}</span>
-          <span class="text-xs text-white/80">
-            {{ filtroPlantilla ? jornadasFiltradasLista.length : jornadaActual.length }}
-            {{ filtroPlantilla ? 'jornada' : 'partido' }}{{ (filtroPlantilla ? jornadasFiltradasLista.length : jornadaActual.length) !== 1 ? 's' : '' }}
-          </span>
+          <div class="jornada-header-lado jornada-header-izq">
+            <span v-if="filtroPlantilla" class="jornada-num">{{ categoriaFiltradaLabel }}</span>
+          </div>
+          <div class="jornada-header-centro">
+            <i class="pi pi-calendar"></i>
+            <span>Jornada {{ numActual }} | {{ temporadaActualNombre }}</span>
+          </div>
+          <div class="jornada-header-lado jornada-header-der"></div>
         </div>
 
         <div v-if="!esMovil" class="jornada-partidos">
@@ -597,8 +600,8 @@ async function guardar() {
               <tr v-for="partido in partidosVisibles" :key="partido.id">
                 <td class="col-fecha">
                   <template v-if="partido.fecha">
-                    <div class="text-xs font-semibold text-club-green">{{ formatoFecha(partido.fecha) }}</div>
-                    <div v-if="partido.hora" class="text-[0.65rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
+                    <div class="text-[0.8rem] font-semibold text-club-green">{{ formatoFecha(partido.fecha) }}</div>
+                    <div v-if="partido.hora" class="text-[0.8rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
                   </template>
                 </td>
                 <td class="col-escudo">
@@ -620,7 +623,6 @@ async function guardar() {
                 </td>
                 <td class="col-vs">
                   <div v-if="filtroPlantilla" class="partido-jornada-label">Jornada {{ partido.jornada }}</div>
-                  <div class="partido-vs">VS</div>
                 </td>
                 <td class="col-goles">
                   <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
@@ -673,9 +675,8 @@ async function guardar() {
                   <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
                     {{ golesLocalNum(partido) }}
                   </span>
-                  <div class="flex flex-col items-center">
-                    <span v-if="filtroPlantilla" class="partido-jornada-label">Jornada {{ partido.jornada }}</span>
-                    <span class="partido-vs">VS</span>
+                  <div v-if="filtroPlantilla" class="flex flex-col items-center">
+                    <span class="partido-jornada-label">Jornada {{ partido.jornada }}</span>
                   </div>
                   <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
                     {{ golesVisitanteNum(partido) }}
@@ -688,8 +689,8 @@ async function guardar() {
                 </div>
               </div>
               <div class="border-l border-line flex flex-col items-center justify-center px-3 min-w-[64px] flex-shrink-0">
-                <div v-if="partido.fecha" class="text-xs font-semibold text-club-green text-center">{{ formatoFecha(partido.fecha) }}</div>
-                <div v-if="partido.hora" class="text-[0.65rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
+                <div v-if="partido.fecha" class="text-[0.8rem] font-semibold text-club-green text-center">{{ formatoFecha(partido.fecha) }}</div>
+                <div v-if="partido.hora" class="text-[0.8rem] text-ink-tertiary">{{ formatoHora(partido.hora) }}</div>
               </div>
             </div>
             <div class="flex items-center justify-center gap-1 mt-2">
@@ -957,6 +958,37 @@ async function guardar() {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.jornada-header-lado {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.jornada-header-izq {
+  justify-content: flex-start;
+}
+.jornada-header-der {
+  justify-content: flex-end;
+}
+.jornada-header-centro {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .jornada-header-centro {
+    order: 3;
+    flex-basis: 100%;
+    margin-top: 4px;
+  }
 }
 .jornada-num {
   font-weight: 800;
@@ -983,7 +1015,7 @@ async function guardar() {
   padding: 6px 4px;
 }
 .col-nombre {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #1E293B;
   max-width: 140px;
@@ -1006,19 +1038,13 @@ async function guardar() {
   gap: 2px;
 }
 .partido-jornada-label {
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #0F3D22;
   white-space: nowrap;
 }
-.partido-vs {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: #94A3B8;
-  text-transform: uppercase;
-}
 .gol-numero {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 800;
 }
 .gol-ganador {
@@ -1031,7 +1057,7 @@ async function guardar() {
   color: #0F172A;
 }
 .partido-categoria {
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #7C3AED;
   background: #EDE9FE;
@@ -1059,7 +1085,7 @@ async function guardar() {
   gap: 8px;
 }
 .equipo-nombre {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #1E293B;
   white-space: nowrap;

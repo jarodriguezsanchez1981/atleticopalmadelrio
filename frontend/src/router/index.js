@@ -17,6 +17,12 @@ const routes = [
         return { name: auth.primeraSeccion || 'calendario' };
       } },
       {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: () => import('../views/dashboard/Dashboard.vue'),
+        meta: { seccion: 'dashboard' }
+      },
+      {
         path: 'calendario',
         name: 'calendario',
         component: () => import('../views/calendario/Calendario.vue'),

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { authService } from '../services';
 
 const SECCION_ORDER = [
+  'dashboard',
   'calendario',
   'entrenamientos',
   'partidos',

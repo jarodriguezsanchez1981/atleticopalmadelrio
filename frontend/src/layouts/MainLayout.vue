@@ -28,6 +28,7 @@ const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equi
 const ADMIN_SECTIONS = ['administracion', 'cambios'];
 
 const ALL_NAV = [
+  { label: 'Dashboard', icon: 'pi pi-th-large', to: '/dashboard', seccion: 'dashboard' },
   { label: 'Calendario', icon: 'pi pi-calendar', to: '/calendario', seccion: 'calendario' },
 ];
 
