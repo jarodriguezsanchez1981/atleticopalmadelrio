@@ -1,11 +1,11 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Torneo } = require('../models');
+const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Torneo } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados como eventos
- * para FullCalendar. Un partido con id_jornada se etiqueta como Liga (con su número de
- * jornada); sin id_jornada, como Amistoso.
+ * para FullCalendar. Un partido con jornada asignada se etiqueta como Liga (con su número
+ * de jornada); sin jornada, como Amistoso.
  */
 async function eventos(req, res, next) {
   try {
@@ -54,9 +54,8 @@ async function eventos(req, res, next) {
       promesas.push(Promise.resolve([]));
     }
 
-    // Para partidos: el número de jornada (si lo tiene, para clasificar Liga/Amistoso)
-    // se lee directamente del partido a través de id_jornada, sin necesidad de emparejar
-    // por plantilla+fecha.
+    // Para partidos: el número de jornada (para clasificar Liga/Amistoso) vive
+    // directamente en partidos.jornada; un partido sin jornada es un amistoso.
     if (incluirPartidos) {
       const wherePartido = {};
       if (id_plantilla) wherePartido.id_plantilla = id_plantilla;
@@ -68,8 +67,7 @@ async function eventos(req, res, next) {
       const includesPartido = [
         ...plantillaFiltrada,
         { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
-        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
-        { model: Jornada, as: 'jornadaRef', attributes: ['id', 'jornada'] }
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] }
       ];
       promesas.push(Partido.findAll({ where: wherePartido, include: includesPartido }));
     } else {
@@ -140,7 +138,7 @@ async function eventos(req, res, next) {
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
         resultado: p.resultado || null,
-        jornada: p.jornadaRef ? p.jornadaRef.jornada : null
+        jornada: p.jornada || null
       };
     });
 

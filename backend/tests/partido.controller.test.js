@@ -278,6 +278,7 @@ describe('Sección Partidos · partido.controller', () => {
       id_equipo_visitante: 7,
       id_usuario: 7,
       incidencias: null,
+      jornada: null,
       resultado: null,
       codigo_acta: null
     });
@@ -491,6 +492,34 @@ describe('Sección Partidos · partido.controller', () => {
     expect(partido.resultado).toBe('2-1');
     expect(partido.save).toHaveBeenCalled();
     expect(res._json.resultado).toBe('2-1');
+  });
+
+  it('actualizar guarda la jornada directamente en el partido', async () => {
+    const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, jornada: 4, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { jornada: 4 }
+    });
+    await promesa;
+
+    expect(partido.jornada).toBe(4);
+    expect(partido.save).toHaveBeenCalled();
+    expect(res._json.jornada).toBe(4);
+  });
+
+  it('actualizar rechaza una jornada no positiva', async () => {
+    const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    Partido.findByPk.mockResolvedValue(partido);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { jornada: 0 }
+    });
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(partido.save).not.toHaveBeenCalled();
   });
 
   it('actualizar rechaza si al cambiar de fecha el lugar está ocupado', async () => {

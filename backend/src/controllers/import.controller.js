@@ -19,7 +19,7 @@ const RECURSOS = {
   incidencias: { modelo: 'Incidencia', campos: ['id_categoria', 'id_jugador', 'id_entrenador', 'id_delegado', 'id_usuario', 'incidencias', 'fecha'] },
   jugadores: { modelo: 'Jugador', campos: ['nombre', 'apellidos', 'dni', 'fecha_nacimiento', 'foto'] },
   entrenadores: { modelo: 'Entrenador', campos: ['nombre', 'apellidos', 'dni', 'email', 'foto'] },
-  jornadas: { modelo: 'Jornada', campos: ['id_plantilla', 'id_equipo_local', 'id_equipo_visitante', 'jornada', 'fecha', 'hora'] },
+  jornadas: { modelo: 'Partido', campos: ['id_plantilla', 'id_equipo_local', 'id_equipo_visitante', 'jornada', 'fecha', 'hora'] },
   sanciones: { modelo: 'Sancion', campos: ['id_partido', 'id_jugador'] },
   plantillas: { modelo: 'Plantilla', campos: ['id_categoria', 'id_temporada', 'id_division', 'id_jugador', 'id_entrenador', 'id_delegado'] },
   promociones: { modelo: 'Promocion', campos: ['id_plantilla', 'id_categoria', 'id_jugador'] }
@@ -213,18 +213,19 @@ async function importarJornadas(filas, res) {
       }
 
       // VALIDAR: Solo 1 jornada por plantilla por fecha
-      const duplicada = await models.Jornada.findOne({ where: { id_plantilla: datos.id_plantilla, fecha: datos.fecha } });
+      const diaInicio = new Date(`${datos.fecha}T00:00:00`);
+      const diaFin = new Date(`${datos.fecha}T23:59:59.999`);
+      const duplicada = await models.Partido.findOne({
+        where: { id_plantilla: datos.id_plantilla, jornada: { [Op.not]: null }, fecha: { [Op.between]: [diaInicio, diaFin] } }
+      });
       if (duplicada) {
         errores.push({ fila: filaNum, mensaje: `Esta plantilla ya tiene una jornada programada para el ${datos.fecha}.` });
         continue;
       }
 
-      // Crear jornada
-      const jornadaCreada = await models.Jornada.create(datos);
-
-      // Crear partido correspondiente, vinculado a la jornada
+      const horaSql = datos.hora ? String(datos.hora).slice(0, 8) : '00:00:00';
       await models.Partido.create({
-        id_plantilla: datos.id_plantilla, id_jornada: jornadaCreada.id, fecha: datos.fecha, id_lugar: null,
+        id_plantilla: datos.id_plantilla, jornada: datos.jornada, fecha: `${datos.fecha}T${horaSql}`, id_lugar: null,
         id_equipo_local: datos.id_equipo_local, id_equipo_visitante: datos.id_equipo_visitante,
         id_usuario: 1, incidencias: null
       });

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Op } from 'sequelize';
-import { Temporada, Jugador, Categoria, Plantilla, Equipo, Jornada, Partido } from './helpers/models.js';
+import { Temporada, Jugador, Categoria, Plantilla, Equipo, Partido } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/import.controller.js';
@@ -14,8 +14,7 @@ describe('Importación masiva · import.controller', () => {
     Plantilla.findOne.mockReset();
     Equipo.findOne.mockReset();
     Equipo.create.mockReset();
-    Jornada.findOne.mockReset();
-    Jornada.create.mockReset();
+    Partido.findOne.mockReset();
     Partido.create.mockReset();
   });
 
@@ -101,8 +100,7 @@ describe('Importación masiva · import.controller', () => {
     it('reconoce las columnas en minúsculas y con cualquier capitalización', async () => {
       mockPlantillaOk();
       Equipo.findOne.mockResolvedValue({ id: 10 }); // ambos equipos ya existen
-      Jornada.findOne.mockResolvedValue(null);
-      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.findOne.mockResolvedValue(null);
       Partido.create.mockResolvedValue({ id: 200 });
 
       const { promesa, res } = llamar(ctrl.importar, {
@@ -113,19 +111,15 @@ describe('Importación masiva · import.controller', () => {
 
       expect(res._json.insertados).toBe(1);
       expect(res._json.errores).toHaveLength(0);
-      expect(Jornada.create).toHaveBeenCalledWith(
-        expect.objectContaining({ id_plantilla: 5, id_equipo_local: 10, id_equipo_visitante: 10, jornada: 3, fecha: '2026-03-01' })
-      );
       expect(Partido.create).toHaveBeenCalledWith(
-        expect.objectContaining({ id_jornada: 100 })
+        expect.objectContaining({ id_plantilla: 5, id_equipo_local: 10, id_equipo_visitante: 10, jornada: 3, fecha: '2026-03-01T00:00:00' })
       );
     });
 
     it('reconoce cabeceras con espacios, guion bajo y acentos ("Equipo Local", "equipo_local")', async () => {
       mockPlantillaOk();
       Equipo.findOne.mockResolvedValue({ id: 10 });
-      Jornada.findOne.mockResolvedValue(null);
-      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.findOne.mockResolvedValue(null);
       Partido.create.mockResolvedValue({ id: 200 });
 
       const fila = {
@@ -144,7 +138,7 @@ describe('Importación masiva · import.controller', () => {
 
       expect(res._json.insertados).toBe(1);
       expect(res._json.errores).toHaveLength(0);
-      expect(Jornada.create).toHaveBeenCalledWith(
+      expect(Partido.create).toHaveBeenCalledWith(
         expect.objectContaining({ id_equipo_local: 10, id_equipo_visitante: 10 })
       );
     });
@@ -152,8 +146,7 @@ describe('Importación masiva · import.controller', () => {
     it('convierte una fecha en formato nº de serie de Excel (celda con formato fecha exportada como número)', async () => {
       mockPlantillaOk();
       Equipo.findOne.mockResolvedValue({ id: 10 });
-      Jornada.findOne.mockResolvedValue(null);
-      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.findOne.mockResolvedValue(null);
       Partido.create.mockResolvedValue({ id: 200 });
 
       const { promesa, res } = llamar(ctrl.importar, {
@@ -164,16 +157,15 @@ describe('Importación masiva · import.controller', () => {
 
       expect(res._json.insertados).toBe(1);
       expect(res._json.errores).toHaveLength(0);
-      expect(Jornada.create).toHaveBeenCalledWith(
-        expect.objectContaining({ fecha: '2026-03-01' })
+      expect(Partido.create).toHaveBeenCalledWith(
+        expect.objectContaining({ fecha: '2026-03-01T00:00:00' })
       );
     });
 
     it('reconoce las cabeceras cortas "Local" y "Visitante"', async () => {
       mockPlantillaOk();
       Equipo.findOne.mockResolvedValue({ id: 10 });
-      Jornada.findOne.mockResolvedValue(null);
-      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.findOne.mockResolvedValue(null);
       Partido.create.mockResolvedValue({ id: 200 });
 
       const fila = {
@@ -208,8 +200,7 @@ describe('Importación masiva · import.controller', () => {
         creados.set(nombre.toLowerCase(), equipo);
         return equipo;
       });
-      Jornada.findOne.mockResolvedValue(null);
-      Jornada.create.mockResolvedValue({ id: 100 });
+      Partido.findOne.mockResolvedValue(null);
       Partido.create.mockResolvedValue({ id: 200 });
 
       const { promesa, res } = llamar(ctrl.importar, {
@@ -250,7 +241,7 @@ describe('Importación masiva · import.controller', () => {
     it('rechaza una jornada duplicada (misma plantilla y fecha)', async () => {
       mockPlantillaOk();
       Equipo.findOne.mockResolvedValue({ id: 10 });
-      Jornada.findOne.mockResolvedValue({ id: 999 }); // ya existe
+      Partido.findOne.mockResolvedValue({ id: 999 }); // ya existe
 
       const { promesa, res } = llamar(ctrl.importar, {
         params: { recurso: 'jornadas' },
@@ -261,7 +252,7 @@ describe('Importación masiva · import.controller', () => {
       expect(res._json.insertados).toBe(0);
       expect(res._json.errores).toHaveLength(1);
       expect(res._json.errores[0].mensaje).toMatch(/ya tiene una jornada programada/);
-      expect(Jornada.create).not.toHaveBeenCalled();
+      expect(Partido.create).not.toHaveBeenCalled();
     });
   });
 });

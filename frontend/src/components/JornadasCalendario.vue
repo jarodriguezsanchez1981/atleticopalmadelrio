@@ -2,36 +2,24 @@
 /**
  * Vista visual tipo calendario de las jornadas de liga.
  * Carga lazy: solo los datos de la jornada visible.
- * Incluye alta/edición de partidos (sustituye al datatable que había antes).
+ * Solo lectura: la edición de partidos se hace en la sección Partidos.
  */
-import { ref, reactive, onMounted, onBeforeUnmount, computed, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
-import Dialog from 'primevue/dialog';
-import InputText from 'primevue/inputtext';
-import InputNumber from 'primevue/inputnumber';
-import DatePicker from 'primevue/datepicker';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
-import ProgressBar from 'primevue/progressbar';
 import Message from 'primevue/message';
-import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from 'primevue/usetoast';
-import { useConfirm } from 'primevue/useconfirm';
 import * as XLSX from '@e965/xlsx';
 import EquipacionPrenda from './EquipacionPrenda.vue';
 import {
   categoriaCalendarioService, plantillasService, equiposService, temporadasService
 } from '../services';
 import { useMediaQuery } from '../composables/useMediaQuery';
-import { useAuthStore } from '../stores/auth.store';
 import { suscribirseCambio, emitirCambio } from '../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual, obtenerTemporadaActual } from '../utils/temporadaActual';
 
 const esMovil = useMediaQuery('(max-width: 639px)');
-const auth = useAuthStore();
 const toast = useToast();
-const confirm = useConfirm();
 
 const plantillas = ref([]);
 const temporadas = ref([]);
@@ -66,7 +54,6 @@ async function cargarInit() {
   try {
     await cargarCatalogo();
     await cargarNumeros();
-    await cargarTodasJornadas();
   } finally {
     cargando.value = false;
   }
@@ -96,123 +83,6 @@ async function cargarListaFiltrada() {
   }
 }
 
-/** Listado completo de jornadas (todas las plantillas/categorías), solo para coordinadores. */
-const todasJornadas = ref([]);
-const cargandoTodas = ref(false);
-const esCoordinador = computed(() => auth.rol === 'coordinador');
-
-async function cargarTodasJornadas() {
-  if (!esCoordinador.value) { todasJornadas.value = []; return; }
-  cargandoTodas.value = true;
-  try {
-    const params = {};
-    if (filtroPlantilla.value) params.id_plantilla = filtroPlantilla.value;
-    todasJornadas.value = await categoriaCalendarioService.listar(params);
-  } finally {
-    cargandoTodas.value = false;
-  }
-}
-
-const filtroTodasJornadas = ref('');
-const filtroCategoriaTabla = ref(null);
-const seleccionadasJornadas = ref([]);
-
-const opcionesCategoriaTabla = computed(() => {
-  const vistas = new Map();
-  for (const j of todasJornadas.value) {
-    const cat = j.plantilla?.categoria;
-    if (cat && !vistas.has(cat.id)) vistas.set(cat.id, cat.alias || cat.nombre);
-  }
-  return Array.from(vistas, ([value, label]) => ({ value, label }))
-    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
-});
-
-const filasTablaJornadas = computed(() => (filtroCategoriaTabla.value ? 10 : 15));
-
-const todasJornadasFiltradas = computed(() => {
-  const texto = filtroTodasJornadas.value.trim().toLowerCase();
-  return todasJornadas.value.filter((j) => {
-    if (filtroCategoriaTabla.value && j.plantilla?.categoria?.id !== filtroCategoriaTabla.value) return false;
-    if (!texto) return true;
-    const campos = [
-      categoriaNombre(j),
-      String(j.jornada ?? ''),
-      formatoFecha(j.fecha),
-      nombreEquipo(j.id_equipo_local),
-      nombreEquipo(j.id_equipo_visitante)
-    ];
-    return campos.some((c) => String(c).toLowerCase().includes(texto));
-  });
-});
-
-function eliminarSeleccionadasJornadas() {
-  if (!seleccionadasJornadas.value.length) return;
-  confirm.require({
-    message: `¿Seguro que quieres eliminar ${seleccionadasJornadas.value.length} jornada(s)? Esta acción no se puede deshacer.`,
-    header: 'Confirmar eliminación',
-    icon: 'pi pi-exclamation-triangle',
-    acceptLabel: 'Eliminar',
-    rejectLabel: 'Cancelar',
-    acceptClass: 'p-button-danger',
-    accept: async () => {
-      const total = seleccionadasJornadas.value.length;
-      let ok = 0;
-      let errorMsg = '';
-      for (const item of [...seleccionadasJornadas.value]) {
-        try {
-          await categoriaCalendarioService.eliminar(item.id);
-          ok += 1;
-        } catch (err) {
-          errorMsg = err.response?.data?.message || '';
-        }
-      }
-      seleccionadasJornadas.value = [];
-      if (ok === total) {
-        toast.add({ severity: 'success', summary: 'Eliminadas', detail: `${total} jornada(s) eliminadas.`, life: 3000 });
-      } else if (ok > 0) {
-        toast.add({ severity: 'warn', summary: 'Eliminación parcial', detail: `${ok} de ${total} eliminadas. ${errorMsg}`.trim(), life: 5000 });
-      } else {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: errorMsg || 'No se pudieron eliminar las jornadas seleccionadas.',
-          life: 5000
-        });
-      }
-      await cargarNumeros();
-      await cargarTodasJornadas();
-      if (ok > 0) emitirCambio();
-    }
-  });
-}
-
-function confirmarEliminarJornada(item) {
-  confirm.require({
-    message: '¿Seguro que quieres eliminar esta jornada? Esta acción no se puede deshacer.',
-    header: 'Confirmar eliminación',
-    icon: 'pi pi-exclamation-triangle',
-    acceptLabel: 'Eliminar',
-    rejectLabel: 'Cancelar',
-    acceptClass: 'p-button-danger',
-    accept: async () => {
-      try {
-        await categoriaCalendarioService.eliminar(item.id);
-        toast.add({ severity: 'success', summary: 'Eliminada', detail: 'Jornada eliminada.', life: 3000 });
-        await cargarNumeros();
-        await cargarTodasJornadas();
-        emitirCambio();
-      } catch (err) {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: err.response?.data?.message || 'No se pudo eliminar la jornada.',
-          life: 5000
-        });
-      }
-    }
-  });
-}
-
 async function cargarJornada() {
   const num = numerosJornada.value[numPagina.value];
   if (num == null) { jornadaActual.value = []; return; }
@@ -236,23 +106,19 @@ async function cargarJornada() {
 
 onMounted(async () => {
   await cargarInit();
-  unsubCambio = suscribirseCambio(() => { cargarCatalogo(); cargarNumeros(); cargarTodasJornadas(); });
+  unsubCambio = suscribirseCambio(() => { cargarCatalogo(); cargarNumeros(); });
 });
 onBeforeUnmount(() => {
   if (unsubCambio) unsubCambio();
 });
 
-watch(filtroPlantilla, () => { cargarNumeros(); cargarTodasJornadas(); });
+watch(filtroPlantilla, () => { cargarNumeros(); });
 
 const opcionesPlantilla = computed(() =>
   filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value).map(p => ({
     label: `${p.categoria?.alias || p.categoria?.nombre || '—'} / ${p.temporada?.nombre || '—'}`,
     value: p.id
   })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
-);
-
-const opcionesEquipo = computed(() =>
-  equipos.value.map(e => ({ label: e.nombre, value: e.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const numActual = computed(() => numerosJornada.value[numPagina.value] || null);
@@ -268,11 +134,6 @@ const categoriaFiltradaLabel = computed(() =>
   jornadasFiltradasLista.value[0] ? categoriaNombre(jornadasFiltradasLista.value[0]) : ''
 );
 const partidosVisibles = computed(() => filtroPlantilla.value ? bloqueVisible.value : jornadaActual.value);
-const siguienteJornadaSugerida = computed(() => {
-  if (!filtroPlantilla.value) return numActual.value || null;
-  const maxJ = jornadasFiltradasLista.value.reduce((m, j) => Math.max(m, j.jornada || 0), 0);
-  return maxJ + 1;
-});
 
 function irBloque(idx) {
   if (idx >= 0 && idx < totalBloques.value && idx !== paginaBloque.value) {
@@ -371,166 +232,39 @@ function claseResultado(partido, esLocal) {
   return (esLocal ? localGana : !localGana) ? 'gol-ganador' : 'gol-perdedor';
 }
 
-/** Visible solo si el usuario puede editar la sección y (es coordinador o tiene asignada esa categoría). */
-function puedeEditarPartido(partido) {
-  if (!auth.puedeEditar('categoria_calendario')) return false;
-  if (auth.rol === 'coordinador') return true;
-  const idCat = partido?.plantilla?.categoria?.id;
-  return idCat != null && Number(idCat) === Number(auth.idCategoria);
+// ---------- Exportar a Excel ----------
+const exportando = ref(false);
+
+function formatoFechaExport(fecha) {
+  if (!fecha) return '';
+  const [y, m, d] = String(fecha).slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
 }
 
-const puedeCrear = computed(() => auth.puedeEditar('categoria_calendario'));
-
-// ---------- Importación Excel ----------
-const importDialogVisible = ref(false);
-const importInputRef = ref(null);
-const importPreview = ref([]);
-const importando = ref(false);
-const importProgress = ref(0);
-const importResultado = ref(null);
-
-function abrirImport() {
-  importPreview.value = [];
-  importResultado.value = null;
-  importProgress.value = 0;
-  importDialogVisible.value = true;
-}
-
-/** Solo para mostrar en la vista previa: si la celda de fecha llega como
- * nº de serie de Excel (días desde 1899-12-30), la formatea a DD/MM/YYYY.
- * El backend hace la misma conversión sobre el valor real al importar. */
-function previewFecha(valor) {
-  if (valor === '' || valor == null) return valor;
-  if (!/^\d+$/.test(String(valor).trim())) return valor;
-  const utcDays = Math.floor(Number(valor) - 25569);
-  const d = new Date(utcDays * 86400 * 1000);
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${d.getUTCFullYear()}`;
-}
-
-function onImportFile(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  importando.value = true;
-  importProgress.value = 10;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      importPreview.value = rows;
-      importProgress.value = 100;
-    } catch {
-      toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo leer el archivo Excel.', life: 4000 });
-      importPreview.value = [];
-    } finally {
-      importando.value = false;
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-async function confirmarImport() {
-  if (!importPreview.value.length) return;
-  importando.value = true;
-  importProgress.value = 30;
+async function exportarExcel() {
+  exportando.value = true;
   try {
-    const res = await categoriaCalendarioService.importar(importPreview.value);
-    importProgress.value = 100;
-    importResultado.value = res;
-    if (res.insertados) {
-      await cargarCatalogo();
-      await cargarNumeros();
-      emitirCambio();
-    }
+    const params = {};
+    if (filtroPlantilla.value) params.id_plantilla = filtroPlantilla.value;
+    const items = await categoriaCalendarioService.listar(params);
+    const filas = items
+      .slice()
+      .sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0) || String(a.fecha).localeCompare(String(b.fecha)))
+      .map((j) => ({
+        Jornada: j.jornada,
+        Fecha: formatoFechaExport(j.fecha),
+        'Equipo Local': nombreEquipo(j.id_equipo_local),
+        'Equipo Visitante': nombreEquipo(j.id_equipo_visitante),
+        Resultado: j.resultado || ''
+      }));
+    const ws = XLSX.utils.json_to_sheet(filas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Jornadas');
+    XLSX.writeFile(wb, 'jornadas.xlsx');
   } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error de importación',
-      detail: err.response?.data?.message || 'No se pudo completar la importación.',
-      life: 5000
-    });
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo exportar el Excel.', life: 4000 });
   } finally {
-    importando.value = false;
-  }
-}
-
-// ---------- Alta / edición ----------
-const dialogVisible = ref(false);
-const guardando = ref(false);
-const editandoId = ref(null);
-const form = reactive({
-  id_plantilla: null, id_equipo_local: null, id_equipo_visitante: null,
-  jornada: null, fecha: null, hora: null
-});
-
-function toFechaSQL(d) {
-  if (!d) return null;
-  const dt = d instanceof Date ? d : new Date(d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-}
-
-function resetForm() {
-  form.id_plantilla = filtroPlantilla.value || null;
-  form.id_equipo_local = null;
-  form.id_equipo_visitante = null;
-  form.jornada = siguienteJornadaSugerida.value || null;
-  form.fecha = null;
-  form.hora = null;
-}
-
-function abrirNuevaJornada() {
-  editandoId.value = null;
-  resetForm();
-  dialogVisible.value = true;
-}
-
-async function abrirEdicion(item) {
-  editandoId.value = item.id;
-  form.id_plantilla = item.id_plantilla;
-  form.id_equipo_local = item.id_equipo_local;
-  form.id_equipo_visitante = item.id_equipo_visitante;
-  form.jornada = item.jornada;
-  form.fecha = item.fecha ? new Date(`${String(item.fecha).slice(0, 10)}T12:00:00`) : null;
-  form.hora = String(item.hora || '').slice(0, 5) || null;
-  dialogVisible.value = true;
-}
-
-function cerrarDialog() {
-  dialogVisible.value = false;
-}
-
-async function guardar() {
-  if (!form.id_plantilla || !form.id_equipo_local || !form.id_equipo_visitante || !form.jornada || !form.fecha) {
-    toast.add({ severity: 'warn', summary: 'Faltan campos', detail: 'Plantilla, equipos, jornada y fecha son obligatorios.', life: 4000 });
-    return;
-  }
-  guardando.value = true;
-  try {
-    const payload = {
-      id_plantilla: form.id_plantilla,
-      id_equipo_local: form.id_equipo_local,
-      id_equipo_visitante: form.id_equipo_visitante,
-      jornada: form.jornada,
-      fecha: toFechaSQL(form.fecha),
-      hora: form.hora || null
-    };
-    if (editandoId.value) {
-      await categoriaCalendarioService.actualizar(editandoId.value, payload);
-      toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Partido actualizado correctamente.', life: 3000 });
-    } else {
-      await categoriaCalendarioService.crear(payload);
-      toast.add({ severity: 'success', summary: 'Creado', detail: 'Partido creado correctamente.', life: 3000 });
-    }
-    dialogVisible.value = false;
-    await cargarNumeros();
-    emitirCambio();
-  } catch (err) {
-    toast.add({ severity: 'error', summary: 'Error', detail: err.response?.data?.message || 'No se pudo guardar.', life: 5000 });
-  } finally {
-    guardando.value = false;
+    exportando.value = false;
   }
 }
 
@@ -553,12 +287,10 @@ async function guardar() {
           class="w-full sm:w-52"
           showClear
         />
-        <Button v-if="puedeCrear" label="Importar" icon="pi pi-file-import" size="small" outlined
+        <Button label="Exportar" icon="pi pi-file-export" size="small" outlined
+                :loading="exportando"
                 class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
-                @click="abrirImport" />
-        <Button v-if="puedeCrear" label="Nueva jornada" icon="pi pi-plus" size="small"
-                class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
-                @click="abrirNuevaJornada" />
+                @click="exportarExcel" />
       </div>
     </div>
 
@@ -646,16 +378,6 @@ async function guardar() {
                   <i v-if="colisionCamiseta(partido)" class="pi pi-exclamation-triangle aviso-camiseta"
                      v-tooltip.top="'El equipo visitante tiene que traer 2ª Equipación'"></i>
                 </td>
-                <td class="col-acciones">
-                  <div class="acciones-cell">
-                    <Button v-if="puedeEditarPartido(partido)" icon="pi pi-pencil" text rounded size="small"
-                            class="!w-7 !h-7 !text-club-green" v-tooltip.top="'Editar'"
-                            @click="abrirEdicion(partido)" />
-                    <Button v-if="puedeEditarPartido(partido)" icon="pi pi-trash" text rounded size="small" severity="danger"
-                            class="!w-7 !h-7" v-tooltip.top="'Eliminar'"
-                            @click="confirmarEliminarJornada(partido)" />
-                  </div>
-                </td>
               </tr>
             </tbody>
           </table>
@@ -698,14 +420,6 @@ async function guardar() {
               <i v-if="colisionCamiseta(partido)" class="pi pi-exclamation-triangle aviso-camiseta"
                  v-tooltip.top="'El equipo visitante tiene que traer 2ª Equipación'"></i>
             </div>
-            <div v-if="puedeEditarPartido(partido)" class="partido-acciones">
-              <Button icon="pi pi-pencil" text rounded size="small"
-                      class="!w-7 !h-7 !text-club-green" v-tooltip.top="'Editar'"
-                      @click="abrirEdicion(partido)" />
-              <Button icon="pi pi-trash" text rounded size="small" severity="danger"
-                      class="!w-7 !h-7" v-tooltip.top="'Eliminar'"
-                      @click="confirmarEliminarJornada(partido)" />
-            </div>
           </div>
         </div>
       </div>
@@ -744,204 +458,6 @@ async function guardar() {
       </div>
     </div>
 
-    <div v-if="esCoordinador" class="mt-6">
-      <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
-        <h3 class="text-sm font-semibold text-club-green">Todas las jornadas</h3>
-        <div class="flex items-center gap-2 flex-wrap">
-          <Button v-if="seleccionadasJornadas.length" :label="`Eliminar seleccionadas (${seleccionadasJornadas.length})`"
-                  icon="pi pi-trash" severity="danger" outlined size="small"
-                  class="!text-club-garnet !border-club-garnet/50 hover:!bg-club-garnet/5"
-                  @click="eliminarSeleccionadasJornadas" />
-          <Select v-model="filtroCategoriaTabla" :options="opcionesCategoriaTabla" optionLabel="label" optionValue="value"
-                  placeholder="Filtrar por categoría" showClear class="w-full sm:w-52" />
-          <InputText v-model="filtroTodasJornadas" placeholder="Buscar..." class="!py-2 w-full sm:w-64" />
-        </div>
-      </div>
-      <DataTable :value="todasJornadasFiltradas" v-model:selection="seleccionadasJornadas" dataKey="id"
-                 :loading="cargandoTodas" paginator :rows="filasTablaJornadas" :rowsPerPageOptions="[10, 15, 30, 50]"
-                 sortField="fecha" :sortOrder="1" responsiveLayout="scroll" class="ar-datatable">
-        <Column selectionMode="multiple" headerStyle="width: 3rem" />
-        <Column field="plantilla.categoria.nombre" header="Categoría" sortable>
-          <template #body="{ data }">{{ categoriaNombre(data) }}</template>
-        </Column>
-        <Column field="jornada" header="Jornada" sortable style="width: 90px" />
-        <Column field="fecha" header="Fecha" sortable>
-          <template #body="{ data }">{{ formatoFecha(data.fecha) }}</template>
-        </Column>
-        <Column field="hora" header="Hora" style="width: 80px">
-          <template #body="{ data }">{{ formatoHora(data.hora) }}</template>
-        </Column>
-        <Column header="Equipo Local">
-          <template #body="{ data }">{{ nombreEquipo(data.id_equipo_local) }}</template>
-        </Column>
-        <Column header="Equipo Visitante">
-          <template #body="{ data }">{{ nombreEquipo(data.id_equipo_visitante) }}</template>
-        </Column>
-        <Column header="Resultado" style="width: 110px">
-          <template #body="{ data }">
-            <span v-if="golesLocalNum(data) !== null">
-              <span class="gol-numero" :class="claseResultado(data, true)">{{ golesLocalNum(data) }}</span>
-              <span class="text-ink-tertiary"> VS </span>
-              <span class="gol-numero" :class="claseResultado(data, false)">{{ golesVisitanteNum(data) }}</span>
-            </span>
-            <span v-else>—</span>
-          </template>
-        </Column>
-        <Column header="Acciones" style="width: 100px">
-          <template #body="{ data }">
-            <div class="flex gap-1">
-              <Button v-if="puedeEditarPartido(data)" icon="pi pi-pencil" text rounded size="small"
-                      class="!text-club-green" v-tooltip.top="'Editar'" @click="abrirEdicion(data)" />
-              <Button v-if="puedeEditarPartido(data)" icon="pi pi-trash" text rounded size="small" severity="danger"
-                      v-tooltip.top="'Eliminar'" @click="confirmarEliminarJornada(data)" />
-            </div>
-          </template>
-        </Column>
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-6">No hay jornadas registradas.</div>
-        </template>
-      </DataTable>
-    </div>
-
-    <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-2xl">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
-          <span class="font-display text-club-green text-lg">{{ editandoId ? 'Editar' : 'Nueva' }} · Jornada</span>
-        </div>
-      </template>
-      <form @submit.prevent="guardar" class="space-y-4 pt-1">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-ink-secondary">Plantilla <span class="text-club-garnet">*</span></label>
-            <Select v-model="form.id_plantilla" :options="opcionesPlantilla" optionLabel="label" optionValue="value"
-                    class="w-full" placeholder="Busca una plantilla" showClear filter />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-ink-secondary">Jornada <span class="text-club-garnet">*</span></label>
-            <InputNumber v-model="form.jornada" :min="1" :minFractionDigits="0" :maxFractionDigits="0"
-                         class="w-full" inputClass="w-full" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-ink-secondary">Equipo local <span class="text-club-garnet">*</span></label>
-            <Select v-model="form.id_equipo_local" :options="opcionesEquipo" optionLabel="label" optionValue="value"
-                    class="w-full" placeholder="Busca un equipo" showClear filter />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-ink-secondary">Equipo visitante <span class="text-club-garnet">*</span></label>
-            <Select v-model="form.id_equipo_visitante" :options="opcionesEquipo" optionLabel="label" optionValue="value"
-                    class="w-full" placeholder="Busca un equipo" showClear filter />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-ink-secondary">Fecha <span class="text-club-garnet">*</span></label>
-            <DatePicker v-model="form.fecha" dateFormat="dd/mm/yy" showIcon iconDisplay="input"
-                        :manualInput="true" class="w-full" inputClass="w-full" placeholder="dd/mm/aa" />
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-ink-secondary">Hora</label>
-            <InputText v-model="form.hora" placeholder="HH:mm" maxlength="5" inputmode="numeric" class="w-full" />
-          </div>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-3">
-          <Button type="button" label="Cancelar" text @click="cerrarDialog" />
-          <Button type="submit" label="Guardar" icon="pi pi-check" :loading="guardando"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
-        </div>
-      </form>
-    </Dialog>
-
-    <!-- Diálogo de importación Excel -->
-    <Dialog v-model:visible="importDialogVisible" modal header="Importar jornadas desde Excel"
-            :style="{ width: '42rem' }" :closable="!importando">
-      <div class="space-y-4">
-        <div class="space-y-2">
-          <p class="text-sm text-ink-secondary">
-            El archivo debe ser un <strong>.xlsx</strong> con estas columnas:
-          </p>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
-              <thead>
-                <tr class="bg-club-green/5">
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Plantilla</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jornada</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Fecha</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Equipo Local</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Equipo Visitante</th>
-                </tr>
-              </thead>
-            </table>
-          </div>
-          <p class="text-xs text-ink-tertiary italic">
-            Los nombres de columna no distinguen mayúsculas, espacios ni guiones (p. ej. "Equipo Local", "equipo_local" y "EquipoLocal" son equivalentes).
-          </p>
-          <p class="text-xs text-ink-tertiary italic font-bold">
-            * En Equipo Local / Equipo Visitante se pone el <strong>nombre</strong> del equipo, no un ID. Si un equipo no existe todavía en Equipos, se creará automáticamente.
-          </p>
-        </div>
-
-        <input ref="importInputRef" type="file" accept=".xlsx,.xls"
-               class="hidden"
-               @change="onImportFile" />
-
-        <div v-if="!importPreview.length && !importResultado" class="flex justify-center">
-          <Button label="Seleccionar archivo" icon="pi pi-upload"
-                  :loading="importando"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
-                  @click="importInputRef?.click()" />
-        </div>
-
-        <div v-else-if="!importResultado" class="space-y-3">
-          <div class="text-sm font-medium text-ink-primary">
-            {{ importPreview.length }} filas detectadas
-          </div>
-          <DataTable :value="importPreview.slice(0, 10)" class="ar-datatable text-sm" scrollable scrollHeight="200px">
-            <Column v-for="key of Object.keys(importPreview[0] || {})" :key="key"
-                    :field="key" :header="key">
-              <template v-if="key.trim().toLowerCase() === 'fecha'" #body="{ data }">
-                {{ previewFecha(data[key]) }}
-              </template>
-            </Column>
-          </DataTable>
-          <p v-if="importPreview.length > 10" class="text-xs text-ink-tertiary">
-            Mostrando las 10 primeras filas de {{ importPreview.length }}.
-          </p>
-        </div>
-
-        <div v-else class="space-y-3">
-          <Message :severity="importResultado.insertados ? 'success' : 'warn'" :closable="false">
-            {{ importResultado.insertados }} jornada(s) importada(s)
-            <template v-if="importResultado.errores?.length">, {{ importResultado.errores.length }} con errores</template>.
-          </Message>
-          <div v-if="importResultado.avisos?.length" class="space-y-1">
-            <p class="text-sm font-medium text-ink-primary">Equipos añadidos automáticamente:</p>
-            <ul class="text-sm text-ink-secondary list-disc list-inside">
-              <li v-for="(aviso, i) in importResultado.avisos" :key="i">{{ aviso }}</li>
-            </ul>
-          </div>
-          <div v-if="importResultado.errores?.length" class="space-y-1">
-            <p class="text-sm font-medium text-ink-primary">Errores:</p>
-            <ul class="text-sm text-club-garnet list-disc list-inside">
-              <li v-for="err in importResultado.errores" :key="err.fila">Fila {{ err.fila }}: {{ err.mensaje }}</li>
-            </ul>
-          </div>
-        </div>
-
-        <ProgressBar v-if="importando" :value="importProgress" />
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <Button :label="importResultado ? 'Cerrar' : 'Cancelar'" text @click="importDialogVisible = false" :disabled="importando" />
-          <Button v-if="importPreview.length && !importResultado" label="Importar" icon="pi pi-check"
-                  :loading="importando"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
-                  @click="confirmarImport" />
-        </div>
-      </template>
-    </Dialog>
-
-    <ConfirmDialog />
   </div>
 </template>
 
@@ -1071,13 +587,6 @@ async function guardar() {
   margin-left: 6px;
   cursor: help;
 }
-.acciones-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-
 .jornada-partidos-movil {
   padding: 8px;
   display: flex;
@@ -1092,12 +601,5 @@ async function guardar() {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
-}
-.partido-acciones {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: flex;
-  gap: 0;
 }
 </style>

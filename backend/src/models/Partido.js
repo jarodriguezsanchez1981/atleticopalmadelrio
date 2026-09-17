@@ -5,6 +5,7 @@ const Partido = sequelize.define('Partido', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   id_plantilla: { type: DataTypes.INTEGER, allowNull: false },
   id_jornada: { type: DataTypes.INTEGER, allowNull: true },
+  jornada: { type: DataTypes.INTEGER, allowNull: true },
   fecha: { type: DataTypes.DATE, allowNull: false },
   id_lugar: { type: DataTypes.INTEGER, allowNull: true },
   id_equipo_local: { type: DataTypes.INTEGER, allowNull: false },
