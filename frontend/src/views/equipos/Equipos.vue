@@ -3,14 +3,31 @@ import { ref } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
+import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
 import { equiposService } from '../../services';
-import { OPCIONES_COLOR } from '../../utils/coloresEquipacion';
+import { OPCIONES_COLOR, OPCIONES_COLOR_CAMISETA, RAYAS, esCamisetaRayas, descomponerCamisetaRayas, etiquetaCamiseta } from '../../utils/coloresEquipacion';
 import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
 
 const toast = useToast();
 const dtRef = ref();
 const errorEliminar = ref(null);
+
+/** Al editar un equipo con camiseta a rayas, separa el valor guardado en los 2 combos de color. */
+function prepararEdicionEquipo(item) {
+  if (esCamisetaRayas(item.camiseta)) {
+    const [c1, c2] = descomponerCamisetaRayas(item.camiseta);
+    return { camiseta: RAYAS, camisetaColor1: c1, camisetaColor2: c2 };
+  }
+  return { camisetaColor1: null, camisetaColor2: null };
+}
+
+function validarEquipo(form) {
+  if (form.camiseta === RAYAS && (!form.camisetaColor1 || !form.camisetaColor2)) {
+    return 'Selecciona los 2 colores de la camiseta a rayas.';
+  }
+  return null;
+}
 
 function onDeleteError(data) {
   errorEliminar.value = data;
@@ -23,9 +40,9 @@ const columns = [
     field: 'equipacion',
     header: 'Equipación',
     soloTabla: true,
-    format: (v, d) => [d.camiseta, d.calzonas, d.medias].filter(Boolean).join(' / ')
+    format: (v, d) => [etiquetaCamiseta(d.camiseta), d.calzonas, d.medias].filter(Boolean).join(' / ')
   },
-  { field: 'camiseta', header: 'Camiseta', type: 'select', options: OPCIONES_COLOR, enTabla: false },
+  { field: 'camiseta', header: 'Camiseta', type: 'select', options: OPCIONES_COLOR_CAMISETA, enTabla: false },
   { field: 'calzonas', header: 'Calzonas', type: 'select', options: OPCIONES_COLOR, enTabla: false },
   { field: 'medias', header: 'Medias', type: 'select', options: OPCIONES_COLOR, enTabla: false },
   { field: 'direccion', header: 'Dirección', type: 'text' },
@@ -34,7 +51,7 @@ const columns = [
   { field: 'provincia', header: 'Provincia', type: 'text' }
 ];
 
-const emptyItem = { nombre: '', escudo: null, camiseta: null, calzonas: null, medias: null, direccion: '', codigopostal: '', localidad: '', provincia: '' };
+const emptyItem = { nombre: '', escudo: null, camiseta: null, camisetaColor1: null, camisetaColor2: null, calzonas: null, medias: null, direccion: '', codigopostal: '', localidad: '', provincia: '' };
 
 async function descargarEscudosExternos(data) {
   const tieneExternos = (data || []).some(e => e.escudo && /^https?:\/\//i.test(e.escudo));
@@ -86,6 +103,8 @@ async function copiarDireccion(parte) {
     :columns="columns"
     :service="equiposService"
     :emptyItem="emptyItem"
+    :prepareEdit="prepararEdicionEquipo"
+    :validateForm="validarEquipo"
     @data-loaded="descargarEscudosExternos"
     @delete-error="onDeleteError"
   >
@@ -97,10 +116,25 @@ async function copiarDireccion(parte) {
       </div>
     </template>
 
+    <template #form-after-camiseta="{ form }">
+      <div v-if="form.camiseta === RAYAS" class="flex gap-3">
+        <div class="flex-1 flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Color 1</label>
+          <Select v-model="form.camisetaColor1" :options="OPCIONES_COLOR" optionLabel="label" optionValue="value"
+                  placeholder="Selecciona un color" class="w-full" showClear />
+        </div>
+        <div class="flex-1 flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Color 2</label>
+          <Select v-model="form.camisetaColor2" :options="OPCIONES_COLOR" optionLabel="label" optionValue="value"
+                  placeholder="Selecciona un color" class="w-full" showClear />
+        </div>
+      </div>
+    </template>
+
     <template #detail-camiseta="{ data }">
       <div v-if="data.camiseta" class="flex items-center gap-3">
         <EquipacionPrenda tipo="camiseta" :color="data.camiseta" :size="40" />
-        <span>{{ data.camiseta }}</span>
+        <span>{{ etiquetaCamiseta(data.camiseta) }}</span>
       </div>
       <span v-else>—</span>
     </template>

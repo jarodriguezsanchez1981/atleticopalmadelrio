@@ -34,3 +34,30 @@ export function hexColor(nombre) {
   const parcial = COLORES_EQUIPACION.find((c) => n.includes(c.nombre.toLowerCase()));
   return parcial ? parcial.hex : SIN_COLOR;
 }
+
+/**
+ * Camiseta "a rayas": se guarda como texto plano "Rayas:Color1/Color2" en el
+ * mismo campo `camiseta`, sin necesidad de columnas nuevas en base de datos.
+ */
+export const RAYAS = 'Rayas';
+
+export const OPCIONES_COLOR_CAMISETA = [...OPCIONES_COLOR, { label: 'Rayas', value: RAYAS }];
+
+export function esCamisetaRayas(valor) {
+  return typeof valor === 'string' && valor.startsWith(`${RAYAS}:`);
+}
+
+export function componerCamisetaRayas(color1, color2) {
+  return `${RAYAS}:${color1 || ''}/${color2 || ''}`;
+}
+
+export function descomponerCamisetaRayas(valor) {
+  const m = new RegExp(`^${RAYAS}:(.*)\\/(.*)$`).exec(valor || '');
+  return m ? [m[1] || null, m[2] || null] : [null, null];
+}
+
+export function etiquetaCamiseta(valor) {
+  if (!esCamisetaRayas(valor)) return valor;
+  const [c1, c2] = descomponerCamisetaRayas(valor);
+  return `Rayas (${c1 || '—'} / ${c2 || '—'})`;
+}

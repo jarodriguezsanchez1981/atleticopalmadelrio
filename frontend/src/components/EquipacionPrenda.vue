@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { hexColor } from '../utils/coloresEquipacion';
+import { hexColor, esCamisetaRayas, descomponerCamisetaRayas } from '../utils/coloresEquipacion';
 
 const props = defineProps({
   tipo: { type: String, default: 'camiseta' },
@@ -10,13 +10,30 @@ const props = defineProps({
 
 const fill = computed(() => hexColor(props.color));
 const stroke = '#374151';
+
+const esRayas = computed(() => props.tipo === 'camiseta' && esCamisetaRayas(props.color));
+const rayasFill1 = computed(() => hexColor(descomponerCamisetaRayas(props.color)[0]));
+const rayasFill2 = computed(() => hexColor(descomponerCamisetaRayas(props.color)[1]));
+const clipId = `camiseta-rayas-${Math.random().toString(36).slice(2)}`;
+
+const CAMISETA_PATH = 'M15 6 L9 9 L8 17 L14 15 L14 41 L34 41 L34 15 L40 17 L39 9 L33 6 L24 12 Z';
 </script>
 
 <template>
   <svg :width="size" :height="size" viewBox="0 0 48 48" class="inline-block align-middle shrink-0" aria-hidden="true">
+    <template v-if="esRayas">
+      <defs>
+        <clipPath :id="clipId">
+          <rect x="24" y="0" width="24" height="48" />
+        </clipPath>
+      </defs>
+      <path :d="CAMISETA_PATH" :fill="rayasFill1" :stroke="stroke" stroke-width="1.6" stroke-linejoin="round" />
+      <path :d="CAMISETA_PATH" :fill="rayasFill2" :stroke="stroke" stroke-width="1.6" stroke-linejoin="round"
+            :clip-path="`url(#${clipId})`" />
+    </template>
     <path
-      v-if="tipo === 'camiseta'"
-      d="M15 6 L9 9 L8 17 L14 15 L14 41 L34 41 L34 15 L40 17 L39 9 L33 6 L24 12 Z"
+      v-else-if="tipo === 'camiseta'"
+      :d="CAMISETA_PATH"
       :fill="fill"
       :stroke="stroke"
       stroke-width="1.6"

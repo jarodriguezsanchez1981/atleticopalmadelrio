@@ -859,7 +859,8 @@ watch(
       </template>
 
       <form @submit.prevent="guardar" class="space-y-4 pt-1">
-        <div v-for="col in columns.filter(c => !c.soloTabla && c.enForm !== false)" :key="col.field" class="flex flex-col gap-1.5">
+        <template v-for="col in columns.filter(c => !c.soloTabla && c.enForm !== false)" :key="col.field">
+        <div class="flex flex-col gap-1.5">
           <label :for="col.field" class="text-sm font-medium text-ink-secondary">
             {{ col.header }} <span v-if="col.required" class="text-club-garnet">*</span>
           </label>
@@ -928,6 +929,8 @@ watch(
             class="w-full"
           />
         </div>
+        <slot :name="`form-after-${col.field}`" :form="form" />
+        </template>
 
         <slot name="form-extra" :form="form" />
 

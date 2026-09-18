@@ -1,4 +1,5 @@
 import api from './api';
+import { RAYAS, componerCamisetaRayas } from '../utils/coloresEquipacion';
 
 /**
  * Fábrica de servicios CRUD REST estándar.
@@ -38,8 +39,21 @@ export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
 export const entrenamientosService = crudService('entrenamientos');
 export const partidosService = crudService('partidos');
+/** Si la camiseta es "Rayas", compone el color1/color2 elegidos en un único texto antes de enviarlo. */
+function prepararPayloadEquipo(payload) {
+  const p = { ...payload };
+  if (p.camiseta === RAYAS) {
+    p.camiseta = componerCamisetaRayas(p.camisetaColor1, p.camisetaColor2);
+  }
+  delete p.camisetaColor1;
+  delete p.camisetaColor2;
+  return p;
+}
+
 export const equiposService = {
   ...crudService('equipos'),
+  crear: (payload) => api.post('/equipos', prepararPayloadEquipo(payload)).then(r => r.data),
+  actualizar: (id, payload) => api.put(`/equipos/${id}`, prepararPayloadEquipo(payload)).then(r => r.data),
   descargarEscudos: () => api.get('/equipos/descargar-escudos').then(r => r.data)
 };
 export const equiposJugadoresService = crudService('equipos-jugadores');
