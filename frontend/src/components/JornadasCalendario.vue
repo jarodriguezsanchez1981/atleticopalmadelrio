@@ -176,10 +176,6 @@ function camisetaEquipo(id) {
   return equipos.value.find(e => e.id === id)?.camiseta || null;
 }
 
-function calzonasEquipo(id) {
-  return equipos.value.find(e => e.id === id)?.calzonas || null;
-}
-
 function formatoFecha(fecha) {
   if (!fecha) return '';
   const d = new Date(fecha);
@@ -337,10 +333,7 @@ async function exportarExcel() {
                        alt="" class="equipo-escudo" />
                 </td>
                 <td class="col-equipacion">
-                  <div class="equipo-equipacion">
-                    <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_local)" :size="16" />
-                    <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_local)" :size="16" />
-                  </div>
+                  <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_local)" :size="35" />
                 </td>
                 <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</td>
                 <td class="col-goles">
@@ -355,10 +348,7 @@ async function exportarExcel() {
                 </td>
                 <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</td>
                 <td class="col-equipacion">
-                  <div class="equipo-equipacion">
-                    <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_visitante)" :size="16" />
-                    <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_visitante)" :size="16" />
-                  </div>
+                  <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_visitante)" :size="35" />
                 </td>
                 <td class="col-escudo">
                   <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
@@ -545,13 +535,6 @@ async function exportarExcel() {
 }
 .col-equipacion {
   width: 6%;
-}
-.equipo-equipacion {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
 }
 .col-categoria {
   width: 10%;
