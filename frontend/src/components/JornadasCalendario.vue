@@ -546,7 +546,6 @@ async function exportarExcel() {
   white-space: nowrap;
 }
 .gol-numero {
-  font-size: 0.8rem;
   font-weight: 800;
 }
 .gol-ganador {
