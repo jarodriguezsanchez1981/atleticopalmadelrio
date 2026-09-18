@@ -180,10 +180,6 @@ function calzonasEquipo(id) {
   return equipos.value.find(e => e.id === id)?.calzonas || null;
 }
 
-function mediasEquipo(id) {
-  return equipos.value.find(e => e.id === id)?.medias || null;
-}
-
 function formatoFecha(fecha) {
   if (!fecha) return '';
   const d = new Date(fecha);
@@ -340,35 +336,30 @@ async function exportarExcel() {
                   <img v-if="escudoEquipo(partido.id_equipo_local)" :src="escudoEquipo(partido.id_equipo_local)"
                        alt="" class="equipo-escudo" />
                 </td>
-                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</td>
-                <td class="col-kit">
-                  <div class="equipo-kit">
+                <td class="col-equipacion">
+                  <div class="equipo-equipacion">
                     <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_local)" :size="16" />
                     <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_local)" :size="16" />
-                    <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_local)" :size="16" />
                   </div>
                 </td>
+                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</td>
                 <td class="col-goles">
                   <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
                     {{ golesLocalNum(partido) }}
                   </span>
-                </td>
-                <td class="col-vs">
-                  <div v-if="filtroPlantilla" class="partido-jornada-label">Jornada {{ partido.jornada }}</div>
                 </td>
                 <td class="col-goles">
                   <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
                     {{ golesVisitanteNum(partido) }}
                   </span>
                 </td>
-                <td class="col-kit">
-                  <div class="equipo-kit">
+                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</td>
+                <td class="col-equipacion">
+                  <div class="equipo-equipacion">
                     <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_visitante)" :size="16" />
                     <EquipacionPrenda tipo="calzonas" :color="calzonasEquipo(partido.id_equipo_visitante)" :size="16" />
-                    <EquipacionPrenda tipo="medias" :color="mediasEquipo(partido.id_equipo_visitante)" :size="16" />
                   </div>
                 </td>
-                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</td>
                 <td class="col-escudo">
                   <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
                        alt="" class="equipo-escudo" />
@@ -528,7 +519,12 @@ async function exportarExcel() {
 .jornada-tabla td {
   text-align: center;
   vertical-align: middle;
-  padding: 6px 4px;
+  padding: 6px 0;
+}
+.col-fecha {
+  width: 10%;
+  white-space: nowrap;
+  padding: 0 10px;
 }
 .col-nombre {
   font-size: 0.8rem;
@@ -539,19 +535,26 @@ async function exportarExcel() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.jornada-tabla td.col-nombre {
-  text-align: left;
+.col-escudo {
+  width: 3%;
 }
 .equipo-escudo {
   width: 48px;
   height: 48px;
   object-fit: contain;
 }
-.equipo-kit {
+.col-equipacion {
+  width: 6%;
+}
+.equipo-equipacion {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
+}
+.col-categoria {
+  width: 10%;
 }
 .partido-jornada-label {
   font-size: 0.8rem;
