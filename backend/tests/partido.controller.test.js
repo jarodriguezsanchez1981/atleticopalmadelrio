@@ -280,7 +280,8 @@ describe('Sección Partidos · partido.controller', () => {
       incidencias: null,
       jornada: null,
       resultado: null,
-      codigo_acta: null
+      codigo_acta: null,
+      codigo_primaria: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, id_equipo_local: 6, id_equipo_visitante: 7, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
