@@ -8,6 +8,7 @@ import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import Message from 'primevue/message';
+import Dialog from 'primevue/dialog';
 import { useToast } from 'primevue/usetoast';
 import * as XLSX from '@e965/xlsx';
 import EquipacionPrenda from './EquipacionPrenda.vue';
@@ -17,6 +18,7 @@ import {
 import { useMediaQuery } from '../composables/useMediaQuery';
 import { suscribirseCambio, emitirCambio } from '../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual, obtenerTemporadaActual } from '../utils/temporadaActual';
+import { etiquetaCamiseta } from '../utils/coloresEquipacion';
 
 const esMovil = useMediaQuery('(max-width: 639px)');
 const toast = useToast();
@@ -174,6 +176,41 @@ function escudoEquipo(id) {
 
 function camisetaEquipo(id) {
   return equipos.value.find(e => e.id === id)?.camiseta || null;
+}
+
+// ---------- Detalle de equipo ----------
+const detalleEquipoVisible = ref(false);
+const detalleEquipo = ref(null);
+
+function verEquipo(id) {
+  detalleEquipo.value = equipos.value.find(e => e.id === id) || null;
+  detalleEquipoVisible.value = true;
+}
+
+function direccionCompletaEquipo(equipo) {
+  return [equipo?.direccion, equipo?.codigopostal, equipo?.localidad, equipo?.provincia].filter(Boolean).join(', ');
+}
+
+function mapsQueryEquipo(parte) {
+  return encodeURIComponent(parte || '');
+}
+
+function mapsUrlEquipo(parte) {
+  return `https://www.google.com/maps/search/?api=1&query=${mapsQueryEquipo(parte)}`;
+}
+
+function mapsEmbedUrlEquipo(parte) {
+  return `https://maps.google.com/maps?q=${mapsQueryEquipo(parte)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+}
+
+async function copiarDireccionEquipo(parte) {
+  if (!parte) return;
+  try {
+    await navigator.clipboard.writeText(parte);
+    toast.add({ severity: 'success', summary: 'Copiado', detail: 'Dirección copiada al portapapeles.', life: 2500 });
+  } catch {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo copiar la dirección.', life: 3000 });
+  }
 }
 
 function formatoFecha(fecha) {
@@ -335,7 +372,11 @@ async function exportarExcel() {
                 <td class="col-equipacion">
                   <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_local)" :size="35" />
                 </td>
-                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</td>
+                <td class="col-nombre">
+                  <button type="button" class="enlace-equipo" @click="verEquipo(partido.id_equipo_local)">
+                    {{ nombreEquipo(partido.id_equipo_local) }}
+                  </button>
+                </td>
                 <td class="col-goles">
                   <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
                     {{ golesLocalNum(partido) }}
@@ -346,7 +387,11 @@ async function exportarExcel() {
                     {{ golesVisitanteNum(partido) }}
                   </span>
                 </td>
-                <td class="col-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</td>
+                <td class="col-nombre">
+                  <button type="button" class="enlace-equipo" @click="verEquipo(partido.id_equipo_visitante)">
+                    {{ nombreEquipo(partido.id_equipo_visitante) }}
+                  </button>
+                </td>
                 <td class="col-equipacion">
                   <EquipacionPrenda tipo="camiseta" :color="camisetaEquipo(partido.id_equipo_visitante)" :size="35" />
                 </td>
@@ -372,7 +417,9 @@ async function exportarExcel() {
                 <div class="flex items-center gap-2">
                   <img v-if="escudoEquipo(partido.id_equipo_local)" :src="escudoEquipo(partido.id_equipo_local)"
                        alt="" class="equipo-escudo" />
-                  <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_local) }}</span>
+                  <button type="button" class="equipo-nombre enlace-equipo" @click="verEquipo(partido.id_equipo_local)">
+                    {{ nombreEquipo(partido.id_equipo_local) }}
+                  </button>
                 </div>
                 <div class="flex items-center justify-center gap-2">
                   <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
@@ -388,7 +435,9 @@ async function exportarExcel() {
                 <div class="flex items-center gap-2">
                   <img v-if="escudoEquipo(partido.id_equipo_visitante)" :src="escudoEquipo(partido.id_equipo_visitante)"
                        alt="" class="equipo-escudo" />
-                  <span class="equipo-nombre">{{ nombreEquipo(partido.id_equipo_visitante) }}</span>
+                  <button type="button" class="equipo-nombre enlace-equipo" @click="verEquipo(partido.id_equipo_visitante)">
+                    {{ nombreEquipo(partido.id_equipo_visitante) }}
+                  </button>
                 </div>
               </div>
               <div class="border-l border-line flex flex-col items-center justify-center px-3 min-w-[64px] flex-shrink-0">
@@ -438,6 +487,110 @@ async function exportarExcel() {
                 :disabled="numPagina >= totalPaginas - 1" @click="irPagina(totalPaginas - 1)" />
       </div>
     </div>
+
+    <Dialog v-model:visible="detalleEquipoVisible" modal :class="['w-full', 'max-w-lg']">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
+          <span class="font-display text-club-green text-lg">Detalle · Equipos</span>
+        </div>
+      </template>
+
+      <div v-if="detalleEquipo" class="space-y-3 pt-1">
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Escudo</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
+            <img v-if="detalleEquipo.escudo" :src="detalleEquipo.escudo" alt="Foto" class="ar-foto-detalle rounded-lg" />
+            <span v-else>—</span>
+          </div>
+        </div>
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Nombre</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">{{ detalleEquipo.nombre || '—' }}</div>
+        </div>
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Camiseta</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
+            <div v-if="detalleEquipo.camiseta" class="flex items-center gap-3">
+              <EquipacionPrenda tipo="camiseta" :color="detalleEquipo.camiseta" :size="40" />
+              <span>{{ etiquetaCamiseta(detalleEquipo.camiseta) }}</span>
+            </div>
+            <span v-else>—</span>
+          </div>
+        </div>
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Calzonas</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
+            <div v-if="detalleEquipo.calzonas" class="flex items-center gap-3">
+              <EquipacionPrenda tipo="calzonas" :color="detalleEquipo.calzonas" :size="40" />
+              <span>{{ detalleEquipo.calzonas }}</span>
+            </div>
+            <span v-else>—</span>
+          </div>
+        </div>
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Medias</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
+            <div v-if="detalleEquipo.medias" class="flex items-center gap-3">
+              <EquipacionPrenda tipo="medias" :color="detalleEquipo.medias" :size="40" />
+              <span>{{ detalleEquipo.medias }}</span>
+            </div>
+            <span v-else>—</span>
+          </div>
+        </div>
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Dirección</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
+            <div v-if="detalleEquipo.direccion" class="flex items-center justify-between gap-3">
+              <span class="break-words">{{ direccionCompletaEquipo(detalleEquipo) }}</span>
+              <Button type="button" icon="pi pi-copy" label="Copiar" text severity="secondary"
+                      @click="copiarDireccionEquipo(direccionCompletaEquipo(detalleEquipo))" />
+            </div>
+            <span v-else>—</span>
+          </div>
+        </div>
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Código postal</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">{{ detalleEquipo.codigopostal || '—' }}</div>
+        </div>
+        <div class="flex gap-3 border-b border-line pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Localidad</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">{{ detalleEquipo.localidad || '—' }}</div>
+        </div>
+        <div class="flex gap-3 pb-2">
+          <div class="w-40 shrink-0 text-sm font-medium text-ink-tertiary">Provincia</div>
+          <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">{{ detalleEquipo.provincia || '—' }}</div>
+        </div>
+
+        <div v-if="detalleEquipo.direccion || detalleEquipo.localidad" class="mt-3 space-y-2">
+          <div class="text-sm font-medium text-ink-secondary">
+            <i class="pi pi-map-marker mr-1"></i>
+            Ubicación
+          </div>
+          <iframe
+            :src="mapsEmbedUrlEquipo(direccionCompletaEquipo(detalleEquipo))"
+            class="w-full rounded-lg border border-line"
+            style="height: 260px"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            allowfullscreen
+          ></iframe>
+          <a
+            :href="mapsUrlEquipo(direccionCompletaEquipo(detalleEquipo))"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 text-club-green hover:underline text-sm"
+          >
+            <i class="pi pi-external-link"></i>
+            Abrir en Google Maps
+          </a>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3">
+          <Button label="Cerrar" @click="detalleEquipoVisible = false" class="!bg-club-green !border-club-green" />
+        </div>
+      </div>
+    </Dialog>
 
   </div>
 </template>
@@ -586,5 +739,25 @@ async function exportarExcel() {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+.enlace-equipo {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.enlace-equipo:hover {
+  text-decoration: underline;
+  color: #0F3D22;
 }
 </style>

@@ -84,9 +84,9 @@ function mapsEmbedUrl(parte) {
 }
 
 async function copiarDireccion(parte) {
-  if (!direccion) return;
+  if (!parte) return;
   try {
-    await navigator.clipboard.writeText(direccion);
+    await navigator.clipboard.writeText(parte);
     toast.add({ severity: 'success', summary: 'Copiado', detail: 'Dirección copiada al portapapeles.', life: 2500 });
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo copiar la dirección.', life: 3000 });
