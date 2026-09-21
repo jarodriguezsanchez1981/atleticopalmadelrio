@@ -10,6 +10,14 @@ const includes = [
   { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } }
 ];
 
+// Solo las plantillas de esta temporada toman este código de primaria RFAF por defecto.
+const TEMPORADA_CODIGO_PRIMARIA_DEFECTO = '2026/2027';
+const CODIGO_PRIMARIA_DEFECTO = '1000120';
+
+function codigoPrimariaPorDefecto(temporada) {
+  return temporada?.nombre === TEMPORADA_CODIGO_PRIMARIA_DEFECTO ? CODIGO_PRIMARIA_DEFECTO : null;
+}
+
 function serializePlantilla(plantilla) {
   const json = plantilla.toJSON ? plantilla.toJSON() : plantilla;
   // Normalizar: si viene solo jugador/entrenador/delegado (legacy), convertir a array
@@ -211,6 +219,7 @@ async function crear(req, res, next) {
     const errorCategoria = await validarCategoriaDisponible(id_categoria, id_temporada);
     if (errorCategoria) return res.status(409).json({ message: errorCategoria });
 
+    const temporada = await Temporada.findOne({ where: { id: id_temporada }, attributes: ['id', 'nombre'] });
     const plantilla = await Plantilla.create({
       id_categoria,
       id_temporada,
@@ -220,7 +229,7 @@ async function crear(req, res, next) {
       codigo_grupo: codigo_grupo || null,
       codigo_temporada: codigo_temporada || null,
       codigo_equipo: codigo_equipo || null,
-      codigo_primaria: codigo_primaria || '1000120'
+      codigo_primaria: codigo_primaria || codigoPrimariaPorDefecto(temporada)
     });
 
     // Asociar jugadores con dorsal y talla
@@ -279,7 +288,8 @@ async function crearParaTemporada(req, res, next) {
     await Plantilla.bulkCreate(libres.map((c) => ({
       id_categoria: c.id,
       id_temporada,
-      id_division: null
+      id_division: null,
+      codigo_primaria: codigoPrimariaPorDefecto(temporada)
     })));
     res.status(201).json({
       message: `Plantillas creadas para ${libres.length} categorías en la temporada ${temporada.nombre}.`,

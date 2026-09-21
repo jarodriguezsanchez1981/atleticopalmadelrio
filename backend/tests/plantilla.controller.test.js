@@ -116,7 +116,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
   it('crear permite plantilla sin jugadores, entrenadores ni delegados', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
     const completa = { id: 11, id_categoria: 1, id_temporada: 1 };
     Plantilla.findOne
       .mockResolvedValueOnce(null)       // única temporada: sin conflictos
@@ -144,9 +144,24 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(res._json.id).toBe(11);
   });
 
+  it('crear no pone codigo_primaria por defecto si la temporada no es 2026/2027', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 3, nombre: '2027/2028' });
+    Plantilla.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 13, id_categoria: 1, id_temporada: 3 });
+    Plantilla.create.mockResolvedValue({ id: 13 });
+
+    const { promesa } = llamar(ctrl.crear, { body: { id_categoria: 1, id_temporada: 3 } });
+
+    await promesa;
+
+    expect(Plantilla.create).toHaveBeenCalledWith(expect.objectContaining({ codigo_primaria: null }));
+  });
+
   it('crear valida que el coordinador exista', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
     Coordinador.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.crear, {
       body: { id_categoria: 1, id_temporada: 1, id_coordinador: 99 }
@@ -176,7 +191,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
   it('crear guarda id_coordinador cuando se indica uno válido', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
     Coordinador.findOne.mockResolvedValue({ id: 4 });
     Plantilla.findOne
       .mockResolvedValueOnce(null)
@@ -330,7 +345,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
   it('crear registra una categoría nueva con jugadores, entrenadores y delegados', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
     Jugador.findOne.mockResolvedValue({ id: 5 });
     Entrenador.findOne.mockResolvedValue({ id: 6 });
     Delegado.findOne.mockResolvedValue({ id: 7 });
@@ -567,8 +582,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     await promesa;
 
     expect(Plantilla.bulkCreate).toHaveBeenCalledWith([
-      { id_categoria: 1, id_temporada: 1, id_division: null },
-      { id_categoria: 2, id_temporada: 1, id_division: null }
+      { id_categoria: 1, id_temporada: 1, id_division: null, codigo_primaria: null },
+      { id_categoria: 2, id_temporada: 1, id_division: null, codigo_primaria: null }
     ]);
     expect(res._status).toBe(201);
     expect(res._json.creadas).toBe(2);

@@ -11,7 +11,7 @@ const Plantilla = sequelize.define('Plantilla', {
   codigo_grupo: { type: DataTypes.STRING(50), allowNull: true },
   codigo_temporada: { type: DataTypes.STRING(50), allowNull: true },
   codigo_equipo: { type: DataTypes.STRING(50), allowNull: true },
-  codigo_primaria: { type: DataTypes.STRING(50), allowNull: true, defaultValue: '1000120' }
+  codigo_primaria: { type: DataTypes.STRING(50), allowNull: true }
 }, {
   tableName: 'plantillas',
   timestamps: false
