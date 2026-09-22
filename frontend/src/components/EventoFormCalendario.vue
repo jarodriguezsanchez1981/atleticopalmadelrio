@@ -291,6 +291,25 @@ const esEquipoLocalPalma = computed(() =>
   equipoLocalSeleccionado.value?.nombre === NOMBRE_PALMA
 );
 
+const esEquipoVisitantePalma = computed(() =>
+  Number(form.value.id_equipo_visitante) === PALMA_ID
+);
+
+const plantillaSeleccionada = computed(() =>
+  plantillas.value.find((p) => p.id === form.value.id_plantilla)
+);
+
+/** Los jugadores del equipo rival (no PALMA) solo se pueden ver/convocar en la
+ * plantilla Senior A de la temporada 2026/2027; en el resto solo se gestionan
+ * los del PALMA DEL RIO ATLETICO C.F. */
+const permiteJugadoresRival = computed(() =>
+  plantillaSeleccionada.value?.categoria?.nombre === 'Senior A' &&
+  plantillaSeleccionada.value?.temporada?.nombre === '2026/2027'
+);
+
+const mostrarJugadoresLocal = computed(() => esEquipoLocalPalma.value || permiteJugadoresRival.value);
+const mostrarJugadoresVisitante = computed(() => esEquipoVisitantePalma.value || permiteJugadoresRival.value);
+
 const ubicacionEquipoLocal = computed(() => {
   const eq = equipoLocalSeleccionado.value;
   if (!eq) return '';
@@ -543,8 +562,8 @@ async function guardar() {
       payload.incidencias = form.value.incidencias;
       payload.jornada = form.value.jornada || null;
       payload.resultado = form.value.resultado || null;
-      payload.jugadores_local = form.value.jugadores_local || [];
-      payload.jugadores_visitante = form.value.jugadores_visitante || [];
+      payload.jugadores_local = mostrarJugadoresLocal.value ? (form.value.jugadores_local || []) : [];
+      payload.jugadores_visitante = mostrarJugadoresVisitante.value ? (form.value.jugadores_visitante || []) : [];
     }
     const service = props.tipo === 'entrenamiento' ? entrenamientosService : partidosService;
     let resultado;
@@ -753,7 +772,7 @@ async function guardar() {
           <Textarea v-model="form.incidencias" rows="3" class="w-full" />
         </div>
 
-        <div>
+        <div v-if="mostrarJugadoresLocal">
           <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Local</h3>
           <div class="overflow-x-auto">
             <table class="w-full border-collapse">
@@ -795,7 +814,7 @@ async function guardar() {
           </div>
         </div>
 
-        <div>
+        <div v-if="mostrarJugadoresVisitante">
           <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Visitante</h3>
           <div class="overflow-x-auto">
             <table class="w-full border-collapse">
