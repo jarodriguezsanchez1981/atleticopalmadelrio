@@ -38,7 +38,10 @@ export const categoriasService = {
 export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
 export const entrenamientosService = crudService('entrenamientos');
-export const partidosService = crudService('partidos');
+export const partidosService = {
+  ...crudService('partidos'),
+  importarActa: (id, payload = {}) => api.post(`/partidos/${id}/importar-acta`, payload).then(r => r.data)
+};
 export const convocatoriasService = crudService('convocatorias');
 /** Si la camiseta es "Rayas", compone el color1/color2 elegidos en un único texto antes de enviarlo. */
 function prepararPayloadEquipo(payload) {

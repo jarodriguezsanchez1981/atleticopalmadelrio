@@ -13,5 +13,6 @@ router.get('/:id', ctrl.obtener);
 router.post('/', requireEditar('partidos'), ctrl.crear);
 router.put('/:id', requireEditar('partidos'), ctrl.actualizar);
 router.delete('/:id', requireEditar('partidos'), ctrl.eliminar);
+router.post('/:id/importar-acta', requireEditar('partidos'), ctrl.importarActa);
 
 module.exports = router;

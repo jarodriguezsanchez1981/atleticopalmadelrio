@@ -1,10 +1,12 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, EquipoJugador, Sancion } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
+const { descargarActaHtml, parsearActa, normalizarNombre } = require('../utils/rfafActa');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
+const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
 /** Guarda los jugadores convocados (local y visitante) de un partido. */
 async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
@@ -305,4 +307,84 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+/** Importa del acta oficial de RFAF los goles y tarjetas de los jugadores del
+ * PALMA DEL RIO ATLETICO C.F. convocados a este partido, y actualiza (o crea)
+ * sus filas en partido_jugadores. Solo toca jugadores que consigue emparejar
+ * por nombre con la plantilla del partido; el resto se devuelve como
+ * "noEncontrados" para revisarlos a mano. */
+async function importarActa(req, res, next) {
+  try {
+    const partido = await Partido.findByPk(req.params.id);
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
+
+    const codigo_acta = req.body?.codigo_acta || partido.codigo_acta || null;
+    const codigo_primaria = req.body?.codigo_primaria || partido.codigo_primaria || null;
+    // Si se pasan distintos a los guardados, se actualizan en el partido para no volver a pedirlos.
+    if (codigo_acta !== partido.codigo_acta) partido.codigo_acta = codigo_acta;
+    if (codigo_primaria !== partido.codigo_primaria) partido.codigo_primaria = codigo_primaria;
+    if (partido.changed('codigo_acta') || partido.changed('codigo_primaria')) await partido.save();
+
+    let html = req.body?.html;
+    if (!html) {
+      // RFAF exige sesión iniciada para ver el acta de un partido: sin ella
+      // esto siempre falla. Solo funciona si se pasa el HTML ya guardado
+      // (p.ej. "Guardar como..." desde un navegador con sesión de RFAF).
+      if (!codigo_acta || !codigo_primaria) {
+        return res.status(400).json({ message: 'Este partido no tiene código de acta y/o código de primaria.' });
+      }
+      try {
+        html = await descargarActaHtml(codigo_primaria, codigo_acta);
+      } catch (err) {
+        return res.status(502).json({ message: err.message });
+      }
+    }
+
+    let acta;
+    try {
+      acta = parsearActa(html, NOMBRE_PALMA);
+    } catch (err) {
+      return res.status(422).json({ message: err.message });
+    }
+
+    const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
+    const jugadoresPlantilla = await Jugador.findAll({
+      where: { id: rosterPlantilla.map((pj) => pj.id_jugador) },
+      attributes: ['id', 'nombre', 'apellidos']
+    });
+    const porNombre = new Map(
+      jugadoresPlantilla.map((j) => [normalizarNombre(`${j.apellidos} ${j.nombre}`), j])
+    );
+
+    const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
+    const actualizados = [];
+    const noEncontrados = [];
+
+    for (const rfaf of acta.jugadores) {
+      const jugador = porNombre.get(rfaf.nombreNormalizado);
+      if (!jugador) {
+        noEncontrados.push(rfaf.nombre);
+        continue;
+      }
+      const [fila] = await PartidoJugador.findOrCreate({
+        where: { id_partido: partido.id, id_jugador: jugador.id, es_local: esLocal },
+        defaults: {
+          id_partido: partido.id,
+          id_jugador: jugador.id,
+          es_local: esLocal,
+          tarjeta_amarilla: rfaf.tarjeta_amarilla,
+          tarjeta_roja: rfaf.tarjeta_roja,
+          goles: rfaf.goles
+        }
+      });
+      fila.tarjeta_amarilla = rfaf.tarjeta_amarilla;
+      fila.tarjeta_roja = rfaf.tarjeta_roja;
+      fila.goles = rfaf.goles;
+      await fila.save();
+      actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
+    }
+
+    res.json({ actualizados, noEncontrados });
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, importarActa };

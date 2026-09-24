@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, Sancion } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, Sancion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -578,5 +578,140 @@ describe('Sección Partidos · partido.controller', () => {
     await promesa;
 
     expect(res._status).toBe(404);
+  });
+
+  describe('importarActa', () => {
+    const HTML_ACTA = `
+      <html><body>
+      <div class="dashboard-stat"><div class="details">
+        <div class="number">Goles</div>
+        <div class="desc"><table class="table"><tbody>
+          <tr><td><i class="fa-solid fa-futbol" style="color: #0fa020;"></i></td>
+              <td><span class="font-blue">(10')</span> PEREZ GOMEZ, JUAN </td></tr>
+        </tbody></table></div>
+      </div></div>
+      <div class="dashboard-stat"><div class="details">
+        <div class="number">PALMA DEL RIO ATLETICO C.F. </div>
+        <div class="desc">
+          <h5><strong>Titulares</strong></h5>
+          <table class="table"><tbody>
+            <tr><td>7</td><td><img class="fotojug"></td><td>PEREZ GOMEZ, JUAN</td></tr>
+            <tr><td>4</td><td><img class="fotojug"></td><td>SIN FICHA, RIVAL</td></tr>
+          </tbody></table>
+          <h5><strong>Suplentes</strong></h5>
+          <table class="table"><tbody></tbody></table>
+          <h4>Tarjetas</h4>
+          <table class="table"><tbody>
+            <tr><td><img src="tarj_amar.gif"></td><td><span class="font-blue">(35')</span> PEREZ GOMEZ, JUAN </td></tr>
+          </tbody></table>
+        </div>
+      </div></div>
+      </body></html>
+    `;
+
+    function mockFetchOk(html = HTML_ACTA) {
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce(new Response('', { status: 200 }))
+        .mockResolvedValueOnce(new Response(html, { status: 200 }));
+    }
+
+    beforeEach(() => {
+      Jugador.findAll.mockReset();
+      PlantillaJugador.findAll.mockReset();
+      PartidoJugador.findOrCreate.mockReset();
+    });
+
+    it('devuelve 404 si el partido no existe', async () => {
+      Partido.findByPk.mockResolvedValue(null);
+      const { promesa, res } = llamar(ctrl.importarActa, { params: { id: '99' } });
+      await promesa;
+      expect(res._status).toBe(404);
+    });
+
+    it('exige codigo_acta y codigo_primaria', async () => {
+      Partido.findByPk.mockResolvedValue({ id: 1, codigo_acta: null, codigo_primaria: null, changed: () => false });
+      const { promesa, res } = llamar(ctrl.importarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+      expect(res._status).toBe(400);
+    });
+
+    it('actualiza a los jugadores que encuentra por nombre y reporta a los que no', async () => {
+      mockFetchOk();
+      const partido = {
+        id: 1, id_plantilla: 5, id_equipo_local: 73, id_equipo_visitante: 50,
+        codigo_acta: '2667398', codigo_primaria: '1000120',
+        changed: () => false, save: vi.fn()
+      };
+      Partido.findByPk.mockResolvedValue(partido);
+      PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 900 }]);
+      Jugador.findAll.mockResolvedValue([{ id: 900, nombre: 'Juan', apellidos: 'Perez Gomez' }]);
+      const fila = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0, save: vi.fn() };
+      PartidoJugador.findOrCreate.mockResolvedValue([fila, true]);
+
+      const { promesa, res } = llamar(ctrl.importarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(PartidoJugador.findOrCreate).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id_partido: 1, id_jugador: 900, es_local: true }
+      }));
+      expect(fila.goles).toBe(1);
+      expect(fila.tarjeta_amarilla).toBe(1);
+      expect(fila.save).toHaveBeenCalled();
+      expect(res._json.actualizados).toEqual(['Juan Perez Gomez']);
+      expect(res._json.noEncontrados).toEqual(['SIN FICHA, RIVAL']);
+    });
+
+    it('marca es_local=false si el PALMA es el equipo visitante', async () => {
+      mockFetchOk();
+      const partido = {
+        id: 2, id_plantilla: 5, id_equipo_local: 50, id_equipo_visitante: 73,
+        codigo_acta: '2667398', codigo_primaria: '1000120',
+        changed: () => false, save: vi.fn()
+      };
+      Partido.findByPk.mockResolvedValue(partido);
+      PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 900 }]);
+      Jugador.findAll.mockResolvedValue([{ id: 900, nombre: 'Juan', apellidos: 'Perez Gomez' }]);
+      const fila = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0, save: vi.fn() };
+      PartidoJugador.findOrCreate.mockResolvedValue([fila, true]);
+
+      const { promesa } = llamar(ctrl.importarActa, { params: { id: '2' }, body: {} });
+      await promesa;
+
+      expect(PartidoJugador.findOrCreate).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id_partido: 2, id_jugador: 900, es_local: false }
+      }));
+    });
+
+    it('usa el HTML enviado en el body en vez de descargarlo si se aporta', async () => {
+      global.fetch = vi.fn(); // no debe llamarse
+      const partido = {
+        id: 1, id_plantilla: 5, id_equipo_local: 73, id_equipo_visitante: 50,
+        codigo_acta: null, codigo_primaria: null, changed: () => false, save: vi.fn()
+      };
+      Partido.findByPk.mockResolvedValue(partido);
+      PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 900 }]);
+      Jugador.findAll.mockResolvedValue([{ id: 900, nombre: 'Juan', apellidos: 'Perez Gomez' }]);
+      const fila = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0, save: vi.fn() };
+      PartidoJugador.findOrCreate.mockResolvedValue([fila, true]);
+
+      const { promesa, res } = llamar(ctrl.importarActa, { params: { id: '1' }, body: { html: HTML_ACTA } });
+      await promesa;
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(res._json.actualizados).toEqual(['Juan Perez Gomez']);
+    });
+
+    it('devuelve 502 si RFAF pide login', async () => {
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce(new Response('', { status: 200 }))
+        .mockResolvedValueOnce(new Response('', { status: 302, headers: { Location: '/pnfg/NLogin' } }));
+      const partido = { id: 1, id_plantilla: 5, codigo_acta: '1', codigo_primaria: '1', changed: () => false, save: vi.fn() };
+      Partido.findByPk.mockResolvedValue(partido);
+
+      const { promesa, res } = llamar(ctrl.importarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(res._status).toBe(502);
+    });
   });
 });
