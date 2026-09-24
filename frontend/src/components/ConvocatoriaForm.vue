@@ -130,9 +130,11 @@ const jugadoresPlantilla = computed(() =>
     .sort((a, b) => a.apellidos.localeCompare(b.apellidos, 'es'))
 );
 
-// El desplegable de cada lista excluye solo a quien ya está EN ESA lista: un
-// jugador que está en la otra lista debe poder elegirse igualmente, lo que lo
-// mueve de una lista a la otra (ver addJugador/addNoConvocado).
+// El desplegable de "convocados" excluye solo a quien ya está convocado: a un
+// jugador que está en "no convocados" se le puede elegir igual, lo que lo
+// convoca directamente (ver addJugador). El de "no convocados", en cambio,
+// excluye a cualquiera de las dos listas: para marcar como no convocado a
+// alguien ya convocado hay que quitarlo antes de "Jugadores convocados".
 const opcionesJugadorDisponible = computed(() => {
   const usados = new Set(jugadoresConvocados.value);
   return jugadoresPlantilla.value
@@ -141,7 +143,10 @@ const opcionesJugadorDisponible = computed(() => {
 });
 
 const opcionesJugadorDisponibleNoConv = computed(() => {
-  const usados = new Set(jugadoresNoConvocados.value.map((n) => n.id_jugador));
+  const usados = new Set([
+    ...jugadoresConvocados.value,
+    ...jugadoresNoConvocados.value.map((n) => n.id_jugador)
+  ]);
   return jugadoresPlantilla.value
     .filter((j) => !usados.has(j.id))
     .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }));
@@ -219,8 +224,6 @@ function addNoConvocado() {
       observaciones: observacionesNuevoNoConvocado.value.trim()
     });
   }
-  // Un jugador no convocado no puede seguir figurando como convocado.
-  jugadoresConvocados.value = jugadoresConvocados.value.filter((id) => id !== nuevoNoConvocado.value);
   nuevoNoConvocado.value = null;
   observacionesNuevoNoConvocado.value = '';
   keySelectNoConvocado.value += 1;
