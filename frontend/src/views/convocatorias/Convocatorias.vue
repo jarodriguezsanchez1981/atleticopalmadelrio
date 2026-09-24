@@ -19,6 +19,7 @@ const convocatorias = ref([]);
 const cargando = ref(false);
 const formVisible = ref(false);
 const formRegistroId = ref(null);
+const formSoloLectura = ref(false);
 let unsubCambio = null;
 
 const puedeEditar = () => auth.puedeVer('convocatorias') && auth.puedeEditar('convocatorias');
@@ -62,11 +63,19 @@ function partidoYaJugado(item) {
 
 function nuevaConvocatoria() {
   formRegistroId.value = null;
+  formSoloLectura.value = false;
   formVisible.value = true;
 }
 
 function editarConvocatoria(item) {
   formRegistroId.value = item.id;
+  formSoloLectura.value = false;
+  formVisible.value = true;
+}
+
+function verConvocatoria(item) {
+  formRegistroId.value = item.id;
+  formSoloLectura.value = true;
   formVisible.value = true;
 }
 
@@ -131,12 +140,17 @@ function confirmarEliminar(item) {
           </div>
         </template>
       </Column>
-      <Column header="Jugadores">
+      <Column header="Convocados">
         <template #body="{ data }">{{ (data.jugadores || []).length }}</template>
       </Column>
-      <Column header="Acciones" style="width: 100px">
+      <Column header="No Convocados">
+        <template #body="{ data }">{{ (data.noConvocados || []).length }}</template>
+      </Column>
+      <Column header="Acciones" style="width: 130px">
         <template #body="{ data }">
           <div class="flex gap-1">
+            <Button icon="pi pi-eye" text rounded size="small" class="!text-ink-secondary"
+                    v-tooltip.top="'Ver'" @click="verConvocatoria(data)" />
             <Button icon="pi pi-pencil" text rounded size="small" class="!text-club-green"
                     v-tooltip.top="'Editar'" :disabled="!puedeEditar()" @click="editarConvocatoria(data)" />
             <Button icon="pi pi-trash" text rounded size="small" severity="danger"
@@ -153,6 +167,7 @@ function confirmarEliminar(item) {
     <ConvocatoriaForm
       v-model:visible="formVisible"
       :registroId="formRegistroId"
+      :soloLectura="formSoloLectura"
       @saved="onFormSaved"
     />
   </div>

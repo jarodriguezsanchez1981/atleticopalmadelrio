@@ -11,7 +11,8 @@ import { temporadasService, plantillasService, partidosService, convocatoriasSer
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  registroId: { type: [Number, String], default: null }
+  registroId: { type: [Number, String], default: null },
+  soloLectura: { type: Boolean, default: false }
 });
 const emit = defineEmits(['update:visible', 'saved']);
 
@@ -129,28 +130,35 @@ const jugadoresPlantilla = computed(() =>
     .sort((a, b) => a.apellidos.localeCompare(b.apellidos, 'es'))
 );
 
-// Un jugador solo puede estar en una de las dos listas a la vez.
-const idsUsados = computed(() => new Set([
-  ...jugadoresConvocados.value,
-  ...jugadoresNoConvocados.value.map((n) => n.id_jugador)
-]));
+// El desplegable de cada lista excluye solo a quien ya está EN ESA lista: un
+// jugador que está en la otra lista debe poder elegirse igualmente, lo que lo
+// mueve de una lista a la otra (ver addJugador/addNoConvocado).
+const opcionesJugadorDisponible = computed(() => {
+  const usados = new Set(jugadoresConvocados.value);
+  return jugadoresPlantilla.value
+    .filter((j) => !usados.has(j.id))
+    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }));
+});
 
-const opcionesJugadorDisponible = computed(() =>
-  jugadoresPlantilla.value
-    .filter((j) => !idsUsados.value.has(j.id))
-    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
-);
-
-const opcionesJugadorDisponibleNoConv = computed(() =>
-  jugadoresPlantilla.value
-    .filter((j) => !idsUsados.value.has(j.id))
-    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
-);
+const opcionesJugadorDisponibleNoConv = computed(() => {
+  const usados = new Set(jugadoresNoConvocados.value.map((n) => n.id_jugador));
+  return jugadoresPlantilla.value
+    .filter((j) => !usados.has(j.id))
+    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }));
+});
 
 function nombreJugador(id) {
   const j = jugadoresPlantilla.value.find((x) => x.id === id);
   return j ? `${j.nombre} ${j.apellidos}` : `Jugador ${id}`;
 }
+
+// Listas ordenadas alfabéticamente (por apellidos) para mostrar en editar/ver.
+const jugadoresConvocadosOrdenados = computed(() =>
+  [...jugadoresConvocados.value].sort((a, b) => nombreJugador(a).localeCompare(nombreJugador(b), 'es'))
+);
+const jugadoresNoConvocadosOrdenados = computed(() =>
+  [...jugadoresNoConvocados.value].sort((a, b) => nombreJugador(a.id_jugador).localeCompare(nombreJugador(b.id_jugador), 'es'))
+);
 
 function formatearFecha(fecha) {
   if (!fecha) return '—';
@@ -211,6 +219,8 @@ function addNoConvocado() {
       observaciones: observacionesNuevoNoConvocado.value.trim()
     });
   }
+  // Un jugador no convocado no puede seguir figurando como convocado.
+  jugadoresConvocados.value = jugadoresConvocados.value.filter((id) => id !== nuevoNoConvocado.value);
   nuevoNoConvocado.value = null;
   observacionesNuevoNoConvocado.value = '';
   keySelectNoConvocado.value += 1;
@@ -276,7 +286,7 @@ async function guardar() {
     <div class="flex items-center gap-2">
       <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
       <span class="font-display text-club-green text-lg">
-        {{ modoEdicion ? 'Editar' : 'Nueva' }} convocatoria
+        {{ soloLectura ? 'Ver' : modoEdicion ? 'Editar' : 'Nueva' }} convocatoria
       </span>
     </div>
   </template>
@@ -286,7 +296,7 @@ async function guardar() {
       <div class="flex flex-col gap-1.5">
         <label class="text-sm font-medium text-ink-secondary">Temporada <span class="text-club-garnet">*</span></label>
         <Select v-model="form.id_temporada" :options="opcionesTemporada" optionLabel="label" optionValue="value"
-                class="w-full" placeholder="Selecciona una temporada" :disabled="modoEdicion"
+                class="w-full" placeholder="Selecciona una temporada" :disabled="modoEdicion || soloLectura"
                 :loading="cargandoCatalogo" @change="onTemporadaChange" />
       </div>
 
@@ -294,7 +304,7 @@ async function guardar() {
         <label class="text-sm font-medium text-ink-secondary">Plantilla <span class="text-club-garnet">*</span></label>
         <Select v-model="form.id_plantilla" :options="opcionesPlantilla" optionLabel="label" optionValue="value"
                 class="w-full" placeholder="Selecciona una plantilla"
-                :disabled="modoEdicion || !form.id_temporada" @change="onPlantillaChange" />
+                :disabled="modoEdicion || soloLectura || !form.id_temporada" @change="onPlantillaChange" />
       </div>
     </div>
 
@@ -303,7 +313,7 @@ async function guardar() {
       <DataTable
         :value="partidosPlantilla" :loading="cargandoPartidos" paginator :rows="5"
         v-model:selection="partidoSeleccionado" selectionMode="single" dataKey="id"
-        class="ar-datatable" :class="{ 'pointer-events-none opacity-60': modoEdicion }"
+        class="ar-datatable" :class="{ 'pointer-events-none opacity-60': modoEdicion || soloLectura }"
       >
         <Column field="fecha" header="Fecha">
           <template #body="{ data }">{{ formatearFecha(data.fecha) }}</template>
@@ -326,7 +336,7 @@ async function guardar() {
     <div v-if="form.id_partido">
       <div class="flex items-center justify-between gap-2 mb-2">
         <h3 class="text-sm font-semibold text-club-green">Jugadores convocados</h3>
-        <Button type="button" label="Plantilla Completa" icon="pi pi-users" text size="small"
+        <Button v-if="!soloLectura" type="button" label="Plantilla Completa" icon="pi pi-users" text size="small"
                 class="!text-club-green" @click="plantillaCompleta" />
       </div>
       <div class="overflow-x-auto">
@@ -334,24 +344,24 @@ async function guardar() {
           <thead>
             <tr class="bg-club-green/5">
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              <th v-if="!soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="id in jugadoresConvocados" :key="id">
+            <tr v-for="id in jugadoresConvocadosOrdenados" :key="id">
               <td class="border border-line p-2 text-sm">{{ nombreJugador(id) }}</td>
-              <td class="text-center border border-line p-2">
+              <td v-if="!soloLectura" class="text-center border border-line p-2">
                 <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
                         @click="removeJugador(id)" />
               </td>
             </tr>
-            <tr v-if="!jugadoresConvocados.length">
-              <td colspan="2" class="text-center text-ink-tertiary p-3 text-sm">Todavía no hay jugadores convocados.</td>
+            <tr v-if="!jugadoresConvocadosOrdenados.length">
+              <td :colspan="soloLectura ? 1 : 2" class="text-center text-ink-tertiary p-3 text-sm">Todavía no hay jugadores convocados.</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div class="flex gap-2 mt-2">
+      <div v-if="!soloLectura" class="flex gap-2 mt-2">
         <Select :key="keySelectJugador" v-model="nuevoJugador" :options="opcionesJugadorDisponible"
                 optionLabel="label" optionValue="value" placeholder="Seleccionar jugador"
                 class="flex-1" filter showClear />
@@ -368,25 +378,25 @@ async function guardar() {
             <tr class="bg-club-green/5">
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Observaciones</th>
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              <th v-if="!soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="n in jugadoresNoConvocados" :key="n.id_jugador">
+            <tr v-for="n in jugadoresNoConvocadosOrdenados" :key="n.id_jugador">
               <td class="border border-line p-2 text-sm">{{ nombreJugador(n.id_jugador) }}</td>
               <td class="border border-line p-2 text-sm text-ink-secondary">{{ n.observaciones || '—' }}</td>
-              <td class="text-center border border-line p-2">
+              <td v-if="!soloLectura" class="text-center border border-line p-2">
                 <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
                         @click="removeNoConvocado(n.id_jugador)" />
               </td>
             </tr>
-            <tr v-if="!jugadoresNoConvocados.length">
-              <td colspan="3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores marcados como no convocados.</td>
+            <tr v-if="!jugadoresNoConvocadosOrdenados.length">
+              <td :colspan="soloLectura ? 2 : 3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores marcados como no convocados.</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div class="flex flex-col sm:flex-row gap-2 mt-2">
+      <div v-if="!soloLectura" class="flex flex-col sm:flex-row gap-2 mt-2">
         <Select :key="keySelectNoConvocado" v-model="nuevoNoConvocado" :options="opcionesJugadorDisponibleNoConv"
                 optionLabel="label" optionValue="value" placeholder="Seleccionar jugador"
                 class="flex-1" filter showClear />
@@ -397,9 +407,13 @@ async function guardar() {
     </div>
 
     <div class="flex justify-end gap-2 pt-3 border-t border-line">
-      <Button type="button" label="Cancelar" text @click="cerrar" />
-      <Button type="submit" label="Guardar" icon="pi pi-check" :loading="guardando"
+      <Button v-if="soloLectura" type="button" label="Cerrar" @click="cerrar"
               class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+      <template v-else>
+        <Button type="button" label="Cancelar" text @click="cerrar" />
+        <Button type="submit" label="Guardar" icon="pi pi-check" :loading="guardando"
+                class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+      </template>
     </div>
   </form>
 </Dialog>
