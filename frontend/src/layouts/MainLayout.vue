@@ -23,7 +23,7 @@ const CLUB_SECTIONS = [
   'lugares', 'material', 'entrenamientos'
 ];
 
-const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'sanciones', 'informes'];
+const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'convocatorias', 'sanciones', 'informes'];
 
 const ADMIN_SECTIONS = ['administracion', 'cambios'];
 
@@ -59,6 +59,7 @@ const competicionNavItems = computed(() => {
     { label: 'Equipos', icon: 'pi pi-trophy', to: '/equipos', seccion: 'equipos' },
     { label: 'Jugadores de Equipos', icon: 'pi pi-user', to: '/equipos-jugadores', seccion: 'equipos_jugadores' },
     { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
+    { label: 'Convocatorias', icon: 'pi pi-list-check', to: '/convocatorias', seccion: 'convocatorias' },
     { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' },
     { label: 'Informes', icon: 'pi pi-file', to: '/informes', seccion: 'informes' }
   ];

@@ -30,6 +30,8 @@ const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
 const Material = require('./Material');
 const Coordinador = require('./Coordinador');
+const Convocatoria = require('./Convocatoria');
+const ConvocatoriaJugador = require('./ConvocatoriaJugador');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -139,6 +141,22 @@ PartidoJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targe
 Torneo.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 Plantilla.hasMany(Torneo, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'torneos' });
 Torneo.belongsTo(Equipo, { foreignKey: 'id_equipo', targetKey: 'id', as: 'equipo', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+
+// ---- Convocatorias (lista de jugadores de la plantilla convocados para un
+// partido; al guardarse se sincroniza con partido_jugadores) ----
+Convocatoria.belongsTo(Temporada, { foreignKey: 'id_temporada', targetKey: 'id', as: 'temporada' });
+Temporada.hasMany(Convocatoria, { foreignKey: 'id_temporada', sourceKey: 'id', as: 'convocatorias' });
+
+Convocatoria.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Plantilla.hasMany(Convocatoria, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'convocatorias' });
+
+Convocatoria.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Partido.hasOne(Convocatoria, { foreignKey: 'id_partido', sourceKey: 'id', as: 'convocatoria', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+
+Convocatoria.hasMany(ConvocatoriaJugador, { foreignKey: 'id_convocatoria', sourceKey: 'id', as: 'jugadores', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+ConvocatoriaJugador.belongsTo(Convocatoria, { foreignKey: 'id_convocatoria', targetKey: 'id', as: 'convocatoria' });
+ConvocatoriaJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Jugador.hasMany(ConvocatoriaJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'convocatoriasJugador' });
 
 Equipo.hasMany(Jornada, { foreignKey: 'id_equipo_local', sourceKey: 'id', as: 'jornadasLocal' });
 Jornada.belongsTo(Equipo, { foreignKey: 'id_equipo_local', targetKey: 'id', as: 'equipoLocal', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
@@ -268,5 +286,7 @@ module.exports = {
   Promocion,
   Material,
   Coordinador,
+  Convocatoria,
+  ConvocatoriaJugador,
   UsuarioSeccion
 };

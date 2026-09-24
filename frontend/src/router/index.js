@@ -41,6 +41,12 @@ const routes = [
         meta: { seccion: 'partidos' }
       },
       {
+        path: 'convocatorias',
+        name: 'convocatorias',
+        component: () => import('../views/convocatorias/Convocatorias.vue'),
+        meta: { seccion: 'convocatorias' }
+      },
+      {
         path: 'temporadas',
         name: 'temporadas',
         component: () => import('../views/temporadas/Temporadas.vue'),

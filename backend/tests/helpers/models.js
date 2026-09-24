@@ -63,7 +63,9 @@ export function createModelsMock() {
     Promocion: createModelMock(),
     Material: createModelMock(),
     Coordinador: createModelMock(),
-    UsuarioSeccion: createModelMock()
+    UsuarioSeccion: createModelMock(),
+    Convocatoria: createModelMock(),
+    ConvocatoriaJugador: createModelMock()
   };
   return models;
 }
@@ -105,6 +107,8 @@ export const Promocion = models.Promocion;
 export const Material = models.Material;
 export const Coordinador = models.Coordinador;
 export const UsuarioSeccion = models.UsuarioSeccion;
+export const Convocatoria = models.Convocatoria;
+export const ConvocatoriaJugador = models.ConvocatoriaJugador;
 
 /**
  * Mocks de las utilidades de password y JWT que cargan los controladores
