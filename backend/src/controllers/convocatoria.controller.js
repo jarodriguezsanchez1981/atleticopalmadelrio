@@ -1,5 +1,5 @@
 const {
-  Convocatoria, ConvocatoriaJugador, Temporada, Plantilla, Categoria, Partido,
+  Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Categoria, Partido,
   Equipo, Jugador, PlantillaJugador, PartidoJugador
 } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
@@ -26,6 +26,11 @@ const includesBase = [
   {
     model: ConvocatoriaJugador,
     as: 'jugadores',
+    include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] }]
+  },
+  {
+    model: ConvocatoriaSinJugador,
+    as: 'noConvocados',
     include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] }]
   }
 ];
@@ -93,6 +98,22 @@ async function jugadoresValidos(idPlantilla, idsJugador) {
   return filas.length === new Set(idsJugador).size;
 }
 
+/** Limpia y deduplica la lista de no convocados, y quita cualquiera que
+ * también esté en la lista de convocados: un jugador convocado no puede
+ * figurar a la vez como no convocado. */
+function normalizarNoConvocados(noConvocados, idsConvocados) {
+  const convocadosSet = new Set(idsConvocados);
+  const vistos = new Set();
+  const resultado = [];
+  for (const item of (noConvocados || [])) {
+    const id_jugador = Number(item?.id_jugador);
+    if (!id_jugador || convocadosSet.has(id_jugador) || vistos.has(id_jugador)) continue;
+    vistos.add(id_jugador);
+    resultado.push({ id_jugador, observaciones: item.observaciones || null });
+  }
+  return resultado;
+}
+
 /** Da de alta (sin pisar tarjetas/goles ya registrados) a los jugadores
  * convocados como jugadores del partido, del lado en el que juega el PALMA. */
 async function sincronizarPartidoJugadores(partido, idsJugador) {
@@ -107,7 +128,7 @@ async function sincronizarPartidoJugadores(partido, idsJugador) {
 
 async function crear(req, res, next) {
   try {
-    const { id_temporada, id_plantilla, id_partido, jugadores } = req.body;
+    const { id_temporada, id_plantilla, id_partido, jugadores, no_convocados } = req.body;
     const { error, partido } = await validarReferencias({ id_temporada, id_plantilla, id_partido });
     if (error) return res.status(400).json({ message: error });
 
@@ -115,8 +136,10 @@ async function crear(req, res, next) {
     if (existente) return res.status(409).json({ message: 'Este partido ya tiene una convocatoria.' });
 
     const idsJugador = [...new Set((jugadores || []).map(Number).filter(Boolean))];
-    if (!(await jugadoresValidos(id_plantilla, idsJugador))) {
-      return res.status(400).json({ message: 'Algún jugador convocado no pertenece a la plantilla.' });
+    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador);
+    const idsValidar = [...new Set([...idsJugador, ...sinJugador.map((s) => s.id_jugador)])];
+    if (!(await jugadoresValidos(id_plantilla, idsValidar))) {
+      return res.status(400).json({ message: 'Algún jugador indicado no pertenece a la plantilla.' });
     }
 
     const convocatoria = await Convocatoria.create({ id_temporada, id_plantilla, id_partido });
@@ -126,6 +149,12 @@ async function crear(req, res, next) {
         { ignoreDuplicates: true }
       );
       await sincronizarPartidoJugadores(partido, idsJugador);
+    }
+    if (sinJugador.length) {
+      await ConvocatoriaSinJugador.bulkCreate(
+        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones })),
+        { ignoreDuplicates: true }
+      );
     }
 
     const completa = await Convocatoria.findByPk(convocatoria.id, { include: includesBase });
@@ -138,16 +167,18 @@ async function actualizar(req, res, next) {
     const convocatoria = await Convocatoria.findByPk(req.params.id);
     if (!convocatoria) return res.status(404).json({ message: 'Convocatoria no encontrada.' });
 
-    const { jugadores } = req.body;
-    if (jugadores === undefined) {
+    const { jugadores, no_convocados } = req.body;
+    if (jugadores === undefined && no_convocados === undefined) {
       const completa = await Convocatoria.findByPk(convocatoria.id, { include: includesBase });
       return res.json(serialize(completa));
     }
 
     const partido = await Partido.findByPk(convocatoria.id_partido);
     const idsJugador = [...new Set((jugadores || []).map(Number).filter(Boolean))];
-    if (!(await jugadoresValidos(convocatoria.id_plantilla, idsJugador))) {
-      return res.status(400).json({ message: 'Algún jugador convocado no pertenece a la plantilla.' });
+    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador);
+    const idsValidar = [...new Set([...idsJugador, ...sinJugador.map((s) => s.id_jugador)])];
+    if (!(await jugadoresValidos(convocatoria.id_plantilla, idsValidar))) {
+      return res.status(400).json({ message: 'Algún jugador indicado no pertenece a la plantilla.' });
     }
 
     // Se reemplaza la lista completa: no se tocan las filas de partido_jugadores
@@ -160,6 +191,14 @@ async function actualizar(req, res, next) {
         { ignoreDuplicates: true }
       );
       await sincronizarPartidoJugadores(partido, idsJugador);
+    }
+
+    await ConvocatoriaSinJugador.destroy({ where: { id_convocatoria: convocatoria.id } });
+    if (sinJugador.length) {
+      await ConvocatoriaSinJugador.bulkCreate(
+        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla: convocatoria.id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones })),
+        { ignoreDuplicates: true }
+      );
     }
 
     const completa = await Convocatoria.findByPk(convocatoria.id, { include: includesBase });

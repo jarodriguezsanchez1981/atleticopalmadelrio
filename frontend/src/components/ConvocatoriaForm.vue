@@ -5,6 +5,7 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import InputText from 'primevue/inputtext';
 import { useToast } from 'primevue/usetoast';
 import { temporadasService, plantillasService, partidosService, convocatoriasService } from '../services';
 
@@ -30,14 +31,22 @@ const nuevoJugador = ref(null);
 const keySelectJugador = ref(0);
 const partidoSeleccionado = ref(null);
 
+const jugadoresNoConvocados = ref([]); // array de { id_jugador, observaciones }
+const nuevoNoConvocado = ref(null);
+const observacionesNuevoNoConvocado = ref('');
+const keySelectNoConvocado = ref(0);
+
 const modoEdicion = computed(() => !!props.registroId);
 
 function resetForm() {
   form.value = { id_temporada: null, id_plantilla: null, id_partido: null };
   jugadoresConvocados.value = [];
+  jugadoresNoConvocados.value = [];
   partidosPlantilla.value = [];
   partidoSeleccionado.value = null;
   nuevoJugador.value = null;
+  nuevoNoConvocado.value = null;
+  observacionesNuevoNoConvocado.value = '';
 }
 
 async function cargarCatalogo() {
@@ -61,9 +70,9 @@ async function cargarPartidosDePlantilla(idPlantilla) {
   cargandoPartidos.value = true;
   try {
     const todos = await partidosService.listar({ id_plantilla: idPlantilla });
-    // Un partido que ya tiene convocatoria no se puede volver a elegir (salvo
-    // que sea la propia convocatoria que se está editando).
-    partidosPlantilla.value = todos.filter((p) => !partidosConConvocatoria.value.has(p.id));
+    // Solo partidos de liga (con jornada), y que no tengan ya una convocatoria
+    // (salvo que sea la propia convocatoria que se está editando).
+    partidosPlantilla.value = todos.filter((p) => p.jornada != null && !partidosConConvocatoria.value.has(p.id));
   } finally {
     cargandoPartidos.value = false;
   }
@@ -78,6 +87,10 @@ async function cargarRegistro() {
     id_partido: item.id_partido ?? item.partido?.id ?? null
   };
   jugadoresConvocados.value = (item.jugadores || []).map((j) => j.id_jugador);
+  jugadoresNoConvocados.value = (item.noConvocados || []).map((n) => ({
+    id_jugador: n.id_jugador,
+    observaciones: n.observaciones || ''
+  }));
   await cargarPartidosDePlantilla(form.value.id_plantilla);
   partidoSeleccionado.value = partidosPlantilla.value.find((p) => p.id === form.value.id_partido) || null;
 }
@@ -116,12 +129,23 @@ const jugadoresPlantilla = computed(() =>
     .sort((a, b) => a.apellidos.localeCompare(b.apellidos, 'es'))
 );
 
-const opcionesJugadorDisponible = computed(() => {
-  const usados = new Set(jugadoresConvocados.value);
-  return jugadoresPlantilla.value
-    .filter((j) => !usados.has(j.id))
-    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }));
-});
+// Un jugador solo puede estar en una de las dos listas a la vez.
+const idsUsados = computed(() => new Set([
+  ...jugadoresConvocados.value,
+  ...jugadoresNoConvocados.value.map((n) => n.id_jugador)
+]));
+
+const opcionesJugadorDisponible = computed(() =>
+  jugadoresPlantilla.value
+    .filter((j) => !idsUsados.value.has(j.id))
+    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
+);
+
+const opcionesJugadorDisponibleNoConv = computed(() =>
+  jugadoresPlantilla.value
+    .filter((j) => !idsUsados.value.has(j.id))
+    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
+);
 
 function nombreJugador(id) {
   const j = jugadoresPlantilla.value.find((x) => x.id === id);
@@ -164,12 +188,36 @@ function addJugador() {
   if (!jugadoresConvocados.value.includes(nuevoJugador.value)) {
     jugadoresConvocados.value.push(nuevoJugador.value);
   }
+  // Un jugador convocado no puede seguir figurando como no convocado.
+  jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== nuevoJugador.value);
   nuevoJugador.value = null;
   keySelectJugador.value += 1;
 }
 
 function removeJugador(id) {
   jugadoresConvocados.value = jugadoresConvocados.value.filter((x) => x !== id);
+}
+
+function plantillaCompleta() {
+  jugadoresConvocados.value = jugadoresPlantilla.value.map((j) => j.id);
+  jugadoresNoConvocados.value = [];
+}
+
+function addNoConvocado() {
+  if (!nuevoNoConvocado.value) return;
+  if (!jugadoresNoConvocados.value.some((n) => n.id_jugador === nuevoNoConvocado.value)) {
+    jugadoresNoConvocados.value.push({
+      id_jugador: nuevoNoConvocado.value,
+      observaciones: observacionesNuevoNoConvocado.value.trim()
+    });
+  }
+  nuevoNoConvocado.value = null;
+  observacionesNuevoNoConvocado.value = '';
+  keySelectNoConvocado.value += 1;
+}
+
+function removeNoConvocado(id) {
+  jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== id);
 }
 
 function cerrar() {
@@ -185,17 +233,25 @@ async function guardar() {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Añade al menos un jugador a la convocatoria.', life: 4000 });
     return;
   }
+  const noConvocadosPayload = jugadoresNoConvocados.value.map((n) => ({
+    id_jugador: n.id_jugador,
+    observaciones: n.observaciones || null
+  }));
   guardando.value = true;
   try {
     if (modoEdicion.value) {
-      await convocatoriasService.actualizar(props.registroId, { jugadores: jugadoresConvocados.value });
+      await convocatoriasService.actualizar(props.registroId, {
+        jugadores: jugadoresConvocados.value,
+        no_convocados: noConvocadosPayload
+      });
       toast.add({ severity: 'success', summary: 'Actualizada', detail: 'Convocatoria actualizada correctamente.', life: 3000 });
     } else {
       await convocatoriasService.crear({
         id_temporada: form.value.id_temporada,
         id_plantilla: form.value.id_plantilla,
         id_partido: form.value.id_partido,
-        jugadores: jugadoresConvocados.value
+        jugadores: jugadoresConvocados.value,
+        no_convocados: noConvocadosPayload
       });
       toast.add({ severity: 'success', summary: 'Creada', detail: 'Convocatoria creada correctamente.', life: 3000 });
     }
@@ -268,7 +324,11 @@ async function guardar() {
     </div>
 
     <div v-if="form.id_partido">
-      <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores convocados</h3>
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <h3 class="text-sm font-semibold text-club-green">Jugadores convocados</h3>
+        <Button type="button" label="Plantilla Completa" icon="pi pi-users" text size="small"
+                class="!text-club-green" @click="plantillaCompleta" />
+      </div>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse">
           <thead>
@@ -297,6 +357,42 @@ async function guardar() {
                 class="flex-1" filter showClear />
         <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
                 @click="addJugador" />
+      </div>
+    </div>
+
+    <div v-if="form.id_partido">
+      <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores no convocados</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
+              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Observaciones</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="n in jugadoresNoConvocados" :key="n.id_jugador">
+              <td class="border border-line p-2 text-sm">{{ nombreJugador(n.id_jugador) }}</td>
+              <td class="border border-line p-2 text-sm text-ink-secondary">{{ n.observaciones || '—' }}</td>
+              <td class="text-center border border-line p-2">
+                <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
+                        @click="removeNoConvocado(n.id_jugador)" />
+              </td>
+            </tr>
+            <tr v-if="!jugadoresNoConvocados.length">
+              <td colspan="3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores marcados como no convocados.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2 mt-2">
+        <Select :key="keySelectNoConvocado" v-model="nuevoNoConvocado" :options="opcionesJugadorDisponibleNoConv"
+                optionLabel="label" optionValue="value" placeholder="Seleccionar jugador"
+                class="flex-1" filter showClear />
+        <InputText v-model="observacionesNuevoNoConvocado" placeholder="Observaciones (motivo)" class="flex-1" />
+        <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
+                @click="addNoConvocado" />
       </div>
     </div>
 

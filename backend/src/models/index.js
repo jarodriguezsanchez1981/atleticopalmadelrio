@@ -32,6 +32,7 @@ const Material = require('./Material');
 const Coordinador = require('./Coordinador');
 const Convocatoria = require('./Convocatoria');
 const ConvocatoriaJugador = require('./ConvocatoriaJugador');
+const ConvocatoriaSinJugador = require('./ConvocatoriaSinJugador');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -157,6 +158,14 @@ Convocatoria.hasMany(ConvocatoriaJugador, { foreignKey: 'id_convocatoria', sourc
 ConvocatoriaJugador.belongsTo(Convocatoria, { foreignKey: 'id_convocatoria', targetKey: 'id', as: 'convocatoria' });
 ConvocatoriaJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 Jugador.hasMany(ConvocatoriaJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'convocatoriasJugador' });
+
+// ---- Convocatorias <-> jugadores NO convocados (con motivo/observaciones) ----
+Convocatoria.hasMany(ConvocatoriaSinJugador, { foreignKey: 'id_convocatoria', sourceKey: 'id', as: 'noConvocados', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+ConvocatoriaSinJugador.belongsTo(Convocatoria, { foreignKey: 'id_convocatoria', targetKey: 'id', as: 'convocatoria' });
+ConvocatoriaSinJugador.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Plantilla.hasMany(ConvocatoriaSinJugador, { foreignKey: 'id_plantilla', sourceKey: 'id', as: 'convocatoriasSinJugador' });
+ConvocatoriaSinJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+Jugador.hasMany(ConvocatoriaSinJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'convocatoriasSinJugador' });
 
 Equipo.hasMany(Jornada, { foreignKey: 'id_equipo_local', sourceKey: 'id', as: 'jornadasLocal' });
 Jornada.belongsTo(Equipo, { foreignKey: 'id_equipo_local', targetKey: 'id', as: 'equipoLocal', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
@@ -288,5 +297,6 @@ module.exports = {
   Coordinador,
   Convocatoria,
   ConvocatoriaJugador,
+  ConvocatoriaSinJugador,
   UsuarioSeccion
 };
