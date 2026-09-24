@@ -197,9 +197,13 @@ watch(partidoSeleccionado, (p) => {
 });
 
 function addJugador() {
-  if (!nuevoJugador.value) return;
+  if (!nuevoJugador.value) {
+    toast.add({ severity: 'warn', summary: 'Selecciona un jugador', detail: 'Elige un jugador de la lista antes de pulsar Añadir.', life: 4000 });
+    return;
+  }
   if (!jugadoresConvocados.value.includes(nuevoJugador.value)) {
     jugadoresConvocados.value.push(nuevoJugador.value);
+    toast.add({ severity: 'success', summary: 'Añadido', detail: `${nombreJugador(nuevoJugador.value)} añadido a convocados.`, life: 2500 });
   }
   // Un jugador convocado no puede seguir figurando como no convocado.
   jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== nuevoJugador.value);
@@ -217,12 +221,17 @@ function plantillaCompleta() {
 }
 
 function addNoConvocado() {
-  if (!nuevoNoConvocado.value) return;
-  if (!jugadoresNoConvocados.value.some((n) => n.id_jugador === nuevoNoConvocado.value)) {
+  if (!nuevoNoConvocado.value) {
+    toast.add({ severity: 'warn', summary: 'Selecciona un jugador', detail: 'Elige un jugador de la lista antes de pulsar Añadir.', life: 4000 });
+    return;
+  }
+  const idAgregado = nuevoNoConvocado.value;
+  if (!jugadoresNoConvocados.value.some((n) => n.id_jugador === idAgregado)) {
     jugadoresNoConvocados.value.push({
-      id_jugador: nuevoNoConvocado.value,
+      id_jugador: idAgregado,
       observaciones: observacionesNuevoNoConvocado.value.trim()
     });
+    toast.add({ severity: 'success', summary: 'Añadido', detail: `${nombreJugador(idAgregado)} añadido a no convocados.`, life: 2500 });
   }
   nuevoNoConvocado.value = null;
   observacionesNuevoNoConvocado.value = '';
@@ -244,6 +253,17 @@ async function guardar() {
   }
   if (!jugadoresConvocados.value.length) {
     toast.add({ severity: 'error', summary: 'Error', detail: 'Añade al menos un jugador a la convocatoria.', life: 4000 });
+    return;
+  }
+  // Si hay un jugador elegido en alguno de los dos selectores pero no se ha
+  // pulsado su "Añadir", avisar en vez de guardar sin él sin decir nada.
+  if (nuevoJugador.value || nuevoNoConvocado.value) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Jugador sin añadir',
+      detail: 'Has seleccionado un jugador pero no has pulsado "Añadir". Añádelo o quítalo del selector antes de guardar.',
+      life: 5000
+    });
     return;
   }
   const noConvocadosPayload = jugadoresNoConvocados.value.map((n) => ({
