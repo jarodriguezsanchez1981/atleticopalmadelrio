@@ -102,10 +102,16 @@ function prepararEdicion(data) {
 <template>
 <SectionGuard seccion="administracion">
   <div>
-    <h1 class="font-display text-xl text-club-green mb-1 flex items-center gap-2">
-      <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
-      Administración
-    </h1>
+    <div class="flex items-start justify-between gap-3 flex-wrap mb-1">
+      <h1 class="font-display text-xl text-club-green flex items-center gap-2">
+        <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
+        Administración
+      </h1>
+      <router-link to="/secciones">
+        <Button label="Ordenar secciones del menú" icon="pi pi-sort-alt" text
+                class="!text-club-green !border-club-green/50" outlined />
+      </router-link>
+    </div>
     <p class="text-sm text-ink-tertiary mb-4">
       Gestión de usuarios de la intranet. Al crear o editar, indica las secciones que podrá ver y editar.
     </p>

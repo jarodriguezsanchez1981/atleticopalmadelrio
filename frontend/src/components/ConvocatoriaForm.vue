@@ -18,6 +18,7 @@ const toast = useToast();
 
 const temporadas = ref([]);
 const plantillas = ref([]);
+const partidosConConvocatoria = ref(new Set());
 const partidosPlantilla = ref([]);
 const cargandoCatalogo = ref(false);
 const cargandoPartidos = ref(false);
@@ -42,9 +43,14 @@ function resetForm() {
 async function cargarCatalogo() {
   cargandoCatalogo.value = true;
   try {
-    const [temps, pls] = await Promise.all([temporadasService.listar(), plantillasService.listar()]);
+    const [temps, pls, convs] = await Promise.all([
+      temporadasService.listar(), plantillasService.listar(), convocatoriasService.listar()
+    ]);
     temporadas.value = temps;
     plantillas.value = pls;
+    partidosConConvocatoria.value = new Set(
+      convs.filter((c) => c.id !== Number(props.registroId)).map((c) => c.id_partido)
+    );
   } finally {
     cargandoCatalogo.value = false;
   }
@@ -54,7 +60,10 @@ async function cargarPartidosDePlantilla(idPlantilla) {
   if (!idPlantilla) { partidosPlantilla.value = []; return; }
   cargandoPartidos.value = true;
   try {
-    partidosPlantilla.value = await partidosService.listar({ id_plantilla: idPlantilla });
+    const todos = await partidosService.listar({ id_plantilla: idPlantilla });
+    // Un partido que ya tiene convocatoria no se puede volver a elegir (salvo
+    // que sea la propia convocatoria que se está editando).
+    partidosPlantilla.value = todos.filter((p) => !partidosConConvocatoria.value.has(p.id));
   } finally {
     cargandoPartidos.value = false;
   }
@@ -236,7 +245,7 @@ async function guardar() {
     <div v-if="form.id_plantilla">
       <h3 class="text-sm font-semibold text-club-green mb-2">Partido</h3>
       <DataTable
-        :value="partidosPlantilla" :loading="cargandoPartidos"
+        :value="partidosPlantilla" :loading="cargandoPartidos" paginator :rows="5"
         v-model:selection="partidoSeleccionado" selectionMode="single" dataKey="id"
         class="ar-datatable" :class="{ 'pointer-events-none opacity-60': modoEdicion }"
       >
@@ -250,7 +259,9 @@ async function guardar() {
           <template #body="{ data }">{{ data.equipoVisitante?.nombre || '—' }}</template>
         </Column>
         <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">Esta plantilla no tiene partidos.</div>
+          <div class="text-center text-ink-tertiary py-4 text-sm">
+            Esta plantilla no tiene partidos sin convocatoria.
+          </div>
         </template>
       </DataTable>
       <p v-if="!form.id_partido" class="text-xs text-ink-tertiary mt-1">Pincha en un partido de la lista para seleccionarlo.</p>

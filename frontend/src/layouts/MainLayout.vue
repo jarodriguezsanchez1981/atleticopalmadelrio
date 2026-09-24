@@ -1,11 +1,14 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Avatar from 'primevue/avatar';
 import Menu from 'primevue/menu';
 import Drawer from 'primevue/drawer';
 import { useAuthStore } from '../stores/auth.store';
 import { useMediaQuery } from '../composables/useMediaQuery';
+import { seccionesService } from '../services';
+import { RUTA_POR_SECCION } from '../utils/seccionRoutes';
+import { suscribirseCambio } from '../utils/cambioBus';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -17,63 +20,53 @@ function navegar() {
   drawerVisible.value = false;
 }
 
-const CLUB_SECTIONS = [
-  'plantillas', 'promociones', 'jugadores', 'entrenadores', 'delegados', 'coordinadores',
-  'categorias', 'division', 'posicion', 'titulos', 'temporadas',
-  'lugares', 'material', 'entrenamientos'
-];
-
-const COMPETICION_SECTIONS = ['categoria_calendario', 'torneo', 'equipos', 'equipos_jugadores', 'partidos', 'convocatorias', 'sanciones', 'informes'];
-
-const ADMIN_SECTIONS = ['administracion', 'cambios'];
-
 const ALL_NAV = [
   { label: 'Dashboard', icon: 'pi pi-th-large', to: '/dashboard', seccion: 'dashboard' },
   { label: 'Calendario', icon: 'pi pi-calendar', to: '/calendario', seccion: 'calendario' },
 ];
 
-const clubNavItems = computed(() => {
-  const items = [
-    { label: 'Plantillas', icon: 'pi pi-table', to: '/plantillas', seccion: 'plantillas' },
-    { label: 'Promociones', icon: 'pi pi-arrow-up', to: '/promociones', seccion: 'promociones' },
-    { label: 'Jugadores', icon: 'pi pi-users', to: '/jugadores', seccion: 'jugadores' },
-    { label: 'Entrenadores', icon: 'pi pi-id-card', to: '/entrenadores', seccion: 'entrenadores' },
-    { label: 'Delegados', icon: 'pi pi-user-plus', to: '/delegados', seccion: 'delegados' },
-    { label: 'Coordinadores', icon: 'pi pi-address-book', to: '/coordinadores', seccion: 'coordinadores' },
-    { label: 'Categorías', icon: 'pi pi-sitemap', to: '/categorias', seccion: 'categorias' },
-    { label: 'División', icon: 'pi pi-tags', to: '/division', seccion: 'division' },
-    { label: 'Posición', icon: 'pi pi-directions', to: '/posicion', seccion: 'posicion' },
-    { label: 'Títulos', icon: 'pi pi-graduation-cap', to: '/titulos', seccion: 'titulos' },
-    { label: 'Temporadas', icon: 'pi pi-clock', to: '/temporadas', seccion: 'temporadas' },
-    { label: 'Lugares', icon: 'pi pi-map-marker', to: '/lugares', seccion: 'lugares' },
-    { label: 'Material', icon: 'pi pi-box', to: '/material', seccion: 'material' },
-    { label: 'Entrenamientos', icon: 'pi pi-stopwatch', to: '/entrenamientos', seccion: 'entrenamientos' }
-  ];
-  return items.filter((item) => auth.puedeVer(item.seccion));
+// Los apartados del menú (cuáles hay, su título/icono y en qué orden se
+// muestran) son fijos; qué secciones cae en cada uno y en qué orden dentro
+// del apartado sale de la base de datos (secciones.grupo / .orden), editable
+// desde Administración → Secciones.
+const GRUPOS_MENU = [
+  { clave: 'club', label: 'Club', icon: 'pi pi-building' },
+  { clave: 'liga', label: 'Liga', icon: 'pi pi-flag' },
+  { clave: 'competicion', label: 'Competición', icon: 'pi pi-trophy' },
+  { clave: 'admin', label: 'Panel Administración', icon: 'pi pi-server' }
+];
+
+const catalogoSecciones = ref([]);
+let unsubCambio = null;
+
+async function cargarSecciones() {
+  try {
+    catalogoSecciones.value = await seccionesService.listar();
+  } catch {
+    catalogoSecciones.value = [];
+  }
+}
+
+onMounted(() => {
+  cargarSecciones();
+  unsubCambio = suscribirseCambio(cargarSecciones);
+});
+onBeforeUnmount(() => {
+  if (unsubCambio) unsubCambio();
 });
 
-const competicionNavItems = computed(() => {
-  const items = [
-    { label: 'Jornadas', icon: 'pi pi-calendar-plus', to: '/categoria-calendario', seccion: 'categoria_calendario' },
-    { label: 'Torneo', icon: 'pi pi-trophy', to: '/torneo', seccion: 'torneo' },
-    { label: 'Equipos', icon: 'pi pi-trophy', to: '/equipos', seccion: 'equipos' },
-    { label: 'Jugadores de Equipos', icon: 'pi pi-user', to: '/equipos-jugadores', seccion: 'equipos_jugadores' },
-    { label: 'Partidos', icon: 'pi pi-flag', to: '/partidos', seccion: 'partidos' },
-    { label: 'Convocatorias', icon: 'pi pi-list-check', to: '/convocatorias', seccion: 'convocatorias' },
-    { label: 'Sanciones', icon: 'pi pi-ban', to: '/sanciones', seccion: 'sanciones' },
-    { label: 'Informes', icon: 'pi pi-file', to: '/informes', seccion: 'informes' }
-  ];
-  return items.filter((item) => auth.puedeVer(item.seccion));
-});
+function itemsDelGrupo(clave) {
+  return catalogoSecciones.value
+    .filter((s) => s.grupo === clave && RUTA_POR_SECCION[s.clave] && auth.puedeVer(s.clave))
+    .sort((a, b) => a.orden - b.orden)
+    .map((s) => ({ label: s.nombre, icon: s.icono || 'pi pi-minus', to: RUTA_POR_SECCION[s.clave], seccion: s.clave }));
+}
 
-const adminNavItems = computed(() => {
-  const items = [
-    { label: 'Administración', icon: 'pi pi-cog', to: '/administracion', seccion: 'administracion' },
-    { label: 'Secciones', icon: 'pi pi-sort-alt', to: '/secciones', seccion: 'administracion' },
-    { label: 'Cambios', icon: 'pi pi-history', to: '/cambios', seccion: 'cambios' }
-  ];
-  return items.filter((item) => auth.puedeVer(item.seccion));
-});
+const gruposNav = computed(() =>
+  GRUPOS_MENU
+    .map((g) => ({ ...g, items: itemsDelGrupo(g.clave) }))
+    .filter((g) => g.items.length)
+);
 
 const navItems = computed(() => ALL_NAV.filter((item) => auth.puedeVer(item.seccion)));
 
@@ -93,18 +86,18 @@ const userMenuItems = [
 ];
 
 const tituloPagina = computed(() => {
-  const allItems = [...navItems.value, ...clubNavItems.value, ...competicionNavItems.value, ...adminNavItems.value];
+  const allItems = [...navItems.value, ...gruposNav.value.flatMap((g) => g.items)];
   const activo = allItems.find((i) => i.to === route.path);
   return activo?.label || 'Intranet';
 });
 
-const clubOpen = ref(false);
-const adminOpen = ref(false);
-const competicionOpen = ref(false);
-
-const isClubActive = computed(() => CLUB_SECTIONS.some(s => route.path === '/' + s));
-const isAdminActive = computed(() => ADMIN_SECTIONS.some(s => route.path === '/' + s));
-const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.path === '/' + s));
+const gruposAbiertos = ref({});
+function toggleGrupo(clave) {
+  gruposAbiertos.value = { ...gruposAbiertos.value, [clave]: !gruposAbiertos.value[clave] };
+}
+function grupoActivo(grupo) {
+  return grupo.items.some((i) => route.path === i.to);
+}
 </script>
 
 <template>
@@ -138,70 +131,19 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <span>{{ item.label }}</span>
         </router-link>
 
-        <!-- Sección Club -->
-        <div v-if="clubNavItems.length" class="mt-4 pt-3 border-t border-white/10">
+        <div v-for="grupo in gruposNav" :key="grupo.clave" class="mt-4 pt-3 border-t border-white/10">
           <button
-            @click="clubOpen = !clubOpen"
+            @click="toggleGrupo(grupo.clave)"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': isClubActive }"
+            :class="{ '!bg-white/10 !text-white !font-medium': grupoActivo(grupo) }"
           >
-            <i class="pi pi-building text-[0.85rem]" />
-            <span class="flex-1 text-left">Club</span>
-            <i :class="clubOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
+            <i :class="grupo.icon" class="text-[0.85rem]" />
+            <span class="flex-1 text-left">{{ grupo.label }}</span>
+            <i :class="gruposAbiertos[grupo.clave] ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
           </button>
-          <div v-show="clubOpen" class="ml-4 mt-1 space-y-0.5">
+          <div v-show="gruposAbiertos[grupo.clave]" class="ml-4 mt-1 space-y-0.5">
             <router-link
-              v-for="item in clubNavItems"
-              :key="item.to"
-              :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
-            >
-              <i :class="item.icon" class="text-[0.85rem]" />
-              <span>{{ item.label }}</span>
-            </router-link>
-          </div>
-        </div>
-
-        <!-- Sección Competición -->
-        <div v-if="competicionNavItems.length" class="mt-4 pt-3 border-t border-white/10">
-          <button
-            @click="competicionOpen = !competicionOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': isCompeticionActive }"
-          >
-            <i class="pi pi-trophy text-[0.85rem]" />
-            <span class="flex-1 text-left">Competición</span>
-            <i :class="competicionOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
-          </button>
-          <div v-show="competicionOpen" class="ml-4 mt-1 space-y-0.5">
-            <router-link
-              v-for="item in competicionNavItems"
-              :key="item.to"
-              :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
-            >
-              <i :class="item.icon" class="text-[0.85rem]" />
-              <span>{{ item.label }}</span>
-            </router-link>
-          </div>
-        </div>
-
-        <!-- Panel Administración -->
-        <div v-if="adminNavItems.length" class="mt-4 pt-3 border-t border-white/10">
-          <button
-            @click="adminOpen = !adminOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': isAdminActive }"
-          >
-            <i class="pi pi-server text-[0.85rem]" />
-            <span class="flex-1 text-left">Panel Administración</span>
-            <i :class="adminOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
-          </button>
-          <div v-show="adminOpen" class="ml-4 mt-1 space-y-0.5">
-            <router-link
-              v-for="item in adminNavItems"
+              v-for="item in grupo.items"
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
@@ -239,69 +181,19 @@ const isCompeticionActive = computed(() => COMPETICION_SECTIONS.some(s => route.
           <span>{{ item.label }}</span>
         </router-link>
 
-        <div v-if="clubNavItems.length" class="mt-4 pt-3 border-t border-white/10">
+        <div v-for="grupo in gruposNav" :key="grupo.clave" class="mt-4 pt-3 border-t border-white/10">
           <button
-            @click="clubOpen = !clubOpen"
+            @click="toggleGrupo(grupo.clave)"
             class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': isClubActive }"
+            :class="{ '!bg-white/10 !text-white !font-medium': grupoActivo(grupo) }"
           >
-            <i class="pi pi-building text-[0.85rem]" />
-            <span class="flex-1 text-left">Club</span>
-            <i :class="clubOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
+            <i :class="grupo.icon" class="text-[0.85rem]" />
+            <span class="flex-1 text-left">{{ grupo.label }}</span>
+            <i :class="gruposAbiertos[grupo.clave] ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
           </button>
-          <div v-show="clubOpen" class="ml-4 mt-1 space-y-0.5">
+          <div v-show="gruposAbiertos[grupo.clave]" class="ml-4 mt-1 space-y-0.5">
             <router-link
-              v-for="item in clubNavItems"
-              :key="item.to"
-              :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
-              @click="navegar"
-            >
-              <i :class="item.icon" class="text-[0.85rem]" />
-              <span>{{ item.label }}</span>
-            </router-link>
-          </div>
-        </div>
-
-        <div v-if="competicionNavItems.length" class="mt-4 pt-3 border-t border-white/10">
-          <button
-            @click="competicionOpen = !competicionOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': isCompeticionActive }"
-          >
-            <i class="pi pi-trophy text-[0.85rem]" />
-            <span class="flex-1 text-left">Competición</span>
-            <i :class="competicionOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
-          </button>
-          <div v-show="competicionOpen" class="ml-4 mt-1 space-y-0.5">
-            <router-link
-              v-for="item in competicionNavItems"
-              :key="item.to"
-              :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
-              @click="navegar"
-            >
-              <i :class="item.icon" class="text-[0.85rem]" />
-              <span>{{ item.label }}</span>
-            </router-link>
-          </div>
-        </div>
-
-        <div v-if="adminNavItems.length" class="mt-4 pt-3 border-t border-white/10">
-          <button
-            @click="adminOpen = !adminOpen"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': isAdminActive }"
-          >
-            <i class="pi pi-server text-[0.85rem]" />
-            <span class="flex-1 text-left">Panel Administración</span>
-            <i :class="adminOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
-          </button>
-          <div v-show="adminOpen" class="ml-4 mt-1 space-y-0.5">
-            <router-link
-              v-for="item in adminNavItems"
+              v-for="item in grupo.items"
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
