@@ -54,6 +54,12 @@ function formatearFecha(fecha) {
   return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
 }
 
+function partidoYaJugado(item) {
+  const fecha = item.partido?.fecha;
+  if (!fecha) return false;
+  return new Date(fecha).getTime() < Date.now();
+}
+
 function nuevaConvocatoria() {
   formRegistroId.value = null;
   formVisible.value = true;
@@ -134,7 +140,8 @@ function confirmarEliminar(item) {
             <Button icon="pi pi-pencil" text rounded size="small" class="!text-club-green"
                     v-tooltip.top="'Editar'" :disabled="!puedeEditar()" @click="editarConvocatoria(data)" />
             <Button icon="pi pi-trash" text rounded size="small" severity="danger"
-                    v-tooltip.top="'Eliminar'" :disabled="!puedeEditar()" @click="confirmarEliminar(data)" />
+                    v-tooltip.top="partidoYaJugado(data) ? 'No se puede eliminar: el partido ya se ha jugado' : 'Eliminar'"
+                    :disabled="!puedeEditar() || partidoYaJugado(data)" @click="confirmarEliminar(data)" />
           </div>
         </template>
       </Column>

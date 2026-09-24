@@ -185,17 +185,32 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     expect(res._status).toBe(200);
   });
 
-  it('eliminar responde 204', async () => {
-    Convocatoria.destroy.mockResolvedValue(1);
-    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
-    await promesa;
-    expect(res._status).toBe(204);
-  });
-
   it('eliminar responde 404 si no existe', async () => {
-    Convocatoria.destroy.mockResolvedValue(0);
+    Convocatoria.findByPk.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '99' } });
     await promesa;
     expect(res._status).toBe(404);
+  });
+
+  it('eliminar responde 204 si el partido todavía no se ha jugado', async () => {
+    const destroy = vi.fn().mockResolvedValue();
+    Convocatoria.findByPk.mockResolvedValue({ id: 1, id_partido: 3, destroy });
+    const enElFuturo = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    Partido.findByPk.mockResolvedValue({ id: 3, fecha: enElFuturo });
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
+    await promesa;
+    expect(destroy).toHaveBeenCalled();
+    expect(res._status).toBe(204);
+  });
+
+  it('eliminar rechaza borrar la convocatoria de un partido ya jugado', async () => {
+    const destroy = vi.fn();
+    Convocatoria.findByPk.mockResolvedValue({ id: 1, id_partido: 3, destroy });
+    const enElPasado = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    Partido.findByPk.mockResolvedValue({ id: 3, fecha: enElPasado });
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
+    await promesa;
+    expect(destroy).not.toHaveBeenCalled();
+    expect(res._status).toBe(409);
   });
 });

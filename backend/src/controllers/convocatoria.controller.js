@@ -169,8 +169,15 @@ async function actualizar(req, res, next) {
 
 async function eliminar(req, res, next) {
   try {
-    const eliminada = await Convocatoria.destroy({ where: { id: req.params.id } });
-    if (!eliminada) return res.status(404).json({ message: 'Convocatoria no encontrada.' });
+    const convocatoria = await Convocatoria.findByPk(req.params.id);
+    if (!convocatoria) return res.status(404).json({ message: 'Convocatoria no encontrada.' });
+
+    const partido = await Partido.findByPk(convocatoria.id_partido);
+    if (partido && new Date(partido.fecha).getTime() < Date.now()) {
+      return res.status(409).json({ message: 'No se puede eliminar la convocatoria de un partido que ya se ha jugado.' });
+    }
+
+    await convocatoria.destroy();
     res.status(204).send();
   } catch (err) { next(err); }
 }
