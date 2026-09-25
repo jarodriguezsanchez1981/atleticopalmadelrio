@@ -37,7 +37,11 @@ export const categoriasService = {
 };
 export const jugadoresService = crudService('jugadores');
 export const entrenadoresService = crudService('entrenadores');
-export const entrenamientosService = crudService('entrenamientos');
+export const entrenamientosService = {
+  ...crudService('entrenamientos'),
+  // alcance: 'serie' además elimina el resto de semanas de la misma serie recurrente.
+  eliminar: (id, alcance) => api.delete(`/entrenamientos/${id}`, { params: alcance ? { alcance } : undefined }).then(r => r.data)
+};
 export const partidosService = {
   ...crudService('partidos'),
   importarActa: (id, payload = {}) => api.post(`/partidos/${id}/importar-acta`, payload).then(r => r.data)

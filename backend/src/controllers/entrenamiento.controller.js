@@ -203,6 +203,18 @@ async function actualizar(req, res, next) {
 
 async function eliminar(req, res, next) {
   try {
+    // alcance=serie: además de este registro, borrar el resto de semanas de su
+    // misma serie recurrente (misma plantilla y misma fecha límite).
+    if (req.query.alcance === 'serie') {
+      const entrenamiento = await Entrenamiento.findByPk(req.params.id);
+      if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+      if (entrenamiento.recurrente && entrenamiento.hasta) {
+        const eliminados = await Entrenamiento.destroy({
+          where: { id_plantilla: entrenamiento.id_plantilla, recurrente: 1, hasta: entrenamiento.hasta }
+        });
+        return res.status(200).json({ eliminados });
+      }
+    }
     const eliminado = await Entrenamiento.destroy({ where: { id: req.params.id } });
     if (!eliminado) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
     res.status(204).send();

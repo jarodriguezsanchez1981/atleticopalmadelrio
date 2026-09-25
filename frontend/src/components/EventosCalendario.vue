@@ -365,15 +365,15 @@ function eliminarEvento() {
 
   if (e.tipo === 'entrenamiento' && e.recurrente) {
     confirm.require({
-      message: 'Este entrenamiento es recurrente. ¿Quieres eliminar solo esta sesión o todas las sesiones del entrenamiento?',
+      message: 'Este entrenamiento forma parte de una serie semanal para esta plantilla. ¿Quieres eliminar solo esta sesión o todas las sesiones de esta plantilla?',
       header: 'Eliminar entrenamiento',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Todas',
       rejectLabel: 'Solo esta',
       acceptClass: 'p-button-danger',
       rejectClass: 'p-button-secondary',
-      accept: () => eliminarEntrenamiento(id),
-      reject: () => eliminarSesionEntrenamiento(e, id)
+      accept: () => eliminarEntrenamiento(id, 'serie'),
+      reject: () => eliminarEntrenamiento(id, 'dia')
     });
     return;
   }
@@ -405,40 +405,27 @@ function eliminarEvento() {
   });
 }
 
-async function eliminarEntrenamiento(id) {
+/** alcance: 'dia' borra solo este registro; 'serie' borra además el resto de
+ * semanas de la misma serie recurrente (misma plantilla y misma fecha límite). */
+async function eliminarEntrenamiento(id, alcance) {
   try {
-    await entrenamientosService.eliminar(id);
+    const resultado = await entrenamientosService.eliminar(id, alcance);
     dialogVisible.value = false;
     await refrescar();
     emitirCambio();
+    if (alcance === 'serie' && resultado?.eliminados > 1) {
+      toast.add({
+        severity: 'info',
+        summary: 'Serie eliminada',
+        detail: `Se han eliminado ${resultado.eliminados} entrenamientos de esta plantilla.`,
+        life: 5000
+      });
+    }
   } catch (err) {
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: err.response?.data?.message || 'No se pudo eliminar el entrenamiento.',
-      life: 5000
-    });
-  }
-}
-
-async function eliminarSesionEntrenamiento(e, id) {
-  const baseId = e.base_id || id;
-  const semanalId = String(e.id || '').replace('entrenamiento-', '');
-  const service = entrenamientosService;
-  try {
-    if (semanalId && semanalId !== baseId) {
-      await service.eliminarSemanal(semanalId);
-    } else {
-      await service.eliminar(baseId);
-    }
-    dialogVisible.value = false;
-    await refrescar();
-    emitirCambio();
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: err.response?.data?.message || 'No se pudo eliminar la sesión.',
       life: 5000
     });
   }

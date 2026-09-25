@@ -411,4 +411,41 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(res._status).toBe(404);
   });
+
+  it('eliminar con alcance=serie borra toda la serie recurrente', async () => {
+    const entrenamiento = { id: 5, id_plantilla: 3, recurrente: 1, hasta: '2027-05-30T22:00:00' };
+    Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
+    Entrenamiento.destroy.mockResolvedValue(5);
+
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '5' }, query: { alcance: 'serie' } });
+    await promesa;
+
+    expect(Entrenamiento.destroy).toHaveBeenCalledWith({
+      where: { id_plantilla: 3, recurrente: 1, hasta: '2027-05-30T22:00:00' }
+    });
+    expect(res._status).toBe(200);
+    expect(res._json).toEqual({ eliminados: 5 });
+  });
+
+  it('eliminar con alcance=serie devuelve 404 si no existe', async () => {
+    Entrenamiento.findByPk.mockResolvedValue(null);
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '99' }, query: { alcance: 'serie' } });
+
+    await promesa;
+
+    expect(res._status).toBe(404);
+    expect(Entrenamiento.destroy).not.toHaveBeenCalled();
+  });
+
+  it('eliminar con alcance=serie borra solo este registro si no es una serie recurrente', async () => {
+    const entrenamiento = { id: 6, id_plantilla: 3, recurrente: 0, hasta: null };
+    Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
+    Entrenamiento.destroy.mockResolvedValue(1);
+
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '6' }, query: { alcance: 'serie' } });
+    await promesa;
+
+    expect(Entrenamiento.destroy).toHaveBeenCalledWith({ where: { id: '6' } });
+    expect(res._status).toBe(204);
+  });
 });
