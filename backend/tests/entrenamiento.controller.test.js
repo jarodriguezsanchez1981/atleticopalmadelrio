@@ -302,7 +302,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [], propagados: 0 });
   });
 
-  it('actualizar propaga el cambio de lugar al resto de semanas de una serie recurrente', async () => {
+  it('actualizar propaga el cambio de lugar al resto de semanas de una serie recurrente cuando el alcance es "serie"', async () => {
     const entrenamiento = {
       id: 5, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
       recurrente: 1, hasta: '2026-01-19T18:00:00',
@@ -312,7 +312,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
     Entrenamiento.update.mockResolvedValue([2]);
 
-    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2 } });
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2, alcance: 'serie' } });
     await promesa;
 
     expect(Entrenamiento.update).toHaveBeenCalledWith(
@@ -320,6 +320,38 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
       { where: { id_plantilla: 3, recurrente: 1, hasta: '2026-01-19T18:00:00', id: { [Op.ne]: 5 } } }
     );
     expect(res._json.propagados).toBe(2);
+  });
+
+  it('actualizar no propaga el lugar si el alcance es "dia" aunque sea una serie recurrente', async () => {
+    const entrenamiento = {
+      id: 5, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 1, hasta: '2026-01-19T18:00:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 5, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2, alcance: 'dia' } });
+    await promesa;
+
+    expect(Entrenamiento.update).not.toHaveBeenCalled();
+    expect(res._json.propagados).toBe(0);
+  });
+
+  it('actualizar no propaga el lugar si no se indica el alcance, aunque sea una serie recurrente', async () => {
+    const entrenamiento = {
+      id: 5, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 1, hasta: '2026-01-19T18:00:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 5, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2 } });
+    await promesa;
+
+    expect(Entrenamiento.update).not.toHaveBeenCalled();
+    expect(res._json.propagados).toBe(0);
   });
 
   it('actualizar no propaga el lugar si el entrenamiento no es de una serie recurrente', async () => {
@@ -331,7 +363,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     const actualizado = { id: 6, id_lugar: 2, plantilla: null, lugar: null };
     Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
 
-    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '6' }, body: { id_lugar: 2 } });
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '6' }, body: { id_lugar: 2, alcance: 'serie' } });
     await promesa;
 
     expect(Entrenamiento.update).not.toHaveBeenCalled();

@@ -8,6 +8,7 @@ import Select from 'primevue/select';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import {
   entrenamientosService, partidosService, plantillasService,
   lugaresService, equiposService, calendarioService, temporadasService,
@@ -27,6 +28,7 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'saved']);
 
 const toast = useToast();
+const confirm = useConfirm();
 
 const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
@@ -43,6 +45,10 @@ const importandoActa = ref(false);
 const form = ref({});
 const partidosDelDia = ref([]);
 const entrenamientosDelDia = ref([]);
+/** Si el entrenamiento cargado pertenece a una serie semanal recurrente
+ * (tal y como estaba antes de tocarlo), para preguntar al guardar si el
+ * cambio se aplica solo a este día o a toda la serie de esta plantilla. */
+const esSerieRecurrente = ref(false);
 /** Si ya se ha indicado explícitamente una hora para el partido (no basta con
  * el valor por defecto al elegir solo el día, que se muestra a medianoche). */
 const horaPartidoTocada = ref(false);
@@ -98,6 +104,7 @@ function resetForm() {
     jugadores_visitante: []
   };
   horaPartidoTocada.value = false;
+  esSerieRecurrente.value = false;
 }
 
 async function cargarCatalogo() {
@@ -155,6 +162,7 @@ async function cargarRegistro() {
       jugadores_visitante: jugadoresVisitante
     };
     if (props.tipo === 'partido') horaPartidoTocada.value = true;
+    esSerieRecurrente.value = props.tipo === 'entrenamiento' && !!item.recurrente && !!item.hasta;
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el registro.', life: 4000 });
     cerrar();
@@ -548,8 +556,27 @@ function validar() {
   return true;
 }
 
-async function guardar() {
+function guardar() {
   if (!validar()) return;
+  // Si es un entrenamiento existente que pertenece a una serie semanal,
+  // preguntar si el cambio se aplica solo a este día o a todos los
+  // entrenamientos de esta plantilla antes de guardar nada.
+  if (props.tipo === 'entrenamiento' && props.registroId && esSerieRecurrente.value) {
+    confirm.require({
+      message: 'Este entrenamiento forma parte de una serie semanal para esta plantilla. ¿Aplicar el cambio solo a este día o a todos los entrenamientos de esta plantilla?',
+      header: 'Entrenamiento recurrente',
+      icon: 'pi pi-question-circle',
+      acceptLabel: 'Todos los eventos de esta plantilla',
+      rejectLabel: 'Solo este día',
+      accept: () => guardarConAlcance('serie'),
+      reject: () => guardarConAlcance('dia')
+    });
+    return;
+  }
+  guardarConAlcance('dia');
+}
+
+async function guardarConAlcance(alcance) {
   guardando.value = true;
   try {
     const payload = {
@@ -560,6 +587,7 @@ async function guardar() {
       payload.id_lugar = form.value.id_lugar;
       payload.hasta = form.value.hasta ? form.value.hasta.toISOString() : null;
       payload.recurrente = !!form.value.hasta;
+      payload.alcance = alcance;
     } else {
       payload.id_equipo_local = form.value.id_equipo_local;
       payload.id_equipo_visitante = form.value.id_equipo_visitante;

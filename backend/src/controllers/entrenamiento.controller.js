@@ -119,7 +119,7 @@ async function actualizar(req, res, next) {
   try {
     const entrenamiento = await Entrenamiento.findByPk(req.params.id);
     if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, recurrente, hasta } = req.body;
+    const { id_plantilla, fecha, id_lugar, recurrente, hasta, alcance } = req.body;
     if (id_plantilla !== undefined || fecha !== undefined) {
       const plantillaFinal = id_plantilla !== undefined ? id_plantilla : entrenamiento.id_plantilla;
       const fechaFinal = fecha !== undefined ? fecha : entrenamiento.fecha;
@@ -146,9 +146,12 @@ async function actualizar(req, res, next) {
 
     // El lugar es un dato de la serie, no de una sesión concreta: si este
     // entrenamiento pertenece a una serie recurrente (misma plantilla y misma
-    // fecha límite), propagar el cambio de lugar al resto de sus semanas.
+    // fecha límite), propagar el cambio de lugar al resto de sus semanas, pero
+    // solo si el usuario eligió explícitamente aplicar el cambio a "todos los
+    // eventos de esta plantilla" (alcance: 'serie'); si edita "solo este día"
+    // (alcance: 'dia', o no se indica) el cambio se queda en este registro.
     let propagados = 0;
-    if (id_lugar !== undefined && serieRecurrente && serieHasta) {
+    if (id_lugar !== undefined && alcance === 'serie' && serieRecurrente && serieHasta) {
       const [afectados] = await Entrenamiento.update(
         { id_lugar },
         {
