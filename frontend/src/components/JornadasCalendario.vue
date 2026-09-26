@@ -18,7 +18,7 @@ import {
 import { useMediaQuery } from '../composables/useMediaQuery';
 import { suscribirseCambio, emitirCambio } from '../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual, obtenerTemporadaActual } from '../utils/temporadaActual';
-import { etiquetaCamiseta } from '../utils/coloresEquipacion';
+import { etiquetaPrenda } from '../utils/coloresEquipacion';
 
 const esMovil = useMediaQuery('(max-width: 639px)');
 const toast = useToast();
@@ -513,7 +513,7 @@ async function exportarExcel() {
           <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
             <div v-if="detalleEquipo.camiseta" class="flex items-center gap-3">
               <EquipacionPrenda tipo="camiseta" :color="detalleEquipo.camiseta" :size="40" />
-              <span>{{ etiquetaCamiseta(detalleEquipo.camiseta) }}</span>
+              <span>{{ etiquetaPrenda(detalleEquipo.camiseta) }}</span>
             </div>
             <span v-else>—</span>
           </div>
@@ -523,7 +523,7 @@ async function exportarExcel() {
           <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
             <div v-if="detalleEquipo.calzonas" class="flex items-center gap-3">
               <EquipacionPrenda tipo="calzonas" :color="detalleEquipo.calzonas" :size="40" />
-              <span>{{ detalleEquipo.calzonas }}</span>
+              <span>{{ etiquetaPrenda(detalleEquipo.calzonas) }}</span>
             </div>
             <span v-else>—</span>
           </div>
@@ -533,7 +533,7 @@ async function exportarExcel() {
           <div class="text-sm text-ink-primary flex-1 min-w-0 break-words">
             <div v-if="detalleEquipo.medias" class="flex items-center gap-3">
               <EquipacionPrenda tipo="medias" :color="detalleEquipo.medias" :size="40" />
-              <span>{{ detalleEquipo.medias }}</span>
+              <span>{{ etiquetaPrenda(detalleEquipo.medias) }}</span>
             </div>
             <span v-else>—</span>
           </div>

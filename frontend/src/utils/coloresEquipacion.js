@@ -36,28 +36,29 @@ export function hexColor(nombre) {
 }
 
 /**
- * Camiseta "a rayas": se guarda como texto plano "Rayas:Color1/Color2" en el
- * mismo campo `camiseta`, sin necesidad de columnas nuevas en base de datos.
+ * Prenda "a rayas" (camiseta, calzonas o medias): se guarda como texto plano
+ * "Rayas:Color1/Color2" en el mismo campo (camiseta/calzonas/medias), sin
+ * necesidad de columnas nuevas en base de datos.
  */
 export const RAYAS = 'Rayas';
 
-export const OPCIONES_COLOR_CAMISETA = [...OPCIONES_COLOR, { label: 'Rayas', value: RAYAS }];
+export const OPCIONES_COLOR_RAYAS = [...OPCIONES_COLOR, { label: 'Rayas', value: RAYAS }];
 
-export function esCamisetaRayas(valor) {
+export function esRayas(valor) {
   return typeof valor === 'string' && valor.startsWith(`${RAYAS}:`);
 }
 
-export function componerCamisetaRayas(color1, color2) {
+export function componerRayas(color1, color2) {
   return `${RAYAS}:${color1 || ''}/${color2 || ''}`;
 }
 
-export function descomponerCamisetaRayas(valor) {
+export function descomponerRayas(valor) {
   const m = new RegExp(`^${RAYAS}:(.*)\\/(.*)$`).exec(valor || '');
   return m ? [m[1] || null, m[2] || null] : [null, null];
 }
 
-export function etiquetaCamiseta(valor) {
-  if (!esCamisetaRayas(valor)) return valor;
-  const [c1, c2] = descomponerCamisetaRayas(valor);
+export function etiquetaPrenda(valor) {
+  if (!esRayas(valor)) return valor;
+  const [c1, c2] = descomponerRayas(valor);
   return `Rayas (${c1 || '—'} / ${c2 || '—'})`;
 }

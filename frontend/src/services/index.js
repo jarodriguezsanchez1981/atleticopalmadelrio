@@ -1,5 +1,5 @@
 import api from './api';
-import { RAYAS, componerCamisetaRayas } from '../utils/coloresEquipacion';
+import { RAYAS, componerRayas } from '../utils/coloresEquipacion';
 
 /**
  * Fábrica de servicios CRUD REST estándar.
@@ -47,14 +47,17 @@ export const partidosService = {
   importarActa: (id, payload = {}) => api.post(`/partidos/${id}/importar-acta`, payload).then(r => r.data)
 };
 export const convocatoriasService = crudService('convocatorias');
-/** Si la camiseta es "Rayas", compone el color1/color2 elegidos en un único texto antes de enviarlo. */
+/** Si la camiseta, las calzonas o las medias son "Rayas", compone el color1/color2
+ * elegidos en cada combo en un único texto antes de enviarlo. */
 function prepararPayloadEquipo(payload) {
   const p = { ...payload };
-  if (p.camiseta === RAYAS) {
-    p.camiseta = componerCamisetaRayas(p.camisetaColor1, p.camisetaColor2);
-  }
-  delete p.camisetaColor1;
-  delete p.camisetaColor2;
+  ['camiseta', 'calzonas', 'medias'].forEach((campo) => {
+    if (p[campo] === RAYAS) {
+      p[campo] = componerRayas(p[`${campo}Color1`], p[`${campo}Color2`]);
+    }
+    delete p[`${campo}Color1`];
+    delete p[`${campo}Color2`];
+  });
   return p;
 }
 
