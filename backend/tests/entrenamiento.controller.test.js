@@ -105,7 +105,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(Entrenamiento.create).toHaveBeenCalledWith({
-      id_plantilla: 1, fecha: '2026-01-01', hasta: null, id_lugar: 2, id_usuario: 7, recurrente: 0
+      id_plantilla: 1, fecha: '2026-01-01', hasta: null, id_lugar: 2, id_usuario: 7, recurrente: 0, horario_reducido: 0
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, plantilla: null, lugar: null, generados: 1, omitidos: [] });
@@ -132,7 +132,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     // 05, 12, 19, 26 de enero -> 4 semanas
     expect(Entrenamiento.create).toHaveBeenCalledTimes(4);
     expect(Entrenamiento.create).toHaveBeenNthCalledWith(1, {
-      id_plantilla: 1, fecha: '2026-01-05T18:00:00', hasta: '2026-01-26T18:00:00', id_lugar: 2, id_usuario: 7, recurrente: 1
+      id_plantilla: 1, fecha: '2026-01-05T18:00:00', hasta: '2026-01-26T18:00:00', id_lugar: 2, id_usuario: 7, recurrente: 1, horario_reducido: 0
     });
     expect(Entrenamiento.create).toHaveBeenNthCalledWith(4, expect.objectContaining({
       id_plantilla: 1, id_lugar: 2, id_usuario: 7, recurrente: 1
@@ -300,6 +300,36 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(entrenamiento.id_lugar).toBe(2);
     expect(entrenamiento.save).toHaveBeenCalled();
     expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [], propagados: 0 });
+  });
+
+  it('crear guarda horario_reducido cuando se indica', async () => {
+    const creado = { id: 5 };
+    const completo = { id: 5, plantilla: null, lugar: null };
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+    const { promesa } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: { id_plantilla: 1, fecha: '2026-01-01', id_lugar: 2, horario_reducido: true }
+    });
+
+    await promesa;
+
+    expect(Entrenamiento.create).toHaveBeenCalledWith(
+      expect.objectContaining({ horario_reducido: 1 })
+    );
+  });
+
+  it('actualizar guarda horario_reducido cuando se indica', async () => {
+    const entrenamiento = { id: 1, id_lugar: 1, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { horario_reducido: true } });
+
+    await promesa;
+
+    expect(entrenamiento.horario_reducido).toBe(1);
+    expect(entrenamiento.save).toHaveBeenCalled();
   });
 
   it('actualizar propaga el cambio de lugar al resto de semanas de una serie recurrente cuando el alcance es "serie"', async () => {

@@ -59,7 +59,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, recurrente, incidencias, hasta } = req.body;
+    const { id_plantilla, fecha, id_lugar, recurrente, incidencias, hasta, horario_reducido } = req.body;
     if (!id_plantilla || !fecha || !id_lugar) {
       return res.status(400).json({ message: 'Plantilla, fecha y lugar son obligatorios.' });
     }
@@ -71,6 +71,7 @@ async function crear(req, res, next) {
     }
     const esRecurrente = recurrente ? 1 : 0;
     const hastaFecha = recurrente && hasta ? hasta : null;
+    const esHorarioReducido = horario_reducido ? 1 : 0;
 
     const entrenamiento = await Entrenamiento.create({
       id_plantilla,
@@ -78,7 +79,8 @@ async function crear(req, res, next) {
       hasta: hastaFecha,
       id_lugar,
       id_usuario: req.user?.id || null,
-      recurrente: esRecurrente
+      recurrente: esRecurrente,
+      horario_reducido: esHorarioReducido
     });
 
     // Recurrente con fecha límite: generar un entrenamiento independiente por cada
@@ -101,7 +103,8 @@ async function crear(req, res, next) {
           hasta: hastaFecha,
           id_lugar,
           id_usuario: req.user?.id || null,
-          recurrente: 1
+          recurrente: 1,
+          horario_reducido: esHorarioReducido
         });
         generados++;
       }
@@ -119,7 +122,7 @@ async function actualizar(req, res, next) {
   try {
     const entrenamiento = await Entrenamiento.findByPk(req.params.id);
     if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, recurrente, hasta, alcance } = req.body;
+    const { id_plantilla, fecha, id_lugar, recurrente, hasta, alcance, horario_reducido } = req.body;
     if (id_plantilla !== undefined || fecha !== undefined) {
       const plantillaFinal = id_plantilla !== undefined ? id_plantilla : entrenamiento.id_plantilla;
       const fechaFinal = fecha !== undefined ? fecha : entrenamiento.fecha;
@@ -139,6 +142,7 @@ async function actualizar(req, res, next) {
     if (fecha !== undefined) entrenamiento.fecha = fecha;
     if (id_lugar !== undefined) entrenamiento.id_lugar = id_lugar;
     if (recurrente !== undefined) entrenamiento.recurrente = recurrente ? 1 : 0;
+    if (horario_reducido !== undefined) entrenamiento.horario_reducido = horario_reducido ? 1 : 0;
     if (recurrente !== undefined || fecha !== undefined || hasta !== undefined) {
       entrenamiento.hasta = recurrente && hasta ? hasta : null;
     }
@@ -186,7 +190,8 @@ async function actualizar(req, res, next) {
           hasta: entrenamiento.hasta,
           id_lugar: entrenamiento.id_lugar,
           id_usuario: req.user?.id || null,
-          recurrente: 1
+          recurrente: 1,
+          horario_reducido: entrenamiento.horario_reducido
         });
         generados++;
       }

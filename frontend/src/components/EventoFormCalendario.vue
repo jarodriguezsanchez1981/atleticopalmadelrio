@@ -5,6 +5,7 @@ import Textarea from 'primevue/textarea';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
+import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
@@ -93,6 +94,7 @@ function resetForm() {
     fecha: props.fechaDefecto ? new Date(props.fechaDefecto) : null,
     id_lugar: null,
     hasta: null,
+    horario_reducido: false,
     id_equipo_local: null,
     id_equipo_visitante: null,
     incidencias: '',
@@ -151,6 +153,7 @@ async function cargarRegistro() {
       fecha: item.fecha ? new Date(item.fecha) : null,
       id_lugar: item.id_lugar ?? item.lugar?.id ?? null,
       hasta: item.hasta ? new Date(item.hasta) : null,
+      horario_reducido: !!item.horario_reducido,
       id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
       id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
@@ -252,10 +255,14 @@ const opcionesLugar = computed(() => {
 const lugaresOcupadosEntrenamiento = computed(() => {
   const set = new Set();
   if (props.tipo !== 'entrenamiento' || !form.value.fecha) return set;
+  // Horario reducido: no se comprueba el tiempo_entrenamiento de la categoría
+  // para filtrar lugares, así que ningún lugar se descarta por solape de horario.
+  if (form.value.horario_reducido) return set;
   const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(inicio.getTime())) return set;
   const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_plantilla) * 60000;
   entrenamientosDelDia.value.forEach((e) => {
+    if (e.horario_reducido) return;
     const eInicio = new Date(e.fecha);
     if (Number.isNaN(eInicio.getTime())) return;
     const eFin = eInicio.getTime() + ((e.plantilla?.categoria?.tiempoentrenamiento) || 60) * 60000;
@@ -587,6 +594,7 @@ async function guardarConAlcance(alcance) {
       payload.id_lugar = form.value.id_lugar;
       payload.hasta = form.value.hasta ? form.value.hasta.toISOString() : null;
       payload.recurrente = !!form.value.hasta;
+      payload.horario_reducido = !!form.value.horario_reducido;
       payload.alcance = alcance;
     } else {
       payload.id_equipo_local = form.value.id_equipo_local;
@@ -752,6 +760,16 @@ function onHtmlActaSeleccionado(event) {
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
+        </div>
+        <div class="flex items-start gap-2">
+          <Checkbox v-model="form.horario_reducido" :binary="true" inputId="horario_reducido" />
+          <label for="horario_reducido" class="text-sm">
+            <span class="font-medium text-ink-secondary">Horario reducido</span>
+            <p class="text-xs text-ink-tertiary">
+              No se tendrá en cuenta la duración habitual de la categoría al mostrar los lugares
+              disponibles (útil si esta sesión dura menos de lo normal).
+            </p>
+          </label>
         </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Fecha límite (repetir)</label>
