@@ -154,6 +154,39 @@ services:
     networks:
       - apr_net
 
+  # HTTPS público con Let's Encrypt, sin depender de Cloudflare: este nginx
+  # atiende 80/443 y reenvía todo a "frontend" (que ya hace de proxy interno
+  # hacia el backend). Ver reverse-proxy/init-letsencrypt.sh para el primer
+  # certificado; luego el servicio "certbot" los renueva solo.
+  reverse-proxy:
+    image: nginx:alpine
+    container_name: apr_reverse_proxy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-intranet.atleticopalmadelrio.com}
+    volumes:
+      - ./reverse-proxy/templates:/etc/nginx/templates:ro
+      - ./reverse-proxy/certbot/conf:/etc/letsencrypt:ro
+      - ./reverse-proxy/certbot/www:/var/www/certbot:ro
+    networks:
+      - apr_net
+
+  certbot:
+    image: certbot/certbot
+    container_name: apr_certbot
+    restart: unless-stopped
+    volumes:
+      - ./reverse-proxy/certbot/conf:/etc/letsencrypt
+      - ./reverse-proxy/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - apr_net
+
 volumes:
   apr_mysql_data:
 

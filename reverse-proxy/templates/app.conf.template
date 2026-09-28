@@ -1,0 +1,43 @@
+# Plantilla de nginx para el reverse proxy con HTTPS (Let's Encrypt).
+# La imagen oficial nginx sustituye ${DOMAIN} automáticamente al arrancar
+# (docker-entrypoint envsubst sobre /etc/nginx/templates/*.template),
+# usando la variable de entorno DOMAIN del servicio "reverse-proxy".
+# El resto de variables ($host, $remote_addr, etc.) son de nginx, no de
+# entorno, y no se tocan porque no existe ninguna variable de entorno con
+# ese mismo nombre.
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    # Certbot valida el dominio dejando un fichero aquí antes de emitir
+    # o renovar el certificado.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://frontend:80;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
+        proxy_pass_header Authorization;
+    }
+}
