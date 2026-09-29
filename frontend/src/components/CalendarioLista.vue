@@ -21,7 +21,8 @@ const GRUPOS = {
   AMISTOSO: { label: 'Amistoso', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'Torneo', color: '#6D28D9', icon: 'pi pi-trophy' },
   ENTRENAMIENTO: { label: 'Entrenamiento', color: '#2563EB', icon: 'pi pi-calendar' },
-  FESTIVO: { label: 'Festivo', color: '#B45309', icon: 'pi pi-star' }
+  FESTIVO: { label: 'Festivo', color: '#B45309', icon: 'pi pi-star' },
+  SUSPENDIDO: { label: 'Suspendido', color: '#DC2626', icon: 'pi pi-ban' }
 };
 
 function getLunes(fecha) {
@@ -68,14 +69,15 @@ watch(inicioSemana, () => {
 });
 
 function grupoDe(e) {
-  if (e.tipo === 'partido') return e.jornada ? 'LIGA' : 'AMISTOSO';
+  if (e.tipo === 'partido') return e.suspendido ? 'SUSPENDIDO' : (e.jornada ? 'LIGA' : 'AMISTOSO');
   if (e.tipo === 'torneo') return 'TORNEO';
   if (e.tipo === 'festivo') return 'FESTIVO';
   return 'ENTRENAMIENTO';
 }
 
 const dias = computed(() => {
-  const ordenGrupo = { LIGA: 1, AMISTOSO: 2, TORNEO: 3, ENTRENAMIENTO: 4, FESTIVO: 0 };
+  // Los partidos suspendidos forman su propia sección, siempre la última del día.
+  const ordenGrupo = { LIGA: 1, AMISTOSO: 2, TORNEO: 3, ENTRENAMIENTO: 4, FESTIVO: 0, SUSPENDIDO: 5 };
   const claveInicio = claveFecha(inicioSemana.value);
   const claveFin = claveFecha(finSemana.value);
 
@@ -201,7 +203,6 @@ function lugarEvento(e) {
              v-tooltip.top="e.es_local ? 'Local' : 'Visitante'"></i>
           <span class="nombre">{{ nombreEvento(e) }}</span>
           <span v-if="lugarEvento(e)" class="lugar">{{ lugarEvento(e) }}</span>
-          <span v-if="e.tipo === 'partido' && e.suspendido" class="suspendido">SUSPENDIDO</span>
         </button>
       </div>
     </div>
@@ -281,15 +282,6 @@ function lugarEvento(e) {
 .lugar {
   color: #64748B;
   font-size: 0.7rem;
-}
-.suspendido {
-  background: #DC2626;
-  color: #fff;
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 3px;
-  letter-spacing: 0.3px;
 }
 .dia-sin-eventos {
   color: #94A3B8;
