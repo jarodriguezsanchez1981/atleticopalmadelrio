@@ -212,9 +212,9 @@ function formatearJugador(j) {
   };
 }
 
-function nombrePosiciones(pos) {
-  if (!Array.isArray(pos) || !pos.length) return '—';
-  return pos.map(p => p.alias || p.nombre).join('<br>');
+function posicionesDe(pos) {
+  if (!Array.isArray(pos)) return [];
+  return pos.map(p => p.alias || p.nombre);
 }
 
 function prepareEdit(item) {
@@ -442,11 +442,15 @@ function validarPlantilla(form) {
       {{ data.coordinador ? `${data.coordinador.nombre} ${data.coordinador.apellidos}` : nombreCoordinador(data.id_coordinador) }}
     </template>
     <template #cell-ids_entrenadores="{ data }">
-      <span v-if="data.entrenadores?.length" v-html="data.entrenadores.map(e => `${e.nombre} ${e.apellidos}`).join('<br>')"></span>
+      <span v-if="data.entrenadores?.length">
+        <template v-for="(e, i) in data.entrenadores" :key="e.id ?? i"><br v-if="i > 0" />{{ e.nombre }} {{ e.apellidos }}</template>
+      </span>
       <span v-else>—</span>
     </template>
     <template #cell-ids_delegados="{ data }">
-      <span v-if="data.delegados?.length" v-html="data.delegados.map(d => `${d.nombre} ${d.apellidos}`).join('<br>')"></span>
+      <span v-if="data.delegados?.length">
+        <template v-for="(d, i) in data.delegados" :key="d.id ?? i"><br v-if="i > 0" />{{ d.nombre }} {{ d.apellidos }}</template>
+      </span>
       <span v-else>—</span>
     </template>
 
@@ -717,7 +721,12 @@ function validarPlantilla(form) {
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
               <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
-              <td class="text-center border border-line p-2 text-sm" v-html="nombrePosiciones(j.PlantillaJugador?.posiciones)"></td>
+              <td class="text-center border border-line p-2 text-sm">
+                <template v-if="posicionesDe(j.PlantillaJugador?.posiciones).length">
+                  <template v-for="(p, i) in posicionesDe(j.PlantillaJugador?.posiciones)" :key="i"><br v-if="i > 0" />{{ p }}</template>
+                </template>
+                <span v-else>—</span>
+              </td>
               <td class="text-center border border-line p-2 text-sm">
                 <i v-if="j.PlantillaJugador?.promocion" class="pi pi-check-circle text-club-green" />
                 <span v-else class="text-ink-tertiary">—</span>
