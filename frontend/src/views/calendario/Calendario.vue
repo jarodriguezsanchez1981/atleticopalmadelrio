@@ -455,6 +455,12 @@ function escapeHtml(s) {
   }[c]));
 }
 
+/** Aviso rojo "SUSPENDIDO" para partidos marcados como tal. */
+function suspendidoBadgeHtml(e) {
+  if (!e?.suspendido) return '';
+  return '<span class="fc-suspendido-badge">SUSPENDIDO</span>';
+}
+
 /** Contenido HTML del evento: hora + icono local/visitante + alias + badge para partidos;
  *  hora + lugar + alias para entrenamientos. */
 function contenidoEvento(arg) {
@@ -478,6 +484,7 @@ function contenidoEvento(arg) {
         icono +
         `<span class="fc-partido-alias">${alias}</span>` +
         lugarHtml +
+        suspendidoBadgeHtml(e) +
         `</div>`
     };
   }
@@ -674,6 +681,9 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
           </span>
           <span v-else-if="eventoSeleccionado?.tipo === 'entrenamiento'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
             <i class="pi pi-calendar"></i> Entrenamiento
+          </span>
+          <span v-if="eventoSeleccionado?.suspendido" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+            <i class="pi pi-ban"></i> Suspendido
           </span>
         </div>
       </template>
@@ -932,6 +942,15 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 .calendario-club .fc-partido-lugar {
   font-weight: 400;
   opacity: 0.7;
+}
+.calendario-club .fc-suspendido-badge {
+  background: #DC2626;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
 }
 .calendario-club .fc-col-header-cell-cushion,
 .calendario-club .fc-daygrid-day-number {

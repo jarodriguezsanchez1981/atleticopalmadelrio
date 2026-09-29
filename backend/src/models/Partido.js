@@ -13,6 +13,7 @@ const Partido = sequelize.define('Partido', {
   id_usuario: { type: DataTypes.INTEGER, allowNull: true },
   incidencias: { type: DataTypes.TEXT, allowNull: true },
   resultado: { type: DataTypes.STRING(255), allowNull: true },
+  suspendido: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   codigo_acta: { type: DataTypes.STRING(50), allowNull: true },
   codigo_primaria: { type: DataTypes.STRING(50), allowNull: true }
 }, {

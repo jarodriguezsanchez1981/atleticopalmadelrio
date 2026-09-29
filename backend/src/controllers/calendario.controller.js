@@ -138,7 +138,8 @@ async function eventos(req, res, next) {
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
         resultado: p.resultado || null,
-        jornada: p.jornada || null
+        jornada: p.jornada || null,
+        suspendido: p.suspendido ? true : false
       };
     });
 

@@ -185,7 +185,7 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, jornada, resultado, codigo_acta, codigo_primaria, incidencias, jugadores_local, jugadores_visitante } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, jornada, resultado, suspendido, codigo_acta, codigo_primaria, incidencias, jugadores_local, jugadores_visitante } = req.body;
     if (!id_plantilla || !fecha || !id_equipo_local || !id_equipo_visitante) {
       return res.status(400).json({ message: 'Plantilla, fecha, equipo local y equipo visitante son obligatorios.' });
     }
@@ -221,6 +221,7 @@ async function crear(req, res, next) {
       incidencias: incidencias || null,
       jornada: jornada || null,
       resultado: resultado || null,
+      suspendido: suspendido ? 1 : 0,
       codigo_acta: codigo_acta || null,
       codigo_primaria: codigo_primaria || null
     });
@@ -237,7 +238,7 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, jornada, resultado, codigo_acta, codigo_primaria, incidencias, jugadores_local, jugadores_visitante } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, jornada, resultado, suspendido, codigo_acta, codigo_primaria, incidencias, jugadores_local, jugadores_visitante } = req.body;
     if (jornada != null && (!Number.isInteger(jornada) || jornada <= 0)) {
       return res.status(400).json({ message: 'La jornada debe ser un número entero positivo.' });
     }
@@ -284,6 +285,7 @@ async function actualizar(req, res, next) {
     if (incidencias !== undefined) partido.incidencias = incidencias;
     if (jornada !== undefined) partido.jornada = jornada || null;
     if (resultado !== undefined) partido.resultado = resultado || null;
+    if (suspendido !== undefined) partido.suspendido = suspendido ? 1 : 0;
     if (codigo_acta !== undefined) partido.codigo_acta = codigo_acta || null;
     if (codigo_primaria !== undefined) partido.codigo_primaria = codigo_primaria || null;
     await partido.save();

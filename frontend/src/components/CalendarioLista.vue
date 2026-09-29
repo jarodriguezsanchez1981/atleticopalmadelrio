@@ -201,6 +201,7 @@ function lugarEvento(e) {
              v-tooltip.top="e.es_local ? 'Local' : 'Visitante'"></i>
           <span class="nombre">{{ nombreEvento(e) }}</span>
           <span v-if="lugarEvento(e)" class="lugar">{{ lugarEvento(e) }}</span>
+          <span v-if="e.tipo === 'partido' && e.suspendido" class="suspendido">SUSPENDIDO</span>
         </button>
       </div>
     </div>
@@ -280,6 +281,15 @@ function lugarEvento(e) {
 .lugar {
   color: #64748B;
   font-size: 0.7rem;
+}
+.suspendido {
+  background: #DC2626;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
 }
 .dia-sin-eventos {
   color: #94A3B8;

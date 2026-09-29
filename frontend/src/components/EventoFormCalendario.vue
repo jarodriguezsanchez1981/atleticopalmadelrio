@@ -100,6 +100,7 @@ function resetForm() {
     incidencias: '',
     jornada: null,
     resultado: '',
+    suspendido: false,
     codigo_acta: '',
     codigo_primaria: '',
     jugadores_local: [],
@@ -159,6 +160,7 @@ async function cargarRegistro() {
       incidencias: item.incidencias || '',
       jornada: item.jornada ?? null,
       resultado: item.resultado || '',
+      suspendido: !!item.suspendido,
       codigo_acta: item.codigo_acta || '',
       codigo_primaria: item.codigo_primaria || '',
       jugadores_local: jugadoresLocal,
@@ -603,6 +605,7 @@ async function guardarConAlcance(alcance) {
       payload.incidencias = form.value.incidencias;
       payload.jornada = form.value.jornada || null;
       payload.resultado = form.value.resultado || null;
+      payload.suspendido = !!form.value.suspendido;
       payload.codigo_acta = form.value.codigo_acta || null;
       payload.codigo_primaria = form.value.codigo_primaria || null;
       payload.jugadores_local = mostrarJugadoresLocal.value ? (form.value.jugadores_local || []) : [];
@@ -882,6 +885,11 @@ function onHtmlActaSeleccionado(event) {
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Resultado</label>
           <InputText v-model="form.resultado" placeholder="2-1" class="w-full" />
+        </div>
+
+        <div class="flex items-center gap-2 sm:col-span-2">
+          <Checkbox v-model="form.suspendido" :binary="true" inputId="suspendido" />
+          <label for="suspendido" class="text-sm font-medium text-club-garnet">Partido suspendido</label>
         </div>
 
         <div class="flex flex-col gap-1.5 sm:col-span-2">

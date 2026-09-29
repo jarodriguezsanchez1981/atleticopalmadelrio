@@ -280,6 +280,7 @@ describe('Sección Partidos · partido.controller', () => {
       incidencias: null,
       jornada: null,
       resultado: null,
+      suspendido: 0,
       codigo_acta: null,
       codigo_primaria: null
     });
@@ -435,6 +436,37 @@ describe('Sección Partidos · partido.controller', () => {
     expect(partido.id_equipo_local).toBe(8);
     expect(partido.save).toHaveBeenCalled();
     expect(res._json).toEqual({ id: 1, id_equipo_local: 8, id_equipo_visitante: 6, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null });
+  });
+
+  it('crear guarda suspendido cuando se indica', async () => {
+    Partido.count.mockResolvedValue(0);
+    Partido.findAll.mockResolvedValue([]);
+    const creado = { id: 5, id_equipo_local: 6, id_equipo_visitante: 7 };
+    const completo = { id: 5, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.create.mockResolvedValue(creado);
+    Partido.findByPk.mockResolvedValue(completo);
+    const { promesa } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_equipo_local: 6, id_equipo_visitante: 7, suspendido: true }
+    });
+
+    await promesa;
+
+    expect(Partido.create).toHaveBeenCalledWith(
+      expect.objectContaining({ suspendido: 1 })
+    );
+  });
+
+  it('actualizar guarda suspendido cuando se indica', async () => {
+    const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { suspendido: true } });
+
+    await promesa;
+
+    expect(partido.suspendido).toBe(1);
+    expect(partido.save).toHaveBeenCalled();
   });
 
   it('actualizar sincroniza la jornada vinculada al cambiar fecha y equipos', async () => {
