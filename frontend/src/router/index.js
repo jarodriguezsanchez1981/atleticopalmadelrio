@@ -199,6 +199,9 @@ router.beforeEach((to) => {
   }
 
   if (!auth.isAuthenticated) {
+    // Entrando por la raíz no hay destino que recordar: sin esto la URL quedaría
+    // como /login?redirect=/calendario (la sección por defecto del redirect de '/').
+    if (to.redirectedFrom?.path === '/') return { name: 'login' };
     return { name: 'login', query: { redirect: to.fullPath } };
   }
 
