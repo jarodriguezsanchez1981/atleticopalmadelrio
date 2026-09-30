@@ -10,9 +10,12 @@ const auditMiddleware = require('./middlewares/audit.middleware');
 
 const app = express();
 
-// La app va detrás de un único proxy nginx; permite a
-// express-rate-limit leer la IP real desde X-Forwarded-For.
-app.set('trust proxy', 1);
+// Número de proxies nginx delante del backend, para que express-rate-limit
+// lea la IP real desde X-Forwarded-For. Por defecto 1 (solo el nginx del
+// frontend); con el reverse proxy HTTPS delante son 2 (TRUST_PROXY_HOPS=2).
+// Si se queda corto, todos los clientes comparten la IP del proxy y el límite
+// de intentos de login se agota para todos a la vez.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 
 app.use(helmet());
 

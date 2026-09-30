@@ -38,6 +38,10 @@ services:
     container_name: apr_mysql_backup
     command: ["dump"]
     restart: unless-stopped
+    # La imagen corre como "appuser", pero Docker crea ./backups como root en
+    # el host y el volcado fallaba con "permission denied". Con root (sin
+    # capacidades, ver cap_drop) puede escribir en la carpeta.
+    user: "0:0"
     depends_on:
       db:
         condition: service_healthy
@@ -91,6 +95,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 4000
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://intranetatleticopalmadelrio.com,https://intranetatleticopalmadelrio.com,https://localhost}
       DB_HOST: db
       DB_PORT: 3306
