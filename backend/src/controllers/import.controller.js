@@ -5,6 +5,7 @@
  */
 const models = require('../models');
 const { Op } = require('sequelize');
+const { reducirEscudo } = require('../utils/escudo.utils');
 
 const RECURSOS = {
   temporadas: { modelo: 'Temporada', campos: ['nombre'] },
@@ -151,6 +152,7 @@ async function importar(req, res, next) {
         continue;
       }
       try {
+        if (cfg.modelo === 'Equipo' && limpia.escudo) limpia.escudo = await reducirEscudo(limpia.escudo);
         await Modelo.create(limpia);
         insertados++;
       } catch (err) {

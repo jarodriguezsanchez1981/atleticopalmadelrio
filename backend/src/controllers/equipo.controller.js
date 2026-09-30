@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Equipo, Partido, Plantilla, Categoria, Temporada } = require('../models');
 const { descargar } = require('./util.controller');
+const { reducirEscudo } = require('../utils/escudo.utils');
 
 async function listar(req, res, next) {
   try {
@@ -23,7 +24,7 @@ async function crear(req, res, next) {
     if (!nombre) return res.status(400).json({ message: 'El nombre es obligatorio.' });
     const equipo = await Equipo.create({
       nombre,
-      escudo: req.body.escudo || null,
+      escudo: await reducirEscudo(req.body.escudo || null),
       direccion: req.body.direccion || null,
       codigopostal: req.body.codigopostal || null,
       localidad: req.body.localidad || null,
@@ -42,7 +43,7 @@ async function actualizar(req, res, next) {
     if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado.' });
     const { nombre } = req.body;
     if (nombre !== undefined) equipo.nombre = nombre;
-    if (req.body.escudo !== undefined) equipo.escudo = req.body.escudo || null;
+    if (req.body.escudo !== undefined) equipo.escudo = await reducirEscudo(req.body.escudo || null);
     if (req.body.direccion !== undefined) equipo.direccion = req.body.direccion || null;
     if (req.body.codigopostal !== undefined) equipo.codigopostal = req.body.codigopostal || null;
     if (req.body.localidad !== undefined) equipo.localidad = req.body.localidad || null;
@@ -113,7 +114,7 @@ async function descargarEscudos(req, res, next) {
         lote.map(async (equipo) => {
           try {
             const { tipo, buffer } = await descargar(equipo.escudo);
-            const dataUrl = `data:${tipo};base64,${buffer.toString('base64')}`;
+            const dataUrl = await reducirEscudo(`data:${tipo};base64,${buffer.toString('base64')}`);
             await Equipo.update({ escudo: dataUrl }, { where: { id: equipo.id } });
           } catch { /* skip */ }
         })
