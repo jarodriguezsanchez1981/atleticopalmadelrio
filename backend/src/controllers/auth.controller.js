@@ -34,6 +34,10 @@ async function login(req, res, next) {
     if (!usuario || !password) {
       return res.status(400).json({ message: 'Usuario y contraseña son obligatorios.' });
     }
+    // Un objeto/array aquí acabaría en el WHERE de Sequelize y en un 500.
+    if (typeof usuario !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Usuario y contraseña deben ser texto.' });
+    }
 
     const user = await Usuario.scope('withPassword').findOne({
       where: { usuario },

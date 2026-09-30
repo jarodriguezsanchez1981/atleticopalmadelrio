@@ -28,6 +28,15 @@ describe('Autenticación · auth.controller', () => {
     expect(res._json.message).toBe('Usuario y contraseña son obligatorios.');
   });
 
+  it('login rechaza usuario o contraseña que no son texto (400)', async () => {
+    const { promesa, res } = llamar(ctrl.login, { body: { usuario: { $ne: 1 }, password: 'x' } });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(Usuario.findOne).not.toHaveBeenCalled();
+  });
+
   it('login devuelve 401 si el usuario no existe', async () => {
     Usuario.scope = vi.fn().mockReturnValue(Usuario);
     Usuario.findOne.mockResolvedValue(null);

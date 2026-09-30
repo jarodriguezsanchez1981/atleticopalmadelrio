@@ -21,6 +21,17 @@ services:
       TZ: Europe/Madrid
     ports:
       - "127.0.0.1:${DB_PORT:-3306}:3306"
+    # Solo las capacidades que necesita el entrypoint de la imagen oficial
+    # (arranca como root, ajusta el datadir y baja a usuario mysql).
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - apr_mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -154,8 +165,20 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    # Solo en localhost por defecto: en el servidor se entra por el reverse
+    # proxy HTTPS. Para probar desde otro dispositivo de la red local,
+    # FRONTEND_BIND=0.0.0.0 en el env file.
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8080}:80"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
     networks:
       - apr_net
 
@@ -172,6 +195,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
     environment:
       DOMAIN: ${DOMAIN:-intranet.atleticopalmadelrio.com}
     volumes:
@@ -185,6 +217,8 @@ services:
     image: certbot/certbot
     container_name: apr_certbot
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./reverse-proxy/certbot/conf:/etc/letsencrypt
       - ./reverse-proxy/certbot/www:/var/www/certbot

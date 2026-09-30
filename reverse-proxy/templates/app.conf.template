@@ -13,6 +13,16 @@ server_tokens off;
 # la IP que tenía al arrancar (502 si el contenedor se recrea).
 resolver 127.0.0.11 valid=10s ipv6=off;
 
+# Peticiones que no vienen con el dominio (p.ej. escáneres entrando por la IP):
+# se corta la conexión sin responder ni enseñar el certificado.
+server {
+    listen 80 default_server;
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+    return 444;
+}
+
 server {
     listen 80;
     server_name ${DOMAIN};

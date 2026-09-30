@@ -4,6 +4,14 @@ function errorHandler(err, req, res, next) {
 
   const esProduccion = process.env.NODE_ENV === 'production';
 
+  // express.json(): cuerpo con JSON mal formado o por encima del límite.
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ message: 'El cuerpo de la petición no es un JSON válido.' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ message: 'La petición supera el tamaño máximo permitido.' });
+  }
+
   if (err.name === 'SequelizeUniqueConstraintError') {
     return res.status(409).json({ message: 'El registro ya existe (violación de unicidad).', detail: err.errors?.map(e => e.message) });
   }
