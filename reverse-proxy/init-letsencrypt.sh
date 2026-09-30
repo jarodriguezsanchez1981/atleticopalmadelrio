@@ -48,12 +48,32 @@ else
 fi
 
 echo "== 2/4: arrancando el reverse proxy con el certificado temporal =="
-$COMPOSE up -d reverse-proxy
+# --force-recreate: si quedó en bucle de reinicio de un intento anterior,
+# así arranca ya en vez de esperar al backoff de Docker.
+$COMPOSE up -d --force-recreate reverse-proxy
+
+# Hay que esperar a que nginx esté escuchando ANTES de borrar el certificado
+# temporal: si se borra mientras aún arranca, no encuentra fullchain.pem,
+# entra en bucle de reinicio y Let's Encrypt recibe "Connection refused".
+echo "   esperando a que nginx escuche en el puerto 80..."
+for i in $(seq 1 30); do
+  if $COMPOSE exec -T reverse-proxy nc -z 127.0.0.1 80 2>/dev/null; then
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "nginx no ha arrancado. Revisa: docker logs apr_reverse_proxy"
+    exit 1
+  fi
+  sleep 2
+done
 
 echo "== 3/4: pidiendo el certificado real a Let's Encrypt =="
-rm -rf "./reverse-proxy/certbot/conf/live/$DOMAIN" \
-       "./reverse-proxy/certbot/conf/archive/$DOMAIN" \
-       "./reverse-proxy/certbot/conf/renewal/$DOMAIN.conf"
+# Se borra desde un contenedor porque certbot crea estas carpetas como root.
+docker run --rm -v "$(pwd)/reverse-proxy/certbot/conf:/etc/letsencrypt" alpine sh -c "
+  rm -rf /etc/letsencrypt/live/$DOMAIN \
+         /etc/letsencrypt/archive/$DOMAIN \
+         /etc/letsencrypt/renewal/$DOMAIN.conf
+"
 
 EMAIL_ARG="--register-unsafely-without-email"
 [ -n "$EMAIL" ] && EMAIL_ARG="--email $EMAIL --no-eff-email"
