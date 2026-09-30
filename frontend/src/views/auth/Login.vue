@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
 import Button from 'primevue/button';
@@ -16,7 +16,6 @@ const enviando = ref(false);
 
 const auth = useAuthStore();
 const router = useRouter();
-const route = useRoute();
 
 async function onSubmit() {
   error.value = '';
@@ -27,12 +26,7 @@ async function onSubmit() {
   enviando.value = true;
   try {
     await auth.login(usuario.value, password.value);
-    const redirect = route.query.redirect;
-    if (redirect && typeof redirect === 'string') {
-      router.replace(redirect);
-    } else {
-      router.replace({ name: auth.primeraSeccion });
-    }
+    router.replace({ name: auth.primeraSeccion });
   } catch (err) {
     error.value = err.response?.data?.message || 'No se ha podido iniciar sesión.';
   } finally {
