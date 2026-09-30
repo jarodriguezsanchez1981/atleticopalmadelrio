@@ -25,6 +25,7 @@ import { calendarioService, categoriasService, entrenamientosService, partidosSe
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { generarPdfCalendario } from '../../utils/pdfCalendario';
+import { escudoEquipo, cargarEscudos, adjuntarEscudos } from '../../utils/escudosEquipos';
 import { useAuthStore } from '../../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../../utils/cambioBus';
 import { useMediaQuery } from '../../composables/useMediaQuery';
@@ -119,6 +120,7 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
       toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos de los tipos elegidos.', life: 3000 });
       return;
     }
+    await adjuntarEscudos(filtrados);
     await generarPdfCalendario(filtrados, fechaTitulo, tipoFutbol);
   } catch (err) {
     toast.add({
@@ -157,13 +159,18 @@ const nombreVisitante = computed(() => {
 const escudoLocal = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoLocal?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoLocal?.id) || '/escudo.png';
 });
 
 const escudoVisitante = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoVisitante?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoVisitante?.id) || '/escudo.png';
+});
+
+// Los escudos no vienen en los eventos: se piden al abrir el detalle.
+watch(eventoSeleccionado, (e) => {
+  if (e?.tipo === 'partido') cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
 });
 
 const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);

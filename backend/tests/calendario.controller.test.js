@@ -191,4 +191,43 @@ describe('Calendario · calendario.controller', () => {
     const entrenamientoArgs = Entrenamiento.findAll.mock.calls[0][0];
     expect(entrenamientoArgs.where.fecha).toEqual({ [Op.gte]: new Date('2026-01-01'), [Op.lte]: new Date('2026-12-31') });
   });
+
+  it('no pide el escudo de los equipos en los eventos', async () => {
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.eventos);
+
+    await promesa;
+
+    const includes = [...Partido.findAll.mock.calls[0][0].include, ...Torneo.findAll.mock.calls[0][0].include];
+    const deEquipos = includes.filter((i) => i.model === Equipo);
+    expect(deEquipos.length).toBe(3);
+    deEquipos.forEach((i) => expect(i.attributes).not.toContain('escudo'));
+  });
+
+  it('escudos devuelve un mapa id → escudo solo de los ids válidos', async () => {
+    Equipo.findAll.mockReset();
+    Equipo.findAll.mockResolvedValue([{ id: 5, escudo: 'data:image/png;base64,AAA' }, { id: 73, escudo: null }]);
+    const { promesa, res } = llamar(ctrl.escudos, { query: { ids: '5,73,5,abc,-1' } });
+
+    await promesa;
+
+    expect(Equipo.findAll.mock.calls[0][0].where).toEqual({ id: [5, 73] });
+    expect(res._json).toEqual({ 5: 'data:image/png;base64,AAA', 73: null });
+  });
+
+  it('escudos limita el número de equipos por petición y no consulta sin ids', async () => {
+    Equipo.findAll.mockReset();
+    Equipo.findAll.mockResolvedValue([]);
+    const muchos = Array.from({ length: 200 }, (_, i) => i + 1).join(',');
+    const { promesa } = llamar(ctrl.escudos, { query: { ids: muchos } });
+    await promesa;
+    expect(Equipo.findAll.mock.calls[0][0].where.id.length).toBe(ctrl.MAX_ESCUDOS_POR_PETICION);
+
+    Equipo.findAll.mockReset();
+    const vacio = llamar(ctrl.escudos, { query: {} });
+    await vacio.promesa;
+    expect(Equipo.findAll).not.toHaveBeenCalled();
+    expect(vacio.res._json).toEqual({});
+  });
 });

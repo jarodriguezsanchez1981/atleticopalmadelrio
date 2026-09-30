@@ -91,7 +91,8 @@ export const authService = {
 };
 
 export const calendarioService = {
-  eventos: (params = {}) => api.get('/calendario', { params }).then(r => r.data)
+  eventos: (params = {}) => api.get('/calendario', { params }).then(r => r.data),
+  escudos: (ids = []) => api.get('/calendario/escudos', { params: { ids: ids.join(',') } }).then(r => r.data)
 };
 
 export const utilService = {

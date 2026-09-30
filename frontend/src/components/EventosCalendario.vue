@@ -26,6 +26,7 @@ import { calendarioService, entrenamientosService, partidosService } from '../se
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { tituloCalendario } from '../utils/tituloCalendario';
 import { generarPdfPartidos } from '../utils/pdfPartidos';
+import { escudoEquipo, cargarEscudos } from '../utils/escudosEquipos';
 import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
@@ -69,13 +70,18 @@ const nombreVisitante = computed(() => {
 const escudoLocal = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoLocal?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoLocal?.id) || '/escudo.png';
 });
 
 const escudoVisitante = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoVisitante?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoVisitante?.id) || '/escudo.png';
+});
+
+// Los escudos no vienen en los eventos: se piden al abrir el detalle.
+watch(eventoSeleccionado, (e) => {
+  if (e?.tipo === 'partido') cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
 });
 
 const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);

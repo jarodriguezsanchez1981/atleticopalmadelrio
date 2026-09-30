@@ -64,10 +64,13 @@ async function eventos(req, res, next) {
         if (fechaDesde) wherePartido.fecha[Op.gte] = fechaDesde;
         if (fechaHasta) wherePartido.fecha[Op.lte] = fechaHasta;
       }
+      // Sin 'escudo': es una imagen base64 (de decenas a cientos de KB) que se
+      // repetía en cada partido y llevaba la respuesta a varios MB (e incluso a
+      // agotar la memoria sin filtro de fechas). Se piden aparte en /escudos.
       const includesPartido = [
         ...plantillaFiltrada,
-        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] },
-        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad', 'camiseta', 'calzonas', 'medias'] }
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'localidad', 'camiseta', 'calzonas', 'medias'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'localidad', 'camiseta', 'calzonas', 'medias'] }
       ];
       promesas.push(Partido.findAll({ where: wherePartido, include: includesPartido }));
     } else {
@@ -87,7 +90,7 @@ async function eventos(req, res, next) {
         where: whereTorneo,
         include: [
           { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] }] },
-          { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'escudo', 'localidad'] }
+          { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'localidad'] }
         ],
         order: [['fecha', 'ASC'], ['hora', 'ASC']]
       }));
@@ -166,4 +169,25 @@ async function eventos(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { eventos };
+const MAX_ESCUDOS_POR_PETICION = 50;
+
+/**
+ * Escudos de los equipos indicados: GET /api/calendario/escudos?ids=1,2,3
+ * Devuelve { [id]: escudo }. El calendario los pide solo cuando los va a
+ * pintar (detalle de un partido, PDF) y el frontend los cachea por equipo.
+ */
+async function escudos(req, res, next) {
+  try {
+    const ids = [...new Set(
+      String(req.query.ids || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0)
+    )].slice(0, MAX_ESCUDOS_POR_PETICION);
+    if (!ids.length) return res.json({});
+
+    const equipos = await Equipo.findAll({ where: { id: ids }, attributes: ['id', 'escudo'] });
+    const mapa = {};
+    equipos.forEach((e) => { mapa[e.id] = e.escudo || null; });
+    res.json(mapa);
+  } catch (err) { next(err); }
+}
+
+module.exports = { eventos, escudos, MAX_ESCUDOS_POR_PETICION };
