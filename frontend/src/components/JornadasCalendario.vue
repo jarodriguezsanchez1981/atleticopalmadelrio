@@ -284,7 +284,7 @@ async function exportarExcel() {
         Fecha: formatoFechaExport(j.fecha),
         'Equipo Local': nombreEquipo(j.id_equipo_local),
         'Equipo Visitante': nombreEquipo(j.id_equipo_visitante),
-        Resultado: j.resultado || ''
+        Resultado: j.suspendido ? 'SUSPENDIDO' : (j.resultado || '')
       }));
     const ws = XLSX.utils.json_to_sheet(filas);
     const wb = XLSX.utils.book_new();
@@ -377,16 +377,21 @@ async function exportarExcel() {
                     {{ nombreEquipo(partido.id_equipo_local) }}
                   </button>
                 </td>
-                <td class="col-goles">
-                  <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
-                    {{ golesLocalNum(partido) }}
-                  </span>
+                <td v-if="partido.suspendido" colspan="2">
+                  <span class="partido-suspendido">SUSPENDIDO</span>
                 </td>
-                <td class="col-goles">
-                  <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
-                    {{ golesVisitanteNum(partido) }}
-                  </span>
-                </td>
+                <template v-else>
+                  <td class="col-goles">
+                    <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
+                      {{ golesLocalNum(partido) }}
+                    </span>
+                  </td>
+                  <td class="col-goles">
+                    <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
+                      {{ golesVisitanteNum(partido) }}
+                    </span>
+                  </td>
+                </template>
                 <td class="col-nombre">
                   <button type="button" class="enlace-equipo" @click="verEquipo(partido.id_equipo_visitante)">
                     {{ nombreEquipo(partido.id_equipo_visitante) }}
@@ -422,13 +427,14 @@ async function exportarExcel() {
                   </button>
                 </div>
                 <div class="flex items-center justify-center gap-2">
-                  <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
+                  <span v-if="partido.suspendido" class="partido-suspendido">SUSPENDIDO</span>
+                  <span v-else-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
                     {{ golesLocalNum(partido) }}
                   </span>
                   <div v-if="filtroPlantilla" class="flex flex-col items-center">
                     <span class="partido-jornada-label">Jornada {{ partido.jornada }}</span>
                   </div>
-                  <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
+                  <span v-if="!partido.suspendido && golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
                     {{ golesVisitanteNum(partido) }}
                   </span>
                 </div>
@@ -700,6 +706,12 @@ async function exportarExcel() {
 }
 .gol-numero {
   font-weight: 800;
+}
+.partido-suspendido {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #DC2626;
+  white-space: nowrap;
 }
 .gol-ganador {
   color: #2563EB;
