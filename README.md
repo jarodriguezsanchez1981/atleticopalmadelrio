@@ -20,7 +20,26 @@ docker compose --env-file .env.production up -d --build
 | API       | http://localhost:8080/api | REST API (proxied por el nginx del frontend) |
 | MySQL     | 127.0.0.1:3306 | Base de datos (solo localhost) |
 
-> El túnel de Cloudflare (`cloudflared`) se ejecuta por separado en el servidor (systemd) apuntando al puerto público del frontend, con la URL fija del Public Hostname.
+### HTTPS en el servidor (nginx + Let's Encrypt)
+
+En el servidor la intranet se publica en `https://intranet.atleticopalmadelrio.com` con HTTPS propio, sin Cloudflare:
+
+- `reverse-proxy` (nginx, puertos 80/443) termina TLS, redirige HTTP a HTTPS y reenvía todo al servicio `frontend`.
+- `certbot` renueva el certificado de Let's Encrypt automáticamente (lo comprueba cada 12 h).
+
+Primer despliegue (una sola vez, con el registro DNS A apuntando al servidor y los puertos 80 y 443 abiertos):
+
+```bash
+# En el env file del servidor:
+#   DOMAIN=intranet.atleticopalmadelrio.com
+#   TRUST_PROXY_HOPS=2          # dos nginx delante del backend (reverse-proxy + frontend)
+#   CERTBOT_EMAIL=...           # opcional, avisos de caducidad
+./reverse-proxy/init-letsencrypt.sh
+```
+
+El script arranca nginx con un certificado temporal, pide el real a Let's Encrypt y deja `certbot` renovando. Los certificados quedan en `reverse-proxy/certbot/` (fuera de git).
+
+> `TRUST_PROXY_HOPS` debe coincidir con el número de nginx delante del backend (1 en local, 2 con el reverse proxy). Si se queda corto, el backend ve a todos los clientes con la IP del proxy y el límite de intentos de login se comparte entre todos los usuarios.
 
 **Login inicial:** `admin` / cámbiala en Administración.
 
@@ -68,6 +87,9 @@ atleticopalmadelrio/
 │   ├── rfaf_equipaciones.py         # Extrae equipaciones RFAF de una competición
 │   ├── rfaf_equipaciones_todas.py   # Extrae equipaciones de todas las ligas de Córdoba
 │   └── dump-init.sh                 # Vuelca MySQL (datos reales) a backups/, NUNCA a git
+├── reverse-proxy/
+│   ├── init-letsencrypt.sh          # Primer certificado de Let's Encrypt (una sola vez en el servidor)
+│   └── templates/app.conf.template  # nginx HTTPS (80/443) → frontend, parametrizado por DOMAIN
 ├── database/
 │   ├── init.sql                # Solo esquema (sin datos), usado por docker-entrypoint-initdb.d
 │   └── schema.sql              # Instalación manual MySQL
@@ -221,7 +243,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 ### Protección de la aplicación
 - **Auditoría**: middleware automático que registra todos los cambios en la tabla `cambios`
 - **SSRF protection**: proxy de imágenes bloquea IPs privadas, loopback y DNS rebinding
-- **Rate limiting**: 10 000 req/15min globales
+- **Rate limiting**: 10 000 req/15min globales y 10 intentos de login/15min por IP
 - **Body limit**: 2MB máximo por petición
 - **JWT**: tokens de 8h con secrets generados por entorno
 - **bcrypt**: hashing de contraseñas con 12 rondas
@@ -230,8 +252,8 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **Error handling**: mensajes específicos en creación de usuarios, genéricos en producción
 
 ### Protección de la infraestructura
-- **Nginx**: security headers (CSP, X-Frame-Options DENY, nosniff, Referrer-Policy)
-- **TLS**: cifrados ECDHE fuertes, TLS 1.2/1.3
+- **Nginx**: security headers en HTML y assets (HSTS, X-Frame-Options SAMEORIGIN, nosniff, Referrer-Policy, CSP mínima); la API lleva los de helmet
+- **TLS**: HTTPS propio con Let's Encrypt (servicios `reverse-proxy` + `certbot`), solo TLS 1.2/1.3
 - **Docker**: containers non-root, `cap_drop: ALL`, límites de recursos
 - **MySQL**: puerto solo expuesto a `127.0.0.1`
 - **Secrets**: backend se niega a arrancar con valores por defecto en producción
@@ -310,7 +332,9 @@ Mocks en `backend/tests/helpers/` — `Module._load` interceptor para Sequelize 
 |----------|-----|------------|
 | `NODE_ENV` | development | production |
 | `DB_NAME` | atletico_palma_intranet_dev | atletico_palma_intranet |
-| `CORS_ORIGIN` | http://localhost:5173 | https://intranetatleticopalmadelrio.com |
+| `CORS_ORIGIN` | http://localhost:5173 | https://intranet.atleticopalmadelrio.com |
+| `DOMAIN` | — | intranet.atleticopalmadelrio.com |
+| `TRUST_PROXY_HOPS` | 1 (por defecto) | 2 |
 | `JWT_SECRET` | (desarrollo) | (generado por entorno) |
 
 ## Comandos útiles
@@ -340,4 +364,4 @@ curl http://localhost:8080/health
 ./scripts/dump-init.sh
 ```
 
-> **Nginx cachea la IP del backend**: si recreas solo `apr_backend` (nueva IP interna de Docker), `apr_frontend` puede seguir resolviendo la IP antigua y devolver 502 hasta que se reinicie: `docker restart apr_frontend`. Recréalo siempre que reconstruyas el backend en caliente.
+> Los dos nginx (`frontend` y `reverse-proxy`) resuelven el contenedor de detrás con el DNS interno de Docker cada 10 s, así que recrear `apr_backend` o `apr_frontend` no requiere reiniciar ni recargar nada más.
