@@ -146,6 +146,9 @@ function confirmarEliminar(item) {
       <Column header="No Convocados">
         <template #body="{ data }">{{ (data.noConvocados || []).length }}</template>
       </Column>
+      <Column header="Promociones">
+        <template #body="{ data }">{{ (data.promocionados || []).length }}</template>
+      </Column>
       <Column header="Acciones" style="width: 130px">
         <template #body="{ data }">
           <div class="flex gap-1">

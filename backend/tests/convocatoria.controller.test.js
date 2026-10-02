@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Partido, PlantillaJugador, PartidoJugador, Categoria, Promocion } from './helpers/models.js';
+import { Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Partido, PlantillaJugador, PartidoJugador, Categoria, Promocion, ConvocatoriaPromocion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/convocatoria.controller.js';
@@ -204,6 +204,10 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     await promesa;
 
     expect(res._status).toBe(201);
+    expect(ConvocatoriaPromocion.bulkCreate).toHaveBeenCalledWith(
+      [{ id_convocatoria: 7, id_plantilla: 9, id_jugador: 50 }],
+      { ignoreDuplicates: true }
+    );
     expect(Promocion.findOrCreate).toHaveBeenCalledTimes(1);
     expect(Promocion.findOrCreate).toHaveBeenCalledWith({
       where: { id_plantilla: 9, id_jugador: 50 },

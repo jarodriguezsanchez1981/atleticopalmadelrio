@@ -1,6 +1,6 @@
 const {
   Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Categoria, Partido,
-  Equipo, Jugador, PlantillaJugador, PartidoJugador, Promocion
+  Equipo, Jugador, PlantillaJugador, PartidoJugador, Promocion, ConvocatoriaPromocion
 } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
@@ -31,6 +31,11 @@ const includesBase = [
   {
     model: ConvocatoriaSinJugador,
     as: 'noConvocados',
+    include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] }]
+  },
+  {
+    model: ConvocatoriaPromocion,
+    as: 'promocionados',
     include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] }]
   }
 ];
@@ -196,6 +201,12 @@ async function crear(req, res, next) {
     if (sinJugador.length) {
       await ConvocatoriaSinJugador.bulkCreate(
         sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones })),
+        { ignoreDuplicates: true }
+      );
+    }
+    if (promo.promociones.length) {
+      await ConvocatoriaPromocion.bulkCreate(
+        promo.promociones.map((p) => ({ id_convocatoria: convocatoria.id, id_plantilla: p.id_plantilla, id_jugador: p.id_jugador })),
         { ignoreDuplicates: true }
       );
     }
