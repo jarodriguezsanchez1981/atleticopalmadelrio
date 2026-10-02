@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Partido, PlantillaJugador, PartidoJugador } from './helpers/models.js';
+import { Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Partido, PlantillaJugador, PartidoJugador, Categoria, Promocion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/convocatoria.controller.js';
@@ -172,6 +172,68 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
       { ignoreDuplicates: true }
     );
     expect(ConvocatoriaSinJugador.bulkCreate).not.toHaveBeenCalled();
+  });
+
+  function prepararCrearConPromocion({ ordenOrigen = 14, temporadaOrigen = 1 } = {}) {
+    Temporada.findByPk.mockResolvedValue({ id: 1 });
+    Plantilla.findByPk.mockImplementation(async (id) => (
+      Number(id) === 2
+        ? { id: 2, id_temporada: 1, id_categoria: 30 }
+        : { id: 9, id_temporada: temporadaOrigen, id_categoria: 40, categoria: { id: 40, orden: ordenOrigen } }
+    ));
+    Categoria.findByPk.mockResolvedValue({ id: 30, orden: 11 });
+    Partido.findByPk.mockResolvedValue({ id: 3, id_plantilla: 2, id_equipo_local: 73, id_equipo_visitante: 50 });
+    Convocatoria.findOne.mockResolvedValue(null);
+    PlantillaJugador.findAll.mockImplementation(async ({ where }) => where.id_jugador.map((id_jugador) => ({ id_jugador })));
+    Convocatoria.create.mockResolvedValue({ id: 7 });
+    ConvocatoriaJugador.bulkCreate.mockResolvedValue([]);
+    PartidoJugador.findOrCreate.mockResolvedValue([{ id: 1 }, true]);
+    Promocion.findOrCreate.mockResolvedValue([{ id: 1 }, true]);
+    Convocatoria.findByPk.mockResolvedValue({ id: 7, toJSON: () => ({ id: 7 }) });
+  }
+
+  it('crear guarda en promociones los jugadores promocionados, con la categoría de la convocatoria como destino', async () => {
+    prepararCrearConPromocion();
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: {
+        id_temporada: 1, id_plantilla: 2, id_partido: 3, jugadores: [10],
+        promociones: [{ id_plantilla: 9, id_jugador: 50 }, { id_plantilla: 9, id_jugador: 50 }]
+      }
+    });
+    await promesa;
+
+    expect(res._status).toBe(201);
+    expect(Promocion.findOrCreate).toHaveBeenCalledTimes(1);
+    expect(Promocion.findOrCreate).toHaveBeenCalledWith({
+      where: { id_plantilla: 9, id_jugador: 50 },
+      defaults: { id_plantilla: 9, id_jugador: 50, id_categoria: 30 }
+    });
+  });
+
+  it('crear rechaza promociones desde una categoría de orden inferior', async () => {
+    prepararCrearConPromocion({ ordenOrigen: 8 });
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_temporada: 1, id_plantilla: 2, id_partido: 3, jugadores: [10], promociones: [{ id_plantilla: 9, id_jugador: 50 }] }
+    });
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(Convocatoria.create).not.toHaveBeenCalled();
+    expect(Promocion.findOrCreate).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza promociones desde una plantilla de otra temporada', async () => {
+    prepararCrearConPromocion({ temporadaOrigen: 99 });
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_temporada: 1, id_plantilla: 2, id_partido: 3, jugadores: [10], promociones: [{ id_plantilla: 9, id_jugador: 50 }] }
+    });
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(Convocatoria.create).not.toHaveBeenCalled();
   });
 
   it('crear crea la convocatoria, sus jugadores y los sincroniza con partido_jugadores', async () => {

@@ -1,6 +1,6 @@
 const {
   Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Categoria, Partido,
-  Equipo, Jugador, PlantillaJugador, PartidoJugador
+  Equipo, Jugador, PlantillaJugador, PartidoJugador, Promocion
 } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
@@ -86,7 +86,7 @@ async function validarReferencias({ id_temporada, id_plantilla, id_partido }) {
     return { error: 'El partido no pertenece a la plantilla indicada.' };
   }
 
-  return { partido };
+  return { partido, plantilla };
 }
 
 /** Los ids de jugador deben pertenecer a la plantilla convocada. */
@@ -96,6 +96,47 @@ async function jugadoresValidos(idPlantilla, idsJugador) {
     where: { id_plantilla: idPlantilla, id_jugador: idsJugador }
   });
   return filas.length === new Set(idsJugador).size;
+}
+
+/** Valida los jugadores promocionados desde otras plantillas: misma temporada
+ * que la convocatoria, categoría de orden igual o superior y el jugador debe
+ * pertenecer a la plantilla de la que se promociona. Devuelve la lista
+ * normalizada ({ id_plantilla, id_jugador }) o un mensaje de error. */
+async function validarPromociones(promociones, plantillaDestino) {
+  const lista = [];
+  const vistos = new Set();
+  for (const item of (promociones || [])) {
+    const id_plantilla = Number(item?.id_plantilla);
+    const id_jugador = Number(item?.id_jugador);
+    if (!id_plantilla || !id_jugador) return { error: 'Cada promoción necesita plantilla y jugador.' };
+    const clave = `${id_plantilla}-${id_jugador}`;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    lista.push({ id_plantilla, id_jugador });
+  }
+  if (!lista.length) return { promociones: [] };
+
+  const categoriaDestino = await Categoria.findByPk(plantillaDestino.id_categoria);
+  for (const idPlantilla of new Set(lista.map((p) => p.id_plantilla))) {
+    if (idPlantilla === Number(plantillaDestino.id)) {
+      return { error: 'No se puede promocionar desde la propia plantilla de la convocatoria.' };
+    }
+    const origen = await Plantilla.findByPk(idPlantilla, {
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'orden'] }]
+    });
+    if (!origen) return { error: 'La plantilla de promoción indicada no existe.' };
+    if (Number(origen.id_temporada) !== Number(plantillaDestino.id_temporada)) {
+      return { error: 'La plantilla de promoción debe ser de la misma temporada que la convocatoria.' };
+    }
+    if (Number(origen.categoria?.orden) < Number(categoriaDestino?.orden)) {
+      return { error: 'La plantilla de promoción debe ser de una categoría igual o superior.' };
+    }
+    const ids = lista.filter((p) => p.id_plantilla === idPlantilla).map((p) => p.id_jugador);
+    if (!(await jugadoresValidos(idPlantilla, ids))) {
+      return { error: 'Algún jugador de promoción no pertenece a su plantilla.' };
+    }
+  }
+  return { promociones: lista };
 }
 
 /** Limpia y deduplica la lista de no convocados, y quita cualquiera que
@@ -128,8 +169,8 @@ async function sincronizarPartidoJugadores(partido, idsJugador) {
 
 async function crear(req, res, next) {
   try {
-    const { id_temporada, id_plantilla, id_partido, jugadores, no_convocados } = req.body;
-    const { error, partido } = await validarReferencias({ id_temporada, id_plantilla, id_partido });
+    const { id_temporada, id_plantilla, id_partido, jugadores, no_convocados, promociones } = req.body;
+    const { error, partido, plantilla } = await validarReferencias({ id_temporada, id_plantilla, id_partido });
     if (error) return res.status(400).json({ message: error });
 
     const existente = await Convocatoria.findOne({ where: { id_partido } });
@@ -141,6 +182,8 @@ async function crear(req, res, next) {
     if (!(await jugadoresValidos(id_plantilla, idsValidar))) {
       return res.status(400).json({ message: 'Algún jugador indicado no pertenece a la plantilla.' });
     }
+    const promo = await validarPromociones(promociones, plantilla);
+    if (promo.error) return res.status(400).json({ message: promo.error });
 
     const convocatoria = await Convocatoria.create({ id_temporada, id_plantilla, id_partido });
     if (idsJugador.length) {
@@ -155,6 +198,14 @@ async function crear(req, res, next) {
         sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones })),
         { ignoreDuplicates: true }
       );
+    }
+    // promociones tiene clave única (id_plantilla, id_jugador): si el jugador ya
+    // estaba promocionado desde esa plantilla, se deja el registro existente.
+    for (const p of promo.promociones) {
+      await Promocion.findOrCreate({
+        where: { id_plantilla: p.id_plantilla, id_jugador: p.id_jugador },
+        defaults: { id_plantilla: p.id_plantilla, id_jugador: p.id_jugador, id_categoria: plantilla.id_categoria }
+      });
     }
 
     const completa = await Convocatoria.findByPk(convocatoria.id, { include: includesBase });

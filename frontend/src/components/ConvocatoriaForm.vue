@@ -37,6 +37,13 @@ const nuevoNoConvocado = ref(null);
 const observacionesNuevoNoConvocado = ref('');
 const keySelectNoConvocado = ref(0);
 
+// Promoción (solo al crear): jugadores de otra plantilla de la misma temporada
+// con categoría de orden igual o superior; se guardan en la tabla promociones.
+const plantillaPromocion = ref(null);
+const nuevoPromocionado = ref(null);
+const keySelectPromocionado = ref(0);
+const jugadoresPromocion = ref([]); // array de { id_plantilla, id_jugador }
+
 const modoEdicion = computed(() => !!props.registroId);
 
 function resetForm() {
@@ -48,6 +55,13 @@ function resetForm() {
   nuevoJugador.value = null;
   nuevoNoConvocado.value = null;
   observacionesNuevoNoConvocado.value = '';
+  resetPromocion();
+}
+
+function resetPromocion() {
+  plantillaPromocion.value = null;
+  nuevoPromocionado.value = null;
+  jugadoresPromocion.value = [];
 }
 
 async function cargarCatalogo() {
@@ -152,6 +166,45 @@ const opcionesJugadorDisponibleNoConv = computed(() => {
     .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }));
 });
 
+function etiquetaPlantilla(p) {
+  return p?.categoria?.nombre || p?.categoria?.alias || `Plantilla ${p?.id}`;
+}
+
+const opcionesPlantillaPromocion = computed(() => {
+  const destino = plantillaSeleccionada.value;
+  if (!destino) return [];
+  const ordenDestino = Number(destino.categoria?.orden);
+  return plantillas.value
+    .filter((p) => p.id !== destino.id
+      && Number(p.id_temporada) === Number(destino.id_temporada)
+      && Number(p.categoria?.orden) >= ordenDestino)
+    .sort((a, b) => Number(a.categoria?.orden) - Number(b.categoria?.orden))
+    .map((p) => ({ label: etiquetaPlantilla(p), value: p.id }));
+});
+
+const opcionesJugadorPromocion = computed(() => {
+  const origen = plantillas.value.find((p) => p.id === plantillaPromocion.value);
+  const usados = new Set(jugadoresPromocion.value.map((x) => x.id_jugador));
+  return (origen?.jugadores || [])
+    .filter((j) => !usados.has(j.id))
+    .sort((a, b) => a.apellidos.localeCompare(b.apellidos, 'es'))
+    .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }));
+});
+
+function nombreJugadorPromocion(item) {
+  const origen = plantillas.value.find((p) => p.id === item.id_plantilla);
+  const j = (origen?.jugadores || []).find((x) => x.id === item.id_jugador);
+  return j ? `${j.nombre} ${j.apellidos}` : `Jugador ${item.id_jugador}`;
+}
+
+function plantillaPromocionLabel(idPlantilla) {
+  return etiquetaPlantilla(plantillas.value.find((p) => p.id === idPlantilla));
+}
+
+const jugadoresPromocionOrdenados = computed(() =>
+  [...jugadoresPromocion.value].sort((a, b) => nombreJugadorPromocion(a).localeCompare(nombreJugadorPromocion(b), 'es'))
+);
+
 function nombreJugador(id) {
   const j = jugadoresPlantilla.value.find((x) => x.id === id);
   return j ? `${j.nombre} ${j.apellidos}` : `Jugador ${id}`;
@@ -183,12 +236,14 @@ async function onTemporadaChange() {
   partidoSeleccionado.value = null;
   partidosPlantilla.value = [];
   jugadoresConvocados.value = [];
+  resetPromocion();
 }
 
 async function onPlantillaChange() {
   form.value.id_partido = null;
   partidoSeleccionado.value = null;
   jugadoresConvocados.value = [];
+  resetPromocion();
   await cargarPartidosDePlantilla(form.value.id_plantilla);
 }
 
@@ -242,6 +297,29 @@ function removeNoConvocado(id) {
   jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== id);
 }
 
+function onPlantillaPromocionChange() {
+  nuevoPromocionado.value = null;
+  keySelectPromocionado.value += 1;
+}
+
+function addPromocionado() {
+  if (!nuevoPromocionado.value) {
+    toast.add({ severity: 'warn', summary: 'Selecciona un jugador', detail: 'Elige un jugador de la lista antes de pulsar Añadir.', life: 4000 });
+    return;
+  }
+  const item = { id_plantilla: plantillaPromocion.value, id_jugador: nuevoPromocionado.value };
+  if (!jugadoresPromocion.value.some((x) => x.id_jugador === item.id_jugador)) {
+    jugadoresPromocion.value.push(item);
+    toast.add({ severity: 'success', summary: 'Añadido', detail: `${nombreJugadorPromocion(item)} añadido a promoción.`, life: 2500 });
+  }
+  nuevoPromocionado.value = null;
+  keySelectPromocionado.value += 1;
+}
+
+function removePromocionado(idJugador) {
+  jugadoresPromocion.value = jugadoresPromocion.value.filter((x) => x.id_jugador !== idJugador);
+}
+
 function cerrar() {
   emit('update:visible', false);
 }
@@ -257,7 +335,7 @@ async function guardar() {
   }
   // Si hay un jugador elegido en alguno de los dos selectores pero no se ha
   // pulsado su "Añadir", avisar en vez de guardar sin él sin decir nada.
-  if (nuevoJugador.value || nuevoNoConvocado.value) {
+  if (nuevoJugador.value || nuevoNoConvocado.value || nuevoPromocionado.value) {
     toast.add({
       severity: 'warn',
       summary: 'Jugador sin añadir',
@@ -284,7 +362,8 @@ async function guardar() {
         id_plantilla: form.value.id_plantilla,
         id_partido: form.value.id_partido,
         jugadores: jugadoresConvocados.value,
-        no_convocados: noConvocadosPayload
+        no_convocados: noConvocadosPayload,
+        promociones: jugadoresPromocion.value.map((x) => ({ id_plantilla: x.id_plantilla, id_jugador: x.id_jugador }))
       });
       toast.add({ severity: 'success', summary: 'Creada', detail: 'Convocatoria creada correctamente.', life: 3000 });
     }
@@ -426,6 +505,44 @@ async function guardar() {
         <InputText v-model="observacionesNuevoNoConvocado" placeholder="Observaciones (motivo)" class="flex-1" />
         <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
                 @click="addNoConvocado" />
+      </div>
+    </div>
+
+    <div v-if="form.id_partido && !modoEdicion && !soloLectura">
+      <h3 class="text-sm font-semibold text-club-green mb-2">Promoción</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
+              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Plantilla</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="x in jugadoresPromocionOrdenados" :key="x.id_jugador">
+              <td class="border border-line p-2 text-sm">{{ nombreJugadorPromocion(x) }}</td>
+              <td class="border border-line p-2 text-sm text-ink-secondary">{{ plantillaPromocionLabel(x.id_plantilla) }}</td>
+              <td class="text-center border border-line p-2">
+                <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
+                        @click="removePromocionado(x.id_jugador)" />
+              </td>
+            </tr>
+            <tr v-if="!jugadoresPromocionOrdenados.length">
+              <td colspan="3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores de promoción.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2 mt-2">
+        <Select v-model="plantillaPromocion" :options="opcionesPlantillaPromocion" optionLabel="label" optionValue="value"
+                placeholder="Seleccionar plantilla" class="flex-1" emptyMessage="No hay plantillas de categoría igual o superior"
+                @change="onPlantillaPromocionChange" />
+        <Select :key="keySelectPromocionado" v-model="nuevoPromocionado" :options="opcionesJugadorPromocion"
+                optionLabel="label" optionValue="value" placeholder="Seleccionar jugador"
+                class="flex-1" filter showClear :disabled="!plantillaPromocion" />
+        <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
+                :disabled="!plantillaPromocion" @click="addPromocionado" />
       </div>
     </div>
 
