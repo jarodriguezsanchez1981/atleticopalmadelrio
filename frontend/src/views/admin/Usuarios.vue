@@ -78,6 +78,31 @@ function tieneEditar(form, seccionId) {
   return !!form.permisos?.[seccionId]?.editar;
 }
 
+function todasVer(form) {
+  return secciones.value.length > 0 && secciones.value.every((s) => tienePermiso(form, s.clave));
+}
+
+function todasEditar(form) {
+  return secciones.value.length > 0 && secciones.value.every((s) => tieneEditar(form, s.clave));
+}
+
+/** Marca (o desmarca, si ya estaban todas) Ver o Editar en todas las secciones.
+ * Mantiene la misma regla que por sección: editar implica ver, y quitar ver quita editar. */
+function toggleTodas(form, tipo) {
+  if (!form.permisos) form.permisos = {};
+  const activar = tipo === 'ver' ? !todasVer(form) : !todasEditar(form);
+  secciones.value.forEach((sec) => {
+    const actual = form.permisos[sec.clave] || (form.permisos[sec.clave] = { ver: false, editar: false });
+    if (tipo === 'ver') {
+      actual.ver = activar;
+      if (!activar) actual.editar = false;
+    } else {
+      actual.editar = activar;
+      if (activar) actual.ver = true;
+    }
+  });
+}
+
 function nombresSecciones(data) {
   if (!data.permisos) return '—';
   const claves = Object.entries(data.permisos)
@@ -185,6 +210,19 @@ function prepararEdicion(data) {
               <span class="w-24">Sección</span>
               <span class="w-16 text-center">Ver</span>
               <span class="w-16 text-center">Editar</span>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-1.5 border-t border-line bg-club-green/[0.03]">
+              <span class="w-24 text-sm font-semibold text-club-green truncate">Todas</span>
+              <button type="button" class="w-16 flex justify-center" title="Marcar o desmarcar Ver en todas las secciones"
+                      @click="toggleTodas(form, 'ver')">
+                <i class="pi transition-colors"
+                   :class="todasVer(form) ? 'pi-eye text-blue-600' : 'pi-eye-slash text-gray-300'"></i>
+              </button>
+              <button type="button" class="w-16 flex justify-center" title="Marcar o desmarcar Editar en todas las secciones"
+                      @click="toggleTodas(form, 'editar')">
+                <i class="pi pi-pencil transition-colors"
+                   :class="todasEditar(form) ? 'text-club-green' : 'text-gray-300'"></i>
+              </button>
             </div>
             <div v-for="sec in secciones" :key="sec.id"
                  class="flex items-center gap-2 px-3 py-1.5 border-t border-line hover:bg-gray-50">
