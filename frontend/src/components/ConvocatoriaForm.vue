@@ -162,6 +162,11 @@ async function cargarRegistro() {
     id_jugador: n.id_jugador,
     observaciones: n.observaciones || ''
   }));
+  jugadoresPromocion.value = (item.promocionados || []).map((p) => ({
+    id_plantilla: p.id_plantilla,
+    id_jugador: p.id_jugador,
+    nombre: p.jugador ? `${p.jugador.nombre} ${p.jugador.apellidos}` : null
+  }));
   await cargarPartidosDePlantilla(form.value.id_plantilla);
   partidoSeleccionado.value = partidosPlantilla.value.find((p) => p.id === form.value.id_partido) || null;
 }
@@ -248,6 +253,7 @@ const opcionesJugadorPromocion = computed(() => {
 });
 
 function nombreJugadorPromocion(item) {
+  if (item.nombre) return item.nombre;
   const origen = plantillas.value.find((p) => p.id === item.id_plantilla);
   const j = (origen?.jugadores || []).find((x) => x.id === item.id_jugador);
   return j ? `${j.nombre} ${j.apellidos}` : `Jugador ${item.id_jugador}`;
@@ -604,7 +610,8 @@ async function guardar() {
       </div>
     </div>
 
-    <div v-if="form.id_partido && !modoEdicion && !soloLectura">
+    <!-- Al crear se añaden; al editar o ver solo se muestran (no se modifican). -->
+    <div v-if="form.id_partido">
       <h3 class="text-sm font-semibold text-club-green mb-2">Promoción</h3>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse">
@@ -612,25 +619,25 @@ async function guardar() {
             <tr class="bg-club-green/5">
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Plantilla</th>
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              <th v-if="!modoEdicion && !soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="x in jugadoresPromocionOrdenados" :key="x.id_jugador">
               <td class="border border-line p-2 text-sm">{{ nombreJugadorPromocion(x) }}</td>
               <td class="border border-line p-2 text-sm text-ink-secondary">{{ plantillaPromocionLabel(x.id_plantilla) }}</td>
-              <td class="text-center border border-line p-2">
+              <td v-if="!modoEdicion && !soloLectura" class="text-center border border-line p-2">
                 <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
                         @click="removePromocionado(x.id_jugador)" />
               </td>
             </tr>
             <tr v-if="!jugadoresPromocionOrdenados.length">
-              <td colspan="3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores de promoción.</td>
+              <td :colspan="(modoEdicion || soloLectura) ? 2 : 3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores de promoción.</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div class="flex flex-col sm:flex-row gap-2 mt-2">
+      <div v-if="!modoEdicion && !soloLectura" class="flex flex-col sm:flex-row gap-2 mt-2">
         <Select v-model="plantillaPromocion" :options="opcionesPlantillaPromocion" optionLabel="label" optionValue="value"
                 placeholder="Seleccionar plantilla" class="flex-1" emptyMessage="No hay plantillas de categoría igual o inferior"
                 @change="onPlantillaPromocionChange" />
