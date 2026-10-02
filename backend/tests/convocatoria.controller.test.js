@@ -383,8 +383,28 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     expect(res._status).toBe(404);
   });
 
+  it('eliminar quita de promociones a sus promocionados salvo que otra convocatoria los use', async () => {
+    const destroy = vi.fn().mockResolvedValue();
+    Convocatoria.findByPk.mockResolvedValue({ id: 1, id_partido: 3, destroy });
+    Partido.findByPk.mockResolvedValue({ id: 3, fecha: new Date(Date.now() + 24 * 60 * 60 * 1000) });
+    ConvocatoriaPromocion.findAll.mockResolvedValue([
+      { id_plantilla: 9, id_jugador: 50 },
+      { id_plantilla: 9, id_jugador: 51 }
+    ]);
+    ConvocatoriaPromocion.count.mockImplementation(async ({ where }) => (where.id_jugador === 51 ? 1 : 0));
+    Promocion.destroy.mockResolvedValue(1);
+
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' } });
+    await promesa;
+
+    expect(res._status).toBe(204);
+    expect(Promocion.destroy).toHaveBeenCalledTimes(1);
+    expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 9, id_jugador: 50 } });
+  });
+
   it('eliminar responde 204 si el partido todavía no se ha jugado', async () => {
     const destroy = vi.fn().mockResolvedValue();
+    ConvocatoriaPromocion.findAll.mockResolvedValue([]);
     Convocatoria.findByPk.mockResolvedValue({ id: 1, id_partido: 3, destroy });
     const enElFuturo = new Date(Date.now() + 24 * 60 * 60 * 1000);
     Partido.findByPk.mockResolvedValue({ id: 3, fecha: enElFuturo });

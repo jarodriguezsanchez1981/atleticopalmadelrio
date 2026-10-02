@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const {
   Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Categoria, Partido,
   Equipo, Jugador, PlantillaJugador, PartidoJugador, Promocion, ConvocatoriaPromocion
@@ -278,7 +279,17 @@ async function eliminar(req, res, next) {
       return res.status(409).json({ message: 'No se puede eliminar la convocatoria de un partido que ya se ha jugado.' });
     }
 
+    // Los promocionados de esta convocatoria también se quitan de promociones,
+    // salvo que otra convocatoria siga usando esa misma promoción (la tabla
+    // promociones es única por plantilla de origen + jugador).
+    const promocionados = await ConvocatoriaPromocion.findAll({ where: { id_convocatoria: convocatoria.id } });
     await convocatoria.destroy();
+    for (const p of promocionados) {
+      const enOtra = await ConvocatoriaPromocion.count({
+        where: { id_plantilla: p.id_plantilla, id_jugador: p.id_jugador, id_convocatoria: { [Op.ne]: convocatoria.id } }
+      });
+      if (!enOtra) await Promocion.destroy({ where: { id_plantilla: p.id_plantilla, id_jugador: p.id_jugador } });
+    }
     res.status(204).send();
   } catch (err) { next(err); }
 }
