@@ -38,7 +38,7 @@ const observacionesNuevoNoConvocado = ref('');
 const keySelectNoConvocado = ref(0);
 
 // Promoción (solo al crear): jugadores de otra plantilla de la misma temporada
-// con categoría de orden igual o superior; se guardan en la tabla promociones.
+// con categoría de orden igual o inferior; se guardan en la tabla promociones.
 const plantillaPromocion = ref(null);
 const nuevoPromocionado = ref(null);
 const keySelectPromocionado = ref(0);
@@ -177,8 +177,8 @@ const opcionesPlantillaPromocion = computed(() => {
   return plantillas.value
     .filter((p) => p.id !== destino.id
       && Number(p.id_temporada) === Number(destino.id_temporada)
-      && Number(p.categoria?.orden) >= ordenDestino)
-    .sort((a, b) => Number(a.categoria?.orden) - Number(b.categoria?.orden))
+      && Number(p.categoria?.orden) <= ordenDestino)
+    .sort((a, b) => Number(b.categoria?.orden) - Number(a.categoria?.orden))
     .map((p) => ({ label: etiquetaPlantilla(p), value: p.id }));
 });
 
@@ -536,7 +536,7 @@ async function guardar() {
       </div>
       <div class="flex flex-col sm:flex-row gap-2 mt-2">
         <Select v-model="plantillaPromocion" :options="opcionesPlantillaPromocion" optionLabel="label" optionValue="value"
-                placeholder="Seleccionar plantilla" class="flex-1" emptyMessage="No hay plantillas de categoría igual o superior"
+                placeholder="Seleccionar plantilla" class="flex-1" emptyMessage="No hay plantillas de categoría igual o inferior"
                 @change="onPlantillaPromocionChange" />
         <Select :key="keySelectPromocionado" v-model="nuevoPromocionado" :options="opcionesJugadorPromocion"
                 optionLabel="label" optionValue="value" placeholder="Seleccionar jugador"

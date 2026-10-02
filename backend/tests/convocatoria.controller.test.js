@@ -174,7 +174,7 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     expect(ConvocatoriaSinJugador.bulkCreate).not.toHaveBeenCalled();
   });
 
-  function prepararCrearConPromocion({ ordenOrigen = 14, temporadaOrigen = 1 } = {}) {
+  function prepararCrearConPromocion({ ordenOrigen = 8, temporadaOrigen = 1 } = {}) {
     Temporada.findByPk.mockResolvedValue({ id: 1 });
     Plantilla.findByPk.mockImplementation(async (id) => (
       Number(id) === 2
@@ -211,8 +211,8 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     });
   });
 
-  it('crear rechaza promociones desde una categoría de orden inferior', async () => {
-    prepararCrearConPromocion({ ordenOrigen: 8 });
+  it('crear rechaza promociones desde una categoría de orden superior', async () => {
+    prepararCrearConPromocion({ ordenOrigen: 14 });
 
     const { promesa, res } = llamar(ctrl.crear, {
       body: { id_temporada: 1, id_plantilla: 2, id_partido: 3, jugadores: [10], promociones: [{ id_plantilla: 9, id_jugador: 50 }] }

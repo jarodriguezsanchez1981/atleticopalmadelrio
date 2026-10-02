@@ -99,7 +99,7 @@ async function jugadoresValidos(idPlantilla, idsJugador) {
 }
 
 /** Valida los jugadores promocionados desde otras plantillas: misma temporada
- * que la convocatoria, categoría de orden igual o superior y el jugador debe
+ * que la convocatoria, categoría de orden igual o inferior y el jugador debe
  * pertenecer a la plantilla de la que se promociona. Devuelve la lista
  * normalizada ({ id_plantilla, id_jugador }) o un mensaje de error. */
 async function validarPromociones(promociones, plantillaDestino) {
@@ -128,8 +128,8 @@ async function validarPromociones(promociones, plantillaDestino) {
     if (Number(origen.id_temporada) !== Number(plantillaDestino.id_temporada)) {
       return { error: 'La plantilla de promoción debe ser de la misma temporada que la convocatoria.' };
     }
-    if (Number(origen.categoria?.orden) < Number(categoriaDestino?.orden)) {
-      return { error: 'La plantilla de promoción debe ser de una categoría igual o superior.' };
+    if (Number(origen.categoria?.orden) > Number(categoriaDestino?.orden)) {
+      return { error: 'La plantilla de promoción debe ser de una categoría igual o inferior.' };
     }
     const ids = lista.filter((p) => p.id_plantilla === idPlantilla).map((p) => p.id_jugador);
     if (!(await jugadoresValidos(idPlantilla, ids))) {
