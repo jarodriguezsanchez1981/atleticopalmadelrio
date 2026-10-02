@@ -22,7 +22,7 @@ const SECCIONES = [
   { clave: 'incidencias', nombre: 'Incidencias', icono: 'pi pi-exclamation-triangle', orden: 68, grupo: null },
   { clave: 'jugadores', nombre: 'Jugadores', icono: 'pi pi-users', orden: 70, grupo: 'club' },
   { clave: 'plantillas', nombre: 'Plantillas', icono: 'pi pi-table', orden: 75, grupo: 'club' },
-  { clave: 'promociones', nombre: 'Promociones', icono: 'pi pi-arrow-up', orden: 77, grupo: 'club' },
+  { clave: 'promociones', nombre: 'Promociones', icono: 'pi pi-arrow-up', orden: 77, grupo: 'liga' },
   { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80, grupo: 'club' },
   { clave: 'categoria_calendario', nombre: 'Jornadas', icono: 'pi pi-calendar-plus', orden: 93, grupo: 'liga' },
   { clave: 'torneo', nombre: 'Torneo', icono: 'pi pi-trophy', orden: 94, grupo: 'competicion' },
