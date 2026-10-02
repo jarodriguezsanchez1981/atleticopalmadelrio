@@ -1,13 +1,14 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 import InputText from 'primevue/inputtext';
 import { useToast } from 'primevue/usetoast';
 import { temporadasService, plantillasService, partidosService, convocatoriasService } from '../services';
+import { escudoEquipo, cargarEscudos } from '../utils/escudosEquipos';
+
+const PALMA_ID = 73;
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -87,10 +88,65 @@ async function cargarPartidosDePlantilla(idPlantilla) {
     const todos = await partidosService.listar({ id_plantilla: idPlantilla });
     // Solo partidos de liga (con jornada), y que no tengan ya una convocatoria
     // (salvo que sea la propia convocatoria que se está editando).
-    partidosPlantilla.value = todos.filter((p) => p.jornada != null && !partidosConConvocatoria.value.has(p.id));
+    partidosPlantilla.value = todos
+      .filter((p) => p.jornada != null && !partidosConConvocatoria.value.has(p.id))
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
   } finally {
     cargandoPartidos.value = false;
   }
+  // Los escudos no vienen en el listado de partidos; si no se pueden cargar
+  // (p.ej. sin permiso de calendario) se pinta un escudo genérico.
+  const idsEquipos = partidosPlantilla.value.flatMap((p) => [p.id_equipo_local, p.id_equipo_visitante]);
+  cargarEscudos(idsEquipos).catch(() => {});
+  await nextTick();
+  desplazarAlProximoPartido();
+}
+
+const listaPartidosRef = ref(null);
+
+/** Partidos que se muestran: al crear, todos los disponibles; al editar o ver,
+ * solo el de la convocatoria (no se puede cambiar). */
+const partidosVisibles = computed(() =>
+  (modoEdicion.value || props.soloLectura)
+    ? partidosPlantilla.value.filter((p) => p.id === form.value.id_partido)
+    : partidosPlantilla.value
+);
+
+function esPasado(partido) {
+  return new Date(partido.fecha) < new Date(new Date().toDateString());
+}
+
+/** Deja a la vista el primer partido que aún no se ha jugado. */
+function desplazarAlProximoPartido() {
+  const lista = listaPartidosRef.value;
+  if (!lista) return;
+  const proximo = lista.querySelector('[data-proximo="true"]');
+  if (proximo) lista.scrollTop = proximo.offsetTop - lista.offsetTop - 4;
+}
+
+const idProximoPartido = computed(() => partidosVisibles.value.find((p) => !esPasado(p))?.id ?? null);
+
+function seleccionarPartido(partido) {
+  if (modoEdicion.value || props.soloLectura) return;
+  partidoSeleccionado.value = partido;
+}
+
+function escudoDe(idEquipo) {
+  if (Number(idEquipo) === PALMA_ID) return escudoEquipo(idEquipo) || '/escudo.png';
+  return escudoEquipo(idEquipo);
+}
+
+const formatoDia = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: '2-digit', month: 'short' });
+function diaPartido(fecha) {
+  const d = new Date(fecha);
+  return Number.isNaN(d.getTime()) ? '—' : formatoDia.format(d).replace(/\./g, '');
+}
+function horaPartido(fecha) {
+  const d = new Date(fecha);
+  // Sin hora asignada el partido se guarda a las 00:00 UTC (que en España se
+  // vería como 01:00/02:00): se muestra como pendiente en vez de esa hora falsa.
+  if (Number.isNaN(d.getTime()) || (d.getUTCHours() === 0 && d.getUTCMinutes() === 0)) return 'Hora por confirmar';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 async function cargarRegistro() {
@@ -217,18 +273,6 @@ const jugadoresConvocadosOrdenados = computed(() =>
 const jugadoresNoConvocadosOrdenados = computed(() =>
   [...jugadoresNoConvocados.value].sort((a, b) => nombreJugador(a.id_jugador).localeCompare(nombreJugador(b.id_jugador), 'es'))
 );
-
-function formatearFecha(fecha) {
-  if (!fecha) return '—';
-  const d = new Date(fecha);
-  if (Number.isNaN(d.getTime())) return String(fecha);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-}
 
 async function onTemporadaChange() {
   form.value.id_plantilla = null;
@@ -411,28 +455,80 @@ async function guardar() {
     </div>
 
     <div v-if="form.id_plantilla">
-      <h3 class="text-sm font-semibold text-club-green mb-2">Partido</h3>
-      <DataTable
-        :value="partidosPlantilla" :loading="cargandoPartidos" paginator :rows="5"
-        v-model:selection="partidoSeleccionado" selectionMode="single" dataKey="id"
-        class="ar-datatable" :class="{ 'pointer-events-none opacity-60': modoEdicion || soloLectura }"
-      >
-        <Column field="fecha" header="Fecha">
-          <template #body="{ data }">{{ formatearFecha(data.fecha) }}</template>
-        </Column>
-        <Column header="Equipo local">
-          <template #body="{ data }">{{ data.equipoLocal?.nombre || '—' }}</template>
-        </Column>
-        <Column header="Equipo visitante">
-          <template #body="{ data }">{{ data.equipoVisitante?.nombre || '—' }}</template>
-        </Column>
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">
-            Esta plantilla no tiene partidos sin convocatoria.
+      <div class="flex items-baseline justify-between gap-2 mb-2">
+        <h3 class="text-sm font-semibold text-club-green">Partido</h3>
+        <span v-if="!modoEdicion && !soloLectura && partidosVisibles.length" class="text-xs text-ink-tertiary">
+          {{ partidosVisibles.length }} {{ partidosVisibles.length === 1 ? 'partido disponible' : 'partidos disponibles' }}
+        </span>
+      </div>
+
+      <div v-if="cargandoPartidos" class="flex items-center justify-center gap-2 py-6 text-sm text-ink-tertiary">
+        <i class="pi pi-spin pi-spinner"></i> Cargando partidos…
+      </div>
+      <div v-else-if="!partidosVisibles.length"
+           class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
+        Esta plantilla no tiene partidos de liga sin convocatoria.
+      </div>
+      <div v-else ref="listaPartidosRef" class="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1 -mr-1">
+        <button
+          v-for="p in partidosVisibles" :key="p.id" type="button"
+          :data-proximo="p.id === idProximoPartido"
+          class="partido-opcion group w-full text-left rounded-xl border px-3 py-2.5 transition-colors"
+          :class="[
+            partidoSeleccionado?.id === p.id
+              ? 'border-club-green bg-club-green/5 ring-1 ring-club-green'
+              : 'border-line bg-white hover:border-club-green/40 hover:bg-fill-hover',
+            (modoEdicion || soloLectura) ? 'cursor-default' : 'cursor-pointer',
+            esPasado(p) && partidoSeleccionado?.id !== p.id ? 'opacity-60' : ''
+          ]"
+          @click="seleccionarPartido(p)"
+        >
+          <div class="flex items-center gap-3">
+            <!-- Jornada y fecha -->
+            <div class="flex flex-col items-center justify-center w-16 shrink-0 rounded-lg bg-club-green/5 py-1.5">
+              <span class="text-[0.65rem] font-semibold uppercase tracking-wide text-club-green/70">Jornada</span>
+              <span class="font-display text-lg leading-none font-extrabold text-club-green">{{ p.jornada }}</span>
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-tertiary">
+                <span class="font-semibold capitalize text-ink-secondary">{{ diaPartido(p.fecha) }}</span>
+                <span>·</span>
+                <span>{{ horaPartido(p.fecha) }}</span>
+                <template v-if="p.lugar?.nombre">
+                  <span class="hidden sm:inline">·</span>
+                  <span class="hidden sm:inline truncate max-w-[14rem]"><i class="pi pi-map-marker text-[0.65rem]"></i> {{ p.lugar.nombre }}</span>
+                </template>
+                <span v-if="p.suspendido" class="ml-auto rounded-full bg-red-100 px-2 py-0.5 text-[0.65rem] font-bold text-red-700">SUSPENDIDO</span>
+              </div>
+
+              <div class="mt-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <img v-if="escudoDe(p.id_equipo_local)" :src="escudoDe(p.id_equipo_local)" alt="" class="w-6 h-6 object-contain shrink-0" />
+                  <i v-else class="pi pi-shield text-ink-tertiary shrink-0"></i>
+                  <span class="truncate text-sm" :class="p.id_equipo_local === PALMA_ID ? 'font-bold text-club-green' : 'text-ink-primary'">
+                    {{ p.equipoLocal?.nombre || '—' }}
+                  </span>
+                </div>
+                <span class="text-[0.7rem] font-semibold text-ink-tertiary">vs</span>
+                <div class="flex items-center justify-end gap-2 min-w-0">
+                  <span class="truncate text-sm text-right" :class="p.id_equipo_visitante === PALMA_ID ? 'font-bold text-club-green' : 'text-ink-primary'">
+                    {{ p.equipoVisitante?.nombre || '—' }}
+                  </span>
+                  <img v-if="escudoDe(p.id_equipo_visitante)" :src="escudoDe(p.id_equipo_visitante)" alt="" class="w-6 h-6 object-contain shrink-0" />
+                  <i v-else class="pi pi-shield text-ink-tertiary shrink-0"></i>
+                </div>
+              </div>
+            </div>
+
+            <i class="pi shrink-0 text-lg"
+               :class="partidoSeleccionado?.id === p.id ? 'pi-check-circle text-club-green' : 'pi-circle text-line-strong group-hover:text-club-green/40'"></i>
           </div>
-        </template>
-      </DataTable>
-      <p v-if="!form.id_partido" class="text-xs text-ink-tertiary mt-1">Pincha en un partido de la lista para seleccionarlo.</p>
+        </button>
+      </div>
+      <p v-if="!form.id_partido && !cargandoPartidos && partidosVisibles.length" class="text-xs text-ink-tertiary mt-1.5">
+        Pincha en un partido para seleccionarlo.
+      </p>
     </div>
 
     <div v-if="form.id_partido">
