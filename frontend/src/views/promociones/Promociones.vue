@@ -58,9 +58,9 @@ const columns = computed(() => [
 
 const emptyItem = { id_plantilla: null, id_categoria: null, id_jugador: null };
 
+/** Nombre de la plantilla en la tabla: solo su categoría (sin temporada ni jugador). */
 function plantillaLabel(id) {
-  const p = plantillas.value.find(p => p.id === id);
-  return p ? `${p.categoria?.nombre || ''} / ${p.temporada?.nombre || ''}` : '—';
+  return plantillas.value.find(p => p.id === id)?.categoria?.nombre || '—';
 }
 
 function categoriaLabel(id) {
@@ -83,7 +83,7 @@ function jugadorLabel(id) {
     :emptyItem="emptyItem"
   >
     <template #cell-id_plantilla="{ data }">
-      {{ data.plantilla?.categoria?.nombre || plantillaLabel(data.id_plantilla) }} - {{ data.jugador ? `${data.jugador.nombre} ${data.jugador.apellidos}` : jugadorLabel(data.id_jugador) }}
+      {{ data.plantilla?.categoria?.nombre || plantillaLabel(data.id_plantilla) }}
     </template>
     <template #cell-id_categoria="{ data }">
       {{ data.categoria?.nombre || categoriaLabel(data.id_categoria) }}
