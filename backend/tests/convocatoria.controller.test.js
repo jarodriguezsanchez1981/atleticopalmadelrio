@@ -424,4 +424,17 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     expect(destroy).not.toHaveBeenCalled();
     expect(res._status).toBe(409);
   });
+
+  it('eliminar permite a un administrador borrar la convocatoria de un partido ya jugado', async () => {
+    const destroy = vi.fn().mockResolvedValue();
+    ConvocatoriaPromocion.findAll.mockResolvedValue([]);
+    Convocatoria.findByPk.mockResolvedValue({ id: 1, id_partido: 3, destroy });
+    const enElPasado = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    Partido.findByPk.mockResolvedValue({ id: 3, fecha: enElPasado });
+    const user = { id: 1, usuario: 'admin', secciones: ['administracion'], permisos: { administracion: { ver: true, editar: true } } };
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '1' }, user });
+    await promesa;
+    expect(destroy).toHaveBeenCalled();
+    expect(res._status).toBe(204);
+  });
 });

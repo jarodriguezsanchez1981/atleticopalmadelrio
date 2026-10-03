@@ -274,8 +274,10 @@ async function eliminar(req, res, next) {
     const convocatoria = await Convocatoria.findByPk(req.params.id);
     if (!convocatoria) return res.status(404).json({ message: 'Convocatoria no encontrada.' });
 
+    // Un administrador puede eliminar también la de un partido ya jugado.
+    const esAdmin = req.user.permisos?.administracion?.editar === true;
     const partido = await Partido.findByPk(convocatoria.id_partido);
-    if (partido && new Date(partido.fecha).getTime() < Date.now()) {
+    if (!esAdmin && partido && new Date(partido.fecha).getTime() < Date.now()) {
       return res.status(409).json({ message: 'No se puede eliminar la convocatoria de un partido que ya se ha jugado.' });
     }
 
