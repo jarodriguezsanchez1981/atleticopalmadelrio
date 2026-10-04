@@ -120,6 +120,10 @@ services:
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_USER: ${SEED_ADMIN_USER:-admin}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Define SEED_ADMIN_PASSWORD en tu .env}
+      # Cookie de una sesión de rfaf.es abierta en el navegador; la usa el
+      # botón "Finalizar Acta" (backend/src/scripts/rfaf_acta.py). Caduca:
+      # cuando RFAF pida login hay que renovarla y recrear el backend.
+      RFAF_COOKIE: ${RFAF_COOKIE:-}
     volumes:
       # migrate.js busca database/migrations en la raíz del contenedor
       # (../../../database/migrations desde backend/src/utils); sin este

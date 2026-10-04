@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ py3-requests py3-beautifulsoup4
 
 WORKDIR /app
 

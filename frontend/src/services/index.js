@@ -44,7 +44,7 @@ export const entrenamientosService = {
 };
 export const partidosService = {
   ...crudService('partidos'),
-  importarActa: (id, payload = {}) => api.post(`/partidos/${id}/importar-acta`, payload).then(r => r.data)
+  finalizarActa: (id, payload = {}) => api.post(`/partidos/${id}/finalizar-acta`, payload).then(r => r.data)
 };
 export const convocatoriasService = crudService('convocatorias');
 /** Si la camiseta, las calzonas o las medias son "Rayas", compone el color1/color2

@@ -1,11 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { parsearActa, normalizarNombre } from '../src/utils/rfafActa.js';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { execFileSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import rfafActa from '../src/utils/rfafActa.js';
+
+const { leerActa, normalizarNombre, SCRIPT } = rfafActa;
 
 /** HTML mínimo con la misma estructura que usa RFAF en NFG_CmpPartido,
- * pero con datos inventados (no son personas reales). Cubre: goles de un
- * jugador de cada equipo (uno de ellos en propia puerta, que no debe
- * contarse), tarjeta amarilla y roja de jugadores, y una tarjeta de un
- * miembro del cuerpo técnico (no debe aparecer como jugador). */
+ * pero con datos inventados (no son personas reales). Cubre: goles normal y
+ * de penalti, un gol en propia puerta (suma al rival y no al jugador),
+ * tarjetas amarilla y roja de jugadores, y una tarjeta de un miembro del
+ * cuerpo técnico (no debe aparecer como jugador). */
 const HTML_EJEMPLO = `
 <html><body>
 <div class="dashboard-stat">
@@ -14,7 +20,7 @@ const HTML_EJEMPLO = `
     <div class="desc">
       <table class="table"><tbody>
         <tr><td><i class="fa-solid fa-futbol" style="color: #0fa020;"></i></td>
-            <td><span class="font-blue">(10')</span> PEREZ GOMEZ, JUAN </td></tr>
+            <td><span class="font-blue">(10')</span> PÉREZ GÓMEZ, JUAN </td></tr>
         <tr><td><i class="fa-solid fa-futbol" style="color: rgb(21, 114, 228);"></i></td>
             <td><span class="font-blue">(20')</span> PEREZ GOMEZ, JUAN </td></tr>
         <tr><td><i class="fa-solid fa-futbol" style="color: red;"></i></td>
@@ -68,53 +74,76 @@ const HTML_EJEMPLO = `
 </body></html>
 `;
 
+// El script necesita python3 con BeautifulSoup (lo instala el Dockerfile);
+// si en esta máquina no está, se saltan los tests que lo ejecutan.
+let hayPython = true;
+try {
+  execFileSync('python3', ['-c', 'import bs4, requests'], { stdio: 'ignore' });
+} catch {
+  hayPython = false;
+}
+
 describe('rfafActa · normalizarNombre', () => {
   it('quita acentos, comas y mayúsculas/minúsculas', () => {
     expect(normalizarNombre('Pérez Gómez, Juan')).toBe('PEREZ GOMEZ JUAN');
   });
 });
 
-describe('rfafActa · parsearActa', () => {
-  it('lanza si no encuentra al equipo pedido', () => {
-    expect(() => parsearActa(HTML_EJEMPLO, 'EQUIPO QUE NO EXISTE')).toThrow();
+describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
+  let dir;
+  let fichero;
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acta-'));
+    fichero = path.join(dir, 'acta.html');
+    fs.writeFileSync(fichero, HTML_EJEMPLO, 'utf-8');
+  });
+  afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const leer = () => leerActa(null, null, { args: ['--html', fichero] });
+
+  it('saca los dos equipos con titulares y suplentes', async () => {
+    const acta = await leer();
+    expect(acta.local.nombre).toBe('EQUIPO PRUEBA C.F.');
+    expect(acta.visitante.nombre).toBe('OTRO EQUIPO C.F.');
+    expect(acta.local.jugadores).toHaveLength(3);
+    expect(acta.local.jugadores.find((j) => j.dorsal === 15)).toMatchObject({ nombre: 'MARTINEZ DIAZ, SERGIO', titular: false });
   });
 
-  it('extrae titulares y suplentes del equipo pedido', () => {
-    const { jugadores } = parsearActa(HTML_EJEMPLO, 'EQUIPO PRUEBA C.F.');
-    expect(jugadores).toHaveLength(3);
-    expect(jugadores.find((j) => j.nombreNormalizado === 'PEREZ GOMEZ JUAN')).toMatchObject({ dorsal: 7, titular: true });
-    expect(jugadores.find((j) => j.nombreNormalizado === 'MARTINEZ DIAZ SERGIO')).toMatchObject({ dorsal: 15, titular: false });
+  it('cuenta goles normales y de penalti, pero no los de propia puerta', async () => {
+    const acta = await leer();
+    const goles = Object.fromEntries(acta.local.jugadores.map((j) => [j.nombre, j.goles]));
+    expect(goles['PEREZ GOMEZ, JUAN']).toBe(2);
+    expect(goles['LOPEZ RUIZ, ALVARO']).toBe(0);
+    expect(acta.visitante.jugadores[0].goles).toBe(1);
   });
 
-  it('cuenta goles normales y de penalti, pero no los goles en propia puerta', () => {
-    const { jugadores } = parsearActa(HTML_EJEMPLO, 'EQUIPO PRUEBA C.F.');
-    const perez = jugadores.find((j) => j.nombreNormalizado === 'PEREZ GOMEZ JUAN');
-    const lopez = jugadores.find((j) => j.nombreNormalizado === 'LOPEZ RUIZ ALVARO');
-    expect(perez.goles).toBe(2); // gol normal + penalti
-    expect(lopez.goles).toBe(0); // el suyo fue en propia puerta
+  it('calcula el resultado sumando el gol en propia puerta al rival', async () => {
+    const acta = await leer();
+    expect(acta.resultado).toBe('2-2');
   });
 
-  it('no atribuye a un jugador el gol de un rival', () => {
-    const { jugadores } = parsearActa(HTML_EJEMPLO, 'EQUIPO PRUEBA C.F.');
-    expect(jugadores.some((j) => j.nombreNormalizado === 'GARCIA TORRES MANUEL')).toBe(false);
+  it('cuenta tarjetas de jugadores e ignora las del cuerpo técnico', async () => {
+    const acta = await leer();
+    const lopez = acta.local.jugadores.find((j) => j.dorsal === 4);
+    const martinez = acta.local.jugadores.find((j) => j.dorsal === 15);
+    expect(lopez).toMatchObject({ tarjeta_amarilla: 1, tarjeta_roja: 0 });
+    expect(martinez).toMatchObject({ tarjeta_amarilla: 0, tarjeta_roja: 1 });
+    expect(acta.local.jugadores.reduce((n, j) => n + j.tarjeta_amarilla, 0)).toBe(1);
   });
 
-  it('cuenta tarjetas amarillas y rojas de jugadores, ignorando las del cuerpo técnico', () => {
-    const { jugadores } = parsearActa(HTML_EJEMPLO, 'EQUIPO PRUEBA C.F.');
-    const lopez = jugadores.find((j) => j.nombreNormalizado === 'LOPEZ RUIZ ALVARO');
-    const martinez = jugadores.find((j) => j.nombreNormalizado === 'MARTINEZ DIAZ SERGIO');
-    expect(lopez.tarjeta_amarilla).toBe(1);
-    expect(lopez.tarjeta_roja).toBe(0);
-    expect(martinez.tarjeta_roja).toBe(1);
-    // La amarilla del "entrenador" no debe sumarse a ningún jugador.
-    const totalAmarillas = jugadores.reduce((acc, j) => acc + j.tarjeta_amarilla, 0);
-    expect(totalAmarillas).toBe(1);
+  it('sin RFAF_COOKIE no llama a RFAF y avisa de que falta la sesión', async () => {
+    const cookie = process.env.RFAF_COOKIE;
+    delete process.env.RFAF_COOKIE;
+    try {
+      await expect(leerActa('1000120', '2733994', { script: SCRIPT })).rejects.toMatchObject({ status: 503 });
+    } finally {
+      if (cookie !== undefined) process.env.RFAF_COOKIE = cookie;
+    }
   });
 
-  it('el otro equipo no interfiere con los datos del primero', () => {
-    const { jugadores } = parsearActa(HTML_EJEMPLO, 'OTRO EQUIPO C.F.');
-    expect(jugadores).toHaveLength(1);
-    expect(jugadores[0].nombreNormalizado).toBe('GARCIA TORRES MANUEL');
-    expect(jugadores[0].goles).toBe(1);
+  it('devuelve 502 si el HTML no tiene el formato del acta', async () => {
+    fs.writeFileSync(path.join(dir, 'vacio.html'), '<html><body>Nada</body></html>', 'utf-8');
+    await expect(leerActa(null, null, { args: ['--html', path.join(dir, 'vacio.html')] }))
+      .rejects.toMatchObject({ status: 502 });
   });
 });

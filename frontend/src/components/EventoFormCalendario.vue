@@ -658,6 +658,61 @@ async function guardarConAlcance(alcance) {
     guardando.value = false;
   }
 }
+
+// ---------- Finalizar acta (RFAF) ----------
+const finalizandoActa = ref(false);
+
+/** Lee el acta oficial de RFAF (el backend hace una sola petición a rfaf.es)
+ * y deja en el partido el resultado y los jugadores del PALMA que han jugado,
+ * con sus goles y tarjetas. */
+function confirmarFinalizarActa() {
+  if (!props.registroId || !form.value.codigo_acta || !form.value.codigo_primaria) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Faltan códigos',
+      detail: 'Indica el código de acta y el código de primaria.',
+      life: 4000
+    });
+    return;
+  }
+  confirm.require({
+    message: 'Se leerá el acta de RFAF y se sustituirán el resultado y los jugadores del PALMA de este partido por los del acta. ¿Continuar?',
+    header: 'Finalizar acta',
+    icon: 'pi pi-flag',
+    acceptLabel: 'Finalizar',
+    rejectLabel: 'Cancelar',
+    accept: finalizarActa
+  });
+}
+
+async function finalizarActa() {
+  finalizandoActa.value = true;
+  try {
+    const r = await partidosService.finalizarActa(props.registroId, {
+      codigo_acta: form.value.codigo_acta,
+      codigo_primaria: form.value.codigo_primaria
+    });
+    const sinFicha = r.noEncontrados?.length
+      ? ` Sin encontrar en la plantilla: ${r.noEncontrados.join(', ')}.`
+      : '';
+    toast.add({
+      severity: r.noEncontrados?.length ? 'warn' : 'success',
+      summary: `Acta finalizada · ${r.resultado}`,
+      detail: `${r.actualizados?.length || 0} jugador(es) con sus goles y tarjetas.${sinFicha}`,
+      life: 8000
+    });
+    await cargarRegistro();
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo finalizar el acta.',
+      life: 6000
+    });
+  } finally {
+    finalizandoActa.value = false;
+  }
+}
 </script>
 
 <template>
@@ -843,6 +898,9 @@ async function guardarConAlcance(alcance) {
           <div class="flex flex-col sm:flex-row gap-2">
             <InputText v-model="form.codigo_acta" placeholder="Código de acta (CodActa)" class="w-full sm:flex-1" />
             <InputText v-model="form.codigo_primaria" placeholder="Código de primaria" class="w-full sm:flex-1" />
+            <Button v-if="registroId && form.codigo_acta" type="button" label="Finalizar Acta" icon="pi pi-flag"
+                    outlined :loading="finalizandoActa" class="!text-club-green !border-club-green/50 whitespace-nowrap"
+                    @click="confirmarFinalizarActa" />
           </div>
         </div>
 
