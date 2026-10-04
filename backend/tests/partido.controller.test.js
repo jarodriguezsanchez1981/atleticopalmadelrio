@@ -648,9 +648,14 @@ describe('Sección Partidos · partido.controller', () => {
       Jugador.findAll.mockReset();
       PlantillaJugador.findAll.mockReset();
       PartidoJugador.bulkCreate.mockReset();
+      Jugador.create.mockReset();
       leerActa = vi.spyOn(rfafActa, 'leerActa').mockResolvedValue(ACTA);
       PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 900 }]);
-      Jugador.findAll.mockResolvedValue([{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }]);
+      // 1ª llamada: jugadores de la plantilla; 2ª: todos los jugadores.
+      Jugador.findAll.mockImplementation(async ({ where } = {}) => (where
+        ? [{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }]
+        : [{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }]));
+      Jugador.create.mockImplementation(async (datos) => ({ id: 950, ...datos }));
     });
 
     it('devuelve 404 si el partido no existe', async () => {
@@ -668,7 +673,7 @@ describe('Sección Partidos · partido.controller', () => {
       expect(leerActa).not.toHaveBeenCalled();
     });
 
-    it('lee el acta una sola vez, guarda el resultado y deja solo a los jugadores del acta', async () => {
+    it('lee el acta una sola vez, guarda el resultado, crea al que no existe y deja solo a los jugadores del acta', async () => {
       const partido = partidoPalma();
       Partido.findByPk.mockResolvedValue(partido);
 
@@ -680,18 +685,38 @@ describe('Sección Partidos · partido.controller', () => {
       expect(PartidoJugador.destroy).toHaveBeenCalledWith({
         where: { id_partido: 1, es_local: true, id_jugador: { [Op.ne]: null } }
       });
+      expect(Jugador.create).toHaveBeenCalledTimes(1);
+      expect(Jugador.create).toHaveBeenCalledWith({ nombre: 'Alguien', apellidos: 'Sin Ficha' });
       expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
-        { id_partido: 1, id_jugador: 900, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2 }
+        { id_partido: 1, id_jugador: 900, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2 },
+        { id_partido: 1, id_jugador: 950, es_local: true, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 }
       ]);
       expect(partido.resultado).toBe('2-1');
       expect(partido.save).toHaveBeenCalled();
-      expect(res._json).toEqual({ resultado: '2-1', actualizados: ['Juan Pérez Gómez'], noEncontrados: ['SIN FICHA, ALGUIEN'] });
+      expect(res._json).toEqual({
+        resultado: '2-1',
+        actualizados: ['Juan Pérez Gómez', 'Alguien Sin Ficha'],
+        creados: ['Alguien Sin Ficha']
+      });
+    });
+
+    it('no duplica a un jugador que existe en otra plantilla', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      Jugador.findAll.mockImplementation(async ({ where } = {}) => (where
+        ? [{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }]
+        : [{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }, { id: 777, nombre: 'Alguien', apellidos: 'Sin Ficha' }]));
+
+      const { promesa, res } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(Jugador.create).not.toHaveBeenCalled();
+      expect(PartidoJugador.bulkCreate.mock.calls[0][0].map((f) => f.id_jugador)).toEqual([900, 777]);
+      expect(res._json.creados).toEqual([]);
     });
 
     it('usa los datos del equipo visitante si el PALMA juega fuera', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma({ id_equipo_local: 50, id_equipo_visitante: 73 }));
       Jugador.findAll.mockResolvedValue([{ id: 901, nombre: 'Manuel', apellidos: 'Garcia Torres' }]);
-      PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 901 }]);
 
       const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
       await promesa;

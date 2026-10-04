@@ -692,13 +692,13 @@ async function finalizarActa() {
       codigo_acta: form.value.codigo_acta,
       codigo_primaria: form.value.codigo_primaria
     });
-    const sinFicha = r.noEncontrados?.length
-      ? ` Sin encontrar en la plantilla: ${r.noEncontrados.join(', ')}.`
+    const creados = r.creados?.length
+      ? ` Creados en Jugadores: ${r.creados.join(', ')}.`
       : '';
     toast.add({
-      severity: r.noEncontrados?.length ? 'warn' : 'success',
+      severity: r.creados?.length ? 'info' : 'success',
       summary: `Acta finalizada · ${r.resultado}`,
-      detail: `${r.actualizados?.length || 0} jugador(es) con sus goles y tarjetas.${sinFicha}`,
+      detail: `${r.actualizados?.length || 0} jugador(es) con sus goles y tarjetas.${creados}`,
       life: 8000
     });
     await cargarRegistro();

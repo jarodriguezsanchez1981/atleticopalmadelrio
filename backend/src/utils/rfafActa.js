@@ -44,4 +44,31 @@ function normalizarNombre(texto) {
     .trim();
 }
 
-module.exports = { leerActa, normalizarNombre, ErrorActa, SCRIPT };
+const PARTICULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'da', 'do', 'dos', 'van', 'von']);
+
+/** "GARCIA DE LA TORRE" -> "Garcia de la Torre" (los nombres de la base de
+ * datos se guardan así, y RFAF los da en mayúsculas). */
+function capitalizar(texto) {
+  return (texto || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .split(' ')
+    .map((p, i) => (i > 0 && PARTICULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(' ');
+}
+
+/** "PEREZ GOMEZ, JUAN" del acta -> { nombre: 'Juan', apellidos: 'Perez Gomez' }.
+ * Sin coma, la última palabra se toma como nombre. */
+function nombreDesdeActa(texto) {
+  const limpio = (texto || '').replace(/\s+/g, ' ').trim();
+  let [apellidos, nombre] = limpio.split(',').map((t) => t.trim());
+  if (!nombre) {
+    const partes = limpio.split(' ');
+    nombre = partes.pop();
+    apellidos = partes.join(' ');
+  }
+  return { nombre: capitalizar(nombre), apellidos: capitalizar(apellidos) || '-' };
+}
+
+module.exports = { leerActa, normalizarNombre, nombreDesdeActa, ErrorActa, SCRIPT };

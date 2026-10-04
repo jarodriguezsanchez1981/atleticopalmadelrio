@@ -312,9 +312,9 @@ async function eliminar(req, res, next) {
 /** Finaliza el partido con el acta oficial de RFAF (una sola petición a
  * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
  * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
- * aparecen en el acta, con sus goles y tarjetas. Los del acta que no se
- * consiguen emparejar por nombre con la plantilla se devuelven como
- * "noEncontrados" para revisarlos a mano. */
+ * aparecen en el acta, con sus goles y tarjetas. Cada jugador del acta se
+ * busca por nombre primero en la plantilla del partido, luego en todos los
+ * jugadores, y si no existe se crea en Jugadores (devuelto en "creados"). */
 async function finalizarActa(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
@@ -344,18 +344,29 @@ async function finalizarActa(req, res, next) {
       where: { id: rosterPlantilla.map((pj) => pj.id_jugador) },
       attributes: ['id', 'nombre', 'apellidos']
     });
-    const porNombre = new Map(
-      jugadoresPlantilla.map((j) => [rfafActa.normalizarNombre(`${j.apellidos} ${j.nombre}`), j])
-    );
+    const clave = (j) => rfafActa.normalizarNombre(`${j.apellidos} ${j.nombre}`);
+    const porNombre = new Map(jugadoresPlantilla.map((j) => [clave(j), j]));
+    let todosPorNombre = null;
 
     const filas = [];
     const actualizados = [];
-    const noEncontrados = [];
+    const creados = [];
     for (const rfaf of equipoActa.jugadores) {
-      const jugador = porNombre.get(rfafActa.normalizarNombre(rfaf.nombre));
+      const nombreActa = rfafActa.normalizarNombre(rfaf.nombre);
+      let jugador = porNombre.get(nombreActa);
       if (!jugador) {
-        noEncontrados.push(rfaf.nombre);
-        continue;
+        // Puede estar en otra plantilla (p.ej. promocionado): no se duplica.
+        if (!todosPorNombre) {
+          const todos = await Jugador.findAll({ attributes: ['id', 'nombre', 'apellidos'] });
+          todosPorNombre = new Map();
+          for (const j of todos) if (!todosPorNombre.has(clave(j))) todosPorNombre.set(clave(j), j);
+        }
+        jugador = todosPorNombre.get(nombreActa);
+      }
+      if (!jugador) {
+        jugador = await Jugador.create(rfafActa.nombreDesdeActa(rfaf.nombre));
+        todosPorNombre.set(nombreActa, jugador);
+        creados.push(`${jugador.nombre} ${jugador.apellidos}`);
       }
       if (filas.some((f) => f.id_jugador === jugador.id)) continue;
       filas.push({
@@ -380,7 +391,7 @@ async function finalizarActa(req, res, next) {
     partido.resultado = acta.resultado;
     await partido.save();
 
-    res.json({ resultado: acta.resultado, actualizados, noEncontrados });
+    res.json({ resultado: acta.resultado, actualizados, creados });
   } catch (err) { next(err); }
 }
 

@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import rfafActa from '../src/utils/rfafActa.js';
 
-const { leerActa, normalizarNombre, SCRIPT } = rfafActa;
+const { leerActa, normalizarNombre, nombreDesdeActa, SCRIPT } = rfafActa;
 
 /** HTML mínimo con la misma estructura que usa RFAF en NFG_CmpPartido,
  * pero con datos inventados (no son personas reales). Cubre: goles normal y
@@ -86,6 +86,21 @@ try {
 describe('rfafActa · normalizarNombre', () => {
   it('quita acentos, comas y mayúsculas/minúsculas', () => {
     expect(normalizarNombre('Pérez Gómez, Juan')).toBe('PEREZ GOMEZ JUAN');
+  });
+});
+
+describe('rfafActa · nombreDesdeActa', () => {
+  it('separa "APELLIDOS, NOMBRE" y lo pasa a mayúscula inicial', () => {
+    expect(nombreDesdeActa('PIÑA PINTOR, GONZALO')).toEqual({ nombre: 'Gonzalo', apellidos: 'Piña Pintor' });
+  });
+
+  it('deja en minúscula las partículas que no van al principio', () => {
+    expect(nombreDesdeActa('CRUZ TORRES, FRANCISCO DE PAULA')).toEqual({ nombre: 'Francisco de Paula', apellidos: 'Cruz Torres' });
+  });
+
+  it('sin coma toma la última palabra como nombre', () => {
+    expect(nombreDesdeActa('GARCIA LEON MANUEL')).toEqual({ nombre: 'Manuel', apellidos: 'Garcia Leon' });
+    expect(nombreDesdeActa('SOLO')).toEqual({ nombre: 'Solo', apellidos: '-' });
   });
 });
 
