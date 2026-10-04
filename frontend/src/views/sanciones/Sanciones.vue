@@ -56,7 +56,7 @@ const acumuladosFutbol11 = computed(() => {
       porJugador.set(s.id_jugador, fila);
     }
     const filas = [...porJugador.values()].sort((a, b) =>
-      b.rojas - a.rojas || b.amarillas - a.amarillas || a.jugador.localeCompare(b.jugador, 'es'));
+      b.amarillas - a.amarillas || b.rojas - a.rojas || a.jugador.localeCompare(b.jugador, 'es'));
     return {
       id: plantilla.id,
       titulo: `${plantilla.categoria?.nombre || 'Plantilla'} · ${plantilla.temporada?.nombre || ''}`,
@@ -141,6 +141,8 @@ function nombreJugador(id) {
     :columns="columns"
     :service="sancionesService"
     :emptyItem="emptyItem"
+    sortField="amarilla"
+    :sortOrder="-1"
   >
     <template #cell-id_partido="{ data }">
       {{ data.partido ? nombrePartido(data.partido.id) : nombrePartido(data.id_partido) }}
@@ -186,7 +188,7 @@ function nombreJugador(id) {
             </span>
           </div>
         </div>
-        <DataTable :value="t.filas" dataKey="id_jugador" size="small" stripedRows>
+        <DataTable :value="t.filas" dataKey="id_jugador" size="small" stripedRows sortField="amarillas" :sortOrder="-1">
           <Column field="jugador" header="Jugador" sortable />
           <Column field="partidos" header="Partidos" sortable style="width: 90px" class="text-center" />
           <Column field="amarillas" header="Amarillas" sortable style="width: 100px">

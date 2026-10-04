@@ -44,7 +44,11 @@ const props = defineProps({
   prepareEdit: { type: Function, default: null },
   canExport: { type: Boolean, default: false },
   validateForm: { type: Function, default: null },
-  seccion: { type: String, default: null }
+  seccion: { type: String, default: null },
+  // Orden inicial de la tabla (también en la vista de móvil): campo y
+  // 1 = ascendente, -1 = descendente.
+  sortField: { type: String, default: null },
+  sortOrder: { type: Number, default: 1 }
 });
 
 const emit = defineEmits(['changed', 'data-loaded', 'delete-error']);
@@ -363,6 +367,14 @@ async function cargar() {
   try {
     const data = await props.service.listar(props.listParams);
     items.value = data.map(item => ({ ...item }));
+    if (props.sortField) {
+      const campo = props.sortField;
+      items.value.sort((a, b) => {
+        const va = a[campo] ?? 0;
+        const vb = b[campo] ?? 0;
+        return (va > vb ? 1 : va < vb ? -1 : 0) * props.sortOrder;
+      });
+    }
     emit('changed');
     emit('data-loaded', items.value);
   } catch {
@@ -758,6 +770,8 @@ watch(
       :value="items"
       v-model:selection="seleccionados"
       :dataKey="'id'"
+      :sortField="sortField || undefined"
+      :sortOrder="sortField ? sortOrder : undefined"
       :loading="cargando"
       :globalFilterFields="columns.map(c => c.field)"
       :filters="{ global: { value: filtroGlobal, matchMode: 'contains' } }"
