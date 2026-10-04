@@ -142,7 +142,8 @@ async function eventos(req, res, next) {
         categoria: p.plantilla?.categoria,
         resultado: p.resultado || null,
         jornada: p.jornada || null,
-        suspendido: p.suspendido ? true : false
+        suspendido: p.suspendido ? true : false,
+        acta_finalizada: !!p.acta_finalizada_at
       };
     });
 

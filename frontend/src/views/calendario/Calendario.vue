@@ -469,7 +469,8 @@ function contenidoEvento(arg) {
   const e = arg.event?.extendedProps;
   if (e?.tipo === 'partido') {
     const hora = escapeHtml(formatearHora(e.inicio));
-    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    // "*" = partido con el acta de RFAF ya finalizada.
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—') + (e.acta_finalizada ? ' *' : '');
     const icono = e.es_local
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
       : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';

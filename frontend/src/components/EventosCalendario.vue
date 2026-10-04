@@ -195,7 +195,8 @@ function contenidoEvento(arg) {
   const e = arg.event?.extendedProps;
   if (e?.tipo === 'partido') {
     const hora = escapeHtml(formatearHora(e.inicio));
-    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    // "*" = partido con el acta de RFAF ya finalizada.
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—') + (e.acta_finalizada ? ' *' : '');
     const icono = e.es_local
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
       : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
@@ -778,7 +779,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
       <DataTable :value="partidosOrdenados" :loading="cargandoPartidos" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
                  responsiveLayout="scroll" class="ar-datatable">
         <Column header="Categoría">
-          <template #body="{ data }">{{ data.plantilla?.categoria?.alias || data.plantilla?.categoria?.nombre || '—' }}</template>
+          <template #body="{ data }">{{ data.plantilla?.categoria?.alias || data.plantilla?.categoria?.nombre || '—' }}{{ data.acta_finalizada_at ? ' *' : '' }}</template>
         </Column>
         <Column header="Fecha">
           <template #body="{ data }">{{ data.fecha ? new Date(data.fecha).toLocaleDateString('es-ES') : '—' }}</template>

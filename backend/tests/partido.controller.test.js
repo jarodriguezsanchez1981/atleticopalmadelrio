@@ -708,6 +708,7 @@ describe('Sección Partidos · partido.controller', () => {
       expect(Sancion.create).toHaveBeenCalledTimes(1);
       expect(Sancion.create).toHaveBeenCalledWith({ id_partido: 1, id_jugador: 900, amarilla: 1, roja: 0 });
       expect(partido.resultado).toBe('2-1');
+      expect(partido.acta_finalizada_at).toBeInstanceOf(Date);
       expect(partido.save).toHaveBeenCalled();
       expect(res._json).toEqual({
         resultado: '2-1',
@@ -771,6 +772,7 @@ describe('Sección Partidos · partido.controller', () => {
       expect(res._status).toBe(502);
       expect(PartidoJugador.destroy).not.toHaveBeenCalled();
       expect(partido.save).not.toHaveBeenCalled();
+      expect(partido.acta_finalizada_at).toBeUndefined();
     });
   });
 });

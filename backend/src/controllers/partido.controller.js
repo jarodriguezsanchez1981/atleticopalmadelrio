@@ -399,6 +399,7 @@ async function finalizarActa(req, res, next) {
     partido.codigo_acta = codigo_acta;
     partido.codigo_primaria = codigo_primaria;
     partido.resultado = acta.resultado;
+    partido.acta_finalizada_at = new Date();
     await partido.save();
 
     res.json({ resultado: acta.resultado, actualizados, creados });
