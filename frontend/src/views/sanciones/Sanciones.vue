@@ -1,20 +1,71 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
 import CrudDataTable from '../../components/CrudDataTable.vue';
-import { sancionesService, partidosService, jugadoresService } from '../../services';
+import { sancionesService, partidosService, jugadoresService, plantillasService, temporadasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
+import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
+
+const TIPO_FUTBOL_11 = 2;
 
 const partidos = ref([]);
 const jugadores = ref([]);
+const plantillas = ref([]);
+const temporadas = ref([]);
+const sanciones = ref([]);
 
 async function cargarOpciones() {
-  const [pts, jugs] = await Promise.all([
+  const [pts, jugs, pls, temps, sancs] = await Promise.all([
     partidosService.listar(),
-    jugadoresService.listar()
+    jugadoresService.listar(),
+    plantillasService.listar(),
+    temporadasService.listar(),
+    sancionesService.listar()
   ]);
   partidos.value = pts;
   jugadores.value = jugs;
+  plantillas.value = pls;
+  temporadas.value = temps;
+  sanciones.value = sancs;
 }
+
+/** Una tabla por plantilla de Fútbol 11 de la temporada actual, con las
+ * tarjetas de los partidos de esa plantilla sumadas por jugador. */
+const acumuladosFutbol11 = computed(() => {
+  const plantillasF11 = filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
+    .filter((p) => p.categoria?.id_tipofutbol === TIPO_FUTBOL_11)
+    .sort((a, b) => (a.categoria?.orden ?? 999) - (b.categoria?.orden ?? 999));
+  const plantillaDePartido = new Map(partidos.value.map((p) => [p.id, p.id_plantilla]));
+
+  return plantillasF11.map((plantilla) => {
+    const porJugador = new Map();
+    for (const s of sanciones.value) {
+      const idPlantilla = s.partido?.id_plantilla ?? plantillaDePartido.get(s.id_partido);
+      if (idPlantilla !== plantilla.id) continue;
+      const fila = porJugador.get(s.id_jugador) || {
+        id_jugador: s.id_jugador,
+        jugador: s.jugador ? `${s.jugador.nombre} ${s.jugador.apellidos}` : nombreJugador(s.id_jugador),
+        amarillas: 0,
+        rojas: 0,
+        partidos: 0
+      };
+      fila.amarillas += Number(s.amarilla) || 0;
+      fila.rojas += Number(s.roja) || 0;
+      fila.partidos += 1;
+      porJugador.set(s.id_jugador, fila);
+    }
+    const filas = [...porJugador.values()].sort((a, b) =>
+      b.rojas - a.rojas || b.amarillas - a.amarillas || a.jugador.localeCompare(b.jugador, 'es'));
+    return {
+      id: plantilla.id,
+      titulo: `${plantilla.categoria?.nombre || 'Plantilla'} · ${plantilla.temporada?.nombre || ''}`,
+      filas,
+      totalAmarillas: filas.reduce((n, f) => n + f.amarillas, 0),
+      totalRojas: filas.reduce((n, f) => n + f.rojas, 0)
+    };
+  });
+});
 
 onMounted(async () => {
   await cargarOpciones();
@@ -83,6 +134,7 @@ function nombreJugador(id) {
 
 <template>
 <SectionGuard seccion="sanciones">
+  <div class="flex flex-col gap-6">
   <CrudDataTable
     title="Sanciones"
     seccion="sanciones"
@@ -115,5 +167,51 @@ function nombreJugador(id) {
       {{ data.jugador ? `${data.jugador.nombre} ${data.jugador.apellidos}` : nombreJugador(data.id_jugador) }}
     </template>
   </CrudDataTable>
+
+  <section v-if="acumuladosFutbol11.length" class="flex flex-col gap-4">
+    <div>
+      <h2 class="font-display text-lg font-bold text-club-green">Tarjetas acumuladas · Fútbol 11</h2>
+      <p class="text-sm text-ink-tertiary">Suma de tarjetas por jugador en los partidos de cada plantilla de la temporada actual.</p>
+    </div>
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div v-for="t in acumuladosFutbol11" :key="t.id" class="rounded-xl border border-line bg-white p-3">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-semibold">
+              <i class="pi pi-circle-fill text-[8px]"></i>{{ t.totalAmarillas }}
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold">
+              <i class="pi pi-circle-fill text-[8px]"></i>{{ t.totalRojas }}
+            </span>
+          </div>
+        </div>
+        <DataTable :value="t.filas" dataKey="id_jugador" size="small" stripedRows>
+          <Column field="jugador" header="Jugador" sortable />
+          <Column field="partidos" header="Partidos" sortable style="width: 90px" class="text-center" />
+          <Column field="amarillas" header="Amarillas" sortable style="width: 100px">
+            <template #body="{ data }">
+              <span v-if="data.amarillas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
+                <i class="pi pi-circle-fill text-[8px]"></i>{{ data.amarillas }}
+              </span>
+              <span v-else class="text-ink-tertiary">0</span>
+            </template>
+          </Column>
+          <Column field="rojas" header="Rojas" sortable style="width: 90px">
+            <template #body="{ data }">
+              <span v-if="data.rojas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
+                <i class="pi pi-circle-fill text-[8px]"></i>{{ data.rojas }}
+              </span>
+              <span v-else class="text-ink-tertiary">0</span>
+            </template>
+          </Column>
+          <template #empty>
+            <div class="text-center text-ink-tertiary py-3 text-sm">Sin tarjetas en esta plantilla.</div>
+          </template>
+        </DataTable>
+      </div>
+    </div>
+  </section>
+  </div>
 </SectionGuard>
 </template>
