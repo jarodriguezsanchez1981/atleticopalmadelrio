@@ -12,7 +12,6 @@ router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
 router.post('/', requireEditar('entrenamientos'), ctrl.crear);
 router.put('/:id', requireEditar('entrenamientos'), ctrl.actualizar);
-router.patch('/:id/mover', requireEditar('entrenamientos'), ctrl.mover);
 router.delete('/:id', requireEditar('entrenamientos'), ctrl.eliminar);
 
 module.exports = router;

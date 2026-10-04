@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../services/index.js', () => ({
-  partidosService: { actualizar: vi.fn().mockResolvedValue({}) },
-  entrenamientosService: { mover: vi.fn().mockResolvedValue({}) },
-  torneosService: { actualizar: vi.fn().mockResolvedValue({}) }
+  partidosService: { actualizar: vi.fn().mockResolvedValue({}) }
 }));
 
-import { partidosService, entrenamientosService, torneosService } from '../services/index.js';
+import { partidosService } from '../services/index.js';
 import { moverEvento, puedeMoverEvento } from '../utils/moverEvento.js';
 
 /** Evento como lo entrega FullCalendar en eventDrop (event / oldEvent). */
@@ -41,16 +39,12 @@ describe('moverEvento', () => {
     expect(partidosService.actualizar.mock.calls[0][1].fecha).toMatch(/T00:00:00.000Z$/);
   });
 
-  it('entrenamiento: usa la ruta mover (no toca la serie)', async () => {
-    const [ev, viejo] = evento('entrenamiento', '2026-10-06T16:00:00.000Z', '2026-10-07T16:00:00.000Z');
-    await moverEvento(ev, viejo);
-    expect(entrenamientosService.mover).toHaveBeenCalledWith(7, '2026-10-07T16:00:00.000Z');
-  });
-
-  it('torneo: guarda solo el día (fecha sin hora)', async () => {
-    const [ev, viejo] = evento('torneo', '2026-10-10T10:00:00', '2026-10-11T10:00:00');
-    await moverEvento(ev, viejo);
-    expect(torneosService.actualizar).toHaveBeenCalledWith(7, { fecha: '2026-10-11' });
+  it('entrenamientos, torneos y festivos no se pueden mover', async () => {
+    for (const tipo of ['entrenamiento', 'torneo']) {
+      const [ev, viejo] = evento(tipo, '2026-10-06T16:00:00.000Z', '2026-10-07T16:00:00.000Z');
+      await expect(moverEvento(ev, viejo)).rejects.toThrow();
+    }
+    expect(partidosService.actualizar).not.toHaveBeenCalled();
   });
 
   it('festivos u otros eventos no se pueden mover', async () => {
@@ -60,10 +54,12 @@ describe('moverEvento', () => {
 });
 
 describe('puedeMoverEvento', () => {
-  const auth = { puedeEditar: (s) => s === 'partidos' };
-  it('depende del permiso de edición de la sección del evento', () => {
-    expect(puedeMoverEvento({ tipo: 'partido' }, auth)).toBe(true);
-    expect(puedeMoverEvento({ tipo: 'entrenamiento' }, auth)).toBe(false);
-    expect(puedeMoverEvento({ tipo: 'festivo' }, auth)).toBe(false);
+  it('solo partidos, y con permiso de edición en Partidos', () => {
+    const todo = { puedeEditar: () => true };
+    expect(puedeMoverEvento({ tipo: 'partido' }, todo)).toBe(true);
+    expect(puedeMoverEvento({ tipo: 'entrenamiento' }, todo)).toBe(false);
+    expect(puedeMoverEvento({ tipo: 'torneo' }, todo)).toBe(false);
+    expect(puedeMoverEvento({ tipo: 'festivo' }, todo)).toBe(false);
+    expect(puedeMoverEvento({ tipo: 'partido' }, { puedeEditar: () => false })).toBe(false);
   });
 });

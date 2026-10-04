@@ -1,16 +1,9 @@
-import { partidosService, entrenamientosService, torneosService } from '../services';
+import { partidosService } from '../services';
 
-/** Sección cuyo permiso de edición hace falta para mover cada tipo de evento
- * arrastrándolo en el calendario (los festivos no se mueven). */
-const SECCION_POR_TIPO = { partido: 'partidos', entrenamiento: 'entrenamientos', torneo: 'torneo' };
-
+/** Solo los partidos se pueden mover arrastrándolos en el calendario, y solo
+ * con permiso de edición en Partidos. */
 export function puedeMoverEvento(evento, auth) {
-  const seccion = SECCION_POR_TIPO[evento?.tipo];
-  return !!seccion && auth.puedeEditar(seccion);
-}
-
-function fechaLocalISO(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return evento?.tipo === 'partido' && auth.puedeEditar('partidos');
 }
 
 /** Días naturales (hora local) entre dos fechas. */
@@ -20,24 +13,20 @@ function diasEntre(desde, hasta) {
   return Math.round((b - a) / 86400000);
 }
 
-/** Guarda en el backend el nuevo día de un evento soltado en otro día del
+/** Guarda en el backend el nuevo día de un partido soltado en otro día del
  * calendario (eventDrop de FullCalendar), manteniendo su hora. */
 export async function moverEvento(evento, eventoAnterior) {
   const e = evento.extendedProps;
+  if (e.tipo !== 'partido') throw new Error('Solo se pueden mover partidos.');
   const id = e.base_id ?? Number(String(evento.id).split('-').pop());
-  if (e.tipo === 'partido') {
-    // Un partido sin hora se guarda a las 00:00 UTC: se desplaza el día en UTC
-    // para que siga "sin hora" aunque entre medias cambie el horario de verano.
-    const original = new Date(e.inicio);
-    let fecha = evento.start.toISOString();
-    if (original.getUTCHours() === 0 && original.getUTCMinutes() === 0) {
-      const d = new Date(original);
-      d.setUTCDate(d.getUTCDate() + diasEntre(eventoAnterior.start, evento.start));
-      fecha = d.toISOString();
-    }
-    return partidosService.actualizar(id, { fecha });
+  // Un partido sin hora se guarda a las 00:00 UTC: se desplaza el día en UTC
+  // para que siga "sin hora" aunque entre medias cambie el horario de verano.
+  const original = new Date(e.inicio);
+  let fecha = evento.start.toISOString();
+  if (original.getUTCHours() === 0 && original.getUTCMinutes() === 0) {
+    const d = new Date(original);
+    d.setUTCDate(d.getUTCDate() + diasEntre(eventoAnterior.start, evento.start));
+    fecha = d.toISOString();
   }
-  if (e.tipo === 'entrenamiento') return entrenamientosService.mover(id, evento.start.toISOString());
-  if (e.tipo === 'torneo') return torneosService.actualizar(id, { fecha: fechaLocalISO(evento.start) });
-  throw new Error('Este evento no se puede mover.');
+  return partidosService.actualizar(id, { fecha });
 }

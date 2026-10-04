@@ -606,13 +606,13 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   }
 }
 
-/** Al soltar un evento en otro día: se guarda el nuevo día (misma hora). Si el
+/** Al soltar un partido en otro día: se guarda el nuevo día (misma hora). Si el
  * backend lo rechaza (p.ej. la plantilla ya tiene otro evento ese día), el
- * evento vuelve a su sitio. */
+ * partido vuelve a su sitio. */
 async function onEventDrop(info) {
   try {
     await moverEvento(info.event, info.oldEvent);
-    toast.add({ severity: 'success', summary: 'Evento movido', detail: `Movido al ${info.event.start.toLocaleDateString('es-ES')}.`, life: 3000 });
+    toast.add({ severity: 'success', summary: 'Partido movido', detail: `Movido al ${info.event.start.toLocaleDateString('es-ES')}.`, life: 3000 });
     emitirCambio();
     refrescar();
   } catch (err) {
@@ -620,7 +620,7 @@ async function onEventDrop(info) {
     toast.add({
       severity: 'error',
       summary: 'No se pudo mover',
-      detail: err.response?.data?.message || err.message || 'No se pudo mover el evento.',
+      detail: err.response?.data?.message || err.message || 'No se pudo mover el partido.',
       life: 5000
     });
   }
@@ -695,8 +695,8 @@ const calendarOptions = {
   eventContent: contenidoEvento,
   eventClick: onEventClick,
   dateClick: onDateClick,
-  // Los eventos se pueden arrastrar a otro día (cada uno según permisos, ver
-  // puedeMoverEvento); la duración no se cambia.
+  // Los partidos se pueden arrastrar a otro día (con permiso de edición en
+  // Partidos, ver puedeMoverEvento); la duración no se cambia.
   editable: true,
   eventDurationEditable: false,
   eventDrop: onEventDrop,

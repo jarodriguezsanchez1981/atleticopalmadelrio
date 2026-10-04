@@ -40,9 +40,7 @@ export const entrenadoresService = crudService('entrenadores');
 export const entrenamientosService = {
   ...crudService('entrenamientos'),
   // alcance: 'serie' además elimina el resto de semanas de la misma serie recurrente.
-  eliminar: (id, alcance) => api.delete(`/entrenamientos/${id}`, { params: alcance ? { alcance } : undefined }).then(r => r.data),
-  // Solo cambia el día de esta sesión (arrastrar en el calendario), sin tocar su serie.
-  mover: (id, fecha) => api.patch(`/entrenamientos/${id}/mover`, { fecha }).then(r => r.data)
+  eliminar: (id, alcance) => api.delete(`/entrenamientos/${id}`, { params: alcance ? { alcance } : undefined }).then(r => r.data)
 };
 export const partidosService = {
   ...crudService('partidos'),
