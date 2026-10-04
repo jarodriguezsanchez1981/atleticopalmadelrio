@@ -722,6 +722,13 @@ async function finalizarActa(extra = {}) {
       detail: `${r.actualizados?.length || 0} jugador(es) con sus goles y tarjetas.${creados}`,
       life: 8000
     });
+    // Los jugadores y plantillas se cargan al abrir el formulario: sin
+    // recargarlos, los recién creados se verían como "—" en la tabla.
+    if (r.creados?.length) {
+      const [jugs, pls] = await Promise.all([jugadoresService.listar(), plantillasService.listar()]);
+      jugadores.value = jugs;
+      plantillas.value = pls;
+    }
     await cargarRegistro();
   } catch (err) {
     toast.add({
