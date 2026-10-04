@@ -651,6 +651,10 @@ describe('Sección Partidos · partido.controller', () => {
       Jugador.create.mockReset();
       PlantillaJugador.create.mockReset();
       Plantilla.findAll.mockReset();
+      Sancion.destroy.mockReset();
+      Sancion.create.mockReset();
+      Sancion.findOne.mockReset();
+      Sancion.findOne.mockResolvedValue(null);
       leerActa = vi.spyOn(rfafActa, 'leerActa');
       leerActa.mockReset();
       leerActa.mockResolvedValue(ACTA);
@@ -716,6 +720,13 @@ describe('Sección Partidos · partido.controller', () => {
         { id_partido: 1, id_jugador: 900, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2 },
         { id_partido: 1, id_jugador: 950, es_local: true, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 }
       ]);
+      // Sanciones: se quitan las de jugadores que ya no están y se crea la
+      // del que tiene amarilla; el que no tiene tarjetas no genera sanción.
+      expect(Sancion.destroy).toHaveBeenCalledWith({
+        where: { id_partido: 1, id_jugador: { [Op.notIn]: [900, 950] } }
+      });
+      expect(Sancion.create).toHaveBeenCalledTimes(1);
+      expect(Sancion.create).toHaveBeenCalledWith({ id_partido: 1, id_jugador: 900, amarilla: 1, roja: 0 });
       expect(partido.resultado).toBe('2-1');
       expect(partido.save).toHaveBeenCalled();
       expect(res._json).toEqual({
@@ -767,6 +778,24 @@ describe('Sección Partidos · partido.controller', () => {
       expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
         { id_partido: 1, id_jugador: 901, es_local: false, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 1 }
       ]);
+    });
+
+    it('actualiza la sanción existente de un jugador con roja', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      const conRoja = {
+        ...ACTA,
+        local: { ...ACTA.local, jugadores: [{ dorsal: 7, nombre: 'PEREZ GOMEZ, JUAN', titular: true, goles: 0, tarjeta_amarilla: 2, tarjeta_roja: 1 }] }
+      };
+      leerActa.mockResolvedValue(conRoja);
+      const existente = { amarilla: 1, roja: 0, save: vi.fn(), destroy: vi.fn() };
+      Sancion.findOne.mockResolvedValue(existente);
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(existente).toMatchObject({ amarilla: 2, roja: 1 });
+      expect(existente.save).toHaveBeenCalled();
+      expect(Sancion.create).not.toHaveBeenCalled();
     });
 
     it('si la sesión de RFAF ha caducado no toca el partido', async () => {

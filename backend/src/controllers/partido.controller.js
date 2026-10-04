@@ -337,7 +337,8 @@ function actaReenviada(acta) {
 /** Finaliza el partido con el acta oficial de RFAF (una sola petición a
  * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
  * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
- * aparecen en el acta, con sus goles y tarjetas. Cada jugador del acta se
+ * aparecen en el acta, con sus goles y tarjetas, y una sanción en Sanciones
+ * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se
  * busca por nombre primero en la plantilla del partido y luego en todos los
  * jugadores.
  *
@@ -448,6 +449,13 @@ async function finalizarActa(req, res, next) {
       where: { id_partido: partido.id, es_local: esLocal, id_jugador: { [Op.ne]: null } }
     });
     if (filas.length) await PartidoJugador.bulkCreate(filas);
+
+    // Sanciones: una por jugador con tarjeta (las del resto, también las de
+    // jugadores que ya no están en el partido, se quitan).
+    await Sancion.destroy({
+      where: { id_partido: partido.id, id_jugador: { [Op.notIn]: filas.map((f) => f.id_jugador) } }
+    });
+    await sincronizarSanciones(partido, esLocal ? filas : [], esLocal ? [] : filas);
 
     partido.codigo_acta = codigo_acta;
     partido.codigo_primaria = codigo_primaria;
