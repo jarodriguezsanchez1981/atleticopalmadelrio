@@ -41,7 +41,6 @@ const jugadores = ref([]);
 const equiposJugadores = ref([]);
 const cargandoCatalogo = ref(false);
 const guardando = ref(false);
-const importandoActa = ref(false);
 
 const form = ref({});
 const partidosDelDia = ref([]);
@@ -659,70 +658,6 @@ async function guardarConAlcance(alcance) {
     guardando.value = false;
   }
 }
-
-/** Pide al backend que lea el acta oficial de RFAF y actualice los goles y
- * tarjetas de los jugadores del PALMA convocados a este partido en
- * partido_jugadores. Solo tiene sentido sobre un partido ya existente.
- * Si se pasa `html`, el backend lo usa directamente en vez de intentar
- * descargarlo (RFAF exige sesión iniciada para ver el acta, así que la
- * descarga automática normalmente falla; el archivo HTML guardado a mano
- * desde un navegador con sesión es la vía que sí funciona). */
-async function importarActa(html) {
-  if (!props.registroId) return;
-  if (!html && (!form.value.codigo_acta || !form.value.codigo_primaria)) {
-    toast.add({
-      severity: 'warn',
-      summary: 'Faltan códigos',
-      detail: 'Indica el código de acta y el código de primaria antes de importar.',
-      life: 4000
-    });
-    return;
-  }
-  importandoActa.value = true;
-  try {
-    const resultado = await partidosService.importarActa(props.registroId, {
-      codigo_acta: form.value.codigo_acta || undefined,
-      codigo_primaria: form.value.codigo_primaria || undefined,
-      html: html || undefined
-    });
-    const nActualizados = resultado.actualizados?.length || 0;
-    const nNoEncontrados = resultado.noEncontrados?.length || 0;
-    toast.add({
-      severity: nActualizados ? 'success' : 'warn',
-      summary: 'Acta importada',
-      detail: nNoEncontrados
-        ? `${nActualizados} jugador(es) actualizados. Sin encontrar en la plantilla: ${resultado.noEncontrados.join(', ')}.`
-        : `${nActualizados} jugador(es) actualizados con sus goles y tarjetas.`,
-      life: 8000
-    });
-    await cargarRegistro();
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: err.response?.data?.message || 'No se pudo importar el acta.',
-      life: 6000
-    });
-  } finally {
-    importandoActa.value = false;
-  }
-}
-
-const inputHtmlActa = ref();
-function abrirSelectorHtmlActa() {
-  inputHtmlActa.value?.click();
-}
-function onHtmlActaSeleccionado(event) {
-  const file = event.target.files?.[0];
-  event.target.value = '';
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => importarActa(e.target.result);
-  reader.onerror = () => {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo leer el archivo.', life: 4000 });
-  };
-  reader.readAsText(file, 'utf-8');
-}
 </script>
 
 <template>
@@ -909,21 +844,6 @@ function onHtmlActaSeleccionado(event) {
             <InputText v-model="form.codigo_acta" placeholder="Código de acta (CodActa)" class="w-full sm:flex-1" />
             <InputText v-model="form.codigo_primaria" placeholder="Código de primaria" class="w-full sm:flex-1" />
           </div>
-          <div v-if="registroId" class="flex flex-col sm:flex-row gap-2">
-            <Button type="button" label="Importar acta RFAF" icon="pi pi-cloud-download"
-                    outlined :loading="importandoActa" class="!text-club-green !border-club-green/50 whitespace-nowrap"
-                    @click="importarActa()" />
-            <Button type="button" label="Importar desde archivo HTML" icon="pi pi-upload"
-                    outlined :loading="importandoActa" class="!text-club-green !border-club-green/50 whitespace-nowrap"
-                    @click="abrirSelectorHtmlActa" />
-            <input ref="inputHtmlActa" type="file" accept=".html,.htm" class="hidden" @change="onHtmlActaSeleccionado" />
-          </div>
-          <p class="text-xs text-ink-tertiary">
-            Trae de RFAF los goles y tarjetas de los jugadores del PALMA convocados a este partido.
-            RFAF suele exigir sesión iniciada para ver el acta: si "Importar acta RFAF" falla, guarda la
-            página del acta desde tu navegador (con tu sesión de RFAF abierta) como HTML e impórtala con
-            el segundo botón.
-          </p>
         </div>
 
         <div class="flex flex-col gap-1.5">
