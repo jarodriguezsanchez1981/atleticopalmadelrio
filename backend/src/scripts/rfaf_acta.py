@@ -64,6 +64,9 @@ def descargar_acta(cod_primaria, cod_acta):
     if res.status_code != 200:
         raise RuntimeError(f"RFAF respondió {res.status_code} al pedir el acta.")
     res.encoding = res.encoding or "utf-8"
+    # Con la sesión caducada RFAF a veces responde 200 con la página vacía.
+    if not res.text.strip() or "nlogin" in res.text.lower():
+        raise SesionCaducada("La sesión de RFAF ha caducado: hay que renovar RFAF_COOKIE.")
     return res.text
 
 
