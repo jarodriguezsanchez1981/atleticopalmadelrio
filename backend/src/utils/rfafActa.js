@@ -11,9 +11,10 @@ class ErrorActa extends Error {
   }
 }
 
-/** Sesión anónima de RFAF de la última lectura: reutilizarla permite pedir el
- * acta con una sola petición mientras siga viva (ver scripts/rfaf_acta.py). */
-let sesionRfaf = '';
+/** Sesión de RFAF: arranca con RFAF_COOKIE (la JSESSIONID de una sesión
+ * abierta en un navegador, porque RFAF no crea sesiones útiles desde la IP del
+ * servidor) y se reutiliza mientras siga viva (ver scripts/rfaf_acta.py). */
+let sesionRfaf = process.env.RFAF_COOKIE || '';
 
 /** Lee el acta de RFAF con el script de Python. Devuelve { local, visitante,
  * resultado }. */

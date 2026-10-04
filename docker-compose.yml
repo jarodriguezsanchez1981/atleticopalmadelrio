@@ -120,6 +120,10 @@ services:
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_USER: ${SEED_ADMIN_USER:-admin}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Define SEED_ADMIN_PASSWORD en tu .env}
+      # JSESSIONID de una sesión de rfaf.es abierta en un navegador para el
+      # botón "Finalizar Acta" (desde la IP del EC2 RFAF no crea sesiones).
+      # Caduca: cuando falle, poner una nueva y recrear el backend.
+      RFAF_COOKIE: ${RFAF_COOKIE:-}
     volumes:
       # migrate.js busca database/migrations en la raíz del contenedor
       # (../../../database/migrations desde backend/src/utils); sin este

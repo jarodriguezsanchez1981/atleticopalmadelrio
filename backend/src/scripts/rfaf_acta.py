@@ -5,7 +5,9 @@ suplentes), goles, tarjetas amarillas/rojas, resultado y la cookie de sesión.
 
 RFAF entrega el acta a cualquier visitante, pero exige una sesión (anónima):
 sin ella responde 302 a /pnfg/NLogin, que crea la sesión y redirige de vuelta
-al acta, igual que pasa al abrirla en un navegador. Para pedir a rfaf.es lo
+al acta, igual que pasa al abrirla en un navegador. Desde la IP del servidor
+(AWS) RFAF no crea sesiones útiles (devuelve el acta vacía), así que allí la
+primera sesión es la JSESSIONID de un navegador, en RFAF_COOKIE. Para pedir a rfaf.es lo
 mínimo (su robots.txt no admite robots), la sesión obtenida se devuelve en
 "cookie" y el backend la pasa en RFAF_COOKIE la siguiente vez: con la sesión
 viva basta una petición; si ha caducado son tres (acta, NLogin y acta). Solo
@@ -76,7 +78,10 @@ def descargar_acta(cod_primaria, cod_acta):
         raise RuntimeError(f"RFAF respondió {res.status_code} al pedir el acta.")
     res.encoding = res.encoding or "utf-8"
     if not res.text.strip():
-        raise RuntimeError("RFAF ha devuelto el acta vacía.")
+        # Pasa cuando la sesión no vale y RFAF no la deja crear (p.ej. desde
+        # la IP del servidor): hay que dar una JSESSIONID de un navegador.
+        raise RuntimeError("RFAF ha devuelto el acta vacía: la sesión de RFAF no es válida, "
+                           "hay que poner una JSESSIONID nueva en RFAF_COOKIE.")
     return res.text, sesion.headers.get("Cookie", "")
 
 
