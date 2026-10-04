@@ -419,14 +419,7 @@ function addJugadorConvocado(lado) {
   if (!nuevo) return;
   const opt = jugadoresEquipoDe(lado).find((o) => o.value === nuevo);
   if (!opt) return;
-  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
-  if (!form.value[campo]) form.value[campo] = [];
-  if (!form.value[campo].some((j) => valorJugadorConvocado(j) === opt.value)) {
-    const entrada = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 };
-    if (opt.tipo === 'jugador') entrada.id_jugador = opt.value;
-    else entrada.id_equipo_jugador = opt.value;
-    form.value[campo].push(entrada);
-  }
+  agregarJugadoresConvocados(lado, [opt]);
   if (lado === 'local') {
     nuevoJugadorLocal.value = null;
     keySelectJugadorLocal.value++;
@@ -434,6 +427,24 @@ function addJugadorConvocado(lado) {
     nuevoJugadorVisitante.value = null;
     keySelectJugadorVisitante.value++;
   }
+}
+
+/** Añade las opciones indicadas al lado, saltándose las que ya estén. */
+function agregarJugadoresConvocados(lado, opciones) {
+  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
+  if (!form.value[campo]) form.value[campo] = [];
+  for (const opt of opciones) {
+    if (form.value[campo].some((j) => valorJugadorConvocado(j) === opt.value)) continue;
+    const entrada = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 };
+    if (opt.tipo === 'jugador') entrada.id_jugador = opt.value;
+    else entrada.id_equipo_jugador = opt.value;
+    form.value[campo].push(entrada);
+  }
+}
+
+/** Añade de una vez todos los jugadores del equipo de ese lado. */
+function addPlantillaCompleta(lado) {
+  agregarJugadoresConvocados(lado, jugadoresEquipoDe(lado));
 }
 
 function removeJugadorConvocado(lado, valor) {
@@ -959,6 +970,8 @@ function onHtmlActaSeleccionado(event) {
                     class="flex-1" filter showClear />
             <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
                     @click="addJugadorConvocado('local')" />
+            <Button type="button" label="Plantilla completa" icon="pi pi-users" outlined class="!text-club-green !border-club-green/50"
+                    :disabled="!opcionesJugadorLocalDisponibles.length" @click="addPlantillaCompleta('local')" />
           </div>
         </div>
 
@@ -1001,6 +1014,8 @@ function onHtmlActaSeleccionado(event) {
                     class="flex-1" filter showClear />
             <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
                     @click="addJugadorConvocado('visitante')" />
+            <Button type="button" label="Plantilla completa" icon="pi pi-users" outlined class="!text-club-green !border-club-green/50"
+                    :disabled="!opcionesJugadorVisitanteDisponibles.length" @click="addPlantillaCompleta('visitante')" />
           </div>
         </div>
       </template>
