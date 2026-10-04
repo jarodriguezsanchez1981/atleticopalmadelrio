@@ -150,13 +150,13 @@ function nombreJugador(id) {
     </template>
     <template #cell-amarilla="{ data }">
       <span v-if="data.amarilla" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
-        <i class="pi pi-circle-fill text-[8px]"></i>{{ data.amarilla }}
+        <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ data.amarilla }}
       </span>
       <span v-else class="text-ink-tertiary">0</span>
     </template>
     <template #cell-roja="{ data }">
       <span v-if="data.roja" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
-        <i class="pi pi-circle-fill text-[8px]"></i>{{ data.roja }}
+        <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ data.roja }}
       </span>
       <span v-else class="text-ink-tertiary">0</span>
     </template>
@@ -179,10 +179,10 @@ function nombreJugador(id) {
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
           <div class="flex items-center gap-1.5 text-xs">
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-semibold">
-              <i class="pi pi-circle-fill text-[8px]"></i>{{ t.totalAmarillas }}
+              <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ t.totalAmarillas }}
             </span>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold">
-              <i class="pi pi-circle-fill text-[8px]"></i>{{ t.totalRojas }}
+              <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ t.totalRojas }}
             </span>
           </div>
         </div>
@@ -192,7 +192,7 @@ function nombreJugador(id) {
           <Column field="amarillas" header="Amarillas" sortable style="width: 100px">
             <template #body="{ data }">
               <span v-if="data.amarillas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
-                <i class="pi pi-circle-fill text-[8px]"></i>{{ data.amarillas }}
+                <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ data.amarillas }}
               </span>
               <span v-else class="text-ink-tertiary">0</span>
             </template>
@@ -200,7 +200,7 @@ function nombreJugador(id) {
           <Column field="rojas" header="Rojas" sortable style="width: 90px">
             <template #body="{ data }">
               <span v-if="data.rojas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
-                <i class="pi pi-circle-fill text-[8px]"></i>{{ data.rojas }}
+                <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ data.rojas }}
               </span>
               <span v-else class="text-ink-tertiary">0</span>
             </template>
@@ -215,3 +215,17 @@ function nombreJugador(id) {
   </div>
 </SectionGuard>
 </template>
+
+<style scoped>
+/* Tarjeta de árbitro en miniatura (en lugar de una bola de color). */
+.tarjeta {
+  display: inline-block;
+  width: 8px;
+  height: 11px;
+  border-radius: 1.5px;
+  transform: rotate(8deg);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+.tarjeta-amarilla { background: #facc15; }
+.tarjeta-roja { background: #dc2626; }
+</style>
