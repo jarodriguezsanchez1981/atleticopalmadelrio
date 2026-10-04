@@ -226,4 +226,28 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+/** Mueve una sesión a otro día (arrastrándola en el calendario): solo cambia
+ * su fecha. A diferencia de actualizar, no toca la serie semanal (ni su fecha
+ * límite ni genera semanas nuevas): la sesión sigue perteneciendo a su serie. */
+async function mover(req, res, next) {
+  try {
+    const entrenamiento = await Entrenamiento.findByPk(req.params.id);
+    if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+    const { fecha } = req.body;
+    if (!fecha || Number.isNaN(new Date(fecha).getTime())) {
+      return res.status(400).json({ message: 'La fecha es obligatoria.' });
+    }
+    const conflicto = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: entrenamiento.id_plantilla, fecha,
+      tipoActual: null, excluirEntrenamientoId: entrenamiento.id
+    });
+    if (conflicto) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
+    }
+    entrenamiento.fecha = fecha;
+    await entrenamiento.save();
+    res.json(entrenamiento);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, mover };

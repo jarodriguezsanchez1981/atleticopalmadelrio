@@ -23,6 +23,7 @@ import EventoFormCalendario from './EventoFormCalendario.vue';
 import EquipacionPrenda from './EquipacionPrenda.vue';
 import CalendarioLista from './CalendarioLista.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
+import { moverEvento, puedeMoverEvento } from '../utils/moverEvento';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { tituloCalendario } from '../utils/tituloCalendario';
 import { generarPdfPartidos } from '../utils/pdfPartidos';
@@ -295,6 +296,7 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
       return {
         id: e.id,
         title: etiquetaEvento(e),
+        editable: puedeMoverEvento(e, auth),
         start: e.inicio,
         color: e.tipo === 'partido' ? COLOR_PARTIDO : COLOR_ENTRENAMIENTO,
         extendedProps: e,
@@ -341,6 +343,7 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
           borderColor: '#D97706',
           textColor: '#78350F',
           classNames: ['fc-festivo-nacional'],
+      editable: false,
           extendedProps: f.extendedProps
         }))
       : [];
@@ -603,6 +606,26 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   }
 }
 
+/** Al soltar un evento en otro día: se guarda el nuevo día (misma hora). Si el
+ * backend lo rechaza (p.ej. la plantilla ya tiene otro evento ese día), el
+ * evento vuelve a su sitio. */
+async function onEventDrop(info) {
+  try {
+    await moverEvento(info.event, info.oldEvent);
+    toast.add({ severity: 'success', summary: 'Evento movido', detail: `Movido al ${info.event.start.toLocaleDateString('es-ES')}.`, life: 3000 });
+    emitirCambio();
+    refrescar();
+  } catch (err) {
+    info.revert();
+    toast.add({
+      severity: 'error',
+      summary: 'No se pudo mover',
+      detail: err.response?.data?.message || err.message || 'No se pudo mover el evento.',
+      life: 5000
+    });
+  }
+}
+
 function refrescar() {
   const api = calendarRef.value?.getApi();
   if (api) {
@@ -672,7 +695,11 @@ const calendarOptions = {
   eventContent: contenidoEvento,
   eventClick: onEventClick,
   dateClick: onDateClick,
-  editable: false,
+  // Los eventos se pueden arrastrar a otro día (cada uno según permisos, ver
+  // puedeMoverEvento); la duración no se cambia.
+  editable: true,
+  eventDurationEditable: false,
+  eventDrop: onEventDrop,
   selectable: false,
   dayMaxEvents: false,
   fixedWeekCount: false,

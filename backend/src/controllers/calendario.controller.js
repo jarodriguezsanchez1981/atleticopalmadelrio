@@ -130,6 +130,7 @@ async function eventos(req, res, next) {
       return {
         id: `partido-${p.id}`,
         tipo: 'partido',
+        base_id: p.id,
         titulo,
         inicio: p.fecha,
         lugar: p.lugar?.nombre ?? null,
