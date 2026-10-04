@@ -11,20 +11,27 @@ class ErrorActa extends Error {
   }
 }
 
-/** Lee el acta de RFAF con el script de Python (una sola petición a rfaf.es
- * con la sesión de RFAF_COOKIE). Devuelve { local, visitante, resultado }. */
+/** Sesión anónima de RFAF de la última lectura: reutilizarla permite pedir el
+ * acta con una sola petición mientras siga viva (ver scripts/rfaf_acta.py). */
+let sesionRfaf = '';
+
+/** Lee el acta de RFAF con el script de Python. Devuelve { local, visitante,
+ * resultado }. */
 function leerActa(codigoPrimaria, codigoActa, { script = SCRIPT, args } = {}) {
   return new Promise((resolve, reject) => {
     execFile(
       'python3',
       [script, ...(args || [String(codigoPrimaria), String(codigoActa)])],
-      { timeout: 45000, env: { PATH: process.env.PATH, RFAF_COOKIE: process.env.RFAF_COOKIE || '' } },
+      { timeout: 45000, env: { PATH: process.env.PATH, RFAF_COOKIE: sesionRfaf } },
       (err, stdout) => {
         let salida = null;
         try { salida = JSON.parse(stdout); } catch { /* sin JSON: fallo del propio script */ }
-        if (salida && !salida.error && !err) return resolve(salida);
-        if (err?.code === 2) return reject(new ErrorActa(salida?.error || 'La sesión de RFAF ha caducado.', 503));
-        return reject(new ErrorActa(salida?.error || 'No se pudo leer el acta de RFAF.', 502));
+        if (!salida || salida.error || err) {
+          return reject(new ErrorActa(salida?.error || 'No se pudo leer el acta de RFAF.', 502));
+        }
+        const { cookie, ...acta } = salida;
+        if (cookie) sesionRfaf = cookie;
+        return resolve(acta);
       }
     );
   });

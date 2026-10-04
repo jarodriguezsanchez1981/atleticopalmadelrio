@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Lee el acta oficial de un partido en RFAF (NFG_CmpPartido) y la devuelve
 en JSON por stdout: equipos, jugadores que han jugado (titulares y
-suplentes), goles, tarjetas amarillas/rojas y resultado.
+suplentes), goles, tarjetas amarillas/rojas, resultado y la cookie de sesión.
 
-Hace UNA sola petición a rfaf.es (el robots.txt de RFAF no admite robots:
-nada de visitar la portada antes ni de reintentos). RFAF solo entrega el acta
-con sesión iniciada, así que la petición lleva la cookie de una sesión abierta
-a mano en el navegador, que se pasa en la variable de entorno RFAF_COOKIE.
+RFAF entrega el acta a cualquier visitante, pero exige una sesión (anónima):
+sin ella responde 302 a /pnfg/NLogin, que crea la sesión y redirige de vuelta
+al acta, igual que pasa al abrirla en un navegador. Para pedir a rfaf.es lo
+mínimo (su robots.txt no admite robots), la sesión obtenida se devuelve en
+"cookie" y el backend la pasa en RFAF_COOKIE la siguiente vez: con la sesión
+viva basta una petición; si ha caducado son tres (acta, NLogin y acta). Solo
+se siguen esas redirecciones, nunca a otra página, y sin reintentos.
 
 Uso:
   rfaf_acta.py <cod_primaria> <cod_acta>   descarga y parsea el acta
   rfaf_acta.py --html <fichero>            parsea un HTML ya guardado (tests)
 
-Salida con error: {"error": "..."} y código de salida 2 si la sesión de RFAF
-ha caducado (RFAF redirige a NLogin) o 1 para cualquier otro fallo.
+Salida con error: {"error": "..."} y código de salida 1.
 """
 
 import json
@@ -37,37 +39,45 @@ HEADERS = {
 }
 
 
-class SesionCaducada(Exception):
-    pass
+MAX_PETICIONES = 3
 
 
 def descargar_acta(cod_primaria, cod_acta):
+    """Devuelve (html, cookie). Ver el docstring del módulo."""
     import requests
+    from urllib.parse import urljoin, urlparse
 
+    sesion = requests.Session()
+    sesion.headers.update(HEADERS)
     cookie = os.environ.get("RFAF_COOKIE", "").strip()
-    if not cookie:
-        raise SesionCaducada("No hay sesión de RFAF configurada (RFAF_COOKIE).")
+    if cookie:
+        sesion.headers["Cookie"] = cookie
 
-    # Única petición a RFAF: sin seguir redirecciones (una redirección
-    # significa que la sesión no vale y seguirla sería otra petición).
-    res = requests.get(
-        URL_ACTA,
-        params={"cod_primaria": cod_primaria, "CodActa": cod_acta},
-        headers={**HEADERS, "Cookie": cookie},
-        timeout=30,
-        allow_redirects=False,
-    )
-    if 300 <= res.status_code < 400:
-        if "nlogin" in (res.headers.get("Location") or "").lower():
-            raise SesionCaducada("La sesión de RFAF ha caducado: hay que renovar RFAF_COOKIE.")
-        raise RuntimeError(f"RFAF ha redirigido a {res.headers.get('Location')}.")
+    url = requests.Request("GET", URL_ACTA, params={"cod_primaria": cod_primaria, "CodActa": cod_acta}).prepare().url
+    siguiente = url
+    for _ in range(MAX_PETICIONES):
+        res = sesion.get(siguiente, timeout=30, allow_redirects=False)
+        nueva = res.cookies.get("JSESSIONID")
+        if nueva:
+            # La sesión anterior ya no vale: a partir de aquí, la nueva.
+            sesion.headers["Cookie"] = f"JSESSIONID={nueva}"
+        if not 300 <= res.status_code < 400:
+            break
+        destino = urljoin(siguiente, res.headers.get("Location") or "")
+        parsed = urlparse(destino)
+        # Solo el ida y vuelta por NLogin que hace RFAF para crear la sesión.
+        if parsed.netloc != "www.rfaf.es" or (parsed.path != "/pnfg/NLogin" and destino != url):
+            raise RuntimeError(f"RFAF ha redirigido a una página inesperada ({destino}).")
+        siguiente = destino
+    else:
+        raise RuntimeError("RFAF no ha entregado el acta (demasiadas redirecciones).")
+
     if res.status_code != 200:
         raise RuntimeError(f"RFAF respondió {res.status_code} al pedir el acta.")
     res.encoding = res.encoding or "utf-8"
-    # Con la sesión caducada RFAF a veces responde 200 con la página vacía.
-    if not res.text.strip() or "nlogin" in res.text.lower():
-        raise SesionCaducada("La sesión de RFAF ha caducado: hay que renovar RFAF_COOKIE.")
-    return res.text
+    if not res.text.strip():
+        raise RuntimeError("RFAF ha devuelto el acta vacía.")
+    return res.text, sesion.headers.get("Cookie", "")
 
 
 def limpiar(texto):
@@ -209,18 +219,16 @@ def parsear_acta(html):
 
 def main(argv):
     try:
+        cookie = ""
         if len(argv) == 3 and argv[1] == "--html":
             with open(argv[2], encoding="utf-8") as f:
                 html = f.read()
         elif len(argv) == 3:
-            html = descargar_acta(argv[1], argv[2])
+            html, cookie = descargar_acta(argv[1], argv[2])
         else:
             raise RuntimeError("Uso: rfaf_acta.py <cod_primaria> <cod_acta> | --html <fichero>")
-        print(json.dumps(parsear_acta(html), ensure_ascii=False))
+        print(json.dumps({**parsear_acta(html), "cookie": cookie}, ensure_ascii=False))
         return 0
-    except SesionCaducada as e:
-        print(json.dumps({"error": str(e)}, ensure_ascii=False))
-        return 2
     except Exception as e:  # noqa: BLE001 - cualquier fallo se devuelve como JSON
         print(json.dumps({"error": str(e)}, ensure_ascii=False))
         return 1

@@ -798,15 +798,15 @@ describe('Sección Partidos · partido.controller', () => {
       expect(Sancion.create).not.toHaveBeenCalled();
     });
 
-    it('si la sesión de RFAF ha caducado no toca el partido', async () => {
+    it('si RFAF falla no toca el partido', async () => {
       const partido = partidoPalma();
       Partido.findByPk.mockResolvedValue(partido);
-      leerActa.mockRejectedValue(new rfafActa.ErrorActa('La sesión de RFAF ha caducado.', 503));
+      leerActa.mockRejectedValue(new rfafActa.ErrorActa('RFAF respondió 500 al pedir el acta.', 502));
 
       const { promesa, res } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
       await promesa;
 
-      expect(res._status).toBe(503);
+      expect(res._status).toBe(502);
       expect(PartidoJugador.destroy).not.toHaveBeenCalled();
       expect(partido.save).not.toHaveBeenCalled();
     });

@@ -146,19 +146,34 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
     expect(acta.local.jugadores.reduce((n, j) => n + j.tarjeta_amarilla, 0)).toBe(1);
   });
 
-  it('sin RFAF_COOKIE no llama a RFAF y avisa de que falta la sesión', async () => {
-    const cookie = process.env.RFAF_COOKIE;
-    delete process.env.RFAF_COOKIE;
-    try {
-      await expect(leerActa('1000120', '2733994', { script: SCRIPT })).rejects.toMatchObject({ status: 503 });
-    } finally {
-      if (cookie !== undefined) process.env.RFAF_COOKIE = cookie;
-    }
+  it('no devuelve la cookie dentro del acta', async () => {
+    const acta = await leer();
+    expect(acta).not.toHaveProperty('cookie');
   });
 
   it('devuelve 502 si el HTML no tiene el formato del acta', async () => {
     fs.writeFileSync(path.join(dir, 'vacio.html'), '<html><body>Nada</body></html>', 'utf-8');
     await expect(leerActa(null, null, { args: ['--html', path.join(dir, 'vacio.html')] }))
       .rejects.toMatchObject({ status: 502 });
+  });
+});
+
+describe('rfafActa · sesión de RFAF', () => {
+  let dir;
+  beforeAll(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acta-')); });
+  afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('reutiliza en la siguiente lectura la sesión que devolvió la anterior', async () => {
+    // Script falso: devuelve en "resultado" la cookie recibida y una sesión nueva.
+    const falso = path.join(dir, 'falso.py');
+    fs.writeFileSync(falso, [
+      'import json, os',
+      'print(json.dumps({"local": {}, "visitante": {}, "resultado": os.environ.get("RFAF_COOKIE", ""),',
+      '                  "cookie": "JSESSIONID=NUEVA"}))'
+    ].join('\n'));
+    const primera = await leerActa('1', '2', { script: falso });
+    const segunda = await leerActa('1', '2', { script: falso });
+    expect(primera).not.toHaveProperty('cookie');
+    expect(segunda.resultado).toBe('JSESSIONID=NUEVA');
   });
 });
