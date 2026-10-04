@@ -108,8 +108,12 @@ const partidosVisibles = computed(() =>
     : partidosPlantilla.value.filter((p) => !esPasado(p))
 );
 
+/** Con hora asignada, el partido ha pasado en cuanto llega esa hora; sin hora
+ * (guardado a las 00:00 UTC, ver horaPartido) se sigue mostrando todo el día. */
 function esPasado(partido) {
-  return new Date(partido.fecha) < new Date(new Date().toDateString());
+  const d = new Date(partido.fecha);
+  const sinHora = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  return sinHora ? d < new Date(new Date().toDateString()) : d < new Date();
 }
 
 function seleccionarPartido(partido) {
