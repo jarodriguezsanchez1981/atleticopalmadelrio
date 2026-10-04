@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch } from 'vue';
 import Dialog from 'primevue/dialog';
 import Select from 'primevue/select';
 import Button from 'primevue/button';
@@ -98,33 +98,19 @@ async function cargarPartidosDePlantilla(idPlantilla) {
   // (p.ej. sin permiso de calendario) se pinta un escudo genérico.
   const idsEquipos = partidosPlantilla.value.flatMap((p) => [p.id_equipo_local, p.id_equipo_visitante]);
   cargarEscudos(idsEquipos).catch(() => {});
-  await nextTick();
-  desplazarAlProximoPartido();
 }
 
-const listaPartidosRef = ref(null);
-
-/** Partidos que se muestran: al crear, todos los disponibles; al editar o ver,
- * solo el de la convocatoria (no se puede cambiar). */
+/** Partidos que se muestran: al crear, los disponibles de hoy en adelante; al
+ * editar o ver, solo el de la convocatoria (no se puede cambiar). */
 const partidosVisibles = computed(() =>
   (modoEdicion.value || props.soloLectura)
     ? partidosPlantilla.value.filter((p) => p.id === form.value.id_partido)
-    : partidosPlantilla.value
+    : partidosPlantilla.value.filter((p) => !esPasado(p))
 );
 
 function esPasado(partido) {
   return new Date(partido.fecha) < new Date(new Date().toDateString());
 }
-
-/** Deja a la vista el primer partido que aún no se ha jugado. */
-function desplazarAlProximoPartido() {
-  const lista = listaPartidosRef.value;
-  if (!lista) return;
-  const proximo = lista.querySelector('[data-proximo="true"]');
-  if (proximo) lista.scrollTop = proximo.offsetTop - lista.offsetTop - 4;
-}
-
-const idProximoPartido = computed(() => partidosVisibles.value.find((p) => !esPasado(p))?.id ?? null);
 
 function seleccionarPartido(partido) {
   if (modoEdicion.value || props.soloLectura) return;
@@ -473,19 +459,17 @@ async function guardar() {
       </div>
       <div v-else-if="!partidosVisibles.length"
            class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
-        Esta plantilla no tiene partidos de liga sin convocatoria.
+        Esta plantilla no tiene partidos de liga pendientes sin convocatoria.
       </div>
-      <div v-else ref="listaPartidosRef" class="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1 -mr-1">
+      <div v-else class="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1 -mr-1">
         <button
           v-for="p in partidosVisibles" :key="p.id" type="button"
-          :data-proximo="p.id === idProximoPartido"
           class="partido-opcion group w-full text-left rounded-xl border px-3 py-2.5 transition-colors"
           :class="[
             partidoSeleccionado?.id === p.id
               ? 'border-club-green bg-club-green/5 ring-1 ring-club-green'
               : 'border-line bg-white hover:border-club-green/40 hover:bg-fill-hover',
-            (modoEdicion || soloLectura) ? 'cursor-default' : 'cursor-pointer',
-            esPasado(p) && partidoSeleccionado?.id !== p.id ? 'opacity-60' : ''
+            (modoEdicion || soloLectura) ? 'cursor-default' : 'cursor-pointer'
           ]"
           @click="seleccionarPartido(p)"
         >
