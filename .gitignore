@@ -31,3 +31,7 @@ database/init 2.sql
 # Certificados TLS (Let's Encrypt) y retos ACME: se generan en el propio
 # servidor con reverse-proxy/init-letsencrypt.sh, nunca van al repo.
 reverse-proxy/certbot/
+
+# Python
+__pycache__/
+*.pyc
