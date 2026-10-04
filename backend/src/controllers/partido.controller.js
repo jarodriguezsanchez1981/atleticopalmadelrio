@@ -309,44 +309,14 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/** Valida el acta que reenvía el navegador en el segundo paso de
- * finalizarActa (la que devolvió el primero) y la deja solo con los campos
- * que se usan. Devuelve null si no tiene la forma esperada. */
-function actaReenviada(acta) {
-  const entero = (n) => (Number.isInteger(Number(n)) && Number(n) >= 0 ? Number(n) : 0);
-  const equipo = (e) => (e && Array.isArray(e.jugadores)
-    ? {
-        nombre: String(e.nombre || ''),
-        jugadores: e.jugadores
-          .filter((j) => j && typeof j.nombre === 'string' && j.nombre.trim())
-          .map((j) => ({
-            dorsal: Number.isInteger(j.dorsal) ? j.dorsal : null,
-            nombre: j.nombre.trim(),
-            goles: entero(j.goles),
-            tarjeta_amarilla: entero(j.tarjeta_amarilla),
-            tarjeta_roja: entero(j.tarjeta_roja)
-          }))
-      }
-    : null);
-  if (!acta || !/^\d+-\d+$/.test(acta.resultado || '')) return null;
-  const local = equipo(acta.local);
-  const visitante = equipo(acta.visitante);
-  return local && visitante ? { resultado: acta.resultado, local, visitante } : null;
-}
-
 /** Finaliza el partido con el acta oficial de RFAF (una sola petición a
  * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
  * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
  * aparecen en el acta, con sus goles y tarjetas, y una sanción en Sanciones
- * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se
- * busca por nombre primero en la plantilla del partido y luego en todos los
- * jugadores.
- *
- * Si alguno no existe, no se guarda nada y se responde { pendiente: true,
- * acta, nuevos } para que el usuario elija a qué plantilla asociar cada uno.
- * El navegador vuelve a llamar con { acta, plantillas: { <nombre del acta>:
- * id_plantilla } }: se usa ese acta ya leída (sin volver a pedirla a RFAF),
- * se crean los jugadores en Jugadores y en su plantilla, y se guarda. */
+ * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se busca por
+ * nombre primero en la plantilla del partido y luego en todos los jugadores;
+ * si no existe, se crea en Jugadores y se añade a la plantilla del partido con
+ * su dorsal del acta (devuelto en "creados"). */
 async function finalizarActa(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
@@ -364,15 +334,10 @@ async function finalizarActa(req, res, next) {
     }
 
     let acta;
-    if (req.body?.acta) {
-      acta = actaReenviada(req.body.acta);
-      if (!acta) return res.status(400).json({ message: 'El acta enviada no tiene el formato esperado.' });
-    } else {
-      try {
-        acta = await rfafActa.leerActa(codigo_primaria, codigo_acta);
-      } catch (err) {
-        return res.status(err.status || 502).json({ message: err.message });
-      }
+    try {
+      acta = await rfafActa.leerActa(codigo_primaria, codigo_acta);
+    } catch (err) {
+      return res.status(err.status || 502).json({ message: err.message });
     }
     const equipoActa = esLocal ? acta.local : acta.visitante;
 
@@ -385,9 +350,9 @@ async function finalizarActa(req, res, next) {
     const porNombre = new Map(jugadoresPlantilla.map((j) => [clave(j), j]));
     let todosPorNombre = null;
 
-    // Empareja cada jugador del acta; los que no existen quedan en "nuevos".
-    const emparejados = [];
-    const nuevos = [];
+    const filas = [];
+    const actualizados = [];
+    const creados = [];
     for (const rfaf of equipoActa.jugadores) {
       const nombreActa = rfafActa.normalizarNombre(rfaf.nombre);
       let jugador = porNombre.get(nombreActa);
@@ -400,36 +365,10 @@ async function finalizarActa(req, res, next) {
         }
         jugador = todosPorNombre.get(nombreActa);
       }
-      emparejados.push({ rfaf, jugador });
-      if (!jugador) nuevos.push({ nombreActa: rfaf.nombre, dorsal: rfaf.dorsal, ...rfafActa.nombreDesdeActa(rfaf.nombre) });
-    }
-
-    const plantillasElegidas = req.body?.plantillas || {};
-    const sinPlantilla = nuevos.filter((n) => !plantillasElegidas[n.nombreActa]);
-    if (sinPlantilla.length) {
-      return res.json({ pendiente: true, acta, nuevos: sinPlantilla });
-    }
-    const idsPlantilla = [...new Set(nuevos.map((n) => Number(plantillasElegidas[n.nombreActa])))];
-    if (idsPlantilla.length) {
-      const existentes = await Plantilla.findAll({ where: { id: idsPlantilla }, attributes: ['id'] });
-      if (existentes.length !== idsPlantilla.length) {
-        return res.status(400).json({ message: 'Alguna de las plantillas elegidas no existe.' });
-      }
-    }
-
-    const filas = [];
-    const actualizados = [];
-    const creados = [];
-    for (const { rfaf, jugador: encontrado } of emparejados) {
-      let jugador = encontrado;
       if (!jugador) {
-        const nuevo = nuevos.find((n) => n.nombreActa === rfaf.nombre);
-        jugador = await Jugador.create({ nombre: nuevo.nombre, apellidos: nuevo.apellidos });
-        await PlantillaJugador.create({
-          id_plantilla: Number(plantillasElegidas[rfaf.nombre]),
-          id_jugador: jugador.id,
-          dorsal: rfaf.dorsal ?? null
-        });
+        jugador = await Jugador.create(rfafActa.nombreDesdeActa(rfaf.nombre));
+        await PlantillaJugador.create({ id_plantilla: partido.id_plantilla, id_jugador: jugador.id, dorsal: rfaf.dorsal ?? null });
+        todosPorNombre.set(nombreActa, jugador);
         creados.push(`${jugador.nombre} ${jugador.apellidos}`);
       }
       if (filas.some((f) => f.id_jugador === jugador.id)) continue;
