@@ -649,7 +649,11 @@ describe('Sección Partidos · partido.controller', () => {
       PlantillaJugador.findAll.mockReset();
       PartidoJugador.bulkCreate.mockReset();
       Jugador.create.mockReset();
-      leerActa = vi.spyOn(rfafActa, 'leerActa').mockResolvedValue(ACTA);
+      PlantillaJugador.create.mockReset();
+      Plantilla.findAll.mockReset();
+      leerActa = vi.spyOn(rfafActa, 'leerActa');
+      leerActa.mockReset();
+      leerActa.mockResolvedValue(ACTA);
       PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 900 }]);
       // 1ª llamada: jugadores de la plantilla; 2ª: todos los jugadores.
       Jugador.findAll.mockImplementation(async ({ where } = {}) => (where
@@ -673,7 +677,7 @@ describe('Sección Partidos · partido.controller', () => {
       expect(leerActa).not.toHaveBeenCalled();
     });
 
-    it('lee el acta una sola vez, guarda el resultado, crea al que no existe y deja solo a los jugadores del acta', async () => {
+    it('si hay jugadores nuevos no guarda nada y pregunta su plantilla', async () => {
       const partido = partidoPalma();
       Partido.findByPk.mockResolvedValue(partido);
 
@@ -682,11 +686,32 @@ describe('Sección Partidos · partido.controller', () => {
 
       expect(leerActa).toHaveBeenCalledTimes(1);
       expect(leerActa).toHaveBeenCalledWith('1000120', '2733994');
+      expect(res._json).toMatchObject({
+        pendiente: true,
+        acta: ACTA,
+        nuevos: [{ nombreActa: 'SIN FICHA, ALGUIEN', dorsal: 4, nombre: 'Alguien', apellidos: 'Sin Ficha' }]
+      });
+      expect(Jugador.create).not.toHaveBeenCalled();
+      expect(PartidoJugador.destroy).not.toHaveBeenCalled();
+      expect(partido.save).not.toHaveBeenCalled();
+    });
+
+    it('con el acta reenviada y la plantilla elegida crea al jugador y guarda sin volver a llamar a RFAF', async () => {
+      const partido = partidoPalma();
+      Partido.findByPk.mockResolvedValue(partido);
+      Plantilla.findAll.mockResolvedValue([{ id: 8 }]);
+      PlantillaJugador.create.mockResolvedValue({});
+
+      const body = { acta: ACTA, plantillas: { 'SIN FICHA, ALGUIEN': 8 } };
+      const { promesa, res } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body });
+      await promesa;
+
+      expect(leerActa).not.toHaveBeenCalled();
+      expect(Jugador.create).toHaveBeenCalledWith({ nombre: 'Alguien', apellidos: 'Sin Ficha' });
+      expect(PlantillaJugador.create).toHaveBeenCalledWith({ id_plantilla: 8, id_jugador: 950, dorsal: 4 });
       expect(PartidoJugador.destroy).toHaveBeenCalledWith({
         where: { id_partido: 1, es_local: true, id_jugador: { [Op.ne]: null } }
       });
-      expect(Jugador.create).toHaveBeenCalledTimes(1);
-      expect(Jugador.create).toHaveBeenCalledWith({ nombre: 'Alguien', apellidos: 'Sin Ficha' });
       expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
         { id_partido: 1, id_jugador: 900, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2 },
         { id_partido: 1, id_jugador: 950, es_local: true, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 }
@@ -698,6 +723,24 @@ describe('Sección Partidos · partido.controller', () => {
         actualizados: ['Juan Pérez Gómez', 'Alguien Sin Ficha'],
         creados: ['Alguien Sin Ficha']
       });
+    });
+
+    it('rechaza una plantilla elegida que no existe', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      Plantilla.findAll.mockResolvedValue([]);
+      const body = { acta: ACTA, plantillas: { 'SIN FICHA, ALGUIEN': 999 } };
+      const { promesa, res } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(Jugador.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un acta reenviada sin el formato esperado', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      const { promesa, res } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: { acta: { resultado: 'x' } } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(leerActa).not.toHaveBeenCalled();
     });
 
     it('no duplica a un jugador que existe en otra plantilla', async () => {

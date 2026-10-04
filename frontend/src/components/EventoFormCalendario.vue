@@ -681,17 +681,38 @@ function confirmarFinalizarActa() {
     icon: 'pi pi-flag',
     acceptLabel: 'Finalizar',
     rejectLabel: 'Cancelar',
-    accept: finalizarActa
+    accept: () => finalizarActa()
   });
 }
 
-async function finalizarActa() {
+/** Jugadores del acta que no existen: el usuario elige a qué plantilla
+ * asociar cada uno antes de guardar (con el acta ya leída, sin volver a RFAF). */
+const actaPendiente = ref(null);
+const jugadoresNuevos = ref([]);
+const dialogoNuevosVisible = ref(false);
+
+const opcionesPlantillaNuevos = computed(() =>
+  plantillasTemporadaActual.value
+    .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
+async function finalizarActa(extra = {}) {
   finalizandoActa.value = true;
   try {
     const r = await partidosService.finalizarActa(props.registroId, {
       codigo_acta: form.value.codigo_acta,
-      codigo_primaria: form.value.codigo_primaria
+      codigo_primaria: form.value.codigo_primaria,
+      ...extra
     });
+    if (r.pendiente) {
+      actaPendiente.value = r.acta;
+      jugadoresNuevos.value = r.nuevos.map((n) => ({ ...n, id_plantilla: form.value.id_plantilla }));
+      dialogoNuevosVisible.value = true;
+      return;
+    }
+    dialogoNuevosVisible.value = false;
+    actaPendiente.value = null;
     const creados = r.creados?.length
       ? ` Creados en Jugadores: ${r.creados.join(', ')}.`
       : '';
@@ -712,6 +733,21 @@ async function finalizarActa() {
   } finally {
     finalizandoActa.value = false;
   }
+}
+
+function confirmarJugadoresNuevos() {
+  if (jugadoresNuevos.value.some((j) => !j.id_plantilla)) {
+    toast.add({ severity: 'warn', summary: 'Falta la plantilla', detail: 'Elige la plantilla de cada jugador nuevo.', life: 4000 });
+    return;
+  }
+  const plantillas = Object.fromEntries(jugadoresNuevos.value.map((j) => [j.nombreActa, j.id_plantilla]));
+  finalizarActa({ acta: actaPendiente.value, plantillas });
+}
+
+function cancelarJugadoresNuevos() {
+  dialogoNuevosVisible.value = false;
+  actaPendiente.value = null;
+  jugadoresNuevos.value = [];
 }
 </script>
 
@@ -1004,5 +1040,27 @@ async function finalizarActa() {
                 class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
       </div>
     </form>
+  </Dialog>
+
+  <Dialog v-model:visible="dialogoNuevosVisible" modal header="Jugadores nuevos en el acta" class="w-full max-w-xl"
+          @hide="cancelarJugadoresNuevos">
+    <p class="text-sm text-ink-secondary mb-3">
+      Estos jugadores del PALMA aparecen en el acta pero no existen en Jugadores.
+      Elige a qué plantilla asociar cada uno; se crearán al finalizar el acta.
+    </p>
+    <div class="flex flex-col gap-2">
+      <div v-for="j in jugadoresNuevos" :key="j.nombreActa" class="flex flex-col sm:flex-row sm:items-center gap-2">
+        <span class="text-sm font-medium sm:w-56 shrink-0">
+          <span v-if="j.dorsal != null" class="text-ink-tertiary">{{ j.dorsal }} · </span>{{ j.nombre }} {{ j.apellidos }}
+        </span>
+        <Select v-model="j.id_plantilla" :options="opcionesPlantillaNuevos" optionLabel="label" optionValue="value"
+                placeholder="Plantilla" class="w-full sm:flex-1" filter />
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 pt-4">
+      <Button type="button" label="Cancelar" text @click="cancelarJugadoresNuevos" />
+      <Button type="button" label="Crear y finalizar" icon="pi pi-check" :loading="finalizandoActa"
+              class="!bg-club-green !border-club-green hover:!bg-club-greenLight" @click="confirmarJugadoresNuevos" />
+    </div>
   </Dialog>
 </template>
