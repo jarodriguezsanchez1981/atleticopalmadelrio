@@ -23,7 +23,12 @@ const ENTITY_MAP = {
   torneos: { model: Torneo, label: 'Torneos' }
 };
 
-const SENSITIVE_KEYS = ['password', 'token', 'jwt', 'secret', 'AES_SECRET_KEY'];
+// Credenciales y datos personales que no se guardan en el historial de
+// cambios (RGPD: minimización); el historial solo necesita saber qué cambió.
+const SENSITIVE_KEYS = [
+  'password', 'token', 'jwt', 'secret', 'AES_SECRET_KEY',
+  'dni', 'dni_encrypted', 'dni_hash', 'fecha_nacimiento', 'telefono', 'email', 'foto'
+];
 
 function extractEntity(url) {
   const match = url.match(/\/api\/([\w-]+)/);
@@ -42,10 +47,15 @@ function methodToAccion(method) {
   return null;
 }
 
+/** Copia de `data` sin las claves sensibles, también en objetos y listas
+ * anidados (p.ej. una plantilla con sus jugadores). */
 function sanitize(data) {
-  if (!data || typeof data !== 'object') return data;
-  const clean = Array.isArray(data) ? [...data] : { ...data };
-  for (const key of SENSITIVE_KEYS) delete clean[key];
+  if (Array.isArray(data)) return data.map(sanitize);
+  if (!data || typeof data !== 'object' || data instanceof Date) return data;
+  const clean = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!SENSITIVE_KEYS.includes(key)) clean[key] = sanitize(value);
+  }
   return clean;
 }
 
@@ -108,3 +118,5 @@ function auditMiddleware(req, res, next) {
 }
 
 module.exports = auditMiddleware;
+module.exports.sanitize = sanitize;
+module.exports.SENSITIVE_KEYS = SENSITIVE_KEYS;

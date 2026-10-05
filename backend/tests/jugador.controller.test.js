@@ -132,6 +132,8 @@ describe('Sección Jugadores · jugador.controller', () => {
     expect(Jugador.create).toHaveBeenCalledWith({
       nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z', fecha_nacimiento: null, foto: null, telefono: null
     });
+    // El duplicado se busca por el hash del DNI (cifrado en reposo), no en claro.
+    expect(Jugador.findOne).toHaveBeenCalledWith({ where: { dni_hash: expect.stringMatching(/^[0-9a-f]{64}$/) } });
     expect(res._status).toBe(201);
     expect(res._json).toEqual({ id: 5, nombre: 'Luis', apellidos: 'Ruiz', dni: '12345678Z' });
   });

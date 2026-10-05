@@ -149,3 +149,19 @@ describe('Auditoría · audit.middleware', () => {
     expect(Cambio.create).not.toHaveBeenCalled();
   });
 });
+describe('audit.middleware · sanitize (RGPD)', () => {
+  it('quita DNI, fecha de nacimiento, teléfono, email y foto, también anidados', () => {
+    const { sanitize } = auditMiddleware;
+    const limpio = sanitize({
+      id: 1, nombre: 'Ana', dni: '12345678Z', fecha_nacimiento: '2012-01-01', telefono: '600', email: 'a@b.c', foto: 'base64',
+      password: 'x',
+      jugadores: [{ id: 2, nombre: 'Luis', dni: '87654321X', dni_encrypted: 'c', dni_hash: 'h' }],
+      plantilla: { id: 3, entrenador: { nombre: 'Eva', email: 'e@f.g' } }
+    });
+    expect(limpio).toEqual({
+      id: 1, nombre: 'Ana',
+      jugadores: [{ id: 2, nombre: 'Luis' }],
+      plantilla: { id: 3, entrenador: { nombre: 'Eva' } }
+    });
+  });
+});

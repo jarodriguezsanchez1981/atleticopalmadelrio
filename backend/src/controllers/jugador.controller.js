@@ -1,4 +1,5 @@
 const { Jugador, Categoria, Lugar, Entrenamiento, EntrenamientoJugador, Plantilla, PlantillaJugador, Temporada, Division, Partido, Equipo } = require('../models');
+const { whereDni } = require('../utils/dniCrypto.mixin');
 const { validarDNI } = require('../utils/dni.utils');
 
 const includeDetalle = [
@@ -58,7 +59,7 @@ async function crear(req, res, next) {
       return res.status(400).json({ message: 'El DNI introducido no es válido.' });
     }
     if (dni) {
-      const existe = await Jugador.findOne({ where: { dni } });
+      const existe = await Jugador.findOne({ where: whereDni(dni) });
       if (existe) return res.status(409).json({ message: 'Ya existe un jugador con ese DNI.' });
     }
     const jugador = await Jugador.create({
@@ -84,7 +85,7 @@ async function actualizar(req, res, next) {
       if (!validarDNI(dni)) {
         return res.status(400).json({ message: 'El DNI introducido no es válido.' });
       }
-      const existe = await Jugador.findOne({ where: { dni, id: { ne: jugador.id } } });
+      const existe = await Jugador.findOne({ where: { ...whereDni(dni), id: { ne: jugador.id } } });
       if (existe) return res.status(409).json({ message: 'Ya existe otro jugador con ese DNI.' });
       jugador.dni = dni;
     }

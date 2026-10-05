@@ -30,8 +30,11 @@ async function migrate(logger = console.log) {
       return;
     }
 
+    // .sql: sentencias SQL. .js: módulo que exporta async ({ conn, logger, aes })
+    // para migraciones de datos que necesitan código (p.ej. cifrar con
+    // AES_SECRET_KEY, que no está disponible desde SQL).
     const files = fs.readdirSync(MIGRATIONS_DIR)
-      .filter((f) => f.endsWith('.sql'))
+      .filter((f) => f.endsWith('.sql') || f.endsWith('.js'))
       .sort();
 
     const pendientes = files.filter((f) => !aplicadas.has(f));
@@ -41,6 +44,13 @@ async function migrate(logger = console.log) {
 
     logger(`🔄 Aplicando ${pendientes.length} migración(es)...`);
     for (const file of pendientes) {
+      if (file.endsWith('.js')) {
+        const migracion = require(path.join(MIGRATIONS_DIR, file));
+        await migracion({ conn, logger, aes: require('./aesCrypto') });
+        await conn.query('INSERT INTO schema_migrations (version) VALUES (?)', [file]);
+        logger(`  ✓ ${file}`);
+        continue;
+      }
       const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
       // Quita las líneas de comentario ANTES de trocear por ';\n': si un
       // comentario precede a una sentencia dentro del mismo bloque (antes

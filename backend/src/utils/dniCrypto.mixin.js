@@ -1,48 +1,55 @@
 /**
- * Mixin de Sequelize para cifrar/descifrar el DNI en reposo.
+ * DNI cifrado en reposo (RGPD) para los modelos de personas.
  *
- * El modelo debe tener:
- *  - campo real `dni_encrypted` (TEXT) donde se almacena el ciphertext.
- *  - campo real `dni_hash` (VARCHAR(64), UNIQUE) para búsquedas deterministas.
- *  - atributo virtual `dni` que se descifra automáticamente al leer.
- *
- * La búsqueda por DNI se debe hacer mediante `where: { dni_hash: hashForLookup(dni) }`.
+ * En la base de datos el DNI se guarda en:
+ *  - `dni_encrypted` (TEXT): AES-256-GCM, ver aesCrypto.js.
+ *  - `dni_hash` (CHAR(64), único): HMAC-SHA256 del DNI normalizado, para buscar
+ *    y detectar duplicados sin descifrar: `where: { dni_hash: hashForLookup(dni) }`.
+ * El atributo `dni` es virtual: se descifra al leerlo y se cifra al asignarlo
+ * (también en create/build), así que el resto del código y la API siguen
+ * usando `dni` en claro. La migración 20261005c_cifrar_dni.js pasó los datos.
  */
+const { DataTypes } = require('sequelize');
 const { encrypt, decrypt, hashForLookup } = require('./aesCrypto');
 
 function normalizeDni(value) {
   return String(value || '').toUpperCase().trim();
 }
 
-function applyDniEncryption(Model, encryptedField = 'dni_encrypted', hashField = 'dni_hash', virtualField = 'dni') {
-  const attributes = Model.rawAttributes || {};
-  if (!attributes[encryptedField]) {
-    throw new Error(`El modelo ${Model.name} necesita el campo ${encryptedField}`);
-  }
-  if (!attributes[hashField]) {
-    throw new Error(`El modelo ${Model.name} necesita el campo ${hashField}`);
-  }
-
-  Model.addHook('beforeValidate', (instance) => {
-    const plain = instance.getDataValue(virtualField);
-    if (plain !== undefined && plain !== null && plain !== '') {
-      const normalized = normalizeDni(plain);
-      instance.setDataValue(encryptedField, encrypt(normalized));
-      instance.setDataValue(hashField, hashForLookup(normalized));
-    }
-  });
-
-  Model.addHook('afterFind', (result) => {
-    if (!result) return;
-    const items = Array.isArray(result) ? result : [result];
-    for (const item of items) {
-      if (!item || typeof item.getDataValue !== 'function') continue;
-      const encrypted = item.getDataValue(encryptedField);
-      if (encrypted) {
-        item.setDataValue(virtualField, decrypt(encrypted));
+/** Atributos de Sequelize para el DNI cifrado (se mezclan en sequelize.define). */
+function camposDniCifrado() {
+  return {
+    dni: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const cifrado = this.getDataValue('dni_encrypted');
+        return cifrado ? decrypt(cifrado) : null;
+      },
+      set(valor) {
+        const dni = normalizeDni(valor);
+        this.setDataValue('dni_encrypted', dni ? encrypt(dni) : null);
+        this.setDataValue('dni_hash', dni ? hashForLookup(dni) : null);
       }
-    }
-  });
+    },
+    dni_encrypted: { type: DataTypes.TEXT, allowNull: true },
+    dni_hash: { type: DataTypes.CHAR(64), allowNull: true, unique: true }
+  };
 }
 
-module.exports = { applyDniEncryption, hashForLookup, normalizeDni };
+/** Las columnas internas del cifrado no salen en el JSON (la API solo ve `dni`). */
+function ocultarDniCifrado(Model) {
+  const toJSONOriginal = Model.prototype.toJSON;
+  Model.prototype.toJSON = function toJSON() {
+    const json = toJSONOriginal.call(this);
+    delete json.dni_encrypted;
+    delete json.dni_hash;
+    return json;
+  };
+}
+
+/** Condición para buscar por DNI (en claro) sobre la columna hash. */
+function whereDni(dni) {
+  return { dni_hash: hashForLookup(normalizeDni(dni)) };
+}
+
+module.exports = { camposDniCifrado, ocultarDniCifrado, whereDni, normalizeDni };

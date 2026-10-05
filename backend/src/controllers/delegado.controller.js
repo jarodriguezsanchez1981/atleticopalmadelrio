@@ -1,4 +1,5 @@
 const { Delegado } = require('../models');
+const { whereDni } = require('../utils/dniCrypto.mixin');
 const { validarDNI } = require('../utils/dni.utils');
 
 async function listar(req, res, next) {
@@ -28,7 +29,7 @@ async function crear(req, res, next) {
       if (!validarDNI(dni)) {
         return res.status(400).json({ message: 'El DNI introducido no es válido.' });
       }
-      const existe = await Delegado.findOne({ where: { dni } });
+      const existe = await Delegado.findOne({ where: whereDni(dni) });
       if (existe) return res.status(409).json({ message: 'Ya existe un delegado con ese DNI.' });
     }
     const delegado = await Delegado.create({ nombre, apellidos, dni: dni || null, foto: foto || null, tipo: tipo || 'campo', email: email || null, telefono: telefono || null });
@@ -49,7 +50,7 @@ async function actualizar(req, res, next) {
         if (!validarDNI(dni)) {
           return res.status(400).json({ message: 'El DNI introducido no es válido.' });
         }
-        const existe = await Delegado.findOne({ where: { dni, id: { ne: delegado.id } } });
+        const existe = await Delegado.findOne({ where: { ...whereDni(dni), id: { ne: delegado.id } } });
         if (existe) return res.status(409).json({ message: 'Ya existe otro delegado con ese DNI.' });
       }
       delegado.dni = dni || null;

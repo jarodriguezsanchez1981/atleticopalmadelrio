@@ -44,31 +44,30 @@ services:
     networks:
       - apr_net
 
+  # Copia diaria cifrada con age (clave pública backup-key.pub; la privada no
+  # está en el servidor). Ver scripts/db-backup.sh, que explica cómo restaurar.
   backup:
-    image: databack/mysql-backup:1.5.0
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.db-backup
     container_name: apr_mysql_backup
-    command: ["dump"]
     restart: unless-stopped
-    # La imagen corre como "appuser", pero Docker crea ./backups como root en
-    # el host y el volcado fallaba con "permission denied". Con root (sin
-    # capacidades, ver cap_drop) puede escribir en la carpeta.
-    user: "0:0"
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DB_SERVER: db
+      DB_HOST: db
       DB_PORT: 3306
       DB_USER: ${DB_USER:-apr_user}
       DB_PASS: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
-      DB_DUMP_INCLUDE: ${DB_NAME:-atletico_palma_intranet}
-      DB_DUMP_TARGET: /db
-      # Diario a las 03:00 (hora del contenedor, UTC por defecto)
-      DB_DUMP_CRON: "0 3 * * *"
-      # Conserva 30 días de volcados, borra los más antiguos automáticamente
-      DB_DUMP_RETENTION: 30d
+      DB_NAME: ${DB_NAME:-atletico_palma_intranet}
+      AGE_RECIPIENTS_FILE: /run/backup-key.pub
+      # Diario a las 03:00 UTC; conserva 30 días de copias
+      BACKUP_HOUR_UTC: 3
+      RETENTION_DAYS: 30
     volumes:
-      - ./backups:/db
+      - ./backups:/backups
+      - ./backup-key.pub:/run/backup-key.pub:ro
     cap_drop:
       - ALL
     networks:

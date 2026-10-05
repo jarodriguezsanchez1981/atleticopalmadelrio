@@ -4,6 +4,9 @@ import { models, passwordUtils, jwtUtils } from './helpers/models.js';
 
 const root = process.cwd();
 
+// Clave AES de prueba (64 hex): el DNI se busca por su hash cifrado (dniCrypto.mixin).
+process.env.AES_SECRET_KEY = process.env.AES_SECRET_KEY || '0'.repeat(64);
+
 const intercepts = {
   [path.resolve(root, 'src', 'models', 'index.js')]: models,
   [path.resolve(root, 'src', 'utils', 'password.utils.js')]: passwordUtils,
