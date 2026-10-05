@@ -104,10 +104,10 @@ describe('Sección Promociones · promocion.controller', () => {
   });
 
   describe('resumen', () => {
-    // Jugador 9 de la plantilla 2 (Alevín B, grupo "Alevín"), temporada 1.
+    // Jugador 9 de la plantilla 2 (Alevín B, grupo 4), temporada 1.
     const promocion = {
       id: 1, id_plantilla: 2, id_categoria: 13, id_jugador: 9,
-      plantilla: { id: 2, id_temporada: 1, categoria: { id: 12, nombre: 'Alevin B', grupo: 'Alevín' } }
+      plantilla: { id: 2, id_temporada: 1, categoria: { id: 12, nombre: 'Alevin B', grupo: 4 } }
     };
     const jugado = (idPartido, idPlantilla, grupo, idTemporada = 1) => ({
       id_partido: idPartido, id_jugador: 9,
@@ -119,13 +119,13 @@ describe('Sección Promociones · promocion.controller', () => {
     it('cuenta como RFAF los partidos de su mismo grupo y como Categoría los de otro grupo', async () => {
       Promocion.findAll.mockResolvedValue([promocion]);
       PartidoJugador.findAll.mockResolvedValue([
-        jugado(100, 2, 'Alevín'),     // su propia plantilla: no cuenta
-        jugado(101, 3, 'alevin '),    // Alevín A: mismo grupo (sin distinguir acentos/mayúsculas)
-        jugado(102, 3, 'Alevín'),
-        jugado(102, 3, 'Alevín'),     // repetido: un partido cuenta una vez
-        jugado(103, 5, 'Infantil'),   // otro grupo
-        jugado(104, 6, null),         // sin grupo: cuenta como Categoría
-        jugado(105, 3, 'Alevín', 2)   // otra temporada: no cuenta
+        jugado(100, 2, 4),        // su propia plantilla: no cuenta
+        jugado(101, 3, 4),        // Alevín A: mismo grupo
+        jugado(102, 3, '4'),      // mismo grupo aunque llegue como texto
+        jugado(102, 3, 4),        // repetido: un partido cuenta una vez
+        jugado(103, 5, 5),        // Infantil: otro grupo
+        jugado(104, 6, null),     // sin grupo: cuenta como Categoría
+        jugado(105, 3, 4, 2)      // otra temporada: no cuenta
       ]);
 
       const { promesa, res } = llamar(ctrl.resumen);

@@ -28,10 +28,9 @@ async function listar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/** "Alevín " y "alevin" son el mismo grupo; sin grupo no hay coincidencia. */
+/** Mismo grupo numérico de categoría; sin grupo no hay coincidencia. */
 function mismoGrupo(a, b) {
-  const n = (s) => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return !!n(a) && n(a) === n(b);
+  return a != null && b != null && Number(a) === Number(b);
 }
 
 /** Promociones con el número de partidos de la temporada que cada jugador ha

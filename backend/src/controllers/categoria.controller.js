@@ -48,10 +48,13 @@ async function crear(req, res, next) {
     if (orden !== undefined && orden !== null && (!Number.isInteger(orden) || orden <= 0)) {
       return res.status(400).json({ message: 'El orden debe ser un número entero positivo.' });
     }
+    if (grupo !== undefined && grupo !== null && (!Number.isInteger(grupo) || grupo <= 0)) {
+      return res.status(400).json({ message: 'El grupo debe ser un número entero positivo.' });
+    }
     const categoria = await Categoria.create({
       nombre,
       alias: alias || null,
-      grupo: grupo?.trim() || null,
+      grupo: grupo || null,
       codigo_equipo_rfaf: codigo_equipo_rfaf || null,
       id_tipofutbol,
       tiempopartido: tiempopartido || null,
@@ -70,7 +73,12 @@ async function actualizar(req, res, next) {
     const { nombre, alias, grupo, codigo_equipo_rfaf, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
     if (nombre !== undefined) categoria.nombre = nombre;
     if (alias !== undefined) categoria.alias = alias || null;
-    if (grupo !== undefined) categoria.grupo = grupo?.trim() || null;
+    if (grupo !== undefined) {
+      if (grupo !== null && (!Number.isInteger(grupo) || grupo <= 0)) {
+        return res.status(400).json({ message: 'El grupo debe ser un número entero positivo.' });
+      }
+      categoria.grupo = grupo || null;
+    }
     if (codigo_equipo_rfaf !== undefined) categoria.codigo_equipo_rfaf = codigo_equipo_rfaf || null;
     if (id_tipofutbol !== undefined) {
       const tipoFutbol = await TipoFutbol.findOne({ where: { id: id_tipofutbol } });

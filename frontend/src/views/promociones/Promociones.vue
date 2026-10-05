@@ -41,7 +41,7 @@ const tablasPorPlantilla = computed(() => {
       porPlantilla.set(p.id_plantilla, {
         id: p.id_plantilla,
         titulo: `${p.plantilla?.categoria?.nombre || 'Plantilla'} · ${p.plantilla?.temporada?.nombre || ''}`,
-        grupo: p.plantilla?.categoria?.grupo || null,
+        grupo: p.plantilla?.categoria?.grupo ?? null,
         orden: p.plantilla?.categoria?.orden ?? 999,
         filas: []
       });
@@ -146,7 +146,7 @@ function jugadorLabel(id) {
       <div v-for="t in tablasPorPlantilla" :key="t.id" class="rounded-xl border border-line bg-white p-3">
         <div class="flex items-center justify-between gap-2 mb-2">
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
-          <span class="text-xs text-ink-tertiary">Grupo: {{ t.grupo || 'sin grupo' }}</span>
+          <span class="text-xs text-ink-tertiary">Grupo {{ t.grupo ?? '—' }}</span>
         </div>
         <DataTable :value="t.filas" dataKey="id" size="small" stripedRows>
           <Column field="jugador" header="Jugador" sortable />

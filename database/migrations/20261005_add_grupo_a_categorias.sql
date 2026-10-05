@@ -1,4 +1,4 @@
--- Añade categorias.grupo (p.ej. "Alevín" para Alevín A, B, C y D). Lo usa
+-- Añade categorias.grupo (ver 20261005b: pasa a ser numérico). Lo usa
 -- Promociones para distinguir la promoción RFAF (partido de una categoría del
 -- mismo grupo) de la promoción de categoría (grupo distinto).
 -- Idempotente: segura de ejecutar aunque ya se haya aplicado.

@@ -114,28 +114,36 @@ describe('Sección Categorías · categoria.controller', () => {
     expect(res._status).toBe(201);
   });
 
-  it('crear guarda el grupo sin espacios sobrantes', async () => {
+  it('crear guarda el grupo numérico', async () => {
     TipoFutbol.findOne.mockResolvedValue({ id: 1 });
     Categoria.create.mockResolvedValue({ id: 8 });
-    Categoria.findOne.mockResolvedValue({ id: 8, grupo: 'Alevín' });
+    Categoria.findOne.mockResolvedValue({ id: 8, grupo: 4 });
     const { promesa } = llamar(ctrl.crear, {
-      body: { nombre: 'Alevín A', grupo: ' Alevín ', id_tipofutbol: 1 }
+      body: { nombre: 'Alevín A', grupo: 4, id_tipofutbol: 1 }
     });
 
     await promesa;
 
-    expect(Categoria.create).toHaveBeenCalledWith(expect.objectContaining({ grupo: 'Alevín' }));
+    expect(Categoria.create).toHaveBeenCalledWith(expect.objectContaining({ grupo: 4 }));
+  });
+
+  it('crear rechaza un grupo que no sea un entero positivo', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín A', grupo: 'Alevín', id_tipofutbol: 1 } });
+    await promesa;
+    expect(res._status).toBe(400);
+    expect(Categoria.create).not.toHaveBeenCalled();
   });
 
   it('actualizar cambia y vacía el grupo', async () => {
-    const categoria = { id: 8, grupo: 'Alevín', save: vi.fn().mockResolvedValue() };
+    const categoria = { id: 8, grupo: 4, save: vi.fn().mockResolvedValue() };
     Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce({ id: 8 });
-    const { promesa } = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: 'Infantil' } });
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: 5 } });
     await promesa;
-    expect(categoria.grupo).toBe('Infantil');
+    expect(categoria.grupo).toBe(5);
 
     Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce({ id: 8 });
-    const otra = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: '' } });
+    const otra = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: null } });
     await otra.promesa;
     expect(categoria.grupo).toBeNull();
   });
