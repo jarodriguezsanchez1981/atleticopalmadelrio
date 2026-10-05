@@ -31,7 +31,6 @@ const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', t
     :columns="columns"
     :service="delegadosService"
     :emptyItem="emptyItem"
-    :canExport="true"
   >
     <template #cell-tipo="{ data }">
       {{ data.tipo === 'equipo' ? 'Equipo' : 'Campo' }}

@@ -26,7 +26,6 @@ import { mapaFestivosAnio, nombreFestivoNacional } from '../utils/festivosEspana
 import { emitirCambio } from '../utils/cambioBus';
 import { useAuthStore } from '../stores/auth.store';
 import { useMediaQuery } from '../composables/useMediaQuery';
-import * as XLSX from '@e965/xlsx';
 
 const auth = useAuthStore();
 
@@ -42,7 +41,6 @@ const props = defineProps({
   detailMaxWidth: { type: String, default: 'max-w-lg' },
   formMaxWidth: { type: String, default: 'max-w-lg' },
   prepareEdit: { type: Function, default: null },
-  canExport: { type: Boolean, default: false },
   validateForm: { type: Function, default: null },
   seccion: { type: String, default: null },
   // Orden inicial de la tabla (también en la vista de móvil): campo y
@@ -598,41 +596,6 @@ function eliminarSeleccionados() {
   });
 }
 
-function exportarExcel() {
-  const headers = columnas.value.map(c => c.header);
-  const rows = items.value.map(item => {
-    return columnas.value.map(col => {
-      if (col.field === 'id') return item.id;
-      if (typeof col.format === 'function') return col.format(item[col.field], item) ?? '';
-      if (col.type === 'select' && col.options) {
-        const opts = typeof col.options === 'function' ? col.options(form) : col.options;
-        const opt = opts?.find(o => o.value === item[col.field]);
-        return opt ? opt.label : item[col.field] ?? '';
-      }
-      if (col.type === 'date' && item[col.field]) {
-        const d = toDateValue(item[col.field]);
-        if (!d) return '';
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const yyyy = d.getFullYear();
-        const raw = String(item[col.field]);
-        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-          return `${dd}/${mm}/${yyyy}`;
-        }
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mi = String(d.getMinutes()).padStart(2, '0');
-        const ss = String(d.getSeconds()).padStart(2, '0');
-        return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
-      }
-      return item[col.field] ?? '';
-    });
-  });
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, props.title);
-  XLSX.writeFile(wb, `${props.title.toLowerCase().replace(/\s+/g, '_')}.xlsx`);
-}
-
 function valorCelda(col, data) {
   const slot = col.field;
   if (typeof col.format === 'function') return col.format(data[col.field], data);
@@ -686,9 +649,6 @@ watch(
             <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
           </IconField>
           <slot name="acciones" />
-          <Button v-if="canExport && !esMovil" label="Exportar" icon="pi pi-file-export" outlined
-                  class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
-                  @click="exportarExcel" />
           <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
                   :class="esMovil ? 'fab-movil !fixed !bottom-6 !right-6 !z-50 !rounded-full !w-14 !h-14 !shadow-lg' : '!bg-club-green !border-club-green hover:!bg-club-greenLight !'" />
         </div>

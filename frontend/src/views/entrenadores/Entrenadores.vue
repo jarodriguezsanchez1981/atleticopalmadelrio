@@ -51,7 +51,6 @@ function nombresTitulos(data) {
     :columns="columns"
     :service="entrenadoresService"
     :emptyItem="emptyItem"
-    :canExport="true"
   >
     <template #cell-ids_titulos="{ data }">
       {{ nombresTitulos(data) }}

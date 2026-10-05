@@ -48,7 +48,6 @@ function nombreTipos(data) {
     :columns="columns"
     :service="coordinadoresService"
     :emptyItem="emptyItem"
-    :canExport="true"
   >
     <template #cell-ids_tipos_futbol="{ data }">
       {{ nombreTipos(data) }}

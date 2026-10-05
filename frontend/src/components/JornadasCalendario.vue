@@ -10,7 +10,6 @@ import Select from 'primevue/select';
 import Message from 'primevue/message';
 import Dialog from 'primevue/dialog';
 import { useToast } from 'primevue/usetoast';
-import * as XLSX from '@e965/xlsx';
 import EquipacionPrenda from './EquipacionPrenda.vue';
 import {
   categoriaCalendarioService, plantillasService, equiposService, temporadasService
@@ -261,42 +260,6 @@ function claseResultado(partido, esLocal) {
   return (esLocal ? localGana : !localGana) ? 'gol-ganador' : 'gol-perdedor';
 }
 
-// ---------- Exportar a Excel ----------
-const exportando = ref(false);
-
-function formatoFechaExport(fecha) {
-  if (!fecha) return '';
-  const [y, m, d] = String(fecha).slice(0, 10).split('-');
-  return `${d}/${m}/${y}`;
-}
-
-async function exportarExcel() {
-  exportando.value = true;
-  try {
-    const params = {};
-    if (filtroPlantilla.value) params.id_plantilla = filtroPlantilla.value;
-    const items = await categoriaCalendarioService.listar(params);
-    const filas = items
-      .slice()
-      .sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0) || String(a.fecha).localeCompare(String(b.fecha)))
-      .map((j) => ({
-        Jornada: j.jornada,
-        Fecha: formatoFechaExport(j.fecha),
-        'Equipo Local': nombreEquipo(j.id_equipo_local),
-        'Equipo Visitante': nombreEquipo(j.id_equipo_visitante),
-        Resultado: j.suspendido ? 'SUSPENDIDO' : (j.resultado || '')
-      }));
-    const ws = XLSX.utils.json_to_sheet(filas);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Jornadas');
-    XLSX.writeFile(wb, 'jornadas.xlsx');
-  } catch (err) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo exportar el Excel.', life: 4000 });
-  } finally {
-    exportando.value = false;
-  }
-}
-
 </script>
 
 <template>
@@ -316,10 +279,6 @@ async function exportarExcel() {
           class="w-full sm:w-52"
           showClear
         />
-        <Button label="Exportar" icon="pi pi-file-export" size="small" outlined
-                :loading="exportando"
-                class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
-                @click="exportarExcel" />
       </div>
     </div>
 

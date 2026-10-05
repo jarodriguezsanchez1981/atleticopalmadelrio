@@ -68,7 +68,6 @@ const emptyItem = {};
       :permisoCrear="false"
       :permisoEditar="false"
       :permisoEliminar="false"
-      :canExport="false"
     >
       <template #cell-accion="{ data }">
         <Tag :value="data.accion" :severity="ACCION_SEVERITY[data.accion] || 'secondary'" />

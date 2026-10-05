@@ -38,7 +38,6 @@ function formatearPlantilla(p) {
     :columns="columns"
     :service="jugadoresService"
     :emptyItem="emptyItem"
-    :canExport="true"
   >
     <template #detail-extra="{ data }">
       <div v-if="(data.plantillas || []).length" class="border-t border-line pt-3">
