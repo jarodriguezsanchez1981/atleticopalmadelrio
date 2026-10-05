@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../../utils/estiloTabla';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { sancionesService, partidosService, jugadoresService, plantillasService, temporadasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
@@ -176,7 +177,7 @@ function nombreJugador(id) {
       <p class="text-sm text-ink-tertiary">Suma de tarjetas por jugador en los partidos de cada plantilla de la temporada actual.</p>
     </div>
     <div class="grid gap-4 lg:grid-cols-2">
-      <div v-for="t in acumuladosFutbol11" :key="t.id" class="rounded-xl border border-line bg-white p-3">
+      <div v-for="t in acumuladosFutbol11" :key="t.id">
         <div class="flex items-center justify-between gap-2 mb-2">
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
           <div class="flex items-center gap-1.5 text-xs">
@@ -188,7 +189,7 @@ function nombreJugador(id) {
             </span>
           </div>
         </div>
-        <DataTable :value="t.filas" dataKey="id_jugador" size="small" stripedRows sortField="amarillas" :sortOrder="-1">
+        <DataTable v-bind="estiloTabla" :value="t.filas" dataKey="id_jugador" sortField="amarillas" :sortOrder="-1">
           <Column field="jugador" header="Jugador" sortable />
           <Column field="partidos" header="Partidos" sortable style="width: 90px" class="text-center" />
           <Column field="amarillas" header="Amarillas" sortable style="width: 100px">

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../../utils/estiloTabla';
 import { jugadoresService } from '../../services';
 import { validarDNI } from '../../utils/dni';
 import { formatFechaCorta } from '../../utils/formatFecha';
@@ -44,7 +45,7 @@ function formatearPlantilla(p) {
         <h3 class="font-display text-sm text-club-green mb-2 flex items-center gap-2">
           <i class="pi pi-table"></i> Plantillas ({{ data.plantillas.length }})
         </h3>
-        <DataTable :value="data.plantillas" class="ar-datatable text-sm" stripedRows size="small" dataKey="id">
+        <DataTable v-bind="estiloTabla" :value="data.plantillas" dataKey="id">
           <Column header="Plantilla">
             <template #body="{ data: p }">{{ formatearPlantilla(p) }}</template>
           </Column>

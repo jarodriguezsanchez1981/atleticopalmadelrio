@@ -7,6 +7,7 @@
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../utils/estiloTabla';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
@@ -779,14 +780,7 @@ watch(
       scrollable="scroll"
       @column-reorder="onColumnReorder"
       paginator :rows="10" :rowsPerPageOptions="[10, 20, 50]"
-      rowHover stripedRows
-      class="ar-datatable bg-white rounded-xl overflow-x-auto border border-line"
-      :pt="{
-        header: { class: 'ar-dt-header !bg-white' },
-        rowgroupfooter: { class: '!bg-club-cream' },
-        footer: { class: '!bg-club-cream' },
-        paginator: { class: 'ar-dt-paginator !bg-white' }
-      }"
+      v-bind="estiloTabla"
     >
       <Column v-if="permisoEliminar" selectionMode="multiple" headerStyle="width: 3rem" frozen :reorderableColumn="false" />
       <Column v-for="col in columnas" :key="col.field" :field="col.field" :header="col.header" sortable>
@@ -1020,7 +1014,7 @@ watch(
           <div class="text-sm font-medium text-ink-primary">
             {{ importPreview.length }} filas detectadas
           </div>
-          <DataTable :value="importPreview.slice(0, 10)" class="ar-datatable text-sm" scrollable scrollHeight="200px">
+          <DataTable v-bind="estiloTabla" :value="importPreview.slice(0, 10)" scrollable scrollHeight="200px">
             <Column v-for="key of Object.keys(importPreview[0] || {})" :key="key"
                     :field="key" :header="key" />
           </DataTable>
@@ -1046,84 +1040,6 @@ watch(
 </template>
 
 <style>
-/* ===== DataTable escandinavo ===== */
-.ar-datatable .p-datatable-header {
-  border-bottom: 1px solid rgb(0 0 0 / 10%);
-  padding: 0.75rem 1rem;
-}
-.ar-datatable .p-datatable-thead > tr > th,
-.ar-datatable .p-datatable-thead > tr > td {
-  background: rgb(15 61 34 / 6%) !important;
-  border-color: rgb(15 61 34 / 14%) !important;
-  color: rgb(15 61 34 / 82%) !important;
-  font-size: 0.72rem;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: 0;
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
-}
-.ar-datatable .p-datatable-tbody > tr {
-  transition: background-color 0.12s ease;
-}
-.ar-datatable .p-datatable-tbody > tr > td {
-  border-color: rgb(0 0 0 / 6%) !important;
-  padding-top: 0.45rem;
-  padding-bottom: 0.45rem;
-  color: rgb(0 0 0 / 90%);
-  font-size: 0.86rem;
-}
-.ar-datatable .p-datatable-tbody > tr:hover {
-  background: rgb(15 61 34 / 5%) !important;
-}
-.ar-datatable .p-datatable-tbody > tr.ar-dt-row-selected,
-.ar-datatable .p-datatable-tbody > tr.p-highlight {
-  background: rgb(15 61 34 / 10%) !important;
-}
-.ar-datatable .p-paginator {
-  border-top: 1px solid rgb(0 0 0 / 10%);
-  padding: 0.6rem 1rem;
-  justify-content: flex-end;
-  gap: 0.15rem;
-}
-.ar-datatable .p-paginator .p-paginator-current {
-  margin-right: auto;
-  color: rgb(0 0 0 / 44%);
-  font-size: 0.8rem;
-}
-.ar-datatable .p-paginator .p-paginator-page,
-.ar-datatable .p-paginator .p-paginator-first,
-.ar-datatable .p-paginator .p-paginator-prev,
-.ar-datatable .p-paginator .p-paginator-next,
-.ar-datatable .p-paginator .p-paginator-last {
-  min-width: 2rem;
-  height: 2rem;
-  border-radius: 0.375rem;
-  color: rgb(0 0 0 / 64%);
-  font-size: 0.85rem;
-}
-.ar-datatable .p-paginator .p-paginator-page.p-highlight {
-  background: #0F3D22 !important;
-  color: #fff !important;
-}
-.ar-datatable .p-datatable-footer {
-  border-top: 1px solid rgb(0 0 0 / 10%);
-}
-.ar-dt-acciones {
-  text-align: right;
-}
-.ar-dt-btn {
-  color: rgb(0 0 0 / 44%) !important;
-}
-.ar-dt-btn:hover {
-  background: rgb(15 61 34 / 8%) !important;
-  color: #0F3D22 !important;
-}
-.ar-dt-btn.p-button-danger:hover {
-  background: #fef2f2 !important;
-  color: #b91c1c !important;
-}
-
 /* Foto */
 .ar-foto-mini {
   width: 2.5rem;

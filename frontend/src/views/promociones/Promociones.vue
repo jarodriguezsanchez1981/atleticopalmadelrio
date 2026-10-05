@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../../utils/estiloTabla';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { promocionesService, plantillasService, categoriasService, jugadoresService, temporadasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
@@ -143,12 +144,12 @@ function jugadorLabel(id) {
       </p>
     </div>
     <div class="grid gap-4 lg:grid-cols-2">
-      <div v-for="t in tablasPorPlantilla" :key="t.id" class="rounded-xl border border-line bg-white p-3">
+      <div v-for="t in tablasPorPlantilla" :key="t.id">
         <div class="flex items-center justify-between gap-2 mb-2">
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
           <span class="text-xs text-ink-tertiary">Grupo {{ t.grupo ?? '—' }}</span>
         </div>
-        <DataTable :value="t.filas" dataKey="id" size="small" stripedRows>
+        <DataTable v-bind="estiloTabla" :value="t.filas" dataKey="id">
           <Column field="jugador" header="Jugador" sortable />
           <Column field="destino" header="Promociona a" sortable />
           <Column field="promocion_rfaf" header="Promoción RFAF" sortable style="width: 130px" class="text-center" />

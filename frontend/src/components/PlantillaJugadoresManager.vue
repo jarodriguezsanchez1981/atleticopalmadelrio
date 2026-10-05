@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../utils/estiloTabla';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import InputNumber from 'primevue/inputnumber';
@@ -111,8 +112,8 @@ function getNombreCompleto(jugador) {
         <Button label="Añadir jugador" icon="pi pi-plus" class="p-button-sm" @click="abrirNuevo" />
       </div>
 
-      <DataTable v-if="value.length" :value="value" :paginator="true" :rows="5" :rowsPerPageOptions="[5, 10, 20]" 
-                 responsiveLayout="scroll" class="ar-datatable">
+      <DataTable v-if="value.length" v-bind="estiloTabla" :value="value" :paginator="true" :rows="5" :rowsPerPageOptions="[5, 10, 20]"
+                 responsiveLayout="scroll">
         <Column field="nombreCompleto" header="Jugador">
           <template #body="slotProps">
             {{ getNombreCompleto(slotProps.data) }}

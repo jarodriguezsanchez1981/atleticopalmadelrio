@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../../utils/estiloTabla';
 import Button from 'primevue/button';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useToast } from 'primevue/usetoast';
@@ -127,8 +128,8 @@ function confirmarEliminar(item) {
               @click="nuevaConvocatoria" />
     </div>
 
-    <DataTable :value="convocatorias" :loading="cargando" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
-               responsiveLayout="scroll" class="ar-datatable">
+    <DataTable v-bind="estiloTabla" :value="convocatorias" :loading="cargando" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
+               responsiveLayout="scroll">
       <Column header="Temporada">
         <template #body="{ data }">{{ data.temporada?.nombre || '—' }}</template>
       </Column>
