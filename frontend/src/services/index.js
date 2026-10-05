@@ -12,8 +12,7 @@ export function crudService(resource) {
     obtener: (id) => api.get(`/${resource}/${id}`).then(r => r.data),
     crear: (payload) => api.post(`/${resource}`, payload).then(r => r.data),
     actualizar: (id, payload) => api.put(`/${resource}/${id}`, payload).then(r => r.data),
-    eliminar: (id) => api.delete(`/${resource}/${id}`),
-    importar: (filas) => api.post(`/import/${resource}`, { filas }).then(r => r.data)
+    eliminar: (id) => api.delete(`/${resource}/${id}`)
   };
 }
 
