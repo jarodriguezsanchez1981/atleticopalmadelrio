@@ -128,7 +128,7 @@ function confirmarEliminar(item) {
               @click="nuevaConvocatoria" />
     </div>
 
-    <DataTable v-bind="estiloTabla" :value="convocatorias" :loading="cargando" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
+    <DataTable v-bind="estiloTabla" class="ar-dt-compacta" :value="convocatorias" :loading="cargando" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
                responsiveLayout="scroll">
       <Column header="Temporada">
         <template #body="{ data }">{{ data.temporada?.nombre || '—' }}</template>

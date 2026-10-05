@@ -804,7 +804,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 
     <div v-if="esCoordinador" class="mt-6">
       <h3 class="text-sm font-semibold text-club-green mb-2">Todos los partidos</h3>
-      <DataTable v-bind="estiloTabla" :value="partidosOrdenados" :loading="cargandoPartidos" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
+      <DataTable v-bind="estiloTabla" class="ar-dt-compacta" :value="partidosOrdenados" :loading="cargandoPartidos" paginator :rows="15" :rowsPerPageOptions="[15, 30, 50]"
                  responsiveLayout="scroll">
         <Column header="Categoría">
           <template #body="{ data }">{{ data.plantilla?.categoria?.alias || data.plantilla?.categoria?.nombre || '—' }}{{ data.acta_finalizada_at ? ' *' : '' }}</template>

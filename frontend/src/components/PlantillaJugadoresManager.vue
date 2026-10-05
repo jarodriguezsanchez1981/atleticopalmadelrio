@@ -112,7 +112,7 @@ function getNombreCompleto(jugador) {
         <Button label="Añadir jugador" icon="pi pi-plus" class="p-button-sm" @click="abrirNuevo" />
       </div>
 
-      <DataTable v-if="value.length" v-bind="estiloTabla" :value="value" :paginator="true" :rows="5" :rowsPerPageOptions="[5, 10, 20]"
+      <DataTable v-if="value.length" v-bind="estiloTabla" class="ar-dt-compacta" :value="value" :paginator="true" :rows="5" :rowsPerPageOptions="[5, 10, 20]"
                  responsiveLayout="scroll">
         <Column field="nombreCompleto" header="Jugador">
           <template #body="slotProps">

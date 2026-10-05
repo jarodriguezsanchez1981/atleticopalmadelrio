@@ -1,6 +1,7 @@
 /** Aspecto común de todas las tablas (DataTable de PrimeVue): se aplica con
  * <DataTable v-bind="estiloTabla" ...>. Los estilos de .ar-datatable están en
- * assets/main.css. */
+ * assets/main.css. Las tablas con paginación añaden class="ar-dt-compacta"
+ * (filas algo más bajas). */
 export const estiloTabla = {
   class: 'ar-datatable bg-white rounded-xl overflow-x-auto border border-line',
   rowHover: true,
