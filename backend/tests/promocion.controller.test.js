@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Promocion, Plantilla, Categoria, Jugador } from './helpers/models.js';
+import { Promocion, Plantilla, Categoria, Jugador, PartidoJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/promocion.controller.js';
@@ -101,5 +101,46 @@ describe('Sección Promociones · promocion.controller', () => {
 
     expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id: '1' } });
     expect(res._status).toBe(204);
+  });
+
+  describe('resumen', () => {
+    // Jugador 9 de la plantilla 2 (Alevín B, grupo "Alevín"), temporada 1.
+    const promocion = {
+      id: 1, id_plantilla: 2, id_categoria: 13, id_jugador: 9,
+      plantilla: { id: 2, id_temporada: 1, categoria: { id: 12, nombre: 'Alevin B', grupo: 'Alevín' } }
+    };
+    const jugado = (idPartido, idPlantilla, grupo, idTemporada = 1) => ({
+      id_partido: idPartido, id_jugador: 9,
+      partido: { id: idPartido, id_plantilla: idPlantilla, plantilla: { id: idPlantilla, id_temporada: idTemporada, categoria: { grupo } } }
+    });
+
+    beforeEach(() => PartidoJugador.findAll.mockReset());
+
+    it('cuenta como RFAF los partidos de su mismo grupo y como Categoría los de otro grupo', async () => {
+      Promocion.findAll.mockResolvedValue([promocion]);
+      PartidoJugador.findAll.mockResolvedValue([
+        jugado(100, 2, 'Alevín'),     // su propia plantilla: no cuenta
+        jugado(101, 3, 'alevin '),    // Alevín A: mismo grupo (sin distinguir acentos/mayúsculas)
+        jugado(102, 3, 'Alevín'),
+        jugado(102, 3, 'Alevín'),     // repetido: un partido cuenta una vez
+        jugado(103, 5, 'Infantil'),   // otro grupo
+        jugado(104, 6, null),         // sin grupo: cuenta como Categoría
+        jugado(105, 3, 'Alevín', 2)   // otra temporada: no cuenta
+      ]);
+
+      const { promesa, res } = llamar(ctrl.resumen);
+      await promesa;
+
+      expect(res._json).toHaveLength(1);
+      expect(res._json[0]).toMatchObject({ id: 1, id_jugador: 9, promocion_rfaf: 2, promocion_categoria: 2 });
+    });
+
+    it('sin promociones no consulta partidos', async () => {
+      Promocion.findAll.mockResolvedValue([]);
+      const { promesa, res } = llamar(ctrl.resumen);
+      await promesa;
+      expect(res._json).toEqual([]);
+      expect(PartidoJugador.findAll).not.toHaveBeenCalled();
+    });
   });
 });

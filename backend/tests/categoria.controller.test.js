@@ -90,7 +90,7 @@ describe('Sección Categorías · categoria.controller', () => {
 
     expect(TipoFutbol.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
+      nombre: 'Alevín', alias: null, grupo: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
       tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
@@ -108,10 +108,36 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: 'Ali', codigo_equipo_rfaf: null, id_tipofutbol: 1,
+      nombre: 'Alevín', alias: 'Ali', grupo: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
       tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
+  });
+
+  it('crear guarda el grupo sin espacios sobrantes', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    Categoria.create.mockResolvedValue({ id: 8 });
+    Categoria.findOne.mockResolvedValue({ id: 8, grupo: 'Alevín' });
+    const { promesa } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín A', grupo: ' Alevín ', id_tipofutbol: 1 }
+    });
+
+    await promesa;
+
+    expect(Categoria.create).toHaveBeenCalledWith(expect.objectContaining({ grupo: 'Alevín' }));
+  });
+
+  it('actualizar cambia y vacía el grupo', async () => {
+    const categoria = { id: 8, grupo: 'Alevín', save: vi.fn().mockResolvedValue() };
+    Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce({ id: 8 });
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: 'Infantil' } });
+    await promesa;
+    expect(categoria.grupo).toBe('Infantil');
+
+    Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce({ id: 8 });
+    const otra = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: '' } });
+    await otra.promesa;
+    expect(categoria.grupo).toBeNull();
   });
 
   it('crear guarda codigo_equipo_rfaf si se envía', async () => {
@@ -125,7 +151,7 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, codigo_equipo_rfaf: '48466133', id_tipofutbol: 1,
+      nombre: 'Alevín', alias: null, grupo: null, codigo_equipo_rfaf: '48466133', id_tipofutbol: 1,
       tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
@@ -142,7 +168,7 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
+      nombre: 'Alevín', alias: null, grupo: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
       tiempopartido: 90, tiempoentrenamiento: 60, orden: null
     });
     expect(res._status).toBe(201);

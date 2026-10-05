@@ -33,7 +33,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, alias, codigo_equipo_rfaf, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
+    const { nombre, alias, grupo, codigo_equipo_rfaf, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
     if (!nombre || !id_tipofutbol) {
       return res.status(400).json({ message: 'Nombre y tipo de fútbol son obligatorios.' });
     }
@@ -51,6 +51,7 @@ async function crear(req, res, next) {
     const categoria = await Categoria.create({
       nombre,
       alias: alias || null,
+      grupo: grupo?.trim() || null,
       codigo_equipo_rfaf: codigo_equipo_rfaf || null,
       id_tipofutbol,
       tiempopartido: tiempopartido || null,
@@ -66,9 +67,10 @@ async function actualizar(req, res, next) {
   try {
     const categoria = await Categoria.findOne({ where: { id: req.params.id } });
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    const { nombre, alias, codigo_equipo_rfaf, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
+    const { nombre, alias, grupo, codigo_equipo_rfaf, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
     if (nombre !== undefined) categoria.nombre = nombre;
     if (alias !== undefined) categoria.alias = alias || null;
+    if (grupo !== undefined) categoria.grupo = grupo?.trim() || null;
     if (codigo_equipo_rfaf !== undefined) categoria.codigo_equipo_rfaf = codigo_equipo_rfaf || null;
     if (id_tipofutbol !== undefined) {
       const tipoFutbol = await TipoFutbol.findOne({ where: { id: id_tipofutbol } });

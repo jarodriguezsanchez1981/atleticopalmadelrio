@@ -32,6 +32,7 @@ const opcionesTipoFutbol = computed(() =>
 const columns = computed(() => [
   { field: 'nombre', header: 'Nombre', type: 'text', required: true },
   { field: 'alias', header: 'Alias', type: 'text', required: false },
+  { field: 'grupo', header: 'Grupo', type: 'text', required: false },
   { field: 'codigo_equipo_rfaf', header: 'Código equipo RFAF', type: 'text', required: false, enTabla: false },
   { field: 'id_tipofutbol', header: 'Tipo de fútbol', type: 'select', options: opcionesTipoFutbol.value, required: true },
   { field: 'tiempopartido', header: 'Tiempo partido (min)', type: 'number', required: false },
@@ -39,7 +40,7 @@ const columns = computed(() => [
   { field: 'orden', header: 'Orden', type: 'number', required: false }
 ]);
 
-const emptyItem = { nombre: '', alias: '', codigo_equipo_rfaf: '', id_tipofutbol: null, tiempopartido: null, tiempoentrenamiento: null, orden: null };
+const emptyItem = { nombre: '', alias: '', grupo: '', codigo_equipo_rfaf: '', id_tipofutbol: null, tiempopartido: null, tiempoentrenamiento: null, orden: null };
 
 function nombreTipoFutbol(id) {
   return tiposFutbol.value.find(t => t.id === id)?.nombre || '—';

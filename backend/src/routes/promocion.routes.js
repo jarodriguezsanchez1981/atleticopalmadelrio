@@ -9,6 +9,7 @@ const router = Router();
 router.use(authenticate, authorize('promociones'));
 
 router.get('/', ctrl.listar);
+router.get('/resumen', ctrl.resumen);
 router.get('/:id', ctrl.obtener);
 router.post('/', requireEditar('promociones'), ctrl.crear);
 router.put('/:id', requireEditar('promociones'), ctrl.actualizar);

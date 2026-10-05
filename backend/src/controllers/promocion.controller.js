@@ -1,4 +1,4 @@
-const { Promocion, Plantilla, Categoria, Temporada, Jugador } = require('../models');
+const { Promocion, Plantilla, Categoria, Temporada, Jugador, PartidoJugador, Partido } = require('../models');
 
 const includes = [
   {
@@ -25,6 +25,74 @@ async function listar(req, res, next) {
       order: [['id', 'ASC']]
     });
     res.json(promociones.map(serializePromocion));
+  } catch (err) { next(err); }
+}
+
+/** "Alevín " y "alevin" son el mismo grupo; sin grupo no hay coincidencia. */
+function mismoGrupo(a, b) {
+  const n = (s) => (s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return !!n(a) && n(a) === n(b);
+}
+
+/** Promociones con el número de partidos de la temporada que cada jugador ha
+ * jugado con una plantilla que no es la suya (la de la promoción):
+ * - promocion_rfaf: la categoría de ese partido es del mismo grupo que la suya.
+ * - promocion_categoria: es de otro grupo (o alguna de las dos no tiene grupo). */
+async function resumen(req, res, next) {
+  try {
+    const promociones = await Promocion.findAll({
+      include: [
+        {
+          model: Plantilla,
+          as: 'plantilla',
+          attributes: ['id', 'id_categoria', 'id_temporada'],
+          include: [
+            { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'grupo', 'orden'] },
+            { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
+          ]
+        },
+        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'grupo', 'orden'] },
+        { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }
+      ],
+      order: [['id', 'ASC']]
+    });
+    const idsJugador = [...new Set(promociones.map((p) => p.id_jugador))];
+    const jugados = idsJugador.length
+      ? await PartidoJugador.findAll({
+        where: { id_jugador: idsJugador },
+        attributes: ['id_partido', 'id_jugador'],
+        include: [{
+          model: Partido,
+          as: 'partido',
+          attributes: ['id', 'id_plantilla'],
+          include: [{
+            model: Plantilla,
+            as: 'plantilla',
+            attributes: ['id', 'id_temporada'],
+            include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'grupo'] }]
+          }]
+        }]
+      })
+      : [];
+
+    const resultado = promociones.map((promocion) => {
+      const origen = promocion.plantilla;
+      const contados = new Set();
+      let promocion_rfaf = 0;
+      let promocion_categoria = 0;
+      for (const pj of jugados) {
+        const partido = pj.partido;
+        if (Number(pj.id_jugador) !== Number(promocion.id_jugador) || !partido) continue;
+        if (Number(partido.id_plantilla) === Number(promocion.id_plantilla)) continue;
+        if (Number(partido.plantilla?.id_temporada) !== Number(origen?.id_temporada)) continue;
+        if (contados.has(partido.id)) continue;
+        contados.add(partido.id);
+        if (mismoGrupo(partido.plantilla?.categoria?.grupo, origen?.categoria?.grupo)) promocion_rfaf += 1;
+        else promocion_categoria += 1;
+      }
+      return { ...serializePromocion(promocion), promocion_rfaf, promocion_categoria };
+    });
+    res.json(resultado);
   } catch (err) { next(err); }
 }
 
@@ -89,4 +157,4 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+module.exports = { listar, obtener, crear, actualizar, eliminar, resumen };

@@ -77,7 +77,11 @@ export const plantillasService = {
   ...crudService('plantillas'),
   crearTemporada: (payload) => api.post('/plantillas/temporada', payload).then(r => r.data)
 };
-export const promocionesService = crudService('promociones');
+export const promocionesService = {
+  ...crudService('promociones'),
+  // Promociones con promocion_rfaf / promocion_categoria (partidos jugados fuera de su plantilla).
+  resumen: () => api.get('/promociones/resumen').then(r => r.data)
+};
 export const torneosService = crudService('torneos');
 
 export const cambiosService = {
