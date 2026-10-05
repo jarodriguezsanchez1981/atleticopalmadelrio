@@ -1,14 +1,19 @@
 # Copia diaria de la base de datos cifrada con age (clave pública en
 # backup-key.pub): mysqldump | gzip | age, sin escribir nunca el volcado en
-# claro en el disco. Ver scripts/db-backup.sh (incluye cómo restaurar).
+# claro en el disco, y subida a S3 con la AWS CLI (rol de IAM de la instancia).
+# Ver scripts/db-backup.sh (incluye cómo restaurar).
 FROM mysql:8.0
 
 ARG TARGETARCH=amd64
 ARG AGE_VERSION=v1.2.1
-RUN microdnf install -y tar gzip && microdnf clean all \
+RUN microdnf install -y tar gzip unzip && microdnf clean all \
   && curl -fsSL "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-${TARGETARCH}.tar.gz" \
      | tar -xz -C /usr/local/bin --strip-components=1 age/age \
-  && age --version
+  && age --version \
+  && ARCH=$([ "$TARGETARCH" = "arm64" ] && echo aarch64 || echo x86_64) \
+  && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o /tmp/awscli.zip \
+  && unzip -q /tmp/awscli.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/awscli.zip \
+  && aws --version
 
 COPY db-backup.sh /scripts/db-backup.sh
 RUN chmod +x /scripts/db-backup.sh

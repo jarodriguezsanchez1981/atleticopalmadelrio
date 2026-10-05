@@ -62,6 +62,10 @@ services:
       DB_PASS: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
       AGE_RECIPIENTS_FILE: /run/backup-key.pub
+      # Destino en S3 (vacío = no se sube). En el EC2: s3://<bucket>/intranet,
+      # con el rol de IAM de la instancia (solo s3:PutObject).
+      BACKUP_S3_URI: ${BACKUP_S3_URI:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
       # Diario a las 03:00 UTC; conserva 30 días de copias
       BACKUP_HOUR_UTC: 3
       RETENTION_DAYS: 30
