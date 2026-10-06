@@ -778,9 +778,9 @@ describe('Sección Partidos · partido.controller', () => {
       ]);
     });
 
-    it('calcula los minutos con la duración de la categoría del partido', async () => {
+    it('calcula los minutos sobre 90 aunque la categoría tenga otro tiempo de partido', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma());
-      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 20, nombre: 'Senior A', tiempopartido: 60 } });
+      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 20, nombre: 'Senior A', tiempopartido: 120 } });
       PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 1 }, { id_jugador: 2 }, { id_jugador: 3 }, { id_jugador: 4 }]);
       Jugador.findAll.mockResolvedValue([
         { id: 1, nombre: 'Uno', apellidos: 'Titular' },
@@ -805,7 +805,7 @@ describe('Sección Partidos · partido.controller', () => {
       await promesa;
 
       const minutos = Object.fromEntries(PartidoJugador.bulkCreate.mock.calls[0][0].map((f) => [f.id_jugador, f.minutos]));
-      expect(minutos).toEqual({ 1: 60, 2: 30, 3: 20, 4: 0 });
+      expect(minutos).toEqual({ 1: 90, 2: 30, 3: 20, 4: 0 });
     });
 
     it('fuera del Senior A no calcula los minutos (pero sí titulares y cambios)', async () => {

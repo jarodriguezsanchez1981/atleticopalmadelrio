@@ -11,6 +11,7 @@ const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 // Solo en los partidos de esta categoría se calculan los minutos jugados
 // (Finalizar Acta); ver también frontend/src/utils/minutos.js.
 const CATEGORIA_CON_MINUTOS = 'Senior A';
+const MINUTOS_PARTIDO = 90;
 
 /** Crea/actualiza sanciones para los jugadores del PALMA DEL RIO ATLETICO C.F.
  * (id 73) que tengan tarjetas en el partido. */
@@ -295,7 +296,7 @@ async function eliminar(req, res, next) {
  * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
  * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
  * aparecen en el acta, con sus goles, tarjetas y minutos jugados (según las
- * sustituciones y la duración de su categoría; solo en Senior A), y una sanción en Sanciones
+ * sustituciones, sobre 90 minutos; solo en Senior A), y una sanción en Sanciones
  * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se busca por
  * nombre primero en la plantilla del partido y luego en todos los jugadores;
  * si no existe, se crea en Jugadores y se añade a la plantilla del partido con
@@ -334,9 +335,11 @@ async function finalizarActa(req, res, next) {
     const equipoActa = esLocal ? acta.local : acta.visitante;
     const plantillaPartido = await Plantilla.findOne({
       where: { id: partido.id_plantilla },
-      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'tiempopartido'] }]
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] }]
     });
-    const duracion = plantillaPartido?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
+    // Los minutos se cuentan sobre los 90 del partido (categoria.tiempopartido
+    // es el hueco que ocupa en el calendario, no la duración del juego).
+    const duracion = MINUTOS_PARTIDO;
     const conMinutos = plantillaPartido?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
 
     const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
