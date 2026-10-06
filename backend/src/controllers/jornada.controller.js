@@ -39,7 +39,8 @@ const includes = [
   {
     model: PartidoJugador,
     as: 'partidoJugadores',
-    attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles'],
+    attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles',
+      'titular', 'minuto_entrada', 'minuto_salida', 'minutos'],
     include: [
       { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
       { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }

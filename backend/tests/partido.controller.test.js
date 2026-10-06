@@ -429,6 +429,14 @@ describe('Sección Partidos · partido.controller', () => {
     expect(Sancion.create).toHaveBeenCalledWith({ id_partido: 1, id_jugador: 9, amarilla: 0, roja: 1 });
   });
 
+  it('obtener devuelve de cada jugador los datos del acta (titular, cambios y minutos)', async () => {
+    Partido.findByPk.mockResolvedValue({ id: 1, toJSON: () => ({ id: 1 }) });
+    const { promesa } = llamar(ctrl.obtener, { params: { id: '1' } });
+    await promesa;
+    const include = Partido.findByPk.mock.calls[0][1].include.find((i) => i.as === 'partidoJugadores');
+    expect(include.attributes).toEqual(expect.arrayContaining(['titular', 'minuto_entrada', 'minuto_salida', 'minutos']));
+  });
+
   it('actualizar conserva los datos del acta (titular, cambios, minutos) si el formulario no los envía', async () => {
     const partido = { id: 1, id_equipo_local: 73, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
     const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
