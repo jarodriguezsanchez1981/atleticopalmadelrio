@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Lee el acta oficial de un partido en RFAF (NFG_CmpPartido) y la devuelve
 en JSON por stdout: equipos, jugadores que han jugado (titulares y
-suplentes), goles, tarjetas amarillas/rojas, resultado y la cookie de sesión.
+suplentes, con el minuto en que entran o salen en las sustituciones), goles,
+tarjetas amarillas/rojas, resultado y la cookie de sesión.
 
 RFAF entrega el acta a cualquier visitante, pero exige una sesión (anónima):
 sin ella responde 302 a /pnfg/NLogin, que crea la sesión y redirige de vuelta
@@ -132,8 +133,49 @@ def jugadores_de(bloque, titulo, titular):
             "goles": 0,
             "tarjeta_amarilla": 0,
             "tarjeta_roja": 0,
+            "minuto_entrada": None,
+            "minuto_salida": None,
         })
     return jugadores
+
+
+def sustituciones_de(bloque):
+    """Cambios del equipo: bajo el h4 "Sustituciones" hay una tabla por cambio
+    con el que entra (flecha izquierda) y el que sale (flecha derecha, con el
+    minuto entre paréntesis, que es el del cambio para los dos).
+    Devuelve [(minuto, dorsal_entra, nombre_entra, dorsal_sale, nombre_sale)]."""
+    h4 = next((h for h in bloque.find_all("h4") if limpiar(h.get_text()) == "Sustituciones"), None)
+    cambios = []
+    if not h4:
+        return cambios
+    for el in h4.find_all_next(["table", "h4", "h5"]):
+        if el.name != "table":
+            break  # siguiente sección ("Tarjetas")
+        entra = sale = None
+        minuto = None
+        for tr in el.find_all("tr"):
+            tds = tr.find_all("td")
+            icono = tr.find("i")
+            clases = icono.get("class", []) if icono else []
+            if len(tds) < 2 or not clases:
+                continue
+            dorsal = limpiar(tds[0].get_text())
+            nombre, minuto_fila = texto_sin_minuto(tds[1])
+            datos = (int(dorsal) if dorsal.isdigit() else None, nombre)
+            if "fa-arrow-left" in clases:
+                entra = datos
+            elif "fa-arrow-right" in clases:
+                sale = datos
+                minuto = minuto_fila
+        if minuto is not None and (entra or sale):
+            cambios.append((minuto, *(entra or (None, None)), *(sale or (None, None))))
+    return cambios
+
+
+def buscar_jugador(jugadores, dorsal, nombre):
+    clave = normalizar_nombre(nombre) if nombre else None
+    return (next((j for j in jugadores if clave and normalizar_nombre(j["nombre"]) == clave), None)
+            or next((j for j in jugadores if dorsal is not None and j["dorsal"] == dorsal), None))
 
 
 def tarjetas_de(bloque):
@@ -190,6 +232,13 @@ def parsear_acta(html):
         if not numero or not any(limpiar(h.get_text()) == "Titulares" for h in bloque.find_all("h5")):
             continue
         jugadores = jugadores_de(bloque, "Titulares", True) + jugadores_de(bloque, "Suplentes", False)
+        for minuto, dorsal_entra, nombre_entra, dorsal_sale, nombre_sale in sustituciones_de(bloque):
+            entra = buscar_jugador(jugadores, dorsal_entra, nombre_entra)
+            sale = buscar_jugador(jugadores, dorsal_sale, nombre_sale)
+            if entra:
+                entra["minuto_entrada"] = minuto
+            if sale:
+                sale["minuto_salida"] = minuto
         for tipo, nombre in tarjetas_de(bloque):
             for j in jugadores:
                 if normalizar_nombre(j["nombre"]) == nombre:

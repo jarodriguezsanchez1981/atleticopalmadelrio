@@ -623,14 +623,15 @@ describe('Sección Partidos · partido.controller', () => {
         nombre: 'PALMA DEL RIO ATLETICO C.F.',
         goles: 2,
         jugadores: [
-          { dorsal: 7, nombre: 'PEREZ GOMEZ, JUAN', titular: true, goles: 2, tarjeta_amarilla: 1, tarjeta_roja: 0 },
-          { dorsal: 4, nombre: 'SIN FICHA, ALGUIEN', titular: true, goles: 0, tarjeta_amarilla: 0, tarjeta_roja: 0 }
+          // Pérez sale en el 70 y entra el 4 en su lugar.
+          { dorsal: 7, nombre: 'PEREZ GOMEZ, JUAN', titular: true, goles: 2, tarjeta_amarilla: 1, tarjeta_roja: 0, minuto_entrada: null, minuto_salida: 70 },
+          { dorsal: 4, nombre: 'SIN FICHA, ALGUIEN', titular: false, goles: 0, tarjeta_amarilla: 0, tarjeta_roja: 0, minuto_entrada: 70, minuto_salida: null }
         ]
       },
       visitante: {
         nombre: 'OTRO EQUIPO C.F.',
         goles: 1,
-        jugadores: [{ dorsal: 9, nombre: 'GARCIA TORRES, MANUEL', titular: true, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 0 }]
+        jugadores: [{ dorsal: 9, nombre: 'GARCIA TORRES, MANUEL', titular: true, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 0, minuto_entrada: null, minuto_salida: null }]
       }
     };
 
@@ -655,6 +656,7 @@ describe('Sección Partidos · partido.controller', () => {
       Sancion.create.mockReset();
       Sancion.findOne.mockReset();
       Sancion.findOne.mockResolvedValue(null);
+      Plantilla.findOne.mockReset();
       leerActa = vi.spyOn(rfafActa, 'leerActa');
       leerActa.mockReset();
       leerActa.mockResolvedValue(ACTA);
@@ -697,8 +699,10 @@ describe('Sección Partidos · partido.controller', () => {
         where: { id_partido: 1, es_local: true, id_jugador: { [Op.ne]: null } }
       });
       expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
-        { id_partido: 1, id_jugador: 900, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2 },
-        { id_partido: 1, id_jugador: 950, es_local: true, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 }
+        { id_partido: 1, id_jugador: 900, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2,
+          titular: true, minuto_entrada: null, minuto_salida: 70, minutos: 70 },
+        { id_partido: 1, id_jugador: 950, es_local: true, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0,
+          titular: false, minuto_entrada: 70, minuto_salida: null, minutos: 20 }
       ]);
       // Sanciones: se quitan las de jugadores que ya no están y se crea la
       // del que tiene amarilla; el que no tiene tarjetas no genera sanción.
@@ -739,8 +743,39 @@ describe('Sección Partidos · partido.controller', () => {
       await promesa;
 
       expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
-        { id_partido: 1, id_jugador: 901, es_local: false, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 1 }
+        { id_partido: 1, id_jugador: 901, es_local: false, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 1,
+          titular: true, minuto_entrada: null, minuto_salida: null, minutos: 90 }
       ]);
+    });
+
+    it('calcula los minutos con la duración de la categoría del partido', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 11, tiempopartido: 60 } });
+      PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 1 }, { id_jugador: 2 }, { id_jugador: 3 }, { id_jugador: 4 }]);
+      Jugador.findAll.mockResolvedValue([
+        { id: 1, nombre: 'Uno', apellidos: 'Titular' },
+        { id: 2, nombre: 'Dos', apellidos: 'Sale' },
+        { id: 3, nombre: 'Tres', apellidos: 'Entra Y Sale' },
+        { id: 4, nombre: 'Cuatro', apellidos: 'Banquillo' }
+      ]);
+      const j = (nombre, titular, minuto_entrada, minuto_salida) => ({
+        dorsal: null, nombre, titular, goles: 0, tarjeta_amarilla: 0, tarjeta_roja: 0, minuto_entrada, minuto_salida
+      });
+      leerActa.mockResolvedValue({
+        ...ACTA,
+        local: { ...ACTA.local, jugadores: [
+          j('TITULAR, UNO', true, null, null),
+          j('SALE, DOS', true, null, 30),
+          j('ENTRA Y SALE, TRES', false, 30, 50),
+          j('BANQUILLO, CUATRO', false, null, null)
+        ] }
+      });
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      const minutos = Object.fromEntries(PartidoJugador.bulkCreate.mock.calls[0][0].map((f) => [f.id_jugador, f.minutos]));
+      expect(minutos).toEqual({ 1: 60, 2: 30, 3: 20, 4: 0 });
     });
 
     it('actualiza la sanción existente de un jugador con roja', async () => {

@@ -20,7 +20,11 @@ async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
       es_local: esLocal,
       tarjeta_amarilla: j.tarjeta_amarilla || 0,
       tarjeta_roja: j.tarjeta_roja || 0,
-      goles: j.goles || 0
+      goles: j.goles || 0,
+      titular: j.titular ?? null,
+      minuto_entrada: j.minuto_entrada ?? null,
+      minuto_salida: j.minuto_salida ?? null,
+      minutos: j.minutos ?? null
     });
   };
   (jugadoresLocal || []).forEach((j) => anadir(j, true));
@@ -312,11 +316,21 @@ async function eliminar(req, res, next) {
 /** Finaliza el partido con el acta oficial de RFAF (una sola petición a
  * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
  * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
- * aparecen en el acta, con sus goles y tarjetas, y una sanción en Sanciones
+ * aparecen en el acta, con sus goles, tarjetas y minutos jugados (según las
+ * sustituciones y la duración de su categoría), y una sanción en Sanciones
  * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se busca por
  * nombre primero en la plantilla del partido y luego en todos los jugadores;
  * si no existe, se crea en Jugadores y se añade a la plantilla del partido con
  * su dorsal del acta (devuelto en "creados"). */
+/** Minutos jugados según el acta: el titular juega desde el 0 y el suplente
+ * desde que entra (si no entra, 0); los dos hasta que salen o hasta el final. */
+function minutosJugados(jugador, duracion) {
+  const entrada = jugador.titular ? 0 : jugador.minuto_entrada;
+  if (entrada === null || entrada === undefined) return 0;
+  const salida = jugador.minuto_salida ?? duracion;
+  return Math.max(0, Math.min(salida, duracion) - entrada);
+}
+
 async function finalizarActa(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
@@ -340,6 +354,11 @@ async function finalizarActa(req, res, next) {
       return res.status(err.status || 502).json({ message: err.message });
     }
     const equipoActa = esLocal ? acta.local : acta.visitante;
+    const plantillaPartido = await Plantilla.findOne({
+      where: { id: partido.id_plantilla },
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }]
+    });
+    const duracion = plantillaPartido?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
 
     const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
     const jugadoresPlantilla = await Jugador.findAll({
@@ -378,7 +397,11 @@ async function finalizarActa(req, res, next) {
         es_local: esLocal,
         tarjeta_amarilla: rfaf.tarjeta_amarilla,
         tarjeta_roja: rfaf.tarjeta_roja,
-        goles: rfaf.goles
+        goles: rfaf.goles,
+        titular: !!rfaf.titular,
+        minuto_entrada: rfaf.minuto_entrada ?? null,
+        minuto_salida: rfaf.minuto_salida ?? null,
+        minutos: minutosJugados(rfaf, duracion)
       });
       actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
     }

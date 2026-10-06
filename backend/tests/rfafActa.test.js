@@ -44,6 +44,11 @@ const HTML_EJEMPLO = `
       <table class="table"><tbody>
         <tr><td>15</td><td><img class="fotojug"></td><td>MARTINEZ DIAZ, SERGIO</td></tr>
       </tbody></table>
+      <h4>Sustituciones</h4>
+      <table class="table"><tbody>
+        <tr><td>15</td><td>MARTINEZ DIAZ, SERGIO</td><td><i class="fa fa-arrow-left font-green-meadow"></i></td></tr>
+        <tr><td>4</td><td><p><span class="font-blue">(60')</span> LOPEZ RUIZ, ALVARO </p></td><td><i class="fa fa-arrow-right font-red"></i></td></tr>
+      </tbody></table>
       <h4>Tarjetas</h4>
       <table class="table"><tbody>
         <tr><td><img src="https://files.rfaf.es/.../tarj_amar.gif"></td>
@@ -144,6 +149,16 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
     expect(lopez).toMatchObject({ tarjeta_amarilla: 1, tarjeta_roja: 0 });
     expect(martinez).toMatchObject({ tarjeta_amarilla: 0, tarjeta_roja: 1 });
     expect(acta.local.jugadores.reduce((n, j) => n + j.tarjeta_amarilla, 0)).toBe(1);
+  });
+
+  it('lee las sustituciones: minuto en que sale el titular y entra el suplente', async () => {
+    const acta = await leer();
+    const porDorsal = Object.fromEntries(acta.local.jugadores.map((j) => [j.dorsal, j]));
+    expect(porDorsal[4]).toMatchObject({ titular: true, minuto_entrada: null, minuto_salida: 60 });
+    expect(porDorsal[15]).toMatchObject({ titular: false, minuto_entrada: 60, minuto_salida: null });
+    expect(porDorsal[7]).toMatchObject({ titular: true, minuto_entrada: null, minuto_salida: null });
+    // Las tarjetas (sección siguiente) se siguen leyendo bien.
+    expect(porDorsal[15].tarjeta_roja).toBe(1);
   });
 
   it('no devuelve la cookie dentro del acta', async () => {

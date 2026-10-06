@@ -8,6 +8,7 @@ import Select from 'primevue/select';
 import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
+import TablaJugadoresPartido from './TablaJugadoresPartido.vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import {
@@ -143,7 +144,11 @@ async function cargarRegistro() {
         id_equipo_jugador: pj.id_equipo_jugador ?? null,
         tarjeta_amarilla: pj.tarjeta_amarilla || 0,
         tarjeta_roja: pj.tarjeta_roja || 0,
-        goles: pj.goles || 0
+        goles: pj.goles || 0,
+        titular: pj.titular ?? null,
+        minuto_entrada: pj.minuto_entrada ?? null,
+        minuto_salida: pj.minuto_salida ?? null,
+        minutos: pj.minutos ?? null
       };
       if (pj.es_local) jugadoresLocal.push(entrada);
       else jugadoresVisitante.push(entrada);
@@ -449,6 +454,20 @@ function addPlantillaCompleta(lado) {
 function removeJugadorConvocado(lado, valor) {
   const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
   form.value[campo] = (form.value[campo] || []).filter((j) => valorJugadorConvocado(j) !== valor);
+}
+
+/** Con datos del acta (titular conocido), los jugadores de un equipo se
+ * reparten en Titulares / Han entrado / No han jugado; sin ellos, null (una
+ * sola tabla, como al convocar a mano). */
+function gruposJugadores(lista) {
+  const jugadores = lista || [];
+  if (!jugadores.some((j) => j.titular === true || j.titular === false)) return null;
+  const haEntrado = (j) => j.titular === false && j.minuto_entrada != null;
+  return [
+    { clave: 'titulares', titulo: 'Titulares', vacio: 'Sin titulares.', filas: jugadores.filter((j) => j.titular === true) },
+    { clave: 'entran', titulo: 'Han entrado', vacio: 'No ha entrado nadie.', filas: jugadores.filter(haEntrado) },
+    { clave: 'no-juegan', titulo: 'No han jugado', vacio: 'Han jugado todos.', filas: jugadores.filter((j) => j.titular !== true && !haEntrado(j)) }
+  ];
 }
 
 /** Nombre legible de un jugador añadido en el formulario. */
@@ -918,37 +937,15 @@ async function finalizarActa() {
 
         <div v-if="mostrarJugadoresLocal">
           <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Local</h3>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
-              <thead>
-                <tr class="bg-club-green/5">
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Goles</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="j in (form.jugadores_local || [])" :key="valorJugadorConvocado(j)">
-                  <td class="text-center border border-line p-2 text-sm">{{ nombreJugadorConvocado(j) }}</td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_amarilla" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_roja" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.goles" :min="0" :max="99" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
-                            @click="removeJugadorConvocado('local', valorJugadorConvocado(j))" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <template v-if="gruposJugadores(form.jugadores_local)">
+            <div v-for="g in gruposJugadores(form.jugadores_local)" :key="g.clave" class="mb-3">
+              <h4 class="text-xs font-semibold text-ink-secondary mb-1">{{ g.titulo }} ({{ g.filas.length }})</h4>
+              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado"
+                                     :vacio="g.vacio" @quitar="(v) => removeJugadorConvocado('local', v)" />
+            </div>
+          </template>
+          <TablaJugadoresPartido v-else :jugadores="form.jugadores_local || []" :nombre="nombreJugadorConvocado"
+                                 :clave="valorJugadorConvocado" @quitar="(v) => removeJugadorConvocado('local', v)" />
           <div class="flex gap-2 mt-2">
             <Select :key="keySelectJugadorLocal" v-model="nuevoJugadorLocal" :options="opcionesJugadorLocalDisponibles"
                     optionLabel="label" optionValue="value" placeholder="Seleccionar jugador local"
@@ -962,37 +959,15 @@ async function finalizarActa() {
 
         <div v-if="mostrarJugadoresVisitante">
           <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Visitante</h3>
-          <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
-              <thead>
-                <tr class="bg-club-green/5">
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Goles</th>
-                  <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="j in (form.jugadores_visitante || [])" :key="valorJugadorConvocado(j)">
-                  <td class="text-center border border-line p-2 text-sm">{{ nombreJugadorConvocado(j) }}</td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_amarilla" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.tarjeta_roja" :min="0" :max="5" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <InputNumber v-model="j.goles" :min="0" :max="99" class="!w-20" inputClass="!w-20 !text-center" />
-                  </td>
-                  <td class="text-center border border-line p-2">
-                    <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
-                            @click="removeJugadorConvocado('visitante', valorJugadorConvocado(j))" />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <template v-if="gruposJugadores(form.jugadores_visitante)">
+            <div v-for="g in gruposJugadores(form.jugadores_visitante)" :key="g.clave" class="mb-3">
+              <h4 class="text-xs font-semibold text-ink-secondary mb-1">{{ g.titulo }} ({{ g.filas.length }})</h4>
+              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado"
+                                     :vacio="g.vacio" @quitar="(v) => removeJugadorConvocado('visitante', v)" />
+            </div>
+          </template>
+          <TablaJugadoresPartido v-else :jugadores="form.jugadores_visitante || []" :nombre="nombreJugadorConvocado"
+                                 :clave="valorJugadorConvocado" @quitar="(v) => removeJugadorConvocado('visitante', v)" />
           <div class="flex gap-2 mt-2">
             <Select :key="keySelectJugadorVisitante" v-model="nuevoJugadorVisitante" :options="opcionesJugadorVisitanteDisponibles"
                     optionLabel="label" optionValue="value" placeholder="Seleccionar jugador visitante"
