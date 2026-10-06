@@ -9,6 +9,7 @@ import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 import TablaJugadoresPartido from './TablaJugadoresPartido.vue';
+import { CATEGORIA_CON_MINUTOS } from '../utils/minutos';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import {
@@ -455,6 +456,10 @@ function removeJugadorConvocado(lado, valor) {
   const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
   form.value[campo] = (form.value[campo] || []).filter((j) => valorJugadorConvocado(j) !== valor);
 }
+
+/** Los minutos jugados solo se llevan en los partidos de esta categoría. */
+const conMinutos = computed(() =>
+  plantillas.value.find((p) => p.id === form.value.id_plantilla)?.categoria?.nombre === CATEGORIA_CON_MINUTOS);
 
 /** Con datos del acta (titular conocido), los jugadores de un equipo se
  * reparten en Titulares / Han entrado / No han jugado; sin ellos, null (una
@@ -940,12 +945,12 @@ async function finalizarActa() {
           <template v-if="gruposJugadores(form.jugadores_local)">
             <div v-for="g in gruposJugadores(form.jugadores_local)" :key="g.clave" class="mb-3">
               <h4 class="text-xs font-semibold text-ink-secondary mb-1">{{ g.titulo }} ({{ g.filas.length }})</h4>
-              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado"
+              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado" :conMinutos="conMinutos"
                                      :vacio="g.vacio" @quitar="(v) => removeJugadorConvocado('local', v)" />
             </div>
           </template>
           <TablaJugadoresPartido v-else :jugadores="form.jugadores_local || []" :nombre="nombreJugadorConvocado"
-                                 :clave="valorJugadorConvocado" @quitar="(v) => removeJugadorConvocado('local', v)" />
+                                 :clave="valorJugadorConvocado" :conMinutos="conMinutos" @quitar="(v) => removeJugadorConvocado('local', v)" />
           <div class="flex gap-2 mt-2">
             <Select :key="keySelectJugadorLocal" v-model="nuevoJugadorLocal" :options="opcionesJugadorLocalDisponibles"
                     optionLabel="label" optionValue="value" placeholder="Seleccionar jugador local"
@@ -962,12 +967,12 @@ async function finalizarActa() {
           <template v-if="gruposJugadores(form.jugadores_visitante)">
             <div v-for="g in gruposJugadores(form.jugadores_visitante)" :key="g.clave" class="mb-3">
               <h4 class="text-xs font-semibold text-ink-secondary mb-1">{{ g.titulo }} ({{ g.filas.length }})</h4>
-              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado"
+              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado" :conMinutos="conMinutos"
                                      :vacio="g.vacio" @quitar="(v) => removeJugadorConvocado('visitante', v)" />
             </div>
           </template>
           <TablaJugadoresPartido v-else :jugadores="form.jugadores_visitante || []" :nombre="nombreJugadorConvocado"
-                                 :clave="valorJugadorConvocado" @quitar="(v) => removeJugadorConvocado('visitante', v)" />
+                                 :clave="valorJugadorConvocado" :conMinutos="conMinutos" @quitar="(v) => removeJugadorConvocado('visitante', v)" />
           <div class="flex gap-2 mt-2">
             <Select :key="keySelectJugadorVisitante" v-model="nuevoJugadorVisitante" :options="opcionesJugadorVisitanteDisponibles"
                     optionLabel="label" optionValue="value" placeholder="Seleccionar jugador visitante"

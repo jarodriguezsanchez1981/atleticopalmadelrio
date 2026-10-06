@@ -9,7 +9,9 @@ defineProps({
   jugadores: { type: Array, required: true },
   nombre: { type: Function, required: true },
   clave: { type: Function, required: true },
-  vacio: { type: String, default: 'Sin jugadores.' }
+  vacio: { type: String, default: 'Sin jugadores.' },
+  // Columna Minutos (solo en los partidos con minutos, ver utils/minutos.js).
+  conMinutos: { type: Boolean, default: false }
 });
 const emit = defineEmits(['quitar']);
 </script>
@@ -23,7 +25,7 @@ const emit = defineEmits(['quitar']);
           <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
           <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
           <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Goles</th>
-          <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Minutos</th>
+          <th v-if="conMinutos" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Minutos</th>
           <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
         </tr>
       </thead>
@@ -51,7 +53,7 @@ const emit = defineEmits(['quitar']);
           <td class="text-center border border-line p-2">
             <InputNumber v-model="j.goles" :min="0" :max="99" class="!w-20" inputClass="!w-20 !text-center" />
           </td>
-          <td class="text-center border border-line p-2">
+          <td v-if="conMinutos" class="text-center border border-line p-2">
             <InputNumber v-model="j.minutos" :min="0" :max="120" class="!w-20" inputClass="!w-20 !text-center" />
           </td>
           <td class="text-center border border-line p-2">
@@ -59,7 +61,7 @@ const emit = defineEmits(['quitar']);
           </td>
         </tr>
         <tr v-if="!jugadores.length">
-          <td colspan="6" class="text-center border border-line p-2 text-sm text-ink-tertiary">{{ vacio }}</td>
+          <td :colspan="conMinutos ? 6 : 5" class="text-center border border-line p-2 text-sm text-ink-tertiary">{{ vacio }}</td>
         </tr>
       </tbody>
     </table>

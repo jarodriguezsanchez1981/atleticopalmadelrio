@@ -6,10 +6,11 @@ import { minutosService, plantillasService, temporadasService } from '../../serv
 import { estiloTabla } from '../../utils/estiloTabla';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
+import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 
 /** Minutos jugados por los jugadores en los partidos de la plantilla Senior A
  * de la temporada actual (los rellena "Finalizar Acta" en Partidos). */
-const CATEGORIA = 'Senior A';
+const CATEGORIA = CATEGORIA_CON_MINUTOS;
 
 const plantilla = ref(null);
 const filas = ref([]);

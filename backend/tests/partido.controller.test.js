@@ -657,6 +657,7 @@ describe('Sección Partidos · partido.controller', () => {
       Sancion.findOne.mockReset();
       Sancion.findOne.mockResolvedValue(null);
       Plantilla.findOne.mockReset();
+      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 20, nombre: 'Senior A', tiempopartido: 90 } });
       leerActa = vi.spyOn(rfafActa, 'leerActa');
       leerActa.mockReset();
       leerActa.mockResolvedValue(ACTA);
@@ -750,7 +751,7 @@ describe('Sección Partidos · partido.controller', () => {
 
     it('calcula los minutos con la duración de la categoría del partido', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma());
-      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 11, tiempopartido: 60 } });
+      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 20, nombre: 'Senior A', tiempopartido: 60 } });
       PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 1 }, { id_jugador: 2 }, { id_jugador: 3 }, { id_jugador: 4 }]);
       Jugador.findAll.mockResolvedValue([
         { id: 1, nombre: 'Uno', apellidos: 'Titular' },
@@ -776,6 +777,17 @@ describe('Sección Partidos · partido.controller', () => {
 
       const minutos = Object.fromEntries(PartidoJugador.bulkCreate.mock.calls[0][0].map((f) => [f.id_jugador, f.minutos]));
       expect(minutos).toEqual({ 1: 60, 2: 30, 3: 20, 4: 0 });
+    });
+
+    it('fuera del Senior A no calcula los minutos (pero sí titulares y cambios)', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 13, nombre: 'Alevin A', tiempopartido: 60 } });
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      const [perez] = PartidoJugador.bulkCreate.mock.calls[0][0];
+      expect(perez).toMatchObject({ titular: true, minuto_salida: 70, minutos: null });
     });
 
     it('actualiza la sanción existente de un jugador con roja', async () => {

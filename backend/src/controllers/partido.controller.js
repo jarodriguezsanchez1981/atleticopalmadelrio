@@ -7,6 +7,9 @@ const rfafActa = require('../utils/rfafActa');
 const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
 const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
+// Solo en los partidos de esta categoría se calculan los minutos jugados
+// (Finalizar Acta); ver también frontend/src/utils/minutos.js.
+const CATEGORIA_CON_MINUTOS = 'Senior A';
 
 /** Guarda los jugadores convocados (local y visitante) de un partido. */
 async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
@@ -317,7 +320,7 @@ async function eliminar(req, res, next) {
  * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
  * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
  * aparecen en el acta, con sus goles, tarjetas y minutos jugados (según las
- * sustituciones y la duración de su categoría), y una sanción en Sanciones
+ * sustituciones y la duración de su categoría; solo en Senior A), y una sanción en Sanciones
  * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se busca por
  * nombre primero en la plantilla del partido y luego en todos los jugadores;
  * si no existe, se crea en Jugadores y se añade a la plantilla del partido con
@@ -356,9 +359,10 @@ async function finalizarActa(req, res, next) {
     const equipoActa = esLocal ? acta.local : acta.visitante;
     const plantillaPartido = await Plantilla.findOne({
       where: { id: partido.id_plantilla },
-      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }]
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'tiempopartido'] }]
     });
     const duracion = plantillaPartido?.categoria?.tiempopartido || DURACION_PARTIDO_DEFECTO;
+    const conMinutos = plantillaPartido?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
 
     const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
     const jugadoresPlantilla = await Jugador.findAll({
@@ -401,7 +405,7 @@ async function finalizarActa(req, res, next) {
         titular: !!rfaf.titular,
         minuto_entrada: rfaf.minuto_entrada ?? null,
         minuto_salida: rfaf.minuto_salida ?? null,
-        minutos: minutosJugados(rfaf, duracion)
+        minutos: conMinutos ? minutosJugados(rfaf, duracion) : null
       });
       actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
     }
