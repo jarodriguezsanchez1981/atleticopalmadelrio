@@ -191,9 +191,9 @@ def tarjetas_de(bloque):
         img = tds[0].find("img")
         src = (img.get("src") if img else "") or ""
         tipo = "roja" if "tarj_roja" in src else ("amarilla" if "tarj_amar" in src else None)
-        nombre, _ = texto_sin_minuto(tds[1])
+        nombre, minuto = texto_sin_minuto(tds[1])
         if tipo and nombre:
-            tarjetas.append((tipo, normalizar_nombre(nombre)))
+            tarjetas.append((tipo, normalizar_nombre(nombre), minuto))
     return tarjetas
 
 
@@ -239,10 +239,17 @@ def parsear_acta(html):
                 entra["minuto_entrada"] = minuto
             if sale:
                 sale["minuto_salida"] = minuto
-        for tipo, nombre in tarjetas_de(bloque):
+        for tipo, nombre, minuto in tarjetas_de(bloque):
             for j in jugadores:
-                if normalizar_nombre(j["nombre"]) == nombre:
-                    j["tarjeta_amarilla" if tipo == "amarilla" else "tarjeta_roja"] += 1
+                if normalizar_nombre(j["nombre"]) != nombre:
+                    continue
+                j["tarjeta_amarilla" if tipo == "amarilla" else "tarjeta_roja"] += 1
+                # El expulsado juega hasta el minuto de la roja (si estaba en el
+                # campo: titular o suplente que ya había entrado).
+                en_campo = j["titular"] or j["minuto_entrada"] is not None
+                if tipo == "roja" and minuto is not None and en_campo \
+                        and (j["minuto_salida"] is None or minuto < j["minuto_salida"]):
+                    j["minuto_salida"] = minuto
         equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0})
 
     if len(equipos) != 2:

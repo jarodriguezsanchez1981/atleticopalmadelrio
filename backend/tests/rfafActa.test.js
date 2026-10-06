@@ -155,10 +155,16 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
     const acta = await leer();
     const porDorsal = Object.fromEntries(acta.local.jugadores.map((j) => [j.dorsal, j]));
     expect(porDorsal[4]).toMatchObject({ titular: true, minuto_entrada: null, minuto_salida: 60 });
-    expect(porDorsal[15]).toMatchObject({ titular: false, minuto_entrada: 60, minuto_salida: null });
     expect(porDorsal[7]).toMatchObject({ titular: true, minuto_entrada: null, minuto_salida: null });
     // Las tarjetas (sección siguiente) se siguen leyendo bien.
     expect(porDorsal[15].tarjeta_roja).toBe(1);
+  });
+
+  it('el expulsado sale en el minuto de la roja', async () => {
+    const acta = await leer();
+    const martinez = acta.local.jugadores.find((j) => j.dorsal === 15);
+    // Entra en el 60 y ve la roja en el 88.
+    expect(martinez).toMatchObject({ minuto_entrada: 60, minuto_salida: 88 });
   });
 
   it('no devuelve la cookie dentro del acta', async () => {
