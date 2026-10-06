@@ -1,8 +1,9 @@
 const { Partido, PartidoJugador, Jugador } = require('../models');
 
 /** Minutos jugados por cada jugador en los partidos de una plantilla (datos
- * de "Finalizar Acta"): partidos en los que ha jugado (minutos > 0) y total de
- * minutos, de más a menos minutos. */
+ * de "Finalizar Acta"): partidos en los que ha jugado (minutos > 0), total de
+ * minutos y su reparto según el PALMA jugara como local o como visitante, de
+ * más a menos minutos. */
 async function listar(req, res, next) {
   try {
     const idPlantilla = Number(req.query.id_plantilla);
@@ -13,7 +14,7 @@ async function listar(req, res, next) {
 
     const filas = await PartidoJugador.findAll({
       where: { id_partido: partidos.map((p) => p.id) },
-      attributes: ['id_partido', 'id_jugador', 'minutos'],
+      attributes: ['id_partido', 'id_jugador', 'es_local', 'minutos'],
       include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
     });
 
@@ -25,11 +26,16 @@ async function listar(req, res, next) {
         nombre: f.jugador?.nombre || '',
         apellidos: f.jugador?.apellidos || '',
         partidos: 0,
-        minutos: 0
+        minutos: 0,
+        minutos_local: 0,
+        minutos_visitante: 0
       };
       const minutos = Number(f.minutos) || 0;
       if (minutos > 0) fila.partidos += 1;
       fila.minutos += minutos;
+      // es_local: el jugador (del PALMA) estaba en el equipo local del partido.
+      if (f.es_local) fila.minutos_local += minutos;
+      else fila.minutos_visitante += minutos;
       porJugador.set(f.id_jugador, fila);
     }
     const resultado = [...porJugador.values()]

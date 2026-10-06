@@ -52,7 +52,8 @@ onBeforeUnmount(() => {
       <h1 class="font-display text-xl text-club-green">Minutos</h1>
       <p class="text-sm text-ink-tertiary">
         Partidos y minutos jugados en los partidos de <strong>{{ titulo }}</strong>, según las actas de RFAF
-        (se rellenan al pulsar "Finalizar Acta" en cada partido).
+        (se rellenan al pulsar "Finalizar Acta" en cada partido). Los minutos local / visitante dependen de si el
+        PALMA jugaba en casa o fuera.
       </p>
     </div>
     <div v-if="!cargando && !plantilla" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
@@ -62,6 +63,8 @@ onBeforeUnmount(() => {
                sortField="minutos" :sortOrder="-1">
       <Column field="jugador" header="Jugador" sortable />
       <Column field="partidos" header="Partidos" sortable style="width: 120px" class="text-center" />
+      <Column field="minutos_local" header="Minutos local" sortable style="width: 140px" class="text-center" />
+      <Column field="minutos_visitante" header="Minutos visitante" sortable style="width: 150px" class="text-center" />
       <Column field="minutos" header="Minutos" sortable style="width: 120px" class="text-center" />
       <template #empty>
         <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay minutos: finaliza el acta de los partidos.</div>

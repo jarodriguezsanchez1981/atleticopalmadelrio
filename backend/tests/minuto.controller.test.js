@@ -26,12 +26,13 @@ describe('Sección Minutos · minuto.controller', () => {
     const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
     const luis = { id: 8, nombre: 'Luis', apellidos: 'Ruiz' };
     PartidoJugador.findAll.mockResolvedValue([
-      { id_partido: 1, id_jugador: 7, minutos: 90, jugador: ana },
-      { id_partido: 2, id_jugador: 7, minutos: 34, jugador: ana },
-      { id_partido: 1, id_jugador: 8, minutos: 90, jugador: luis },
-      { id_partido: 2, id_jugador: 8, minutos: 0, jugador: luis },     // no jugó: no cuenta el partido
-      { id_partido: 2, id_jugador: 9, minutos: 0, jugador: { id: 9, nombre: 'Sin', apellidos: 'Jugar' } },
-      { id_partido: 1, id_jugador: null, id_equipo_jugador: 3, minutos: null } // rival
+      // Partido 1: el PALMA juega en casa; partido 2: fuera.
+      { id_partido: 1, id_jugador: 7, es_local: true, minutos: 90, jugador: ana },
+      { id_partido: 2, id_jugador: 7, es_local: false, minutos: 34, jugador: ana },
+      { id_partido: 1, id_jugador: 8, es_local: true, minutos: 90, jugador: luis },
+      { id_partido: 2, id_jugador: 8, es_local: false, minutos: 0, jugador: luis },     // no jugó: no cuenta el partido
+      { id_partido: 2, id_jugador: 9, es_local: false, minutos: 0, jugador: { id: 9, nombre: 'Sin', apellidos: 'Jugar' } },
+      { id_partido: 1, id_jugador: null, id_equipo_jugador: 3, es_local: false, minutos: null } // rival
     ]);
 
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
@@ -39,8 +40,8 @@ describe('Sección Minutos · minuto.controller', () => {
 
     expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id'] });
     expect(res._json).toEqual([
-      { id_jugador: 7, nombre: 'Ana', apellidos: 'López', partidos: 2, minutos: 124 },
-      { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, minutos: 90 }
+      { id_jugador: 7, nombre: 'Ana', apellidos: 'López', partidos: 2, minutos: 124, minutos_local: 90, minutos_visitante: 34 },
+      { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, minutos: 90, minutos_local: 90, minutos_visitante: 0 }
     ]);
   });
 
