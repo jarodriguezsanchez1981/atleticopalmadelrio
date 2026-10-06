@@ -218,17 +218,3 @@ function nombreJugador(id) {
   </div>
 </SectionGuard>
 </template>
-
-<style scoped>
-/* Tarjeta de árbitro en miniatura (en lugar de una bola de color). */
-.tarjeta {
-  display: inline-block;
-  width: 8px;
-  height: 11px;
-  border-radius: 1.5px;
-  transform: rotate(8deg);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.12);
-}
-.tarjeta-amarilla { background: #facc15; }
-.tarjeta-roja { background: #dc2626; }
-</style>

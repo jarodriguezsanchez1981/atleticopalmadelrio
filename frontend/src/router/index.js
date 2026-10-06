@@ -161,10 +161,10 @@ const routes = [
         meta: { seccion: 'sanciones' }
       },
       {
-        path: 'minutos',
-        name: 'minutos',
-        component: () => import('../views/minutos/Minutos.vue'),
-        meta: { seccion: 'minutos' }
+        path: 'estadisticas',
+        name: 'estadisticas',
+        component: () => import('../views/estadisticas/Estadisticas.vue'),
+        meta: { seccion: 'estadisticas' }
       },
       {
         path: 'informes',

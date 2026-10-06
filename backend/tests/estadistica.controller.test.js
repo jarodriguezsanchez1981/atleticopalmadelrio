@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Partido, PartidoJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
-import * as ctrl from '../src/controllers/minuto.controller.js';
+import * as ctrl from '../src/controllers/estadistica.controller.js';
 
-describe('Sección Minutos · minuto.controller', () => {
+describe('Sección Estadísticas · estadistica.controller', () => {
   beforeEach(() => {
     Partido.findAll.mockReset();
     PartidoJugador.findAll.mockReset();
@@ -27,10 +27,10 @@ describe('Sección Minutos · minuto.controller', () => {
     const luis = { id: 8, nombre: 'Luis', apellidos: 'Ruiz' };
     PartidoJugador.findAll.mockResolvedValue([
       // Partido 1: el PALMA juega en casa; partido 2: fuera.
-      { id_partido: 1, id_jugador: 7, es_local: true, minutos: 90, jugador: ana },
-      { id_partido: 2, id_jugador: 7, es_local: false, minutos: 34, jugador: ana },
-      { id_partido: 1, id_jugador: 8, es_local: true, minutos: 90, jugador: luis },
-      { id_partido: 2, id_jugador: 8, es_local: false, minutos: 0, jugador: luis },     // no jugó: no cuenta el partido
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minuto_entrada: null, minutos: 90, goles: 2, tarjeta_amarilla: 1, tarjeta_roja: 0, jugador: ana },
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: false, minuto_entrada: 56, minutos: 34, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 1, jugador: ana },
+      { id_partido: 1, id_jugador: 8, es_local: true, titular: 1, minuto_entrada: null, minutos: 90, goles: 0, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: luis },
+      { id_partido: 2, id_jugador: 8, es_local: false, titular: 0, minuto_entrada: null, minutos: 0, goles: 0, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: luis },     // no jugó: no cuenta el partido
       { id_partido: 2, id_jugador: 9, es_local: false, minutos: 0, jugador: { id: 9, nombre: 'Sin', apellidos: 'Jugar' } },
       { id_partido: 1, id_jugador: null, id_equipo_jugador: 3, es_local: false, minutos: null } // rival
     ]);
@@ -40,8 +40,10 @@ describe('Sección Minutos · minuto.controller', () => {
 
     expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id'] });
     expect(res._json).toEqual([
-      { id_jugador: 7, nombre: 'Ana', apellidos: 'López', partidos: 2, minutos: 124, minutos_local: 90, minutos_visitante: 34 },
-      { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, minutos: 90, minutos_local: 90, minutos_visitante: 0 }
+      { id_jugador: 7, nombre: 'Ana', apellidos: 'López', partidos: 2, titular: 1, suplente: 1, minutos: 124, minutos_local: 90, minutos_visitante: 34,
+        goles: 3, tarjetas_amarillas: 1, tarjetas_rojas: 1 },
+      { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, titular: 1, suplente: 0, minutos: 90, minutos_local: 90, minutos_visitante: 0,
+        goles: 0, tarjetas_amarillas: 0, tarjetas_rojas: 0 }
     ]);
   });
 

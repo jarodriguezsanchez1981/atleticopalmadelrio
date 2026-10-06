@@ -82,8 +82,8 @@ export const promocionesService = {
   resumen: () => api.get('/promociones/resumen').then(r => r.data)
 };
 export const torneosService = crudService('torneos');
-export const minutosService = {
-  listar: (params = {}) => api.get('/minutos', { params }).then(r => r.data)
+export const estadisticasService = {
+  listar: (params = {}) => api.get('/estadisticas', { params }).then(r => r.data)
 };
 
 export const cambiosService = {

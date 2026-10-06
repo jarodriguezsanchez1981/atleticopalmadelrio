@@ -27,7 +27,7 @@ export const RUTA_POR_SECCION = {
   categoria_calendario: '/categoria-calendario',
   torneo: '/torneo',
   sanciones: '/sanciones',
-  minutos: '/minutos',
+  estadisticas: '/estadisticas',
   informes: '/informes',
   cambios: '/cambios',
   promociones: '/promociones'
