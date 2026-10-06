@@ -161,6 +161,12 @@ const routes = [
         meta: { seccion: 'sanciones' }
       },
       {
+        path: 'minutos',
+        name: 'minutos',
+        component: () => import('../views/minutos/Minutos.vue'),
+        meta: { seccion: 'minutos' }
+      },
+      {
         path: 'informes',
         name: 'informes',
         component: () => import('../views/informes/Informes.vue'),

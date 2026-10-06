@@ -27,6 +27,7 @@ const SECCIONES = [
   { clave: 'categoria_calendario', nombre: 'Jornadas', icono: 'pi pi-calendar-plus', orden: 93, grupo: 'liga' },
   { clave: 'torneo', nombre: 'Torneo', icono: 'pi pi-trophy', orden: 94, grupo: 'competicion' },
   { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98, grupo: 'competicion' },
+  { clave: 'minutos', nombre: 'Minutos', icono: 'pi pi-hourglass', orden: 97, grupo: 'liga' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
   { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' }
