@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion } = require('../models');
+const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 const rfafActa = require('../utils/rfafActa');
@@ -10,32 +11,6 @@ const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 // Solo en los partidos de esta categoría se calculan los minutos jugados
 // (Finalizar Acta); ver también frontend/src/utils/minutos.js.
 const CATEGORIA_CON_MINUTOS = 'Senior A';
-
-/** Guarda los jugadores convocados (local y visitante) de un partido. */
-async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
-  await PartidoJugador.destroy({ where: { id_partido: idPartido } });
-  const filas = [];
-  const anadir = (j, esLocal) => {
-    filas.push({
-      id_partido: idPartido,
-      id_jugador: j.id_jugador ?? null,
-      id_equipo_jugador: j.id_equipo_jugador ?? null,
-      es_local: esLocal,
-      tarjeta_amarilla: j.tarjeta_amarilla || 0,
-      tarjeta_roja: j.tarjeta_roja || 0,
-      goles: j.goles || 0,
-      titular: j.titular ?? null,
-      minuto_entrada: j.minuto_entrada ?? null,
-      minuto_salida: j.minuto_salida ?? null,
-      minutos: j.minutos ?? null
-    });
-  };
-  (jugadoresLocal || []).forEach((j) => anadir(j, true));
-  (jugadoresVisitante || []).forEach((j) => anadir(j, false));
-  if (filas.length) {
-    await PartidoJugador.bulkCreate(filas, { ignoreDuplicates: true });
-  }
-}
 
 /** Crea/actualiza sanciones para los jugadores del PALMA DEL RIO ATLETICO C.F.
  * (id 73) que tengan tarjetas en el partido. */

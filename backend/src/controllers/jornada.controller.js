@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Partido, PartidoJugador, Equipo, Plantilla, Categoria, Temporada, Jugador, EquipoJugador, Sancion, Entrenamiento, Torneo } = require('../models');
+const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
@@ -70,28 +71,6 @@ function serializeJornada(item) {
   json.fecha = fecha;
   json.hora = hora;
   return json;
-}
-
-/** Guarda los jugadores convocados (local y visitante) del partido. */
-async function guardarJugadores(idPartido, jugadoresLocal, jugadoresVisitante) {
-  await PartidoJugador.destroy({ where: { id_partido: idPartido } });
-  const filas = [];
-  const anadir = (j, esLocal) => {
-    filas.push({
-      id_partido: idPartido,
-      id_jugador: j.id_jugador ?? null,
-      id_equipo_jugador: j.id_equipo_jugador ?? null,
-      es_local: esLocal,
-      tarjeta_amarilla: j.tarjeta_amarilla || 0,
-      tarjeta_roja: j.tarjeta_roja || 0,
-      goles: j.goles || 0
-    });
-  };
-  (jugadoresLocal || []).forEach((j) => anadir(j, true));
-  (jugadoresVisitante || []).forEach((j) => anadir(j, false));
-  if (filas.length) {
-    await PartidoJugador.bulkCreate(filas, { ignoreDuplicates: true });
-  }
 }
 
 /**

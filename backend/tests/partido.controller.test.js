@@ -429,6 +429,35 @@ describe('Sección Partidos · partido.controller', () => {
     expect(Sancion.create).toHaveBeenCalledWith({ id_partido: 1, id_jugador: 9, amarilla: 0, roja: 1 });
   });
 
+  it('actualizar conserva los datos del acta (titular, cambios, minutos) si el formulario no los envía', async () => {
+    const partido = { id: 1, id_equipo_local: 73, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce(actualizado);
+    Sancion.findOne.mockResolvedValue(null);
+    PartidoJugador.findAll.mockResolvedValueOnce([
+      { id_jugador: 9, id_equipo_jugador: null, es_local: true, titular: true, minuto_entrada: null, minuto_salida: 56, minutos: 56 },
+      { id_jugador: 10, id_equipo_jugador: null, es_local: true, titular: false, minuto_entrada: 56, minuto_salida: null, minutos: 34 }
+    ]);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: {
+        jugadores_local: [
+          { id_jugador: 9, goles: 1 },                  // formulario antiguo: sin datos del acta
+          { id_jugador: 10, minutos: 40 },              // el formulario corrige los minutos
+          { id_jugador: 11 }                            // jugador nuevo: sin datos
+        ],
+        jugadores_visitante: []
+      }
+    });
+    await promesa;
+
+    const filas = PartidoJugador.bulkCreate.mock.calls.at(-1)[0];
+    expect(filas.find((f) => f.id_jugador === 9)).toMatchObject({ goles: 1, titular: true, minuto_salida: 56, minutos: 56 });
+    expect(filas.find((f) => f.id_jugador === 10)).toMatchObject({ titular: false, minuto_entrada: 56, minutos: 40 });
+    expect(filas.find((f) => f.id_jugador === 11)).toMatchObject({ titular: null, minuto_entrada: null, minuto_salida: null, minutos: null });
+  });
+
   it('actualizar guarda los cambios', async () => {
     const partido = { id: 1, id_equipo_local: 5, id_equipo_visitante: 6, save: vi.fn().mockResolvedValue() };
     const actualizado = { id: 1, id_equipo_local: 8, id_equipo_visitante: 6, plantilla: null, lugar: null, equipoLocal: null, equipoVisitante: null };
