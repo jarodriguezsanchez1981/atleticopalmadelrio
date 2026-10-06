@@ -132,8 +132,13 @@ describe('Autenticación · auth.controller', () => {
       id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B',
       secciones: ['temporadas'],
       permisos: { temporadas: { ver: true, editar: true } },
-      rol: 'coordinador', id_categoria: null
+      rol: 'coordinador', id_categoria: null,
+      token: 'token-fake'
     });
+    // Token renovado con los permisos actuales (no los del login).
+    expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({
+      id: 1, secciones: ['temporadas'], permisos: { temporadas: { ver: true, editar: true } }
+    }));
   });
 
   it('login con usuario sin secciones devuelve permisos vacío', async () => {
@@ -167,6 +172,14 @@ describe('Autenticación · auth.controller', () => {
       expect.objectContaining({ id_categoria: 7, rol: 'entrenador' })
     );
     expect(res._json.user.id_categoria).toBe(7);
+  });
+
+  it('me rechaza a un usuario desactivado', async () => {
+    Usuario.findByPk.mockResolvedValue({ id: 3, usuario: 'baja', activo: false, secciones: [] });
+    const { promesa, res } = llamar(ctrl.me, { user: { id: 3 } });
+    await promesa;
+    expect(res._status).toBe(401);
+    expect(jwtUtils.signToken).not.toHaveBeenCalled();
   });
 
   it('me devuelve el payload con permisos mixtos (ver y editar)', async () => {

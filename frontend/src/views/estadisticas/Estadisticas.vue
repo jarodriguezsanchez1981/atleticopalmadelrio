@@ -15,10 +15,12 @@ const CATEGORIA = CATEGORIA_CON_MINUTOS;
 const plantilla = ref(null);
 const filas = ref([]);
 const cargando = ref(false);
+const error = ref('');
 let unsubCambio = null;
 
 async function cargar() {
   cargando.value = true;
+  error.value = '';
   try {
     const [plantillas, temporadas] = await Promise.all([plantillasService.listar(), temporadasService.listar()]);
     plantilla.value = filtrarPlantillasTemporadaActual(plantillas, temporadas)
@@ -27,6 +29,9 @@ async function cargar() {
       ? (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
         .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }))
       : [];
+  } catch (err) {
+    filas.value = [];
+    error.value = err.response?.data?.message || 'No se pudieron cargar las estadísticas.';
   } finally {
     cargando.value = false;
   }
@@ -57,7 +62,10 @@ onBeforeUnmount(() => {
         si el PALMA jugaba en casa o fuera.
       </p>
     </div>
-    <div v-if="!cargando && !plantilla" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
+    <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
+      {{ error }} Recarga la página; si sigue pasando, revisa tus permisos de Estadísticas.
+    </div>
+    <div v-else-if="!cargando && !plantilla" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
       No hay plantilla {{ CATEGORIA }} en la temporada actual.
     </div>
     <DataTable v-else v-bind="estiloTabla" :value="filas" :loading="cargando" dataKey="id_jugador"

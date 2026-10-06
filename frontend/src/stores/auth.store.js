@@ -79,7 +79,13 @@ export const useAuthStore = defineStore('auth', {
     async restoreSession() {
       if (!this.token) return;
       try {
-        const user = await authService.me();
+        // /auth/me devuelve también un token renovado con los permisos
+        // actuales (si cambian, se aplican con solo recargar la página).
+        const { token, ...user } = await authService.me();
+        if (token) {
+          this.token = token;
+          localStorage.setItem('apr_token', token);
+        }
         this.user = user;
         localStorage.setItem('apr_user', JSON.stringify(user));
       } catch {

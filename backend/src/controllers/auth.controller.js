@@ -27,6 +27,18 @@ function userPayload(user) {
   };
 }
 
+/** Token de sesión con los permisos del usuario en este momento. */
+function tokenPara(user, payload) {
+  return signToken({
+    id: user.id,
+    usuario: user.usuario,
+    secciones: payload.secciones,
+    permisos: payload.permisos,
+    rol: payload.rol,
+    id_categoria: payload.id_categoria
+  });
+}
+
 async function login(req, res, next) {
   try {
     const { usuario, password } = req.body;
@@ -53,14 +65,7 @@ async function login(req, res, next) {
     if (!passwordOk) return credencialesInvalidas();
 
     const payload = userPayload(user);
-    const token = signToken({
-      id: user.id,
-      usuario: user.usuario,
-      secciones: payload.secciones,
-      permisos: payload.permisos,
-      rol: payload.rol,
-      id_categoria: payload.id_categoria
-    });
+    const token = tokenPara(user, payload);
 
     return res.json({
       token,
@@ -71,11 +76,16 @@ async function login(req, res, next) {
   }
 }
 
+/** Datos del usuario y un token renovado: el token guarda los permisos del
+ * momento del login, así que sin renovarlo un cambio de permisos (o de
+ * secciones) no llegaría al backend hasta volver a iniciar sesión. */
 async function me(req, res, next) {
   try {
     const user = await Usuario.findByPk(req.user.id, { include: includeAuth });
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado.' });
-    return res.json(userPayload(user));
+    if (user.activo === false || user.activo === 0) return res.status(401).json({ message: 'Usuario desactivado.' });
+    const payload = userPayload(user);
+    return res.json({ ...payload, token: tokenPara(user, payload) });
   } catch (err) {
     return next(err);
   }

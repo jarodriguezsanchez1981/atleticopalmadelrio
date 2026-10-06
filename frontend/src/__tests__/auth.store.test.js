@@ -99,6 +99,17 @@ describe('Auth Store', () => {
     expect(store.user.usuario).toBe('x');
   });
 
+  it('restoreSession guarda el token renovado y no lo deja dentro del usuario', async () => {
+    authService.me.mockResolvedValue({ id: 2, usuario: 'x', token: 'tok-nuevo' });
+    mockLocalStorage.store.apr_token = 'tok';
+    const store = useAuthStore();
+    store.token = 'tok';
+    await store.restoreSession();
+    expect(store.token).toBe('tok-nuevo');
+    expect(mockLocalStorage.store.apr_token).toBe('tok-nuevo');
+    expect(store.user).not.toHaveProperty('token');
+  });
+
   it('restoreSession hace logout si falla', async () => {
     authService.me.mockRejectedValue(new Error('expired'));
     mockLocalStorage.store.apr_token = 'tok';
