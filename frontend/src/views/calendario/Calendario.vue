@@ -544,14 +544,15 @@ function contenidoEvento(arg) {
       html: `<div class="fc-evento-contenido">` +
         cab +
         `<span class="fc-partido-hora">${hora}</span>` +
-        `<span class="fc-partido-lugar">${lugar}</span>` +
+        `<span class="fc-lv-icon" aria-hidden="true"></span>` +
         `<span class="fc-partido-alias">${categoria}</span>` +
+        `<span class="fc-partido-lugar">${lugar}</span>` +
         `</div>`
     };
   }
   if (e?.tipo === 'festivo') {
     return {
-      html: `<div class="fc-evento-contenido"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
+      html: `<div class="fc-evento-contenido fc-evento-festivo"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
     };
   }
   return { html: escapeHtml(arg.event?.title) };
@@ -977,12 +978,30 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 .calendario-club .fc-daygrid-day-number {
   text-transform: capitalize;
 }
+/* Etiqueta de partido / torneo / entrenamiento en columnas de ancho fijo
+   (hora | icono local-visitante | categoría | lugar) para que todos los
+   eventos del día queden alineados; la cabecera de grupo ocupa la fila. */
 .calendario-club .fc-evento-contenido {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2.5rem 0.8rem 3.3rem minmax(0, 1fr);
+  column-gap: 6px;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  line-height: 1.2;
+  line-height: 1.25;
+  padding: 1px 2px;
+}
+.calendario-club .fc-evento-contenido > .fc-grupo-cabecera {
+  grid-column: 1 / -1;
+}
+.calendario-club .fc-evento-contenido .fc-partido-alias {
+  white-space: nowrap;
+}
+.calendario-club .fc-evento-contenido .fc-partido-lugar {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.calendario-club .fc-evento-contenido.fc-evento-festivo {
+  display: flex;
+  gap: 6px;
 }
 @media (max-width: 639px) {
   .calendario-club .fc-toolbar {
