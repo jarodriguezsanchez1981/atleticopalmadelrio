@@ -349,6 +349,25 @@ function eliminarEvento() {
   const e = eventoSeleccionado.value;
   if (!e) return;
   const service = e.tipo === 'partido' ? partidosService : (e.tipo === 'torneo' ? torneosService : entrenamientosService);
+
+  // Igual que en Entrenamientos: si es de una serie semanal, se pregunta si
+  // borrar solo esta sesión o todas las de la serie de esa plantilla.
+  if (e.tipo === 'entrenamiento' && e.recurrente) {
+    const id = idDeEvento(e);
+    confirm.require({
+      message: 'Este entrenamiento forma parte de una serie semanal para esta plantilla. ¿Quieres eliminar solo esta sesión o todas las sesiones de esta plantilla?',
+      header: 'Eliminar entrenamiento',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Todas',
+      rejectLabel: 'Solo esta',
+      acceptClass: 'p-button-danger',
+      rejectClass: 'p-button-secondary',
+      accept: () => eliminarEntrenamiento(id, 'serie'),
+      reject: () => eliminarEntrenamiento(id, 'dia')
+    });
+    return;
+  }
+
   confirm.require({
     message: '¿Seguro que quieres eliminar este evento? Esta acción no se puede deshacer.',
     header: 'Confirmar eliminación',
@@ -372,6 +391,32 @@ function eliminarEvento() {
       }
     }
   });
+}
+
+/** alcance: 'dia' borra solo este registro; 'serie' borra además el resto de
+ * semanas de la misma serie recurrente (misma plantilla y misma fecha límite). */
+async function eliminarEntrenamiento(id, alcance) {
+  try {
+    const resultado = await entrenamientosService.eliminar(id, alcance);
+    dialogVisible.value = false;
+    refrescar();
+    emitirCambio();
+    if (alcance === 'serie' && resultado?.eliminados > 1) {
+      toast.add({
+        severity: 'info',
+        summary: 'Serie eliminada',
+        detail: `Se han eliminado ${resultado.eliminados} entrenamientos de esta plantilla.`,
+        life: 5000
+      });
+    }
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo eliminar el entrenamiento.',
+      life: 5000
+    });
+  }
 }
 
 /** Al soltar un partido en otro día: se guarda el nuevo día (misma hora). Si el
