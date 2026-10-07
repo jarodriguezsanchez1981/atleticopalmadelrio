@@ -165,11 +165,11 @@ async function crear(req, res, next) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene una jornada programada para esa fecha.' });
     }
 
-    // Una jornada cuenta como "partido" a efectos de exclusividad diaria: la
-    // plantilla no puede tener además un entrenamiento, un torneo, o un
-    // partido suelto ese mismo día.
+    // Una jornada cuenta como "partido" de liga a efectos de exclusividad
+    // diaria: la plantilla no puede tener además un torneo o un partido suelto
+    // ese mismo día (un entrenamiento sí).
     const conflictoTipo = await otroTipoDeEventoMismoDia({
-      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'jornada'
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'jornada', esLiga: true
     });
     if (conflictoTipo) {
       return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
@@ -234,7 +234,8 @@ async function actualizar(req, res, next) {
         idPlantilla: item.id_plantilla,
         fecha: item.fecha,
         tipoActual: 'jornada',
-        excluirPartidoId: item.id
+        excluirPartidoId: item.id,
+        esLiga: true
       });
       if (conflictoTipo) {
         return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });

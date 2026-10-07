@@ -183,7 +183,8 @@ async function crear(req, res, next) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
     }
     const conflictoTipo = await otroTipoDeEventoMismoDia({
-      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'partido'
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'partido',
+      esLiga: jornada != null
     });
     if (conflictoTipo) {
       return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
@@ -245,7 +246,8 @@ async function actualizar(req, res, next) {
     }
     if (cambiaCatOFecha) {
       const conflictoTipo = await otroTipoDeEventoMismoDia({
-        models: { Entrenamiento, Partido, Torneo }, idPlantilla: idPlantillaFinal, fecha: fechaFinal, tipoActual: 'partido'
+        models: { Entrenamiento, Partido, Torneo }, idPlantilla: idPlantillaFinal, fecha: fechaFinal, tipoActual: 'partido',
+        esLiga: (jornada !== undefined ? jornada : partido.jornada) != null
       });
       if (conflictoTipo) {
         return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });

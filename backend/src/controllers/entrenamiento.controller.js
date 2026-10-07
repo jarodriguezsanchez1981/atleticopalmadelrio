@@ -64,7 +64,7 @@ async function crear(req, res, next) {
       return res.status(400).json({ message: 'Plantilla, fecha y lugar son obligatorios.' });
     }
     const conflicto = await otroTipoDeEventoMismoDia({
-      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: null
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: null, esEntrenamiento: true
     });
     if (conflicto) {
       return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
@@ -91,7 +91,7 @@ async function crear(req, res, next) {
       const siguientesFechas = calcularFechasSemanal(fecha, hastaFecha).slice(1);
       for (const f of siguientesFechas) {
         const conflictoSemana = await otroTipoDeEventoMismoDia({
-          models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha: f, tipoActual: null
+          models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha: f, tipoActual: null, esEntrenamiento: true
         });
         if (conflictoSemana) {
           omitidos.push({ fecha: f, motivo: conflictoSemana });
@@ -128,7 +128,7 @@ async function actualizar(req, res, next) {
       const fechaFinal = fecha !== undefined ? fecha : entrenamiento.fecha;
       const conflicto = await otroTipoDeEventoMismoDia({
         models: { Entrenamiento, Partido, Torneo }, idPlantilla: plantillaFinal, fecha: fechaFinal,
-        tipoActual: null, excluirEntrenamientoId: entrenamiento.id
+        tipoActual: null, esEntrenamiento: true, excluirEntrenamientoId: entrenamiento.id
       });
       if (conflicto) {
         return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
@@ -178,7 +178,7 @@ async function actualizar(req, res, next) {
       const siguientesFechas = calcularFechasSemanal(entrenamiento.fecha, entrenamiento.hasta).slice(1);
       for (const f of siguientesFechas) {
         const conflictoSemana = await otroTipoDeEventoMismoDia({
-          models: { Entrenamiento, Partido, Torneo }, idPlantilla: entrenamiento.id_plantilla, fecha: f, tipoActual: null
+          models: { Entrenamiento, Partido, Torneo }, idPlantilla: entrenamiento.id_plantilla, fecha: f, tipoActual: null, esEntrenamiento: true
         });
         if (conflictoSemana) {
           if (conflictoSemana !== 'entrenamiento') omitidos.push({ fecha: f, motivo: conflictoSemana });
