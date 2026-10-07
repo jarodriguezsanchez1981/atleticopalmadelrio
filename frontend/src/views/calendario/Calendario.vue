@@ -544,15 +544,14 @@ function contenidoEvento(arg) {
       html: `<div class="fc-evento-contenido">` +
         cab +
         `<span class="fc-partido-hora">${hora}</span>` +
-        `<span class="fc-lv-icon" aria-hidden="true"></span>` +
-        `<span class="fc-partido-alias">${categoria}</span>` +
         `<span class="fc-partido-lugar">${lugar}</span>` +
+        `<span class="fc-partido-alias">${categoria}</span>` +
         `</div>`
     };
   }
   if (e?.tipo === 'festivo') {
     return {
-      html: `<div class="fc-evento-contenido fc-evento-festivo"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
+      html: `<div class="fc-evento-contenido"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
     };
   }
   return { html: escapeHtml(arg.event?.title) };
@@ -978,50 +977,12 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 .calendario-club .fc-daygrid-day-number {
   text-transform: capitalize;
 }
-/* Etiqueta de partido / torneo / entrenamiento en columnas de ancho fijo
-   (hora | icono local-visitante | categoría | lugar) para que todos los
-   eventos del día queden alineados; la cabecera de grupo ocupa la fila.
-   Cada columna puede encogerse (minmax(0, …)) si la casilla del día es más
-   estrecha, y lo que no quepa se recorta dentro del evento en vez de
-   invadir el día de al lado. */
-.calendario-club .fc-daygrid-event,
-.calendario-club .fc-daygrid-event-harness {
-  max-width: 100%;
-  overflow: hidden;
-}
 .calendario-club .fc-evento-contenido {
-  display: grid;
-  grid-template-columns: minmax(0, 2.2rem) minmax(0, 0.7rem) minmax(0, 2.9rem) minmax(0, 1fr);
-  column-gap: 4px;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  line-height: 1.25;
-  padding: 1px 1px;
-}
-.calendario-club .fc-evento-contenido > span,
-.calendario-club .fc-evento-contenido > i {
-  min-width: 0;
-  overflow: hidden;
-}
-.calendario-club .fc-evento-contenido .fc-partido-hora {
-  white-space: nowrap;
-}
-.calendario-club .fc-evento-contenido > .fc-grupo-cabecera {
-  grid-column: 1 / -1;
-}
-.calendario-club .fc-evento-contenido .fc-partido-alias {
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.calendario-club .fc-evento-contenido .fc-partido-lugar {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.calendario-club .fc-evento-contenido.fc-evento-festivo {
   display: flex;
+  align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
+  line-height: 1.2;
 }
 @media (max-width: 639px) {
   .calendario-club .fc-toolbar {
