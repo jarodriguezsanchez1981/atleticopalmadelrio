@@ -4,7 +4,7 @@
  * columns: [{ field, header, type: 'text'|'textarea'|'date'|'select'|'multiselect'|'password',
  *             options?: [{label,value}], required?: bool }]
  */
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, watch, toRaw } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import { estiloTabla } from '../utils/estiloTabla';
@@ -311,8 +311,16 @@ watch(form, () => {
   }
 });
 
+/** Copia independiente (también de objetos y listas anidados): el formulario
+ * no debe compartir objetos con emptyItem ni con la fila de la tabla, o lo que
+ * se marque en un alta (p.ej. los permisos de un usuario) aparecería ya marcado
+ * en la siguiente. */
+function copiaProfunda(valor) {
+  return structuredClone(toRaw(valor));
+}
+
 function prepareFormData(item) {
-  const data = { ...props.emptyItem, ...item };
+  const data = { ...copiaProfunda(props.emptyItem), ...copiaProfunda(item) };
   for (const col of props.columns) {
     if (col.type === 'date') {
       data[col.field] = toDateValue(data[col.field]);
