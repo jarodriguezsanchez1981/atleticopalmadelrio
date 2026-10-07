@@ -261,7 +261,9 @@ function contenidoEvento(arg) {
 }
 
 const GRUPO_LABELS = {
-  LIGA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-star-fill' },
+  // Liga separada en partidos en casa y fuera (mismos iconos que en los eventos).
+  LIGA_CASA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-home' },
+  LIGA_FUERA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
   AMISTOSO: { label: 'AMISTOSO', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'TORNEO', color: '#6D28D9', icon: 'pi pi-trophy' },
   ENTRENAMIENTO: { label: 'ENTRENAMIENTO', color: '#2563EB', icon: 'pi pi-calendar' },
@@ -286,12 +288,11 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
 
     const conGrupo = eventos.map((e) => {
       const miGrupo = e.tipo === 'partido'
-        ? (e.suspendido ? 'SUSPENDIDO' : (e.jornada ? 'LIGA' : 'AMISTOSO'))
+        ? (e.suspendido ? 'SUSPENDIDO' : (e.jornada ? (e.es_local ? 'LIGA_CASA' : 'LIGA_FUERA') : 'AMISTOSO'))
         : (e.tipo === 'torneo' ? 'TORNEO' : 'ENTRENAMIENTO');
-      // Los partidos (liga o amistoso) se agrupan juntos por hora, con los partidos en los
-      // que PALMA juega como local por delante; torneos y entrenamientos van después, como hasta ahora.
-      // Los partidos suspendidos forman su propia sección, siempre la última del día.
-      const grupoOrden = { LIGA: 1, AMISTOSO: 1, TORNEO: 2, ENTRENAMIENTO: 3, SUSPENDIDO: 4 }[miGrupo];
+      // Grupos del día, en este orden: liga en casa, liga fuera, amistosos, torneos,
+      // entrenamientos; los partidos suspendidos forman su propia sección, siempre la última.
+      const grupoOrden = { LIGA_CASA: 1, LIGA_FUERA: 2, AMISTOSO: 3, TORNEO: 4, ENTRENAMIENTO: 5, SUSPENDIDO: 6 }[miGrupo];
       const esLocalOrden = e.tipo === 'partido' ? (e.es_local ? 0 : 1) : 0;
       return {
         id: e.id,
@@ -306,7 +307,7 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
       };
     });
 
-    // Cabecera de grupo (LIGA/AMISTOSO/TORNEO/ENTRENAMIENTO): se marca sobre el primer evento
+    // Cabecera de grupo (LIGA casa/fuera, AMISTOSO, TORNEO, ENTRENAMIENTO): se marca sobre el primer evento
     // de cada (día, tipo) según el mismo orden con el que FullCalendar los va a pintar
     // (eventOrder: 'grupoOrden,start,esLocalOrden'), para que la cabecera caiga siempre
     // en el evento que realmente se ve primero, incluso con varios partidos a la misma hora.

@@ -17,7 +17,8 @@ const esMovil = useMediaQuery('(max-width: 639px)');
 const semanaOffset = ref(0);
 
 const GRUPOS = {
-  LIGA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-star-fill' },
+  LIGA_CASA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-home' },
+  LIGA_FUERA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
   AMISTOSO: { label: 'Amistoso', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'Torneo', color: '#6D28D9', icon: 'pi pi-trophy' },
   ENTRENAMIENTO: { label: 'Entrenamiento', color: '#2563EB', icon: 'pi pi-calendar' },
@@ -69,7 +70,7 @@ watch(inicioSemana, () => {
 });
 
 function grupoDe(e) {
-  if (e.tipo === 'partido') return e.suspendido ? 'SUSPENDIDO' : (e.jornada ? 'LIGA' : 'AMISTOSO');
+  if (e.tipo === 'partido') return e.suspendido ? 'SUSPENDIDO' : (e.jornada ? (e.es_local ? 'LIGA_CASA' : 'LIGA_FUERA') : 'AMISTOSO');
   if (e.tipo === 'torneo') return 'TORNEO';
   if (e.tipo === 'festivo') return 'FESTIVO';
   return 'ENTRENAMIENTO';
@@ -77,7 +78,7 @@ function grupoDe(e) {
 
 const dias = computed(() => {
   // Los partidos suspendidos forman su propia sección, siempre la última del día.
-  const ordenGrupo = { LIGA: 1, AMISTOSO: 2, TORNEO: 3, ENTRENAMIENTO: 4, FESTIVO: 0, SUSPENDIDO: 5 };
+  const ordenGrupo = { LIGA_CASA: 1, LIGA_FUERA: 2, AMISTOSO: 3, TORNEO: 4, ENTRENAMIENTO: 5, FESTIVO: 0, SUSPENDIDO: 6 };
   const claveInicio = claveFecha(inicioSemana.value);
   const claveFin = claveFecha(finSemana.value);
 
