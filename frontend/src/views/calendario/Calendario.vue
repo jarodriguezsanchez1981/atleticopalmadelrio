@@ -23,6 +23,7 @@ import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
 import CalendarioLista from '../../components/CalendarioLista.vue';
 import { calendarioService, categoriasService, entrenamientosService, partidosService, torneosService } from '../../services';
 import { moverEvento, puedeMoverEvento } from '../../utils/moverEvento';
+import { grupoDeEvento, ORDEN_GRUPOS } from '../../utils/gruposCalendario';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { generarPdfCalendario } from '../../utils/pdfCalendario';
@@ -202,12 +203,9 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
     });
 
     const conGrupo = eventos.map(e => {
-      const miGrupo = e.tipo === 'partido'
-        ? (e.suspendido ? 'SUSPENDIDO' : (e.jornada ? (e.es_local ? 'LIGA_CASA' : 'LIGA_FUERA') : 'AMISTOSO'))
-        : (e.tipo === 'torneo' ? 'TORNEO' : 'ENTRENAMIENTO');
-      // Grupos del día, en este orden: liga en casa, liga fuera, amistosos, torneos,
-      // entrenamientos; los partidos suspendidos forman su propia sección, siempre la última.
-      const grupoOrden = { LIGA_CASA: 1, LIGA_FUERA: 2, AMISTOSO: 3, TORNEO: 4, ENTRENAMIENTO: 5, SUSPENDIDO: 6 }[miGrupo];
+      const miGrupo = grupoDeEvento(e);
+      // Grupos del día en el orden de ORDEN_GRUPOS (utils/gruposCalendario.js).
+      const grupoOrden = ORDEN_GRUPOS[miGrupo];
       const esLocalOrden = e.tipo === 'partido' ? (e.es_local ? 0 : 1) : 0;
       return {
         id: e.id,
@@ -569,6 +567,8 @@ const GRUPO_LABELS = {
   LIGA_FUERA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
   AMISTOSO: { label: 'AMISTOSO', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'TORNEO', color: '#6D28D9', icon: 'pi pi-trophy' },
+  ENTRENAMIENTO_ESTADIO: { label: 'ENTRENAMIENTO ESTADIO', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO_ANEXO: { label: 'ENTRENAMIENTO ANEXO', color: '#2563EB', icon: 'pi pi-calendar' },
   ENTRENAMIENTO: { label: 'ENTRENAMIENTO', color: '#2563EB', icon: 'pi pi-calendar' },
   SUSPENDIDO: { label: 'SUSPENDIDO', color: '#DC2626', icon: 'pi pi-ban' }
 };

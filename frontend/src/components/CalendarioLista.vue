@@ -5,6 +5,7 @@
 import { computed, ref, watch } from 'vue';
 import Button from 'primevue/button';
 import { useMediaQuery } from '../composables/useMediaQuery';
+import { grupoDeEvento, ORDEN_GRUPOS } from '../utils/gruposCalendario';
 
 const props = defineProps({
   eventos: { type: Array, default: () => [] },
@@ -21,6 +22,8 @@ const GRUPOS = {
   LIGA_FUERA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
   AMISTOSO: { label: 'Amistoso', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'Torneo', color: '#6D28D9', icon: 'pi pi-trophy' },
+  ENTRENAMIENTO_ESTADIO: { label: 'Entrenamiento Estadio', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO_ANEXO: { label: 'Entrenamiento Anexo', color: '#2563EB', icon: 'pi pi-calendar' },
   ENTRENAMIENTO: { label: 'Entrenamiento', color: '#2563EB', icon: 'pi pi-calendar' },
   FESTIVO: { label: 'Festivo', color: '#B45309', icon: 'pi pi-star' },
   SUSPENDIDO: { label: 'Suspendido', color: '#DC2626', icon: 'pi pi-ban' }
@@ -69,16 +72,11 @@ watch(inicioSemana, () => {
   emit('semana-change', { inicio: inicioSemana.value.toISOString(), fin: finSemana.value.toISOString() });
 });
 
-function grupoDe(e) {
-  if (e.tipo === 'partido') return e.suspendido ? 'SUSPENDIDO' : (e.jornada ? (e.es_local ? 'LIGA_CASA' : 'LIGA_FUERA') : 'AMISTOSO');
-  if (e.tipo === 'torneo') return 'TORNEO';
-  if (e.tipo === 'festivo') return 'FESTIVO';
-  return 'ENTRENAMIENTO';
-}
+const grupoDe = grupoDeEvento;
 
 const dias = computed(() => {
   // Los partidos suspendidos forman su propia sección, siempre la última del día.
-  const ordenGrupo = { LIGA_CASA: 1, LIGA_FUERA: 2, AMISTOSO: 3, TORNEO: 4, ENTRENAMIENTO: 5, FESTIVO: 0, SUSPENDIDO: 6 };
+  const ordenGrupo = ORDEN_GRUPOS;
   const claveInicio = claveFecha(inicioSemana.value);
   const claveFin = claveFecha(finSemana.value);
 
