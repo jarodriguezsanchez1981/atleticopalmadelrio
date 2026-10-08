@@ -186,3 +186,17 @@ h1, h2, h3, .font-display {
   white-space: pre-line;
   line-height: 1.2;
 }
+
+/* Estadísticas: columnas agrupadas en Total / Local / Visitante. */
+.ar-datatable.ar-dt-agrupada .ar-dt-inicio-grupo {
+  border-left: 2px solid rgb(15 61 34 / 0.25);
+}
+.ar-datatable.ar-dt-agrupada th.ar-dt-grupo-local {
+  background-color: rgb(16 185 129 / 0.08);
+}
+.ar-datatable.ar-dt-agrupada th.ar-dt-grupo-visitante {
+  background-color: rgb(59 130 246 / 0.08);
+}
+.ar-datatable.ar-dt-agrupada th[draggable="true"] {
+  cursor: grab;
+}

@@ -1,10 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 import MultiSelect from 'primevue/multiselect';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
-import { estiloTabla } from '../../utils/estiloTabla';
+import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
@@ -12,6 +10,44 @@ import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 /** Estadísticas de los jugadores en los partidos de la plantilla Senior A de
  * la temporada actual (las rellena "Finalizar Acta" en Partidos). */
 const CATEGORIA = CATEGORIA_CON_MINUTOS;
+
+// Columnas de cada tabla; cada una sale en Total, Local y Visitante (ver TablaEstadistica).
+const METRICAS_CONVOCATORIAS = [
+  { campo: 'convocatorias', titulo: 'Convocatorias' },
+  { campo: 'titular', titulo: 'Titular' },
+  { campo: 'suplente', titulo: 'Suplente' },
+  { campo: 'banquillo_no_jugados', titulo: 'Suplente\nno jugado' }
+];
+const METRICAS_TIEMPO = [
+  { campo: 'partidos', titulo: 'Partidos' },
+  { campo: 'minutos', titulo: 'Minutos' },
+  { campo: 'porcentaje_minutos', titulo: '% de sus\nminutos', porcentaje: true, soloLados: true },
+  { campo: 'minutos_titular', titulo: 'Minutos\nTitular' },
+  { campo: 'minutos_banquillo', titulo: 'Minutos\nBanquillo' }
+];
+const METRICAS_GOLES = [
+  { campo: 'partidos', titulo: 'Partidos' },
+  { campo: 'goles', titulo: 'Goles' },
+  { campo: 'porcentaje_goles', titulo: '% de sus\ngoles', porcentaje: true, soloLados: true },
+  { campo: 'goles_primera', titulo: 'Goles\n1ª Parte' },
+  { campo: 'goles_segunda', titulo: 'Goles\n2ª Parte' },
+  { campo: 'goles_titular', titulo: 'Goles\nTitular' },
+  { campo: 'goles_banquillo', titulo: 'Goles\nBanquillo' },
+  { campo: 'porcentaje_goles_partido', titulo: '% Goles\npor partido', porcentaje: true }
+];
+const METRICAS_SANCIONES = [
+  { campo: 'partidos', titulo: 'Partidos' },
+  { campo: 'tarjetas_amarillas', titulo: 'Amarillas' },
+  { campo: 'tarjetas_rojas', titulo: 'Rojas' },
+  { campo: 'amarillas_primera', titulo: 'Amarillas\n1ª Parte' },
+  { campo: 'amarillas_segunda', titulo: 'Amarillas\n2ª Parte' },
+  { campo: 'amarillas_ganando', titulo: 'Amarillas\nganando' },
+  { campo: 'amarillas_perdiendo', titulo: 'Amarillas\nperdiendo' },
+  { campo: 'rojas_primera', titulo: 'Rojas\n1ª Parte' },
+  { campo: 'rojas_segunda', titulo: 'Rojas\n2ª Parte' },
+  { campo: 'rojas_ganando', titulo: 'Rojas\nganando' },
+  { campo: 'rojas_perdiendo', titulo: 'Rojas\nperdiendo' }
+];
 
 const plantilla = ref(null);
 const filas = ref([]);
@@ -58,11 +94,6 @@ const filasSanciones = computed(() => filasFiltradas.value.filter((f) => f.tarje
 // Estadísticas Goles: solo los que han marcado.
 const filasGoles = computed(() => filasFiltradas.value.filter((f) => f.goles > 0));
 
-/** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
-function formatoPorcentaje(valor) {
-  return valor == null ? '—' : `${Number(valor).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
-}
-
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
@@ -84,7 +115,8 @@ onBeforeUnmount(() => {
       <p class="text-sm text-ink-tertiary">
         Partidos, minutos, goles y tarjetas de cada jugador en los partidos de <strong>{{ titulo }}</strong>,
         según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). El filtro de jugadores se
-        aplica a todas las tablas, y las columnas se pueden mover arrastrando su título.
+        aplica a todas las tablas. Cada tabla tiene los datos en Total, como Local (el PALMA en casa) y como Visitante
+        (fuera); se puede mover un grupo o una columna arrastrando su título.
       </p>
     </div>
     <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
@@ -106,86 +138,32 @@ onBeforeUnmount(() => {
         <h2 class="font-display text-lg text-club-green">Estadísticas Convocatorias</h2>
         <p class="text-sm text-ink-tertiary">
           Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente
-          sin jugar, en total y según el PALMA jugara en casa (local) o fuera (visitante).
+          sin jugar.
         </p>
       </div>
-      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasFiltradas" :loading="cargando"
-                 dataKey="id_jugador" sortField="convocatorias" :sortOrder="-1">
-        <Column field="jugador" header="Jugador" sortable />
-        <Column field="convocatorias" header="Convocatorias" sortable class="text-center" />
-        <Column field="titular" header="Titular" sortable class="text-center" />
-        <Column field="suplente" header="Suplente" sortable class="text-center" />
-        <Column field="banquillo_no_jugados" header="Suplente&#10;No jugado" sortable class="text-center" />
-        <Column field="titular_local" header="Titular&#10;Local" sortable class="text-center" />
-        <Column field="suplente_local" header="Suplente&#10;Local" sortable class="text-center" />
-        <Column field="banquillo_no_jugados_local" header="Suplente no&#10;jugado Local" sortable class="text-center" />
-        <Column field="titular_visitante" header="Titular&#10;Visitante" sortable class="text-center" />
-        <Column field="suplente_visitante" header="Suplente&#10;Visitante" sortable class="text-center" />
-        <Column field="banquillo_no_jugados_visitante" header="Suplente no&#10;jugado Visitante" sortable class="text-center" />
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
-        </template>
-      </DataTable>
+      <TablaEstadistica :filas="filasFiltradas" :metricas="METRICAS_CONVOCATORIAS" sortField="convocatorias"
+                        :cargando="cargando" :textoVacio="textoVacio" />
 
       <div class="mt-2">
         <h2 class="font-display text-lg text-club-green">Estadísticas Tiempo</h2>
         <p class="text-sm text-ink-tertiary">
-          Minutos jugados por cada jugador. Los minutos local / visitante dependen de si el PALMA jugaba en casa o fuera,
-          y su porcentaje es la parte del total de minutos del jugador.
+          Minutos jugados por cada jugador. En Local / Visitante, "% de sus minutos" es la parte del total de minutos
+          del jugador jugada en casa / fuera.
         </p>
       </div>
-      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasFiltradas" :loading="cargando" dataKey="id_jugador"
-                 sortField="minutos" :sortOrder="-1">
-        <Column field="jugador" header="Jugador" sortable />
-        <Column field="partidos" header="Partidos" sortable class="text-center" />
-        <Column field="minutos_local" header="Minutos&#10;local" sortable class="text-center" />
-        <Column field="minutos_visitante" header="Minutos&#10;visitante" sortable class="text-center" />
-        <Column field="porcentaje_minutos_local" header="Porcentaje&#10;Minutos local" sortable class="text-center">
-          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_local) }}</template>
-        </Column>
-        <Column field="porcentaje_minutos_visitante" header="Porcentaje&#10;Minutos Visitante" sortable class="text-center">
-          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_visitante) }}</template>
-        </Column>
-        <Column field="minutos_titular" header="Minutos&#10;Titular" sortable class="text-center" />
-        <Column field="minutos_banquillo" header="Minutos&#10;Banquillo" sortable class="text-center" />
-        <Column field="minutos" header="Total&#10;Minutos" sortable class="text-center" />
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
-        </template>
-      </DataTable>
+      <TablaEstadistica :filas="filasFiltradas" :metricas="METRICAS_TIEMPO" sortField="minutos"
+                        :cargando="cargando" :textoVacio="textoVacio" />
 
       <div class="mt-2">
         <h2 class="font-display text-lg text-club-green">Estadísticas Goles</h2>
         <p class="text-sm text-ink-tertiary">
-          Goles de cada jugador en casa y fuera, por parte del partido (1ª parte hasta el minuto 45) y según saliera de
-          titular o desde el banquillo. El porcentaje local / visitante es la parte del total de goles del jugador. Los goles en
-          propia puerta no cuentan.
+          Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según saliera de titular o desde el
+          banquillo. En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa /
+          fuera. Los goles en propia puerta no cuentan.
         </p>
       </div>
-      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasGoles" :loading="cargando"
-                 dataKey="id_jugador" sortField="goles" :sortOrder="-1">
-        <Column field="jugador" header="Jugador" sortable />
-        <Column field="partidos" header="Total&#10;Partidos" sortable class="text-center" />
-        <Column field="goles" header="Total&#10;Goles" sortable class="text-center" />
-        <Column field="goles_local" header="Goles&#10;Local" sortable class="text-center" />
-        <Column field="goles_visitante" header="Goles&#10;Visitante" sortable class="text-center" />
-        <Column field="porcentaje_goles_local" header="Porcentaje&#10;Goles Local" sortable class="text-center">
-          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_local) }}</template>
-        </Column>
-        <Column field="porcentaje_goles_visitante" header="Porcentaje&#10;Goles Visitante" sortable class="text-center">
-          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_visitante) }}</template>
-        </Column>
-        <Column field="goles_primera" header="Goles&#10;1ª Parte" sortable class="text-center" />
-        <Column field="goles_segunda" header="Goles&#10;2ª Parte" sortable class="text-center" />
-        <Column field="goles_titular" header="Goles&#10;Titular" sortable class="text-center" />
-        <Column field="goles_banquillo" header="Goles&#10;Banquillo" sortable class="text-center" />
-        <Column field="porcentaje_goles_partido" header="% Goles&#10;por partido" sortable class="text-center">
-          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_partido) }}</template>
-        </Column>
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
-        </template>
-      </DataTable>
+      <TablaEstadistica :filas="filasGoles" :metricas="METRICAS_GOLES" sortField="goles"
+                        :cargando="cargando" :textoVacio="textoVacio" />
 
       <div class="mt-2">
         <h2 class="font-display text-lg text-club-green">Estadísticas Sanciones</h2>
@@ -194,24 +172,8 @@ onBeforeUnmount(() => {
           momento; con empate no cuentan como ganando ni perdiendo.
         </p>
       </div>
-      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasSanciones" :loading="cargando"
-                 dataKey="id_jugador" sortField="tarjetas_amarillas" :sortOrder="-1">
-        <Column field="jugador" header="Jugador" sortable />
-        <Column field="partidos" header="Total&#10;Partidos" sortable class="text-center" />
-        <Column field="tarjetas_amarillas" header="Total Tarjetas&#10;Amarillas" sortable class="text-center" />
-        <Column field="tarjetas_rojas" header="Total Tarjetas&#10;Rojas" sortable class="text-center" />
-        <Column field="amarillas_primera" header="Amarillas&#10;1ª Parte" sortable class="text-center" />
-        <Column field="amarillas_segunda" header="Amarillas&#10;2ª Parte" sortable class="text-center" />
-        <Column field="amarillas_ganando" header="Amarillas&#10;mientras ganaba" sortable class="text-center" />
-        <Column field="amarillas_perdiendo" header="Amarillas&#10;mientras perdía" sortable class="text-center" />
-        <Column field="rojas_primera" header="Rojas&#10;1ª Parte" sortable class="text-center" />
-        <Column field="rojas_segunda" header="Rojas&#10;2ª Parte" sortable class="text-center" />
-        <Column field="rojas_ganando" header="Rojas&#10;mientras ganaba" sortable class="text-center" />
-        <Column field="rojas_perdiendo" header="Rojas&#10;mientras perdía" sortable class="text-center" />
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
-        </template>
-      </DataTable>
+      <TablaEstadistica :filas="filasSanciones" :metricas="METRICAS_SANCIONES" sortField="tarjetas_amarillas"
+                        :cargando="cargando" :textoVacio="textoVacio" />
     </template>
   </div>
 </SectionGuard>

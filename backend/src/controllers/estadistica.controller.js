@@ -7,12 +7,25 @@ const CAMPOS_TARJETAS = [
   'rojas_primera', 'rojas_segunda', 'rojas_ganando', 'rojas_perdiendo'
 ];
 
+// Contadores de cada jugador; cada uno se guarda en total (campo) y según el
+// PALMA jugara en casa o fuera (campo_local / campo_visitante).
+const CONTADORES = [
+  'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
+  'minutos', 'minutos_titular', 'minutos_banquillo',
+  'goles', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda',
+  'tarjetas_amarillas', 'tarjetas_rojas', ...CAMPOS_TARJETAS
+];
+const LADOS = ['local', 'visitante'];
+
+/** Porcentaje con un decimal (null si no se puede calcular). */
+const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : null);
+
 /** Estadísticas de cada jugador en los partidos de una plantilla (datos de
- * "Finalizar Acta"): partidos jugados (minutos > 0), veces titular y veces que
- * ha entrado de suplente, minutos (total, como local / visitante del PALMA, de
- * titular y desde el banquillo), goles (y los marcados entrando desde el
- * banquillo), partidos en el banquillo sin jugar, tarjetas y porcentajes de
- * goles por partido y desde el banquillo; de más a menos minutos. */
+ * "Finalizar Acta"): convocatorias (está en el acta), partidos jugados
+ * (minutos > 0), titular / suplente que entra / suplente sin jugar, minutos,
+ * goles (por parte, de titular y desde el banquillo) y tarjetas (por parte y
+ * según el marcador). Todo en total y como local / visitante del PALMA (sufijos
+ * _local / _visitante), más porcentajes; de más a menos minutos. */
 async function listar(req, res, next) {
   try {
     const idPlantilla = Number(req.query.id_plantilla);
@@ -20,110 +33,93 @@ async function listar(req, res, next) {
 
     const partidos = await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['id'] });
     if (!partidos.length) return res.json([]);
+    const idsPartidos = partidos.map((p) => p.id);
 
     const filas = await PartidoJugador.findAll({
-      where: { id_partido: partidos.map((p) => p.id) },
+      where: { id_partido: idsPartidos },
       attributes: ['id_partido', 'id_jugador', 'es_local', 'titular', 'minuto_entrada', 'minutos', 'goles', 'tarjeta_amarilla', 'tarjeta_roja'],
       include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
     });
 
     const porJugador = new Map();
+    // Lado del PALMA (local / visitante) de cada jugador en cada partido, para
+    // repartir las tarjetas y los goles con minuto.
+    const ladoEnPartido = new Map();
+    const sumar = (fila, campo, valor, lado) => {
+      fila[campo] += valor;
+      fila[`${campo}_${lado}`] += valor;
+    };
     for (const f of filas) {
       if (!f.id_jugador) continue;
-      const fila = porJugador.get(f.id_jugador) || {
-        id_jugador: f.id_jugador,
-        nombre: f.jugador?.nombre || '',
-        apellidos: f.jugador?.apellidos || '',
-        partidos: 0,
-        titular: 0,
-        suplente: 0,
-        minutos: 0,
-        minutos_local: 0,
-        minutos_visitante: 0,
-        goles: 0,
-        tarjetas_amarillas: 0,
-        tarjetas_rojas: 0,
-        minutos_titular: 0,
-        minutos_banquillo: 0,
-        goles_banquillo: 0,
-        banquillo_no_jugados: 0,
-        ...Object.fromEntries(CAMPOS_TARJETAS.map((c) => [c, 0])),
-        goles_local: 0,
-        goles_visitante: 0,
-        goles_titular: 0,
-        goles_primera: 0,
-        goles_segunda: 0,
-        convocatorias: 0,
-        titular_local: 0,
-        suplente_local: 0,
-        banquillo_no_jugados_local: 0,
-        titular_visitante: 0,
-        suplente_visitante: 0,
-        banquillo_no_jugados_visitante: 0
-      };
-      // Convocado: está en el acta del partido (haya jugado o no).
-      fila.convocatorias += 1;
-      const lado = f.es_local ? 'local' : 'visitante';
-      const minutos = Number(f.minutos) || 0;
-      if (minutos > 0) fila.partidos += 1;
-      fila.minutos += minutos;
+      let fila = porJugador.get(f.id_jugador);
+      if (!fila) {
+        fila = { id_jugador: f.id_jugador, nombre: f.jugador?.nombre || '', apellidos: f.jugador?.apellidos || '' };
+        for (const c of CONTADORES) {
+          fila[c] = 0;
+          for (const l of LADOS) fila[`${c}_${l}`] = 0;
+        }
+        porJugador.set(f.id_jugador, fila);
+      }
       // es_local: el jugador (del PALMA) estaba en el equipo local del partido.
-      if (f.es_local) fila.minutos_local += minutos;
-      else fila.minutos_visitante += minutos;
+      const lado = f.es_local ? 'local' : 'visitante';
+      ladoEnPartido.set(`${f.id_partido}-${f.id_jugador}`, lado);
+      const minutos = Number(f.minutos) || 0;
       const goles = Number(f.goles) || 0;
       const esTitular = f.titular === true || f.titular === 1;
       const esSuplente = f.titular === false || f.titular === 0;
-      if (f.es_local) fila.goles_local += goles;
-      else fila.goles_visitante += goles;
+      // Convocado: está en el acta del partido (haya jugado o no).
+      sumar(fila, 'convocatorias', 1, lado);
+      if (minutos > 0) sumar(fila, 'partidos', 1, lado);
+      sumar(fila, 'minutos', minutos, lado);
+      sumar(fila, 'goles', goles, lado);
       if (esTitular) {
-        fila.titular += 1;
-        fila[`titular_${lado}`] += 1;
-        fila.minutos_titular += minutos;
-        fila.goles_titular += goles;
+        sumar(fila, 'titular', 1, lado);
+        sumar(fila, 'minutos_titular', minutos, lado);
+        sumar(fila, 'goles_titular', goles, lado);
       } else if (esSuplente && f.minuto_entrada != null) {
         // Entró desde el banquillo: todos sus goles de ese partido son "desde el banquillo".
-        fila.suplente += 1;
-        fila[`suplente_${lado}`] += 1;
-        fila.minutos_banquillo += minutos;
-        fila.goles_banquillo += goles;
+        sumar(fila, 'suplente', 1, lado);
+        sumar(fila, 'minutos_banquillo', minutos, lado);
+        sumar(fila, 'goles_banquillo', goles, lado);
       } else if (esSuplente) {
-        fila.banquillo_no_jugados += 1;
-        fila[`banquillo_no_jugados_${lado}`] += 1;
+        sumar(fila, 'banquillo_no_jugados', 1, lado);
       }
-      fila.goles += goles;
-      fila.tarjetas_amarillas += Number(f.tarjeta_amarilla) || 0;
-      fila.tarjetas_rojas += Number(f.tarjeta_roja) || 0;
-      porJugador.set(f.id_jugador, fila);
+      sumar(fila, 'tarjetas_amarillas', Number(f.tarjeta_amarilla) || 0, lado);
+      sumar(fila, 'tarjetas_rojas', Number(f.tarjeta_roja) || 0, lado);
     }
+
     // Tarjetas por parte del partido y según el marcador en ese momento
     // (partido_tarjetas, de Finalizar Acta). Empatando no cuenta en ninguna.
-    const tarjetas = await PartidoTarjeta.findAll({ where: { id_partido: partidos.map((p) => p.id) } }) || [];
+    const tarjetas = await PartidoTarjeta.findAll({ where: { id_partido: idsPartidos } }) || [];
     for (const t of tarjetas) {
       const fila = porJugador.get(t.id_jugador);
-      if (!fila) continue;
+      const lado = ladoEnPartido.get(`${t.id_partido}-${t.id_jugador}`);
+      if (!fila || !lado) continue;
       const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
-      if (t.minuto != null) fila[`${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`] += 1;
-      if (t.goles_favor > t.goles_contra) fila[`${tipo}_ganando`] += 1;
-      else if (t.goles_favor < t.goles_contra) fila[`${tipo}_perdiendo`] += 1;
+      if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, lado);
+      if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, lado);
+      else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, lado);
     }
 
     // Goles por parte del partido (partido_goles, de Finalizar Acta).
-    const golesConMinuto = await PartidoGol.findAll({ where: { id_partido: partidos.map((p) => p.id) } }) || [];
+    const golesConMinuto = await PartidoGol.findAll({ where: { id_partido: idsPartidos } }) || [];
     for (const g of golesConMinuto) {
       const fila = porJugador.get(g.id_jugador);
-      if (!fila || g.minuto == null) continue;
-      fila[g.minuto <= FIN_PRIMERA_PARTE ? 'goles_primera' : 'goles_segunda'] += 1;
+      const lado = ladoEnPartido.get(`${g.id_partido}-${g.id_jugador}`);
+      if (!fila || !lado || g.minuto == null) continue;
+      sumar(fila, g.minuto <= FIN_PRIMERA_PARTE ? 'goles_primera' : 'goles_segunda', 1, lado);
     }
 
-    // Porcentajes con un decimal (null si no se pueden calcular).
-    const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : null);
     for (const f of porJugador.values()) {
-      f.porcentaje_goles_partido = porcentaje(f.goles, f.partidos);
-      f.porcentaje_goles_banquillo = porcentaje(f.goles_banquillo, f.goles);
-      f.porcentaje_minutos_local = porcentaje(f.minutos_local, f.minutos);
-      f.porcentaje_minutos_visitante = porcentaje(f.minutos_visitante, f.minutos);
-      f.porcentaje_goles_local = porcentaje(f.goles_local, f.goles);
-      f.porcentaje_goles_visitante = porcentaje(f.goles_visitante, f.goles);
+      for (const sufijo of ['', '_local', '_visitante']) {
+        f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`goles${sufijo}`], f[`partidos${sufijo}`]);
+        f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
+      }
+      // Parte de sus minutos / goles jugados en casa o fuera.
+      for (const l of LADOS) {
+        f[`porcentaje_minutos_${l}`] = porcentaje(f[`minutos_${l}`], f.minutos);
+        f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
+      }
     }
     const resultado = [...porJugador.values()]
       .filter((f) => f.partidos > 0 || f.goles > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0 || f.banquillo_no_jugados > 0)
