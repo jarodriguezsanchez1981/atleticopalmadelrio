@@ -138,7 +138,8 @@ onBeforeUnmount(() => {
         <h2 class="font-display text-lg text-club-green">Estadísticas Goles</h2>
         <p class="text-sm text-ink-tertiary">
           Goles de cada jugador en casa y fuera, por parte del partido (1ª parte hasta el minuto 45) y según saliera de
-          titular o desde el banquillo. Los goles en propia puerta no cuentan.
+          titular o desde el banquillo. El porcentaje local / visitante es la parte del total de goles del jugador. Los goles en
+          propia puerta no cuentan.
         </p>
       </div>
       <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filasGoles" :loading="cargando"
@@ -148,6 +149,12 @@ onBeforeUnmount(() => {
         <Column field="goles" header="Total&#10;Goles" sortable class="text-center" />
         <Column field="goles_local" header="Goles&#10;Local" sortable class="text-center" />
         <Column field="goles_visitante" header="Goles&#10;Visitante" sortable class="text-center" />
+        <Column field="porcentaje_goles_local" header="Porcentaje&#10;Goles Local" sortable class="text-center">
+          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_local) }}</template>
+        </Column>
+        <Column field="porcentaje_goles_visitante" header="Porcentaje&#10;Goles Visitante" sortable class="text-center">
+          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_visitante) }}</template>
+        </Column>
         <Column field="goles_primera" header="Goles&#10;1ª Parte" sortable class="text-center" />
         <Column field="goles_segunda" header="Goles&#10;2ª Parte" sortable class="text-center" />
         <Column field="goles_titular" header="Goles&#10;Titular" sortable class="text-center" />

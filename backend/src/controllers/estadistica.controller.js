@@ -109,6 +109,8 @@ async function listar(req, res, next) {
       f.porcentaje_goles_banquillo = porcentaje(f.goles_banquillo, f.goles);
       f.porcentaje_minutos_local = porcentaje(f.minutos_local, f.minutos);
       f.porcentaje_minutos_visitante = porcentaje(f.minutos_visitante, f.minutos);
+      f.porcentaje_goles_local = porcentaje(f.goles_local, f.goles);
+      f.porcentaje_goles_visitante = porcentaje(f.goles_visitante, f.goles);
     }
     const resultado = [...porJugador.values()]
       .filter((f) => f.partidos > 0 || f.goles > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0 || f.banquillo_no_jugados > 0)
