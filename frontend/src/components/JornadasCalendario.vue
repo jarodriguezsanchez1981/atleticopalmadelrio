@@ -174,7 +174,7 @@ function escudoEquipo(id) {
   return equipos.value.find(e => e.id === id)?.escudo || null;
 }
 
-// Ficha del partido en modo ver (icono entre los goles).
+// Ficha del partido en modo ver (icono entre los goles; solo si ya tiene resultado).
 const fichaVisible = ref(false);
 const fichaPartido = ref(null);
 function verFicha(partido) {
@@ -356,7 +356,7 @@ function claseResultado(partido, esLocal) {
                     </span>
                   </td>
                   <td class="col-ficha">
-                    <button type="button" class="boton-ficha" title="Ver ficha del partido" @click="verFicha(partido)">
+                    <button v-if="golesResultado(partido.resultado)" type="button" class="boton-ficha" title="Ver ficha del partido" @click="verFicha(partido)">
                       <i class="pi pi-file"></i>
                     </button>
                   </td>
@@ -408,7 +408,7 @@ function claseResultado(partido, esLocal) {
                   <div v-if="filtroPlantilla" class="flex flex-col items-center">
                     <span class="partido-jornada-label">Jornada {{ partido.jornada }}</span>
                   </div>
-                  <button v-if="!partido.suspendido" type="button" class="boton-ficha" title="Ver ficha del partido" @click="verFicha(partido)">
+                  <button v-if="!partido.suspendido && golesResultado(partido.resultado)" type="button" class="boton-ficha" title="Ver ficha del partido" @click="verFicha(partido)">
                     <i class="pi pi-file"></i>
                   </button>
                   <span v-if="!partido.suspendido && golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
