@@ -37,10 +37,10 @@ async function cargar() {
   }
 }
 
-// Estadísticas Sanciones: los que han jugado o tienen alguna tarjeta.
-const filasSanciones = computed(() => filas.value.filter((f) => f.partidos > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0));
-// Estadísticas Goles: los que han jugado o han marcado.
-const filasGoles = computed(() => filas.value.filter((f) => f.partidos > 0 || f.goles > 0));
+// Estadísticas Sanciones: solo los que tienen alguna tarjeta.
+const filasSanciones = computed(() => filas.value.filter((f) => f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0));
+// Estadísticas Goles: solo los que han marcado.
+const filasGoles = computed(() => filas.value.filter((f) => f.goles > 0));
 
 /** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
 function formatoPorcentaje(valor) {
