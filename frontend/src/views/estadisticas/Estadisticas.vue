@@ -67,11 +67,15 @@ onBeforeUnmount(() => {
       <h1 class="font-display text-xl text-club-green">Estadísticas</h1>
       <p class="text-sm text-ink-tertiary">
         Partidos, minutos, goles y tarjetas de cada jugador en los partidos de <strong>{{ titulo }}</strong>,
-        según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). Titular / Suplente: partidos
-        que ha empezado de titular / en los que ha entrado desde el banquillo; Banquillo no jugados: partidos de
-        suplente sin entrar. % Goles por Partido: goles entre partidos jugados; % Goles desde Banquillo: parte de sus
-        goles marcados entrando desde el banquillo. Los minutos local / visitante dependen de
-        si el PALMA jugaba en casa o fuera.
+        según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido).
+      </p>
+    </div>
+    <div v-if="!error && (cargando || plantilla)">
+      <h2 class="font-display text-lg text-club-green">Estadísticas Tiempo</h2>
+      <p class="text-sm text-ink-tertiary">
+        Titular / Suplente: partidos que ha empezado de titular / en los que ha entrado desde el banquillo; Suplente sin
+        jugar: partidos de suplente sin entrar. Los minutos local / visitante dependen de si el PALMA jugaba en casa o
+        fuera, y su porcentaje es la parte del total de minutos del jugador.
       </p>
     </div>
     <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
@@ -86,12 +90,18 @@ onBeforeUnmount(() => {
       <Column field="partidos" header="Partidos" sortable class="text-center" />
       <Column field="titular" header="Titular" sortable class="text-center" />
       <Column field="suplente" header="Suplente" sortable class="text-center" />
-      <Column field="banquillo_no_jugados" header="Banquillo&#10;no jugados" sortable class="text-center" />
+      <Column field="banquillo_no_jugados" header="Suplente&#10;sin jugar" sortable class="text-center" />
       <Column field="minutos_local" header="Minutos&#10;local" sortable class="text-center" />
       <Column field="minutos_visitante" header="Minutos&#10;visitante" sortable class="text-center" />
+      <Column field="porcentaje_minutos_local" header="Porcentaje&#10;Minutos local" sortable class="text-center">
+        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_local) }}</template>
+      </Column>
+      <Column field="porcentaje_minutos_visitante" header="Porcentaje&#10;Minutos Visitante" sortable class="text-center">
+        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_visitante) }}</template>
+      </Column>
       <Column field="minutos_titular" header="Minutos&#10;Titular" sortable class="text-center" />
       <Column field="minutos_banquillo" header="Minutos&#10;Banquillo" sortable class="text-center" />
-      <Column field="minutos" header="Minutos" sortable class="text-center" />
+      <Column field="minutos" header="Total&#10;Minutos" sortable class="text-center" />
       <template #empty>
         <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
       </template>

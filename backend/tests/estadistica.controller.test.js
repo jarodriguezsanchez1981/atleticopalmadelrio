@@ -56,14 +56,16 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         goles_local: 2, goles_visitante: 1, goles_titular: 2, goles_primera: 2, goles_segunda: 1,
         amarillas_primera: 0, amarillas_segunda: 0, amarillas_ganando: 0, amarillas_perdiendo: 0,
         rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
-        porcentaje_goles_partido: 150, porcentaje_goles_banquillo: 33.3 },
+        porcentaje_goles_partido: 150, porcentaje_goles_banquillo: 33.3,
+        porcentaje_minutos_local: 72.6, porcentaje_minutos_visitante: 27.4 },
       { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, titular: 1, suplente: 0, minutos: 90, minutos_local: 90, minutos_visitante: 0,
         goles: 0, tarjetas_amarillas: 0, tarjetas_rojas: 0,
         minutos_titular: 90, minutos_banquillo: 0, goles_banquillo: 0, banquillo_no_jugados: 1,
         goles_local: 0, goles_visitante: 0, goles_titular: 0, goles_primera: 0, goles_segunda: 0,
         amarillas_primera: 0, amarillas_segunda: 0, amarillas_ganando: 0, amarillas_perdiendo: 0,
         rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
-        porcentaje_goles_partido: 0, porcentaje_goles_banquillo: null }
+        porcentaje_goles_partido: 0, porcentaje_goles_banquillo: null,
+        porcentaje_minutos_local: 100, porcentaje_minutos_visitante: 0 }
     ]);
   });
 
