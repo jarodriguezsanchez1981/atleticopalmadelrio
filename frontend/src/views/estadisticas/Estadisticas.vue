@@ -92,30 +92,6 @@ onBeforeUnmount(() => {
       <Column field="minutos_titular" header="Minutos&#10;Titular" sortable class="text-center" />
       <Column field="minutos_banquillo" header="Minutos&#10;Banquillo" sortable class="text-center" />
       <Column field="minutos" header="Minutos" sortable class="text-center" />
-      <Column field="goles" header="Goles" sortable class="text-center" />
-      <Column field="goles_banquillo" header="Goles&#10;Banquillo" sortable class="text-center" />
-      <Column field="tarjetas_amarillas" header="Tarjetas&#10;amarillas" sortable class="text-center">
-        <template #body="{ data }">
-          <span v-if="data.tarjetas_amarillas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
-            <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ data.tarjetas_amarillas }}
-          </span>
-          <span v-else class="text-ink-tertiary">0</span>
-        </template>
-      </Column>
-      <Column field="tarjetas_rojas" header="Tarjeta&#10;roja" sortable class="text-center">
-        <template #body="{ data }">
-          <span v-if="data.tarjetas_rojas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
-            <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ data.tarjetas_rojas }}
-          </span>
-          <span v-else class="text-ink-tertiary">0</span>
-        </template>
-      </Column>
-      <Column field="porcentaje_goles_partido" header="% Goles&#10;por Partido" sortable class="text-center">
-        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_partido) }}</template>
-      </Column>
-      <Column field="porcentaje_goles_banquillo" header="% Goles desde&#10;Banquillo" sortable class="text-center">
-        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_banquillo) }}</template>
-      </Column>
       <template #empty>
         <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
       </template>
