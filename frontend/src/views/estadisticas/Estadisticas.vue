@@ -21,7 +21,7 @@ const METRICAS_CONVOCATORIAS = [
 const METRICAS_TIEMPO = [
   { campo: 'partidos', titulo: 'Partidos' },
   { campo: 'minutos', titulo: 'Minutos' },
-  { campo: 'porcentaje_minutos', titulo: '% de sus\nminutos', porcentaje: true, soloLados: true },
+  { campo: 'porcentaje_minutos', titulo: '% Minutos\njugados', porcentaje: true },
   { campo: 'minutos_titular', titulo: 'Minutos\nTitular' },
   { campo: 'minutos_banquillo', titulo: 'Minutos\nBanquillo' }
 ];
@@ -147,8 +147,8 @@ onBeforeUnmount(() => {
       <div class="mt-2">
         <h2 class="font-display text-lg text-club-green">Estadísticas Tiempo</h2>
         <p class="text-sm text-ink-tertiary">
-          Minutos jugados por cada jugador. En Local / Visitante, "% de sus minutos" es la parte del total de minutos
-          del jugador jugada en casa / fuera.
+          Minutos jugados por cada jugador. "% Minutos jugados": minutos jugados sobre los posibles (90 por partido) en
+          los partidos que ha jugado; si juega 3 partidos enteros, 100 %.
         </p>
       </div>
       <TablaEstadistica :filas="filasFiltradas" :metricas="METRICAS_TIEMPO" sortField="minutos"

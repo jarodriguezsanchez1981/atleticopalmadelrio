@@ -58,7 +58,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       goles: 3, goles_titular: 2, goles_banquillo: 1, goles_primera: 2, goles_segunda: 1,
       tarjetas_amarillas: 1, tarjetas_rojas: 1,
       porcentaje_goles_partido: 150, porcentaje_goles_banquillo: 33.3,
-      porcentaje_minutos_local: 72.6, porcentaje_minutos_visitante: 27.4,
+      // 124' de 180' posibles: 90' de 90' en casa y 34' de 90' fuera.
+      porcentaje_minutos: 68.9, porcentaje_minutos_local: 100, porcentaje_minutos_visitante: 37.8,
       porcentaje_goles_local: 66.7, porcentaje_goles_visitante: 33.3,
       // En casa (partido 1): titular, 90', 2 goles en la 1ª parte, amarilla.
       convocatorias_local: 1, partidos_local: 1, titular_local: 1, suplente_local: 0, minutos_local: 90,
@@ -73,7 +74,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     expect(luisFila).toMatchObject({
       convocatorias: 2, partidos: 1, titular: 1, banquillo_no_jugados: 1, minutos: 90, goles: 0,
       porcentaje_goles_partido: 0, porcentaje_goles_banquillo: null,
-      porcentaje_minutos_local: 100, porcentaje_minutos_visitante: 0,
+      // Fuera no jugó ningún partido: sin porcentaje.
+      porcentaje_minutos: 100, porcentaje_minutos_local: 100, porcentaje_minutos_visitante: null,
       porcentaje_goles_local: null, porcentaje_goles_visitante: null,
       banquillo_no_jugados_local: 0, banquillo_no_jugados_visitante: 1,
       partidos_visitante: 0, porcentaje_goles_partido_visitante: null

@@ -1,6 +1,7 @@
 const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador } = require('../models');
 
-// Minuto en que acaba la 1ª parte (los partidos con estadísticas son de 90').
+// Los partidos con estadísticas son de 90' (ver Finalizar Acta).
+const MINUTOS_PARTIDO = 90;
 const FIN_PRIMERA_PARTE = 45;
 const CAMPOS_TARJETAS = [
   'amarillas_primera', 'amarillas_segunda', 'amarillas_ganando', 'amarillas_perdiendo',
@@ -114,12 +115,12 @@ async function listar(req, res, next) {
       for (const sufijo of ['', '_local', '_visitante']) {
         f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`goles${sufijo}`], f[`partidos${sufijo}`]);
         f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
+        // Minutos jugados sobre los posibles en los partidos que ha jugado
+        // (3 partidos enteros = 100 %).
+        f[`porcentaje_minutos${sufijo}`] = porcentaje(f[`minutos${sufijo}`], f[`partidos${sufijo}`] * MINUTOS_PARTIDO);
       }
-      // Parte de sus minutos / goles jugados en casa o fuera.
-      for (const l of LADOS) {
-        f[`porcentaje_minutos_${l}`] = porcentaje(f[`minutos_${l}`], f.minutos);
-        f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
-      }
+      // Parte de sus goles marcados en casa o fuera.
+      for (const l of LADOS) f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
     }
     const resultado = [...porJugador.values()]
       .filter((f) => f.partidos > 0 || f.goles > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0 || f.banquillo_no_jugados > 0)
