@@ -2,10 +2,10 @@
 import { ref, computed, watch } from 'vue';
 import { partidosService } from '../services';
 
-/** Resultado y estadísticas de los jugadores de un partido, para el diálogo
- * que se abre al pulsar el partido en el calendario (debajo de los escudos).
- * Los jugadores se piden al abrirlo; sin permiso de Partidos solo se ve el
- * resultado. */
+/** Estadísticas de los jugadores de un partido, para el diálogo que se abre al
+ * pulsar el partido en el calendario (debajo de los escudos, que llevan los
+ * goles de cada equipo). Los jugadores se piden al abrirlo; sin permiso de
+ * Partidos no se muestran. */
 const props = defineProps({
   evento: { type: Object, required: true }
 });
@@ -27,11 +27,6 @@ watch(idPartido, async (id) => {
     cargando.value = false;
   }
 }, { immediate: true });
-
-const goles = computed(() => {
-  const [local, visitante] = String(props.evento?.resultado || partido.value?.resultado || '').split('-').map((s) => s.trim());
-  return local !== undefined && local !== '' && visitante !== undefined ? { local, visitante } : null;
-});
 
 function nombre(pj) {
   const p = pj.jugador || pj.equipoJugador;
@@ -68,15 +63,6 @@ const equipos = computed(() => {
 
 <template>
   <div class="flex flex-col gap-3">
-    <div class="flex items-center justify-center gap-3 py-1">
-      <template v-if="goles">
-        <span class="font-display text-3xl font-extrabold text-club-green tabular-nums">{{ goles.local }}</span>
-        <span class="text-xl font-bold text-ink-tertiary">–</span>
-        <span class="font-display text-3xl font-extrabold text-club-green tabular-nums">{{ goles.visitante }}</span>
-      </template>
-      <span v-else class="text-sm text-ink-tertiary">Sin resultado</span>
-    </div>
-
     <div v-if="cargando" class="text-center text-xs text-ink-tertiary py-2">
       <i class="pi pi-spin pi-spinner"></i> Cargando jugadores…
     </div>

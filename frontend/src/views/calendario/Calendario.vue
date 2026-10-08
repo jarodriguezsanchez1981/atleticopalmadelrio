@@ -21,6 +21,7 @@ import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
 import TorneoFormCalendario from '../../components/TorneoFormCalendario.vue';
 import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
 import ResultadoJugadoresPartido from '../../components/ResultadoJugadoresPartido.vue';
+import { golesPartido } from '../../utils/resultadoPartido';
 import CalendarioLista from '../../components/CalendarioLista.vue';
 import { calendarioService, categoriasService, entrenamientosService, partidosService, torneosService } from '../../services';
 import { moverEvento, puedeMoverEvento } from '../../utils/moverEvento';
@@ -846,6 +847,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
               <EquipacionPrenda tipo="medias" :color="mediasLocal" :size="28" />
             </div>
             <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreLocal }}</span>
+            <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).local }}</span>
           </div>
           <div class="flex flex-col items-center gap-2">
             <img :src="escudoVisitante" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
@@ -855,6 +857,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
               <EquipacionPrenda tipo="medias" :color="mediasVisitante" :size="28" />
             </div>
             <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreVisitante }}</span>
+            <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).visitante }}</span>
           </div>
         </div>
 
