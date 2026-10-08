@@ -73,9 +73,8 @@ onBeforeUnmount(() => {
     <div v-if="!error && (cargando || plantilla)">
       <h2 class="font-display text-lg text-club-green">Estadísticas Tiempo</h2>
       <p class="text-sm text-ink-tertiary">
-        Titular / Suplente: partidos que ha empezado de titular / en los que ha entrado desde el banquillo; Suplente sin
-        jugar: partidos de suplente sin entrar. Los minutos local / visitante dependen de si el PALMA jugaba en casa o
-        fuera, y su porcentaje es la parte del total de minutos del jugador.
+        Minutos jugados por cada jugador. Los minutos local / visitante dependen de si el PALMA jugaba en casa o fuera,
+        y su porcentaje es la parte del total de minutos del jugador.
       </p>
     </div>
     <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
@@ -88,9 +87,6 @@ onBeforeUnmount(() => {
                sortField="minutos" :sortOrder="-1">
       <Column field="jugador" header="Jugador" sortable />
       <Column field="partidos" header="Partidos" sortable class="text-center" />
-      <Column field="titular" header="Titular" sortable class="text-center" />
-      <Column field="suplente" header="Suplente" sortable class="text-center" />
-      <Column field="banquillo_no_jugados" header="Suplente&#10;sin jugar" sortable class="text-center" />
       <Column field="minutos_local" header="Minutos&#10;local" sortable class="text-center" />
       <Column field="minutos_visitante" header="Minutos&#10;visitante" sortable class="text-center" />
       <Column field="porcentaje_minutos_local" header="Porcentaje&#10;Minutos local" sortable class="text-center">
