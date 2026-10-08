@@ -192,20 +192,26 @@ async function guardarPosicionesJugadores(idPlantilla, jugadores) {
   }
 }
 
-async function sincronizarPromociones(plantilla, jugadores) {
-  const marcados = (jugadores || []).filter((j) => j.promocion);
-  await Promocion.destroy({ where: { id_plantilla: plantilla.id } });
-  if (!marcados.length) return;
+/** Promociones de la casilla "promoción" de los jugadores de la plantilla (a
+ * la categoría siguiente): crea las de los marcados y quita las de los que
+ * estaban marcados (`antesMarcados`) y ya no. No toca el resto de promociones
+ * de la plantilla (las de convocatorias o de partidos jugados en otra
+ * categoría): antes se borraban todas al guardar la plantilla. */
+async function sincronizarPromociones(plantilla, jugadores, antesMarcados = []) {
+  const marcados = (jugadores || []).filter((j) => j.promocion).map((j) => Number(j.id_jugador));
+  const desmarcados = antesMarcados.map(Number).filter((id) => !marcados.includes(id));
+  if (!marcados.length && !desmarcados.length) return;
   const categoria = await Categoria.findOne({ where: { id: plantilla.id_categoria } });
   if (!categoria || categoria.orden == null) return;
   const siguiente = await Categoria.findOne({ where: { orden: Number(categoria.orden) + 1 } });
   if (!siguiente) return;
-  const rows = marcados.map((j) => ({
-    id_plantilla: plantilla.id,
-    id_categoria: siguiente.id,
-    id_jugador: j.id_jugador
-  }));
-  await Promocion.bulkCreate(rows, { ignoreDuplicates: true });
+  if (desmarcados.length) {
+    await Promocion.destroy({ where: { id_plantilla: plantilla.id, id_categoria: siguiente.id, id_jugador: desmarcados } });
+  }
+  if (marcados.length) {
+    const rows = marcados.map((id_jugador) => ({ id_plantilla: plantilla.id, id_categoria: siguiente.id, id_jugador }));
+    await Promocion.bulkCreate(rows, { ignoreDuplicates: true });
+  }
 }
 
 async function crear(req, res, next) {
@@ -301,6 +307,7 @@ async function crearParaTemporada(req, res, next) {
 
 async function actualizar(req, res, next) {
   try {
+    let antesMarcados = [];
     const plantilla = await Plantilla.findOne({ where: { id: req.params.id } });
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
     const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, codigo_equipo, codigo_primaria, jugadores, ids_entrenadores, ids_delegados } = req.body;
@@ -327,6 +334,10 @@ async function actualizar(req, res, next) {
 
     // Actualizar jugadores si se envían
     if (jugadores !== undefined) {
+      antesMarcados = (await PlantillaJugador.findAll({
+        where: { id_plantilla: plantilla.id, promocion: true },
+        attributes: ['id_jugador']
+      }) || []).map((pj) => pj.id_jugador);
       await PlantillaJugador.destroy({ where: { id_plantilla: plantilla.id } });
       if (jugadores && jugadores.length) {
         const rows = jugadores.map(j => ({
@@ -367,7 +378,7 @@ async function actualizar(req, res, next) {
     }
 
     if (jugadores !== undefined) {
-      await sincronizarPromociones(plantilla, jugadores);
+      await sincronizarPromociones(plantilla, jugadores, antesMarcados);
     }
 
     const actualizada = await Plantilla.findOne({ where: { id: plantilla.id }, include: includes });

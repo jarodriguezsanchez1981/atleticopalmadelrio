@@ -454,21 +454,23 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
     await promesa;
 
-    expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 10 } });
+    // Crear no borra promociones existentes: solo añade las marcadas.
+    expect(Promocion.destroy).not.toHaveBeenCalled();
     expect(Promocion.bulkCreate).toHaveBeenCalledWith(
       [{ id_plantilla: 10, id_categoria: 2, id_jugador: 5 }],
       { ignoreDuplicates: true }
     );
   });
 
-  it('actualizar elimina la promoción al desmarcar a todos los jugadores', async () => {
+  it('actualizar elimina la promoción solo del jugador que se desmarca', async () => {
     const plantilla = { id: 1, id_categoria: 1, id_temporada: 1, id_division: null, save: vi.fn().mockResolvedValue() };
     const actualizada = { id: 1, jugadores: [], entrenadores: [], delegados: [] };
     Plantilla.findOne
       .mockResolvedValueOnce(plantilla)    // buscar fila
       .mockResolvedValueOnce(null)         // duplicado categoría: ninguno
       .mockResolvedValueOnce(actualizada); // fila completa tras save
-    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Categoria.findOne.mockResolvedValue({ id: 1, orden: 5 });
+    PlantillaJugador.findAll.mockResolvedValueOnce([{ id_jugador: 5 }]); // el 5 estaba marcado
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Jugador.count.mockResolvedValue(1);
     PlantillaJugador.destroy.mockResolvedValue(0);
@@ -482,7 +484,30 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
     await promesa;
 
-    expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
+    expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1, id_categoria: 1, id_jugador: [5] } });
+    expect(Promocion.bulkCreate).not.toHaveBeenCalled();
+  });
+
+  it('actualizar no borra las promociones que no vienen de la casilla (convocatorias, partidos)', async () => {
+    const plantilla = { id: 23, id_categoria: 1, id_temporada: 1, id_division: null, save: vi.fn().mockResolvedValue() };
+    Plantilla.findOne
+      .mockResolvedValueOnce(plantilla)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 23, jugadores: [], entrenadores: [], delegados: [] });
+    Categoria.findOne.mockResolvedValue({ id: 1, orden: 4 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Jugador.count.mockResolvedValue(2);
+    PlantillaJugador.findAll.mockResolvedValueOnce([]); // nadie marcado antes
+    PlantillaJugador.destroy.mockResolvedValue(0);
+    PlantillaJugador.bulkCreate.mockResolvedValue([]);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '23' },
+      body: { jugadores: [{ id_jugador: 639, promocion: false }, { id_jugador: 1015, promocion: false }] }
+    });
+    await promesa;
+
+    expect(Promocion.destroy).not.toHaveBeenCalled();
     expect(Promocion.bulkCreate).not.toHaveBeenCalled();
   });
 
