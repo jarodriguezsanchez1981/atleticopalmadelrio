@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import MultiSelect from 'primevue/multiselect';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import { estiloTabla } from '../../utils/estiloTabla';
 import { suscribirseCambio } from '../../utils/cambioBus';
@@ -16,6 +17,8 @@ const plantilla = ref(null);
 const filas = ref([]);
 const cargando = ref(false);
 const error = ref('');
+// Jugadores elegidos en el filtro (ids); vacío = todos.
+const jugadoresFiltro = ref([]);
 let unsubCambio = null;
 
 async function cargar() {
@@ -37,10 +40,23 @@ async function cargar() {
   }
 }
 
+// Filtro común a todas las tablas: los jugadores de la plantilla elegidos.
+const opcionesJugadores = computed(() => (plantilla.value?.jugadores || [])
+  .map((j) => ({ value: j.id, label: `${j.nombre} ${j.apellidos}` }))
+  .sort((a, b) => a.label.localeCompare(b.label, 'es')));
+const textoVacio = computed(() => (jugadoresFiltro.value.length
+  ? 'Ninguno de los jugadores elegidos tiene datos en esta tabla.'
+  : 'Todavía no hay datos: finaliza el acta de los partidos.'));
+const filasFiltradas = computed(() => {
+  if (!jugadoresFiltro.value.length) return filas.value;
+  const elegidos = new Set(jugadoresFiltro.value);
+  return filas.value.filter((f) => elegidos.has(f.id_jugador));
+});
+
 // Estadísticas Sanciones: solo los que tienen alguna tarjeta.
-const filasSanciones = computed(() => filas.value.filter((f) => f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0));
+const filasSanciones = computed(() => filasFiltradas.value.filter((f) => f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0));
 // Estadísticas Goles: solo los que han marcado.
-const filasGoles = computed(() => filas.value.filter((f) => f.goles > 0));
+const filasGoles = computed(() => filasFiltradas.value.filter((f) => f.goles > 0));
 
 /** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
 function formatoPorcentaje(valor) {
@@ -67,14 +83,8 @@ onBeforeUnmount(() => {
       <h1 class="font-display text-xl text-club-green">Estadísticas</h1>
       <p class="text-sm text-ink-tertiary">
         Partidos, minutos, goles y tarjetas de cada jugador en los partidos de <strong>{{ titulo }}</strong>,
-        según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido).
-      </p>
-    </div>
-    <div v-if="!error && (cargando || plantilla)">
-      <h2 class="font-display text-lg text-club-green">Estadísticas Tiempo</h2>
-      <p class="text-sm text-ink-tertiary">
-        Minutos jugados por cada jugador. Los minutos local / visitante dependen de si el PALMA jugaba en casa o fuera,
-        y su porcentaje es la parte del total de minutos del jugador.
+        según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). El filtro de jugadores se
+        aplica a todas las tablas, y las columnas se pueden mover arrastrando su título.
       </p>
     </div>
     <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
@@ -83,52 +93,14 @@ onBeforeUnmount(() => {
     <div v-else-if="!cargando && !plantilla" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
       No hay plantilla {{ CATEGORIA }} en la temporada actual.
     </div>
-    <DataTable v-else v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filas" :loading="cargando" dataKey="id_jugador"
-               sortField="minutos" :sortOrder="-1">
-      <Column field="jugador" header="Jugador" sortable />
-      <Column field="partidos" header="Partidos" sortable class="text-center" />
-      <Column field="minutos_local" header="Minutos&#10;local" sortable class="text-center" />
-      <Column field="minutos_visitante" header="Minutos&#10;visitante" sortable class="text-center" />
-      <Column field="porcentaje_minutos_local" header="Porcentaje&#10;Minutos local" sortable class="text-center">
-        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_local) }}</template>
-      </Column>
-      <Column field="porcentaje_minutos_visitante" header="Porcentaje&#10;Minutos Visitante" sortable class="text-center">
-        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_visitante) }}</template>
-      </Column>
-      <Column field="minutos_titular" header="Minutos&#10;Titular" sortable class="text-center" />
-      <Column field="minutos_banquillo" header="Minutos&#10;Banquillo" sortable class="text-center" />
-      <Column field="minutos" header="Total&#10;Minutos" sortable class="text-center" />
-      <template #empty>
-        <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
-      </template>
-    </DataTable>
 
     <template v-if="plantilla && !error">
-      <div class="mt-2">
-        <h2 class="font-display text-lg text-club-green">Estadísticas Sanciones</h2>
-        <p class="text-sm text-ink-tertiary">
-          Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese
-          momento; con empate no cuentan como ganando ni perdiendo.
-        </p>
+      <div class="flex flex-wrap items-center gap-2">
+        <label for="filtro-jugadores" class="text-sm font-medium text-ink-secondary">Jugadores</label>
+        <MultiSelect inputId="filtro-jugadores" v-model="jugadoresFiltro" :options="opcionesJugadores" optionLabel="label"
+                     optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear
+                     :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
       </div>
-      <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filasSanciones" :loading="cargando"
-                 dataKey="id_jugador" sortField="tarjetas_amarillas" :sortOrder="-1">
-        <Column field="jugador" header="Jugador" sortable />
-        <Column field="partidos" header="Total&#10;Partidos" sortable class="text-center" />
-        <Column field="tarjetas_amarillas" header="Total Tarjetas&#10;Amarillas" sortable class="text-center" />
-        <Column field="tarjetas_rojas" header="Total Tarjetas&#10;Rojas" sortable class="text-center" />
-        <Column field="amarillas_primera" header="Amarillas&#10;1ª Parte" sortable class="text-center" />
-        <Column field="amarillas_segunda" header="Amarillas&#10;2ª Parte" sortable class="text-center" />
-        <Column field="amarillas_ganando" header="Amarillas&#10;mientras ganaba" sortable class="text-center" />
-        <Column field="amarillas_perdiendo" header="Amarillas&#10;mientras perdía" sortable class="text-center" />
-        <Column field="rojas_primera" header="Rojas&#10;1ª Parte" sortable class="text-center" />
-        <Column field="rojas_segunda" header="Rojas&#10;2ª Parte" sortable class="text-center" />
-        <Column field="rojas_ganando" header="Rojas&#10;mientras ganaba" sortable class="text-center" />
-        <Column field="rojas_perdiendo" header="Rojas&#10;mientras perdía" sortable class="text-center" />
-        <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
-        </template>
-      </DataTable>
 
       <div class="mt-2">
         <h2 class="font-display text-lg text-club-green">Estadísticas Convocatorias</h2>
@@ -137,7 +109,7 @@ onBeforeUnmount(() => {
           sin jugar, en total y según el PALMA jugara en casa (local) o fuera (visitante).
         </p>
       </div>
-      <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filas" :loading="cargando"
+      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasFiltradas" :loading="cargando"
                  dataKey="id_jugador" sortField="convocatorias" :sortOrder="-1">
         <Column field="jugador" header="Jugador" sortable />
         <Column field="convocatorias" header="Convocatorias" sortable class="text-center" />
@@ -151,7 +123,34 @@ onBeforeUnmount(() => {
         <Column field="suplente_visitante" header="Suplente&#10;Visitante" sortable class="text-center" />
         <Column field="banquillo_no_jugados_visitante" header="Suplente no&#10;jugado Visitante" sortable class="text-center" />
         <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
+          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
+        </template>
+      </DataTable>
+
+      <div class="mt-2">
+        <h2 class="font-display text-lg text-club-green">Estadísticas Tiempo</h2>
+        <p class="text-sm text-ink-tertiary">
+          Minutos jugados por cada jugador. Los minutos local / visitante dependen de si el PALMA jugaba en casa o fuera,
+          y su porcentaje es la parte del total de minutos del jugador.
+        </p>
+      </div>
+      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasFiltradas" :loading="cargando" dataKey="id_jugador"
+                 sortField="minutos" :sortOrder="-1">
+        <Column field="jugador" header="Jugador" sortable />
+        <Column field="partidos" header="Partidos" sortable class="text-center" />
+        <Column field="minutos_local" header="Minutos&#10;local" sortable class="text-center" />
+        <Column field="minutos_visitante" header="Minutos&#10;visitante" sortable class="text-center" />
+        <Column field="porcentaje_minutos_local" header="Porcentaje&#10;Minutos local" sortable class="text-center">
+          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_local) }}</template>
+        </Column>
+        <Column field="porcentaje_minutos_visitante" header="Porcentaje&#10;Minutos Visitante" sortable class="text-center">
+          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_minutos_visitante) }}</template>
+        </Column>
+        <Column field="minutos_titular" header="Minutos&#10;Titular" sortable class="text-center" />
+        <Column field="minutos_banquillo" header="Minutos&#10;Banquillo" sortable class="text-center" />
+        <Column field="minutos" header="Total&#10;Minutos" sortable class="text-center" />
+        <template #empty>
+          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
         </template>
       </DataTable>
 
@@ -163,7 +162,7 @@ onBeforeUnmount(() => {
           propia puerta no cuentan.
         </p>
       </div>
-      <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filasGoles" :loading="cargando"
+      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasGoles" :loading="cargando"
                  dataKey="id_jugador" sortField="goles" :sortOrder="-1">
         <Column field="jugador" header="Jugador" sortable />
         <Column field="partidos" header="Total&#10;Partidos" sortable class="text-center" />
@@ -184,7 +183,33 @@ onBeforeUnmount(() => {
           <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_partido) }}</template>
         </Column>
         <template #empty>
-          <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
+          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
+        </template>
+      </DataTable>
+
+      <div class="mt-2">
+        <h2 class="font-display text-lg text-club-green">Estadísticas Sanciones</h2>
+        <p class="text-sm text-ink-tertiary">
+          Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese
+          momento; con empate no cuentan como ganando ni perdiendo.
+        </p>
+      </div>
+      <DataTable v-bind="estiloTabla" reorderableColumns class="ar-dt-cabecera-multilinea" :value="filasSanciones" :loading="cargando"
+                 dataKey="id_jugador" sortField="tarjetas_amarillas" :sortOrder="-1">
+        <Column field="jugador" header="Jugador" sortable />
+        <Column field="partidos" header="Total&#10;Partidos" sortable class="text-center" />
+        <Column field="tarjetas_amarillas" header="Total Tarjetas&#10;Amarillas" sortable class="text-center" />
+        <Column field="tarjetas_rojas" header="Total Tarjetas&#10;Rojas" sortable class="text-center" />
+        <Column field="amarillas_primera" header="Amarillas&#10;1ª Parte" sortable class="text-center" />
+        <Column field="amarillas_segunda" header="Amarillas&#10;2ª Parte" sortable class="text-center" />
+        <Column field="amarillas_ganando" header="Amarillas&#10;mientras ganaba" sortable class="text-center" />
+        <Column field="amarillas_perdiendo" header="Amarillas&#10;mientras perdía" sortable class="text-center" />
+        <Column field="rojas_primera" header="Rojas&#10;1ª Parte" sortable class="text-center" />
+        <Column field="rojas_segunda" header="Rojas&#10;2ª Parte" sortable class="text-center" />
+        <Column field="rojas_ganando" header="Rojas&#10;mientras ganaba" sortable class="text-center" />
+        <Column field="rojas_perdiendo" header="Rojas&#10;mientras perdía" sortable class="text-center" />
+        <template #empty>
+          <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
         </template>
       </DataTable>
     </template>
