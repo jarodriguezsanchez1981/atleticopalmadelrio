@@ -2,10 +2,11 @@
 import { ref, computed, watch } from 'vue';
 import { partidosService } from '../services';
 
-/** Estadísticas de los jugadores de un partido, para el diálogo que se abre al
- * pulsar el partido en el calendario (debajo de los escudos, que llevan los
- * goles de cada equipo). Los jugadores se piden al abrirlo; sin permiso de
- * Partidos no se muestran. */
+/** Estadísticas de los jugadores de un partido (los que han jugado, y aparte
+ * los que no), incidencias y observaciones, para la vista del partido
+ * (calendarios y ficha de Jornadas), debajo de los escudos con los goles.
+ * El partido se pide al abrirla; sin permiso de Partidos no se ven los
+ * jugadores, y las incidencias/observaciones salen de los datos del evento. */
 const props = defineProps({
   evento: { type: Object, required: true }
 });
@@ -47,18 +48,30 @@ const equipos = computed(() => {
   return [
     { clave: 'local', nombre: props.evento?.equipoLocal?.nombre || partido.value?.equipoLocal?.nombre || 'Local', esLocal: true },
     { clave: 'visitante', nombre: props.evento?.equipoVisitante?.nombre || partido.value?.equipoVisitante?.nombre || 'Visitante', esLocal: false }
-  ].map((eq) => ({
-    ...eq,
-    conMinutos,
-    filas: jugadores
+  ].map((eq) => {
+    const delEquipo = jugadores
       .filter((pj) => !!pj.es_local === eq.esLocal)
       .sort((a, b) => {
         const [ga, va] = orden(a);
         const [gb, vb] = orden(b);
         return ga - gb || va - vb || nombre(a).localeCompare(nombre(b), 'es');
-      })
-  })).filter((eq) => eq.filas.length);
+      });
+    return {
+      ...eq,
+      conMinutos,
+      filas: delEquipo.filter((pj) => !noHaJugado(pj)),
+      noJugaron: delEquipo.filter(noHaJugado)
+    };
+  }).filter((eq) => eq.filas.length || eq.noJugaron.length);
 });
+
+/** Suplente que no llegó a entrar (con datos del acta). */
+function noHaJugado(pj) {
+  return (pj.titular === false || pj.titular === 0) && pj.minuto_entrada == null;
+}
+
+const incidencias = computed(() => partido.value?.incidencias ?? props.evento?.incidencias ?? '');
+const observaciones = computed(() => partido.value?.observaciones ?? props.evento?.observaciones ?? '');
 </script>
 
 <template>
@@ -69,7 +82,7 @@ const equipos = computed(() => {
 
     <div v-for="eq in equipos" :key="eq.clave" class="flex flex-col gap-1">
       <h4 class="text-xs font-semibold text-club-green">{{ eq.nombre }}</h4>
-      <div class="overflow-x-auto rounded-lg border border-line">
+      <div v-if="eq.filas.length" class="overflow-x-auto rounded-lg border border-line">
         <table class="w-full text-xs">
           <thead>
             <tr class="bg-club-green/5 text-ink-tertiary">
@@ -100,6 +113,23 @@ const equipos = computed(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+      <p v-if="eq.noJugaron.length" class="text-xs text-ink-secondary mt-1">
+        <span class="font-semibold text-ink-tertiary">No han jugado ({{ eq.noJugaron.length }}):</span>
+        {{ eq.noJugaron.map(nombre).join(', ') }}
+      </p>
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-2 text-sm">
+      <div>
+        <p class="text-xs font-semibold text-club-green mb-0.5"><i class="pi pi-exclamation-circle mr-1"></i>Incidencias</p>
+        <p v-if="incidencias" class="text-ink-secondary whitespace-pre-line">{{ incidencias }}</p>
+        <p v-else class="text-ink-tertiary">Sin incidencias</p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-club-green mb-0.5"><i class="pi pi-comment mr-1"></i>Observaciones</p>
+        <p v-if="observaciones" class="text-ink-secondary whitespace-pre-line">{{ observaciones }}</p>
+        <p v-else class="text-ink-tertiary">Sin observaciones</p>
       </div>
     </div>
   </div>

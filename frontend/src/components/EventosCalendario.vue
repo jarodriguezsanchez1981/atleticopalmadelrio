@@ -879,7 +879,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 
         <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" />
 
-        <div class="text-sm text-ink-secondary space-y-1.5">
+        <div v-if="eventoSeleccionado.tipo !== 'partido'" class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>

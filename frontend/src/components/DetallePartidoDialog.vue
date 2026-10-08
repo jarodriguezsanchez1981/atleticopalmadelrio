@@ -53,6 +53,8 @@ const lugar = computed(() => partido.value?.lugar?.nombre || local.value?.locali
 const evento = computed(() => ({
   base_id: props.idPartido,
   resultado: partido.value?.resultado,
+  incidencias: partido.value?.incidencias,
+  observaciones: partido.value?.observaciones,
   equipoLocal: local.value,
   equipoVisitante: visitante.value
 }));
@@ -109,13 +111,6 @@ const evento = computed(() => ({
 
       <ResultadoJugadoresPartido :evento="evento" />
 
-      <p v-if="partido.incidencias" class="text-sm text-ink-secondary">
-        <i class="pi pi-exclamation-circle mr-2"></i>{{ partido.incidencias }}
-      </p>
-      <div v-if="partido.observaciones" class="text-sm text-ink-secondary">
-        <p class="text-xs text-ink-tertiary font-medium mb-0.5">Observaciones</p>
-        <p class="whitespace-pre-line">{{ partido.observaciones }}</p>
-      </div>
     </div>
     <div v-else class="text-center text-sm text-ink-tertiary py-6">No se pudo cargar el partido.</div>
   </Dialog>
