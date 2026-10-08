@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { Entrenamiento, Partido, Torneo, Plantilla, Categoria, Lugar } = require('../models');
-const { sumarDiasHoraEspana, diaEspana } = require('../utils/horaEspana');
+const { sumarDiasHoraEspana, diaEspana, partesEspana, desdeHoraEspana } = require('../utils/horaEspana');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
@@ -138,6 +138,7 @@ async function actualizar(req, res, next) {
     const serieIdPlantilla = entrenamiento.id_plantilla;
     const serieRecurrente = entrenamiento.recurrente;
     const serieHasta = entrenamiento.hasta;
+    const fechaOriginal = new Date(entrenamiento.fecha);
 
     if (id_plantilla !== undefined) entrenamiento.id_plantilla = id_plantilla;
     if (fecha !== undefined) entrenamiento.fecha = fecha;
@@ -169,6 +170,34 @@ async function actualizar(req, res, next) {
         }
       );
       propagados = afectados;
+    }
+
+    // La hora también es de la serie: con "todos los eventos", las sesiones del
+    // mismo día de la semana desde esta en adelante pasan a la nueva hora
+    // española, cada una en su propio día.
+    let horaPropagada = 0;
+    if (fecha !== undefined && alcance === 'serie' && serieRecurrente && serieHasta) {
+      const nueva = partesEspana(entrenamiento.fecha);
+      const diaSemana = (d) => { const p = partesEspana(d); return new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay(); };
+      const diaSerie = diaSemana(fechaOriginal);
+      const siguientes = await Entrenamiento.findAll({
+        where: {
+          id_plantilla: serieIdPlantilla,
+          recurrente: 1,
+          hasta: serieHasta,
+          id: { [Op.ne]: entrenamiento.id },
+          fecha: { [Op.gt]: fechaOriginal }
+        }
+      });
+      for (const sesion of siguientes) {
+        if (diaSemana(sesion.fecha) !== diaSerie) continue;
+        const p = partesEspana(sesion.fecha);
+        const nuevaFecha = desdeHoraEspana(p.y, p.m, p.d, nueva.h, nueva.mi);
+        if (nuevaFecha.getTime() === new Date(sesion.fecha).getTime()) continue;
+        sesion.fecha = nuevaFecha;
+        await sesion.save();
+        horaPropagada += 1;
+      }
     }
 
     // Si tras la edición queda recurrente con fecha límite, generar (o completar)
@@ -203,6 +232,7 @@ async function actualizar(req, res, next) {
     respuesta.generados = generados;
     respuesta.omitidos = omitidos;
     respuesta.propagados = propagados;
+    respuesta.horaPropagada = horaPropagada;
     res.json(respuesta);
   } catch (err) { next(err); }
 }

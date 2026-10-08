@@ -661,11 +661,14 @@ async function guardarConAlcance(alcance) {
       }
       toast.add({ severity: 'info', summary: 'Entrenamientos recurrentes', detail: detalle, life: 6000 });
     }
-    if (props.tipo === 'entrenamiento' && resultado?.propagados > 0) {
+    if (props.tipo === 'entrenamiento' && (resultado?.propagados > 0 || resultado?.horaPropagada > 0)) {
+      const partes = [];
+      if (resultado.horaPropagada > 0) partes.push(`la hora en ${resultado.horaPropagada} sesión(es) siguientes`);
+      if (resultado.propagados > 0) partes.push(`el lugar en ${resultado.propagados} sesión(es)`);
       toast.add({
         severity: 'info',
         summary: 'Serie actualizada',
-        detail: `El lugar se ha actualizado también en ${resultado.propagados} sesión(es) más de esta serie.`,
+        detail: `Se ha actualizado también ${partes.join(' y ')} de esta serie.`,
         life: 6000
       });
     }

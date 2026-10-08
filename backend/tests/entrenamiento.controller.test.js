@@ -303,6 +303,35 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._status).toBe(200);
   });
 
+  it('actualizar con alcance serie lleva la nueva hora a las sesiones siguientes del mismo día de la semana', async () => {
+    const hasta = new Date('2027-06-29T22:00:00Z');
+    // Viernes 16/10/2026 creado sin hora (02:00 en España); se cambia a las 17:00.
+    const entrenamiento = { id: 1, id_plantilla: 9, fecha: new Date('2026-10-16T00:00:00Z'), recurrente: 1, hasta, id_lugar: 2, save: vi.fn().mockResolvedValue() };
+    const sesion = (id, iso) => ({ id, fecha: new Date(iso), save: vi.fn().mockResolvedValue() });
+    const viernes23 = sesion(2, '2026-10-23T00:00:00Z');   // verano
+    const viernes30 = sesion(3, '2026-10-30T00:00:00Z');   // invierno
+    const miercoles21 = sesion(4, '2026-10-21T15:00:00Z'); // otro día de la semana: no se toca
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce({ id: 1 });
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.findAll.mockResolvedValue([viernes23, viernes30, miercoles21]);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { fecha: '2026-10-16T15:00:00.000Z', alcance: 'serie', recurrente: true, hasta: hasta.toISOString() }
+    });
+    await promesa;
+
+    // Solo sesiones posteriores a la editada.
+    expect(Entrenamiento.findAll).toHaveBeenCalledWith({ where: expect.objectContaining({ id_plantilla: 9, recurrente: 1, hasta }) });
+    // 17:00 en España: 15:00 UTC en verano y 16:00 UTC en invierno.
+    expect(viernes23.fecha.toISOString()).toBe('2026-10-23T15:00:00.000Z');
+    expect(viernes30.fecha.toISOString()).toBe('2026-10-30T16:00:00.000Z');
+    expect(miercoles21.save).not.toHaveBeenCalled();
+    expect(res._json.horaPropagada).toBe(2);
+  });
+
   it('actualizar devuelve 404 si no existe', async () => {
     Entrenamiento.findByPk.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { fecha: 'x' } });
@@ -322,7 +351,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(entrenamiento.id_lugar).toBe(2);
     expect(entrenamiento.save).toHaveBeenCalled();
-    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [], propagados: 0 });
+    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [], propagados: 0, horaPropagada: 0 });
   });
 
   it('crear guarda horario_reducido cuando se indica', async () => {
