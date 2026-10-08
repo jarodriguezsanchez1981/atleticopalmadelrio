@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, Jugador, PlantillaJugador, Sancion } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -847,6 +847,30 @@ describe('Sección Partidos · partido.controller', () => {
       // Al minuto 50 iba 2-1 (el gol del mismo minuto no cuenta); la del cuerpo técnico no se guarda.
       expect(PartidoTarjeta.bulkCreate).toHaveBeenCalledWith([
         { id_partido: 1, id_jugador: 900, tipo: 'amarilla', minuto: 50, goles_favor: 2, goles_contra: 1 }
+      ]);
+    });
+
+    it('guarda los goles del PALMA con su minuto, sin los de propia puerta', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      PartidoGol.destroy.mockReset();
+      PartidoGol.bulkCreate.mockReset();
+      leerActa.mockResolvedValue({
+        ...ACTA,
+        goles: [
+          { minuto: 10, equipo: 'local', nombre: 'PEREZ GOMEZ, JUAN', tipo: 'normal' },
+          { minuto: 30, equipo: 'visitante', nombre: 'GARCIA TORRES, MANUEL', tipo: 'normal' }, // del rival
+          { minuto: 40, equipo: 'local', nombre: 'GARCIA TORRES, MANUEL', tipo: 'propia' },     // en propia del rival
+          { minuto: 60, equipo: 'local', nombre: 'PEREZ GOMEZ, JUAN', tipo: 'penalti' }
+        ]
+      });
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(PartidoGol.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
+      expect(PartidoGol.bulkCreate).toHaveBeenCalledWith([
+        { id_partido: 1, id_jugador: 900, minuto: 10, tipo: 'normal' },
+        { id_partido: 1, id_jugador: 900, minuto: 60, tipo: 'penalti' }
       ]);
     });
 

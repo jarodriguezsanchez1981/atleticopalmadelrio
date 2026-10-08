@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -422,6 +422,20 @@ async function finalizarActa(req, res, next) {
       .filter(Boolean);
     await PartidoTarjeta.destroy({ where: { id_partido: partido.id } });
     if (tarjetas.length) await PartidoTarjeta.bulkCreate(tarjetas);
+
+    // Goles de los jugadores del PALMA con su minuto (los de propia puerta no
+    // son del jugador: suman al rival).
+    const golesPalma = golesActa
+      .filter((g) => g.equipo === ladoPalma && g.tipo !== 'propia' && g.nombre)
+      .map((g) => {
+        const idJugador = idPorNombre.get(rfafActa.normalizarNombre(g.nombre));
+        return idJugador
+          ? { id_partido: partido.id, id_jugador: idJugador, minuto: g.minuto ?? null, tipo: g.tipo === 'penalti' ? 'penalti' : 'normal' }
+          : null;
+      })
+      .filter(Boolean);
+    await PartidoGol.destroy({ where: { id_partido: partido.id } });
+    if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
 
     // Se sustituyen solo los jugadores del PALMA; los del rival no se tocan.
     await PartidoJugador.destroy({

@@ -272,7 +272,12 @@ def parsear_acta(html):
             suma["goles"] += 1
             if gol["tipo"] != "propia":
                 jugador["goles"] += 1
-            goles.append({"minuto": gol["minuto"], "equipo": "local" if suma is local else "visitante"})
+            goles.append({
+                "minuto": gol["minuto"],
+                "equipo": "local" if suma is local else "visitante",
+                "nombre": jugador["nombre"],
+                "tipo": gol["tipo"],
+            })
             break
 
     return {

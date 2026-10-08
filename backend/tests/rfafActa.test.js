@@ -167,7 +167,7 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
     expect(martinez).toMatchObject({ minuto_entrada: 60, minuto_salida: 88 });
   });
 
-  it('devuelve el minuto de cada tarjeta y de cada gol con el equipo que suma', async () => {
+  it('devuelve el minuto de cada tarjeta y de cada gol con el equipo que suma, el goleador y el tipo', async () => {
     const acta = await leer();
     expect(acta.local.tarjetas).toEqual([
       { nombre: 'LOPEZ RUIZ, ALVARO', tipo: 'amarilla', minuto: 35 },
@@ -175,10 +175,10 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
     ]);
     // El gol en propia puerta del 30 suma al visitante.
     expect(acta.goles).toEqual([
-      { minuto: 10, equipo: 'local' },
-      { minuto: 20, equipo: 'local' },
-      { minuto: 30, equipo: 'visitante' },
-      { minuto: 40, equipo: 'visitante' }
+      { minuto: 10, equipo: 'local', nombre: 'PEREZ GOMEZ, JUAN', tipo: 'normal' },
+      { minuto: 20, equipo: 'local', nombre: 'PEREZ GOMEZ, JUAN', tipo: 'penalti' },
+      { minuto: 30, equipo: 'visitante', nombre: 'LOPEZ RUIZ, ALVARO', tipo: 'propia' },
+      { minuto: 40, equipo: 'visitante', nombre: 'GARCIA TORRES, MANUEL', tipo: 'normal' }
     ]);
   });
 

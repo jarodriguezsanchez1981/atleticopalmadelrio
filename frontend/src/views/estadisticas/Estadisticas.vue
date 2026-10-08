@@ -39,6 +39,8 @@ async function cargar() {
 
 // Estadísticas Sanciones: los que han jugado o tienen alguna tarjeta.
 const filasSanciones = computed(() => filas.value.filter((f) => f.partidos > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0));
+// Estadísticas Goles: los que han jugado o han marcado.
+const filasGoles = computed(() => filas.value.filter((f) => f.partidos > 0 || f.goles > 0));
 
 /** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
 function formatoPorcentaje(valor) {
@@ -141,6 +143,32 @@ onBeforeUnmount(() => {
         <Column field="rojas_segunda" header="Rojas&#10;2ª Parte" sortable class="text-center" />
         <Column field="rojas_ganando" header="Rojas&#10;mientras ganaba" sortable class="text-center" />
         <Column field="rojas_perdiendo" header="Rojas&#10;mientras perdía" sortable class="text-center" />
+        <template #empty>
+          <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
+        </template>
+      </DataTable>
+
+      <div class="mt-2">
+        <h2 class="font-display text-lg text-club-green">Estadísticas Goles</h2>
+        <p class="text-sm text-ink-tertiary">
+          Goles de cada jugador en casa y fuera, por parte del partido (1ª parte hasta el minuto 45) y según saliera de
+          titular o desde el banquillo. Los goles en propia puerta no cuentan.
+        </p>
+      </div>
+      <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filasGoles" :loading="cargando"
+                 dataKey="id_jugador" sortField="goles" :sortOrder="-1">
+        <Column field="jugador" header="Jugador" sortable />
+        <Column field="partidos" header="Total&#10;Partidos" sortable class="text-center" />
+        <Column field="goles" header="Total&#10;Goles" sortable class="text-center" />
+        <Column field="goles_local" header="Goles&#10;Local" sortable class="text-center" />
+        <Column field="goles_visitante" header="Goles&#10;Visitante" sortable class="text-center" />
+        <Column field="goles_primera" header="Goles&#10;1ª Parte" sortable class="text-center" />
+        <Column field="goles_segunda" header="Goles&#10;2ª Parte" sortable class="text-center" />
+        <Column field="goles_titular" header="Goles&#10;Titular" sortable class="text-center" />
+        <Column field="goles_banquillo" header="Goles&#10;Banquillo" sortable class="text-center" />
+        <Column field="porcentaje_goles_partido" header="% Goles&#10;por partido" sortable class="text-center">
+          <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_partido) }}</template>
+        </Column>
         <template #empty>
           <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
         </template>

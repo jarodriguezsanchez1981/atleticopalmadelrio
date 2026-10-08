@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Partido, PartidoJugador, PartidoTarjeta } from './helpers/models.js';
+import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/estadistica.controller.js';
@@ -10,6 +10,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     PartidoJugador.findAll.mockReset();
     PartidoTarjeta.findAll.mockReset();
     PartidoTarjeta.findAll.mockResolvedValue([]);
+    PartidoGol.findAll.mockReset();
+    PartidoGol.findAll.mockResolvedValue([]);
   });
 
   function llamar(overrides = {}) {
@@ -36,6 +38,12 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       { id_partido: 2, id_jugador: 9, es_local: false, minutos: 0, jugador: { id: 9, nombre: 'Sin', apellidos: 'Jugar' } },
       { id_partido: 1, id_jugador: null, id_equipo_jugador: 3, es_local: false, minutos: null } // rival
     ]);
+    PartidoGol.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, minuto: 12 },
+      { id_partido: 1, id_jugador: 7, minuto: 45 }, // el 45 aún es 1ª parte
+      { id_partido: 2, id_jugador: 7, minuto: 70 },
+      { id_partido: 2, id_jugador: 7, minuto: null } // sin minuto: no cuenta por partes
+    ]);
 
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
     await promesa;
@@ -45,12 +53,14 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       { id_jugador: 7, nombre: 'Ana', apellidos: 'López', partidos: 2, titular: 1, suplente: 1, minutos: 124, minutos_local: 90, minutos_visitante: 34,
         goles: 3, tarjetas_amarillas: 1, tarjetas_rojas: 1,
         minutos_titular: 90, minutos_banquillo: 34, goles_banquillo: 1, banquillo_no_jugados: 0,
+        goles_local: 2, goles_visitante: 1, goles_titular: 2, goles_primera: 2, goles_segunda: 1,
         amarillas_primera: 0, amarillas_segunda: 0, amarillas_ganando: 0, amarillas_perdiendo: 0,
         rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
         porcentaje_goles_partido: 150, porcentaje_goles_banquillo: 33.3 },
       { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, titular: 1, suplente: 0, minutos: 90, minutos_local: 90, minutos_visitante: 0,
         goles: 0, tarjetas_amarillas: 0, tarjetas_rojas: 0,
         minutos_titular: 90, minutos_banquillo: 0, goles_banquillo: 0, banquillo_no_jugados: 1,
+        goles_local: 0, goles_visitante: 0, goles_titular: 0, goles_primera: 0, goles_segunda: 0,
         amarillas_primera: 0, amarillas_segunda: 0, amarillas_ganando: 0, amarillas_perdiendo: 0,
         rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
         porcentaje_goles_partido: 0, porcentaje_goles_banquillo: null }

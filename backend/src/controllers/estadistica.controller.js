@@ -1,4 +1,4 @@
-const { Partido, PartidoJugador, PartidoTarjeta, Jugador } = require('../models');
+const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador } = require('../models');
 
 // Minuto en que acaba la 1ª parte (los partidos con estadísticas son de 90').
 const FIN_PRIMERA_PARTE = 45;
@@ -47,7 +47,12 @@ async function listar(req, res, next) {
         minutos_banquillo: 0,
         goles_banquillo: 0,
         banquillo_no_jugados: 0,
-        ...Object.fromEntries(CAMPOS_TARJETAS.map((c) => [c, 0]))
+        ...Object.fromEntries(CAMPOS_TARJETAS.map((c) => [c, 0])),
+        goles_local: 0,
+        goles_visitante: 0,
+        goles_titular: 0,
+        goles_primera: 0,
+        goles_segunda: 0
       };
       const minutos = Number(f.minutos) || 0;
       if (minutos > 0) fila.partidos += 1;
@@ -58,9 +63,12 @@ async function listar(req, res, next) {
       const goles = Number(f.goles) || 0;
       const esTitular = f.titular === true || f.titular === 1;
       const esSuplente = f.titular === false || f.titular === 0;
+      if (f.es_local) fila.goles_local += goles;
+      else fila.goles_visitante += goles;
       if (esTitular) {
         fila.titular += 1;
         fila.minutos_titular += minutos;
+        fila.goles_titular += goles;
       } else if (esSuplente && f.minuto_entrada != null) {
         // Entró desde el banquillo: todos sus goles de ese partido son "desde el banquillo".
         fila.suplente += 1;
@@ -84,6 +92,14 @@ async function listar(req, res, next) {
       if (t.minuto != null) fila[`${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`] += 1;
       if (t.goles_favor > t.goles_contra) fila[`${tipo}_ganando`] += 1;
       else if (t.goles_favor < t.goles_contra) fila[`${tipo}_perdiendo`] += 1;
+    }
+
+    // Goles por parte del partido (partido_goles, de Finalizar Acta).
+    const golesConMinuto = await PartidoGol.findAll({ where: { id_partido: partidos.map((p) => p.id) } }) || [];
+    for (const g of golesConMinuto) {
+      const fila = porJugador.get(g.id_jugador);
+      if (!fila || g.minuto == null) continue;
+      fila[g.minuto <= FIN_PRIMERA_PARTE ? 'goles_primera' : 'goles_segunda'] += 1;
     }
 
     // Porcentajes con un decimal (null si no se pueden calcular).
