@@ -52,8 +52,18 @@ async function listar(req, res, next) {
         goles_visitante: 0,
         goles_titular: 0,
         goles_primera: 0,
-        goles_segunda: 0
+        goles_segunda: 0,
+        convocatorias: 0,
+        titular_local: 0,
+        suplente_local: 0,
+        banquillo_no_jugados_local: 0,
+        titular_visitante: 0,
+        suplente_visitante: 0,
+        banquillo_no_jugados_visitante: 0
       };
+      // Convocado: está en el acta del partido (haya jugado o no).
+      fila.convocatorias += 1;
+      const lado = f.es_local ? 'local' : 'visitante';
       const minutos = Number(f.minutos) || 0;
       if (minutos > 0) fila.partidos += 1;
       fila.minutos += minutos;
@@ -67,15 +77,18 @@ async function listar(req, res, next) {
       else fila.goles_visitante += goles;
       if (esTitular) {
         fila.titular += 1;
+        fila[`titular_${lado}`] += 1;
         fila.minutos_titular += minutos;
         fila.goles_titular += goles;
       } else if (esSuplente && f.minuto_entrada != null) {
         // Entró desde el banquillo: todos sus goles de ese partido son "desde el banquillo".
         fila.suplente += 1;
+        fila[`suplente_${lado}`] += 1;
         fila.minutos_banquillo += minutos;
         fila.goles_banquillo += goles;
       } else if (esSuplente) {
         fila.banquillo_no_jugados += 1;
+        fila[`banquillo_no_jugados_${lado}`] += 1;
       }
       fila.goles += goles;
       fila.tarjetas_amarillas += Number(f.tarjeta_amarilla) || 0;

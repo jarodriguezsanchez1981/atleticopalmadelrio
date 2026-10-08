@@ -135,6 +135,31 @@ onBeforeUnmount(() => {
       </DataTable>
 
       <div class="mt-2">
+        <h2 class="font-display text-lg text-club-green">Estadísticas Convocatorias</h2>
+        <p class="text-sm text-ink-tertiary">
+          Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente
+          sin jugar, en total y según el PALMA jugara en casa (local) o fuera (visitante).
+        </p>
+      </div>
+      <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filas" :loading="cargando"
+                 dataKey="id_jugador" sortField="convocatorias" :sortOrder="-1">
+        <Column field="jugador" header="Jugador" sortable />
+        <Column field="convocatorias" header="Convocatorias" sortable class="text-center" />
+        <Column field="titular" header="Titular" sortable class="text-center" />
+        <Column field="suplente" header="Suplente" sortable class="text-center" />
+        <Column field="banquillo_no_jugados" header="Suplente&#10;No jugado" sortable class="text-center" />
+        <Column field="titular_local" header="Titular&#10;Local" sortable class="text-center" />
+        <Column field="suplente_local" header="Suplente&#10;Local" sortable class="text-center" />
+        <Column field="banquillo_no_jugados_local" header="Suplente no&#10;jugado Local" sortable class="text-center" />
+        <Column field="titular_visitante" header="Titular&#10;Visitante" sortable class="text-center" />
+        <Column field="suplente_visitante" header="Suplente&#10;Visitante" sortable class="text-center" />
+        <Column field="banquillo_no_jugados_visitante" header="Suplente no&#10;jugado Visitante" sortable class="text-center" />
+        <template #empty>
+          <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
+        </template>
+      </DataTable>
+
+      <div class="mt-2">
         <h2 class="font-display text-lg text-club-green">Estadísticas Goles</h2>
         <p class="text-sm text-ink-tertiary">
           Goles de cada jugador en casa y fuera, por parte del partido (1ª parte hasta el minuto 45) y según saliera de

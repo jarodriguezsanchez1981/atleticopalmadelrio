@@ -58,7 +58,9 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
         porcentaje_goles_partido: 150, porcentaje_goles_banquillo: 33.3,
         porcentaje_minutos_local: 72.6, porcentaje_minutos_visitante: 27.4,
-        porcentaje_goles_local: 66.7, porcentaje_goles_visitante: 33.3 },
+        porcentaje_goles_local: 66.7, porcentaje_goles_visitante: 33.3,
+        convocatorias: 2, titular_local: 1, suplente_local: 0, banquillo_no_jugados_local: 0,
+        titular_visitante: 0, suplente_visitante: 1, banquillo_no_jugados_visitante: 0 },
       { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, titular: 1, suplente: 0, minutos: 90, minutos_local: 90, minutos_visitante: 0,
         goles: 0, tarjetas_amarillas: 0, tarjetas_rojas: 0,
         minutos_titular: 90, minutos_banquillo: 0, goles_banquillo: 0, banquillo_no_jugados: 1,
@@ -67,7 +69,9 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
         porcentaje_goles_partido: 0, porcentaje_goles_banquillo: null,
         porcentaje_minutos_local: 100, porcentaje_minutos_visitante: 0,
-        porcentaje_goles_local: null, porcentaje_goles_visitante: null }
+        porcentaje_goles_local: null, porcentaje_goles_visitante: null,
+        convocatorias: 2, titular_local: 1, suplente_local: 0, banquillo_no_jugados_local: 0,
+        titular_visitante: 0, suplente_visitante: 0, banquillo_no_jugados_visitante: 1 }
     ]);
   });
 
