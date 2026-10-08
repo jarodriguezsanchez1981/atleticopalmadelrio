@@ -167,6 +167,21 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
     expect(martinez).toMatchObject({ minuto_entrada: 60, minuto_salida: 88 });
   });
 
+  it('devuelve el minuto de cada tarjeta y de cada gol con el equipo que suma', async () => {
+    const acta = await leer();
+    expect(acta.local.tarjetas).toEqual([
+      { nombre: 'LOPEZ RUIZ, ALVARO', tipo: 'amarilla', minuto: 35 },
+      { nombre: 'MARTINEZ DIAZ, SERGIO', tipo: 'roja', minuto: 88 }
+    ]);
+    // El gol en propia puerta del 30 suma al visitante.
+    expect(acta.goles).toEqual([
+      { minuto: 10, equipo: 'local' },
+      { minuto: 20, equipo: 'local' },
+      { minuto: 30, equipo: 'visitante' },
+      { minuto: 40, equipo: 'visitante' }
+    ]);
+  });
+
   it('no devuelve la cookie dentro del acta', async () => {
     const acta = await leer();
     expect(acta).not.toHaveProperty('cookie');

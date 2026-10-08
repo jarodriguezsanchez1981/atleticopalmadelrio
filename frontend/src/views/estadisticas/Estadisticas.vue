@@ -37,6 +37,9 @@ async function cargar() {
   }
 }
 
+// Estadísticas Sanciones: los que han jugado o tienen alguna tarjeta.
+const filasSanciones = computed(() => filas.value.filter((f) => f.partidos > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0));
+
 /** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
 function formatoPorcentaje(valor) {
   return valor == null ? '—' : `${Number(valor).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
@@ -75,21 +78,21 @@ onBeforeUnmount(() => {
     <div v-else-if="!cargando && !plantilla" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
       No hay plantilla {{ CATEGORIA }} en la temporada actual.
     </div>
-    <DataTable v-else v-bind="estiloTabla" :value="filas" :loading="cargando" dataKey="id_jugador"
+    <DataTable v-else v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filas" :loading="cargando" dataKey="id_jugador"
                sortField="minutos" :sortOrder="-1">
       <Column field="jugador" header="Jugador" sortable />
       <Column field="partidos" header="Partidos" sortable class="text-center" />
       <Column field="titular" header="Titular" sortable class="text-center" />
       <Column field="suplente" header="Suplente" sortable class="text-center" />
-      <Column field="banquillo_no_jugados" header="Banquillo no jugados" sortable class="text-center" />
-      <Column field="minutos_local" header="Minutos local" sortable class="text-center" />
-      <Column field="minutos_visitante" header="Minutos visitante" sortable class="text-center" />
-      <Column field="minutos_titular" header="Minutos Titular" sortable class="text-center" />
-      <Column field="minutos_banquillo" header="Minutos Banquillo" sortable class="text-center" />
+      <Column field="banquillo_no_jugados" header="Banquillo&#10;no jugados" sortable class="text-center" />
+      <Column field="minutos_local" header="Minutos&#10;local" sortable class="text-center" />
+      <Column field="minutos_visitante" header="Minutos&#10;visitante" sortable class="text-center" />
+      <Column field="minutos_titular" header="Minutos&#10;Titular" sortable class="text-center" />
+      <Column field="minutos_banquillo" header="Minutos&#10;Banquillo" sortable class="text-center" />
       <Column field="minutos" header="Minutos" sortable class="text-center" />
       <Column field="goles" header="Goles" sortable class="text-center" />
-      <Column field="goles_banquillo" header="Goles Banquillo" sortable class="text-center" />
-      <Column field="tarjetas_amarillas" header="Tarjetas amarillas" sortable class="text-center">
+      <Column field="goles_banquillo" header="Goles&#10;Banquillo" sortable class="text-center" />
+      <Column field="tarjetas_amarillas" header="Tarjetas&#10;amarillas" sortable class="text-center">
         <template #body="{ data }">
           <span v-if="data.tarjetas_amarillas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
             <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ data.tarjetas_amarillas }}
@@ -97,7 +100,7 @@ onBeforeUnmount(() => {
           <span v-else class="text-ink-tertiary">0</span>
         </template>
       </Column>
-      <Column field="tarjetas_rojas" header="Tarjeta roja" sortable class="text-center">
+      <Column field="tarjetas_rojas" header="Tarjeta&#10;roja" sortable class="text-center">
         <template #body="{ data }">
           <span v-if="data.tarjetas_rojas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
             <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ data.tarjetas_rojas }}
@@ -105,16 +108,44 @@ onBeforeUnmount(() => {
           <span v-else class="text-ink-tertiary">0</span>
         </template>
       </Column>
-      <Column field="porcentaje_goles_partido" header="% Goles por Partido" sortable class="text-center">
+      <Column field="porcentaje_goles_partido" header="% Goles&#10;por Partido" sortable class="text-center">
         <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_partido) }}</template>
       </Column>
-      <Column field="porcentaje_goles_banquillo" header="% Goles desde Banquillo" sortable class="text-center">
+      <Column field="porcentaje_goles_banquillo" header="% Goles desde&#10;Banquillo" sortable class="text-center">
         <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_banquillo) }}</template>
       </Column>
       <template #empty>
         <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
       </template>
     </DataTable>
+
+    <template v-if="plantilla && !error">
+      <div class="mt-2">
+        <h2 class="font-display text-lg text-club-green">Estadísticas Sanciones</h2>
+        <p class="text-sm text-ink-tertiary">
+          Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese
+          momento; con empate no cuentan como ganando ni perdiendo.
+        </p>
+      </div>
+      <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea" :value="filasSanciones" :loading="cargando"
+                 dataKey="id_jugador" sortField="tarjetas_amarillas" :sortOrder="-1">
+        <Column field="jugador" header="Jugador" sortable />
+        <Column field="partidos" header="Total&#10;Partidos" sortable class="text-center" />
+        <Column field="tarjetas_amarillas" header="Total Tarjetas&#10;Amarillas" sortable class="text-center" />
+        <Column field="tarjetas_rojas" header="Total Tarjetas&#10;Rojas" sortable class="text-center" />
+        <Column field="amarillas_primera" header="Amarillas&#10;1ª Parte" sortable class="text-center" />
+        <Column field="amarillas_segunda" header="Amarillas&#10;2ª Parte" sortable class="text-center" />
+        <Column field="amarillas_ganando" header="Amarillas&#10;mientras ganaba" sortable class="text-center" />
+        <Column field="amarillas_perdiendo" header="Amarillas&#10;mientras perdía" sortable class="text-center" />
+        <Column field="rojas_primera" header="Rojas&#10;1ª Parte" sortable class="text-center" />
+        <Column field="rojas_segunda" header="Rojas&#10;2ª Parte" sortable class="text-center" />
+        <Column field="rojas_ganando" header="Rojas&#10;mientras ganaba" sortable class="text-center" />
+        <Column field="rojas_perdiendo" header="Rojas&#10;mientras perdía" sortable class="text-center" />
+        <template #empty>
+          <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>
+        </template>
+      </DataTable>
+    </template>
   </div>
 </SectionGuard>
 </template>

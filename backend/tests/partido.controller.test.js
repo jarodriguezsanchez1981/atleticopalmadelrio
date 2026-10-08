@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, Sancion } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, Jugador, PlantillaJugador, Sancion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -828,6 +828,26 @@ describe('Sección Partidos · partido.controller', () => {
 
       const minutos = Object.fromEntries(PartidoJugador.bulkCreate.mock.calls[0][0].map((f) => [f.id_jugador, f.minutos]));
       expect(minutos).toEqual({ 1: 90, 2: 30, 3: 20, 4: 0 });
+    });
+
+    it('guarda las tarjetas del PALMA con su minuto y el marcador justo antes', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      PartidoTarjeta.destroy.mockReset();
+      PartidoTarjeta.bulkCreate.mockReset();
+      leerActa.mockResolvedValue({
+        ...ACTA,
+        local: { ...ACTA.local, tarjetas: [{ nombre: 'PEREZ GOMEZ, JUAN', tipo: 'amarilla', minuto: 50 }, { nombre: 'OTRO, CUERPO TECNICO', tipo: 'amarilla', minuto: 60 }] },
+        goles: [{ minuto: 10, equipo: 'local' }, { minuto: 30, equipo: 'visitante' }, { minuto: 40, equipo: 'local' }, { minuto: 50, equipo: 'visitante' }]
+      });
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(PartidoTarjeta.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
+      // Al minuto 50 iba 2-1 (el gol del mismo minuto no cuenta); la del cuerpo técnico no se guarda.
+      expect(PartidoTarjeta.bulkCreate).toHaveBeenCalledWith([
+        { id_partido: 1, id_jugador: 900, tipo: 'amarilla', minuto: 50, goles_favor: 2, goles_contra: 1 }
+      ]);
     });
 
     it('en Fútbol 7 no guarda titulares, cambios ni minutos', async () => {

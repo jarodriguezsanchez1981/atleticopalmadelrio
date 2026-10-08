@@ -180,3 +180,9 @@ h1, h2, h3, .font-display {
 }
 .tarjeta-amarilla { background: #facc15; }
 .tarjeta-roja { background: #dc2626; }
+
+/* Títulos de columna en varias líneas (header con "&#10;"), p.ej. Estadísticas. */
+.ar-datatable.ar-dt-cabecera-multilinea .p-datatable-column-title {
+  white-space: pre-line;
+  line-height: 1.2;
+}

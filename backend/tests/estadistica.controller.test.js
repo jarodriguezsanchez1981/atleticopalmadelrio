@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Partido, PartidoJugador } from './helpers/models.js';
+import { Partido, PartidoJugador, PartidoTarjeta } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/estadistica.controller.js';
@@ -8,6 +8,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   beforeEach(() => {
     Partido.findAll.mockReset();
     PartidoJugador.findAll.mockReset();
+    PartidoTarjeta.findAll.mockReset();
+    PartidoTarjeta.findAll.mockResolvedValue([]);
   });
 
   function llamar(overrides = {}) {
@@ -43,10 +45,14 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       { id_jugador: 7, nombre: 'Ana', apellidos: 'López', partidos: 2, titular: 1, suplente: 1, minutos: 124, minutos_local: 90, minutos_visitante: 34,
         goles: 3, tarjetas_amarillas: 1, tarjetas_rojas: 1,
         minutos_titular: 90, minutos_banquillo: 34, goles_banquillo: 1, banquillo_no_jugados: 0,
+        amarillas_primera: 0, amarillas_segunda: 0, amarillas_ganando: 0, amarillas_perdiendo: 0,
+        rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
         porcentaje_goles_partido: 150, porcentaje_goles_banquillo: 33.3 },
       { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, titular: 1, suplente: 0, minutos: 90, minutos_local: 90, minutos_visitante: 0,
         goles: 0, tarjetas_amarillas: 0, tarjetas_rojas: 0,
         minutos_titular: 90, minutos_banquillo: 0, goles_banquillo: 0, banquillo_no_jugados: 1,
+        amarillas_primera: 0, amarillas_segunda: 0, amarillas_ganando: 0, amarillas_perdiendo: 0,
+        rojas_primera: 0, rojas_segunda: 0, rojas_ganando: 0, rojas_perdiendo: 0,
         porcentaje_goles_partido: 0, porcentaje_goles_banquillo: null }
     ]);
   });
@@ -57,5 +63,28 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     await promesa;
     expect(res._json).toEqual([]);
     expect(PartidoJugador.findAll).not.toHaveBeenCalled();
+  });
+
+  it('reparte las tarjetas por parte y según el marcador', async () => {
+    Partido.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 0, tarjeta_amarilla: 2, tarjeta_roja: 1, jugador: { nombre: 'Ana', apellidos: 'López' } },
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: true, minutos: 90, goles: 0, tarjeta_amarilla: 1, tarjeta_roja: 0, jugador: { nombre: 'Ana', apellidos: 'López' } }
+    ]);
+    PartidoTarjeta.findAll.mockResolvedValue([
+      { id_jugador: 7, tipo: 'amarilla', minuto: 20, goles_favor: 1, goles_contra: 0 }, // 1ª parte, ganando
+      { id_jugador: 7, tipo: 'amarilla', minuto: 45, goles_favor: 0, goles_contra: 0 }, // 1ª parte, empate
+      { id_jugador: 7, tipo: 'roja', minuto: 80, goles_favor: 0, goles_contra: 2 },     // 2ª parte, perdiendo
+      { id_jugador: 7, tipo: 'amarilla', minuto: 46, goles_favor: 0, goles_contra: 1 }  // 2ª parte, perdiendo
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    expect(res._json[0]).toMatchObject({
+      tarjetas_amarillas: 3, tarjetas_rojas: 1,
+      amarillas_primera: 2, amarillas_segunda: 1, amarillas_ganando: 1, amarillas_perdiendo: 1,
+      rojas_primera: 0, rojas_segunda: 1, rojas_ganando: 0, rojas_perdiendo: 1
+    });
   });
 });

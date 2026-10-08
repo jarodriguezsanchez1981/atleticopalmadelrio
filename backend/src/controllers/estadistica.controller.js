@@ -1,4 +1,11 @@
-const { Partido, PartidoJugador, Jugador } = require('../models');
+const { Partido, PartidoJugador, PartidoTarjeta, Jugador } = require('../models');
+
+// Minuto en que acaba la 1ª parte (los partidos con estadísticas son de 90').
+const FIN_PRIMERA_PARTE = 45;
+const CAMPOS_TARJETAS = [
+  'amarillas_primera', 'amarillas_segunda', 'amarillas_ganando', 'amarillas_perdiendo',
+  'rojas_primera', 'rojas_segunda', 'rojas_ganando', 'rojas_perdiendo'
+];
 
 /** Estadísticas de cada jugador en los partidos de una plantilla (datos de
  * "Finalizar Acta"): partidos jugados (minutos > 0), veces titular y veces que
@@ -39,7 +46,8 @@ async function listar(req, res, next) {
         minutos_titular: 0,
         minutos_banquillo: 0,
         goles_banquillo: 0,
-        banquillo_no_jugados: 0
+        banquillo_no_jugados: 0,
+        ...Object.fromEntries(CAMPOS_TARJETAS.map((c) => [c, 0]))
       };
       const minutos = Number(f.minutos) || 0;
       if (minutos > 0) fila.partidos += 1;
@@ -66,6 +74,18 @@ async function listar(req, res, next) {
       fila.tarjetas_rojas += Number(f.tarjeta_roja) || 0;
       porJugador.set(f.id_jugador, fila);
     }
+    // Tarjetas por parte del partido y según el marcador en ese momento
+    // (partido_tarjetas, de Finalizar Acta). Empatando no cuenta en ninguna.
+    const tarjetas = await PartidoTarjeta.findAll({ where: { id_partido: partidos.map((p) => p.id) } }) || [];
+    for (const t of tarjetas) {
+      const fila = porJugador.get(t.id_jugador);
+      if (!fila) continue;
+      const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
+      if (t.minuto != null) fila[`${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`] += 1;
+      if (t.goles_favor > t.goles_contra) fila[`${tipo}_ganando`] += 1;
+      else if (t.goles_favor < t.goles_contra) fila[`${tipo}_perdiendo`] += 1;
+    }
+
     // Porcentajes con un decimal (null si no se pueden calcular).
     const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : null);
     for (const f of porJugador.values()) {

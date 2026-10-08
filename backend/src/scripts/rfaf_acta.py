@@ -232,6 +232,7 @@ def parsear_acta(html):
         if not numero or not any(limpiar(h.get_text()) == "Titulares" for h in bloque.find_all("h5")):
             continue
         jugadores = jugadores_de(bloque, "Titulares", True) + jugadores_de(bloque, "Suplentes", False)
+        tarjetas_equipo = []
         for minuto, dorsal_entra, nombre_entra, dorsal_sale, nombre_sale in sustituciones_de(bloque):
             entra = buscar_jugador(jugadores, dorsal_entra, nombre_entra)
             sale = buscar_jugador(jugadores, dorsal_sale, nombre_sale)
@@ -244,37 +245,41 @@ def parsear_acta(html):
                 if normalizar_nombre(j["nombre"]) != nombre:
                     continue
                 j["tarjeta_amarilla" if tipo == "amarilla" else "tarjeta_roja"] += 1
+                tarjetas_equipo.append({"nombre": j["nombre"], "tipo": tipo, "minuto": minuto})
                 # El expulsado juega hasta el minuto de la roja (si estaba en el
                 # campo: titular o suplente que ya había entrado).
                 en_campo = j["titular"] or j["minuto_entrada"] is not None
                 if tipo == "roja" and minuto is not None and en_campo \
                         and (j["minuto_salida"] is None or minuto < j["minuto_salida"]):
                     j["minuto_salida"] = minuto
-        equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0})
+        equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0, "tarjetas": tarjetas_equipo})
 
     if len(equipos) != 2:
         raise RuntimeError("El acta no tiene el formato esperado (no aparecen los dos equipos).")
     local, visitante = equipos
 
     # Cada gol se asigna al equipo del jugador; uno en propia puerta suma al
-    # rival y no cuenta como gol del jugador.
+    # rival y no cuenta como gol del jugador. "goles" guarda el minuto y el
+    # equipo que suma cada gol (para saber el marcador en cada momento).
+    goles = []
     for gol in goles_del_partido(soup):
         nombre = normalizar_nombre(gol["nombre"])
         for equipo, rival in ((local, visitante), (visitante, local)):
             jugador = next((j for j in equipo["jugadores"] if normalizar_nombre(j["nombre"]) == nombre), None)
             if not jugador:
                 continue
-            if gol["tipo"] == "propia":
-                rival["goles"] += 1
-            else:
-                equipo["goles"] += 1
+            suma = rival if gol["tipo"] == "propia" else equipo
+            suma["goles"] += 1
+            if gol["tipo"] != "propia":
                 jugador["goles"] += 1
+            goles.append({"minuto": gol["minuto"], "equipo": "local" if suma is local else "visitante"})
             break
 
     return {
         "local": local,
         "visitante": visitante,
         "resultado": f"{local['goles']}-{visitante['goles']}",
+        "goles": goles,
     }
 
 

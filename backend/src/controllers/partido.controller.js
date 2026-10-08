@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -361,6 +361,7 @@ async function finalizarActa(req, res, next) {
     let todosPorNombre = null;
 
     const filas = [];
+    const filasConNombre = [];
     const actualizados = [];
     const creados = [];
     for (const rfaf of equipoActa.jugadores) {
@@ -381,6 +382,7 @@ async function finalizarActa(req, res, next) {
         todosPorNombre.set(nombreActa, jugador);
         creados.push(`${jugador.nombre} ${jugador.apellidos}`);
       }
+      filasConNombre.push({ rfaf, id: jugador.id });
       if (filas.some((f) => f.id_jugador === jugador.id)) continue;
       filas.push({
         id_partido: partido.id,
@@ -396,6 +398,30 @@ async function finalizarActa(req, res, next) {
       });
       actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
     }
+
+    // Tarjetas del PALMA con su minuto y el marcador justo antes (los goles
+    // del mismo minuto no cuentan: el acta no dice qué fue antes).
+    const ladoPalma = esLocal ? 'local' : 'visitante';
+    const golesActa = Array.isArray(acta.goles) ? acta.goles : [];
+    const idPorNombre = new Map();
+    for (const { rfaf, id } of filasConNombre) idPorNombre.set(rfafActa.normalizarNombre(rfaf.nombre), id);
+    const tarjetas = (equipoActa.tarjetas || [])
+      .map((t) => {
+        const idJugador = idPorNombre.get(rfafActa.normalizarNombre(t.nombre));
+        if (!idJugador) return null;
+        const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
+        return {
+          id_partido: partido.id,
+          id_jugador: idJugador,
+          tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
+          minuto: t.minuto ?? null,
+          goles_favor: antes.filter((g) => g.equipo === ladoPalma).length,
+          goles_contra: antes.filter((g) => g.equipo !== ladoPalma).length
+        };
+      })
+      .filter(Boolean);
+    await PartidoTarjeta.destroy({ where: { id_partido: partido.id } });
+    if (tarjetas.length) await PartidoTarjeta.bulkCreate(tarjetas);
 
     // Se sustituyen solo los jugadores del PALMA; los del rival no se tocan.
     await PartidoJugador.destroy({

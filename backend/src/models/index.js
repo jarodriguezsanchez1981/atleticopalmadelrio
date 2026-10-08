@@ -18,6 +18,7 @@ const TipoFutbol = require('./TipoFutbol');
 const Patrocinador = require('./Patrocinador');
 const Jornada = require('./Jornada');
 const PartidoJugador = require('./PartidoJugador');
+const PartidoTarjeta = require('./PartidoTarjeta');
 const Torneo = require('./Torneo');
 const Sancion = require('./Sancion');
 const Plantilla = require('./Plantilla');
@@ -135,6 +136,7 @@ Jornada.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 
 // ---- Partido <-> Jugador (jugadores convocados con tarjetas y goles) ----
 Partido.hasMany(PartidoJugador, { foreignKey: 'id_partido', sourceKey: 'id', as: 'partidoJugadores', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 PartidoJugador.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
+PartidoTarjeta.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
 PartidoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
 Jugador.hasMany(PartidoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'partidosJugador' });
 PartidoJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
@@ -289,6 +291,7 @@ module.exports = {
   Patrocinador,
   Jornada,
   PartidoJugador,
+  PartidoTarjeta,
   Torneo,
   Sancion,
   Plantilla,
