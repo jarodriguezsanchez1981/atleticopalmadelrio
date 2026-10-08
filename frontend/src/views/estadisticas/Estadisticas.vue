@@ -37,6 +37,11 @@ async function cargar() {
   }
 }
 
+/** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
+function formatoPorcentaje(valor) {
+  return valor == null ? '—' : `${Number(valor).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
+}
+
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
@@ -58,7 +63,9 @@ onBeforeUnmount(() => {
       <p class="text-sm text-ink-tertiary">
         Partidos, minutos, goles y tarjetas de cada jugador en los partidos de <strong>{{ titulo }}</strong>,
         según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). Titular / Suplente: partidos
-        que ha empezado de titular / en los que ha entrado desde el banquillo. Los minutos local / visitante dependen de
+        que ha empezado de titular / en los que ha entrado desde el banquillo; Banquillo no jugados: partidos de
+        suplente sin entrar. % Goles por Partido: goles entre partidos jugados; % Goles desde Banquillo: parte de sus
+        goles marcados entrando desde el banquillo. Los minutos local / visitante dependen de
         si el PALMA jugaba en casa o fuera.
       </p>
     </div>
@@ -74,10 +81,14 @@ onBeforeUnmount(() => {
       <Column field="partidos" header="Partidos" sortable class="text-center" />
       <Column field="titular" header="Titular" sortable class="text-center" />
       <Column field="suplente" header="Suplente" sortable class="text-center" />
+      <Column field="banquillo_no_jugados" header="Banquillo no jugados" sortable class="text-center" />
       <Column field="minutos_local" header="Minutos local" sortable class="text-center" />
       <Column field="minutos_visitante" header="Minutos visitante" sortable class="text-center" />
+      <Column field="minutos_titular" header="Minutos Titular" sortable class="text-center" />
+      <Column field="minutos_banquillo" header="Minutos Banquillo" sortable class="text-center" />
       <Column field="minutos" header="Minutos" sortable class="text-center" />
       <Column field="goles" header="Goles" sortable class="text-center" />
+      <Column field="goles_banquillo" header="Goles Banquillo" sortable class="text-center" />
       <Column field="tarjetas_amarillas" header="Tarjetas amarillas" sortable class="text-center">
         <template #body="{ data }">
           <span v-if="data.tarjetas_amarillas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
@@ -93,6 +104,12 @@ onBeforeUnmount(() => {
           </span>
           <span v-else class="text-ink-tertiary">0</span>
         </template>
+      </Column>
+      <Column field="porcentaje_goles_partido" header="% Goles por Partido" sortable class="text-center">
+        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_partido) }}</template>
+      </Column>
+      <Column field="porcentaje_goles_banquillo" header="% Goles desde Banquillo" sortable class="text-center">
+        <template #body="{ data }">{{ formatoPorcentaje(data.porcentaje_goles_banquillo) }}</template>
       </Column>
       <template #empty>
         <div class="text-center text-ink-tertiary py-4 text-sm">Todavía no hay datos: finaliza el acta de los partidos.</div>

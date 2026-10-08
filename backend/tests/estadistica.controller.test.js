@@ -41,9 +41,13 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id'] });
     expect(res._json).toEqual([
       { id_jugador: 7, nombre: 'Ana', apellidos: 'López', partidos: 2, titular: 1, suplente: 1, minutos: 124, minutos_local: 90, minutos_visitante: 34,
-        goles: 3, tarjetas_amarillas: 1, tarjetas_rojas: 1 },
+        goles: 3, tarjetas_amarillas: 1, tarjetas_rojas: 1,
+        minutos_titular: 90, minutos_banquillo: 34, goles_banquillo: 1, banquillo_no_jugados: 0,
+        porcentaje_goles_partido: 150, porcentaje_goles_banquillo: 33.3 },
       { id_jugador: 8, nombre: 'Luis', apellidos: 'Ruiz', partidos: 1, titular: 1, suplente: 0, minutos: 90, minutos_local: 90, minutos_visitante: 0,
-        goles: 0, tarjetas_amarillas: 0, tarjetas_rojas: 0 }
+        goles: 0, tarjetas_amarillas: 0, tarjetas_rojas: 0,
+        minutos_titular: 90, minutos_banquillo: 0, goles_banquillo: 0, banquillo_no_jugados: 1,
+        porcentaje_goles_partido: 0, porcentaje_goles_banquillo: null }
     ]);
   });
 
