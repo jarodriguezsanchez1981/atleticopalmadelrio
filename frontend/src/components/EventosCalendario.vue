@@ -22,6 +22,7 @@ import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from './EventoFormCalendario.vue';
 import EquipacionPrenda from './EquipacionPrenda.vue';
+import ResultadoJugadoresPartido from './ResultadoJugadoresPartido.vue';
 import CalendarioLista from './CalendarioLista.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
 import { moverEvento, puedeMoverEvento } from '../utils/moverEvento';
@@ -789,7 +790,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
       </DataTable>
     </div>
 
-    <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-md">
+    <Dialog v-model:visible="dialogVisible" modal :class="['w-full', eventoSeleccionado?.tipo === 'partido' ? 'max-w-lg' : 'max-w-md']">
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -872,6 +873,8 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
             <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreVisitante }}</span>
           </div>
         </div>
+
+        <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" />
 
         <div class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
