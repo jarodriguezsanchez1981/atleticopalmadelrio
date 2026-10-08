@@ -94,7 +94,7 @@ const SEPARADOR = 'ar-dt-inicio-grupo';
       <Row>
         <Column header="Jugador" field="jugador" sortable :rowspan="2" />
         <Column v-for="g in grupos" :key="g.clave" :header="g.titulo" :colspan="g.columnas.length"
-                :headerClass="`text-center ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
+                :headerClass="`ar-dt-titulo-grupo ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
       </Row>
       <Row>
         <template v-for="g in grupos" :key="g.clave">

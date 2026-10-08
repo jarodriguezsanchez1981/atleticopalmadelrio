@@ -200,3 +200,10 @@ h1, h2, h3, .font-display {
 .ar-datatable.ar-dt-agrupada th[draggable="true"] {
   cursor: grab;
 }
+/* Títulos de grupo (Total / Local / Visitante): centrados y en negrita. */
+.ar-datatable.ar-dt-agrupada th.ar-dt-titulo-grupo .p-datatable-column-header-content {
+  justify-content: center;
+}
+.ar-datatable.ar-dt-agrupada th.ar-dt-titulo-grupo .p-datatable-column-title {
+  font-weight: 700;
+}
