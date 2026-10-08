@@ -23,7 +23,7 @@ const METRICAS_TIEMPO = [
   { campo: 'minutos', titulo: 'Minutos' },
   { campo: 'porcentaje_minutos', titulo: '% Minutos\njugados', porcentaje: true },
   { campo: 'minutos_titular', titulo: 'Minutos\nTitular' },
-  { campo: 'minutos_banquillo', titulo: 'Minutos\nBanquillo' }
+  { campo: 'minutos_banquillo', titulo: 'Minutos\nSuplente' }
 ];
 const METRICAS_GOLES = [
   { campo: 'partidos', titulo: 'Partidos' },
@@ -158,7 +158,7 @@ onBeforeUnmount(() => {
         <h2 class="font-display text-lg text-club-green">Estadísticas Goles</h2>
         <p class="text-sm text-ink-tertiary">
           Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de
-          suplente (entrando desde el banquillo). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa /
+          suplente. En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa /
           fuera. Los goles en propia puerta no cuentan.
         </p>
       </div>
