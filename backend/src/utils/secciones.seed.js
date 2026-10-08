@@ -30,7 +30,9 @@ const SECCIONES = [
   { clave: 'estadisticas', nombre: 'Estadísticas', icono: 'pi pi-chart-bar', orden: 97, grupo: 'liga' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
-  { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' }
+  { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' },
+  // Solo coordinadores (ver SECCIONES_SOLO_COORDINADORES en frontend/src/stores/auth.store.js).
+  { clave: 'firma_email', nombre: 'Firma Email', icono: 'pi pi-envelope', orden: 104, grupo: 'admin' }
 ];
 
 async function ensureSecciones(Seccion) {

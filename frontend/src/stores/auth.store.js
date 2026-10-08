@@ -21,6 +21,10 @@ const SECCION_ORDER = [
   'administracion'
 ];
 
+/** Secciones que, además del permiso de la sección, exigen rol coordinador
+ * (un entrenador no las ve aunque tenga el permiso marcado). */
+const SECCIONES_SOLO_COORDINADORES = ['firma_email'];
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: localStorage.getItem('apr_token') || null,
@@ -44,6 +48,7 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     puedeVer(clave) {
       if (!this.user) return false;
+      if (SECCIONES_SOLO_COORDINADORES.includes(clave) && this.rol !== 'coordinador') return false;
       return !!(this.user.permisos?.[clave]?.ver);
     },
 

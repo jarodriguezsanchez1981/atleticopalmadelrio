@@ -179,6 +179,12 @@ const routes = [
         meta: { seccion: 'cambios' }
       },
       {
+        path: 'firma-email',
+        name: 'firma_email',
+        component: () => import('../views/firmaEmail/FirmaEmail.vue'),
+        meta: { seccion: 'firma_email' }
+      },
+      {
         path: 'promociones',
         name: 'promociones',
         component: () => import('../views/promociones/Promociones.vue'),

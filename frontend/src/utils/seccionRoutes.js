@@ -30,5 +30,6 @@ export const RUTA_POR_SECCION = {
   estadisticas: '/estadisticas',
   informes: '/informes',
   cambios: '/cambios',
+  firma_email: '/firma-email',
   promociones: '/promociones'
 };

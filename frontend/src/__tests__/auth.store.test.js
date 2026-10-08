@@ -119,4 +119,14 @@ describe('Auth Store', () => {
     expect(store.token).toBeNull();
     expect(mockLocalStorage.store.apr_token).toBeUndefined();
   });
+
+  it('Firma Email solo la ven los coordinadores aunque un entrenador tenga el permiso', () => {
+    const store = useAuthStore();
+    const permisos = { firma_email: { ver: true, editar: true }, calendario: { ver: true, editar: false } };
+    store.user = { id: 1, rol: 'coordinador', permisos };
+    expect(store.puedeVer('firma_email')).toBe(true);
+    store.user = { id: 2, rol: 'entrenador', permisos };
+    expect(store.puedeVer('firma_email')).toBe(false);
+    expect(store.puedeVer('calendario')).toBe(true);
+  });
 });
