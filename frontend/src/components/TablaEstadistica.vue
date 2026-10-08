@@ -92,7 +92,7 @@ const SEPARADOR = 'ar-dt-inicio-grupo';
              dataKey="id_jugador" :sortField="sortField" :sortOrder="-1">
     <ColumnGroup type="header">
       <Row>
-        <Column header="Jugador" field="jugador" sortable :rowspan="2" />
+        <Column header="Jugador" field="jugador" sortable :rowspan="2" headerClass="whitespace-nowrap" />
         <Column v-for="g in grupos" :key="g.clave" :header="g.titulo" :colspan="g.columnas.length"
                 :headerClass="`ar-dt-titulo-grupo ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
       </Row>
@@ -105,7 +105,8 @@ const SEPARADOR = 'ar-dt-inicio-grupo';
       </Row>
     </ColumnGroup>
 
-    <Column field="jugador" />
+    <!-- El nombre en una sola línea: la columna no se estrecha al ensanchar la tabla. -->
+    <Column field="jugador" bodyClass="whitespace-nowrap" />
     <template v-for="g in grupos" :key="g.clave">
       <Column v-for="(c, i) in g.columnas" :key="c.field" :field="c.field"
               :bodyClass="i === 0 ? `text-center ${SEPARADOR}` : 'text-center'">
