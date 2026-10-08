@@ -139,6 +139,7 @@ async function eventos(req, res, next) {
         equipoLocal: p.equipoLocal,
         equipoVisitante: p.equipoVisitante,
         incidencias: p.incidencias,
+        observaciones: p.observaciones || null,
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
         resultado: p.resultado || null,

@@ -883,6 +883,9 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
           </p>
+          <p v-if="eventoSeleccionado.observaciones" class="whitespace-pre-line">
+            <i class="pi pi-comment mr-2"></i>{{ eventoSeleccionado.observaciones }}
+          </p>
         </div>
 
         <div

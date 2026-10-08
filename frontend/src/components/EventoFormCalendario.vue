@@ -99,6 +99,7 @@ function resetForm() {
     id_equipo_local: null,
     id_equipo_visitante: null,
     incidencias: '',
+    observaciones: '',
     jornada: null,
     resultado: '',
     suspendido: false,
@@ -163,6 +164,7 @@ async function cargarRegistro() {
       id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
       id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
+      observaciones: item.observaciones || '',
       jornada: item.jornada ?? null,
       resultado: item.resultado || '',
       suspendido: !!item.suspendido,
@@ -637,6 +639,7 @@ async function guardarConAlcance(alcance) {
       payload.id_equipo_visitante = form.value.id_equipo_visitante;
       payload.id_lugar = esEquipoLocalPalma.value ? form.value.id_lugar : null;
       payload.incidencias = form.value.incidencias;
+      payload.observaciones = form.value.observaciones || null;
       payload.jornada = form.value.jornada || null;
       payload.resultado = form.value.resultado || null;
       payload.suspendido = !!form.value.suspendido;
@@ -941,6 +944,11 @@ async function finalizarActa() {
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Incidencias</label>
           <Textarea v-model="form.incidencias" rows="3" class="w-full" />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Observaciones</label>
+          <Textarea v-model="form.observaciones" rows="3" class="w-full" />
         </div>
 
         <div v-if="mostrarJugadoresLocal">

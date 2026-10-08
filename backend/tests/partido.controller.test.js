@@ -282,6 +282,7 @@ describe('Sección Partidos · partido.controller', () => {
       id_equipo_visitante: 7,
       id_usuario: 7,
       incidencias: null,
+      observaciones: null,
       jornada: null,
       resultado: null,
       suspendido: 0,
@@ -435,6 +436,19 @@ describe('Sección Partidos · partido.controller', () => {
     await promesa;
     const include = Partido.findByPk.mock.calls[0][1].include.find((i) => i.as === 'partidoJugadores');
     expect(include.attributes).toEqual(expect.arrayContaining(['titular', 'minuto_entrada', 'minuto_salida', 'minutos']));
+  });
+
+  it('actualizar guarda y vacía las observaciones', async () => {
+    const partido = { id: 1, id_equipo_local: 73, id_equipo_visitante: 6, observaciones: null, save: vi.fn().mockResolvedValue() };
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce({ id: 1 });
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { observaciones: 'Llevar balones' } });
+    await promesa;
+    expect(partido.observaciones).toBe('Llevar balones');
+
+    Partido.findByPk.mockResolvedValueOnce(partido).mockResolvedValueOnce({ id: 1 });
+    const otra = llamar(ctrl.actualizar, { params: { id: '1' }, body: { observaciones: '' } });
+    await otra.promesa;
+    expect(partido.observaciones).toBeNull();
   });
 
   it('actualizar conserva los datos del acta (titular, cambios, minutos) si el formulario no los envía', async () => {
