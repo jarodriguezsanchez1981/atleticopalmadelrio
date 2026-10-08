@@ -11,6 +11,7 @@ import Message from 'primevue/message';
 import Dialog from 'primevue/dialog';
 import { useToast } from 'primevue/usetoast';
 import EquipacionPrenda from './EquipacionPrenda.vue';
+import DetallePartidoDialog from './DetallePartidoDialog.vue';
 import {
   categoriaCalendarioService, plantillasService, equiposService, temporadasService
 } from '../services';
@@ -172,6 +173,15 @@ function nombreEquipo(id) {
 function escudoEquipo(id) {
   return equipos.value.find(e => e.id === id)?.escudo || null;
 }
+
+// Ficha del partido en modo ver (icono entre los goles).
+const fichaVisible = ref(false);
+const fichaPartido = ref(null);
+function verFicha(partido) {
+  fichaPartido.value = partido;
+  fichaVisible.value = true;
+}
+const equipoDe = (id) => equipos.value.find((e) => e.id === id) || null;
 
 function camisetaEquipo(id) {
   return equipos.value.find(e => e.id === id)?.camiseta || null;
@@ -336,7 +346,7 @@ function claseResultado(partido, esLocal) {
                     {{ nombreEquipo(partido.id_equipo_local) }}
                   </button>
                 </td>
-                <td v-if="partido.suspendido" colspan="2">
+                <td v-if="partido.suspendido" colspan="3">
                   <span class="partido-suspendido">SUSPENDIDO</span>
                 </td>
                 <template v-else>
@@ -344,6 +354,11 @@ function claseResultado(partido, esLocal) {
                     <span v-if="golesLocalNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, true)">
                       {{ golesLocalNum(partido) }}
                     </span>
+                  </td>
+                  <td class="col-ficha">
+                    <button type="button" class="boton-ficha" title="Ver ficha del partido" @click="verFicha(partido)">
+                      <i class="pi pi-file"></i>
+                    </button>
                   </td>
                   <td class="col-goles">
                     <span v-if="golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
@@ -393,6 +408,9 @@ function claseResultado(partido, esLocal) {
                   <div v-if="filtroPlantilla" class="flex flex-col items-center">
                     <span class="partido-jornada-label">Jornada {{ partido.jornada }}</span>
                   </div>
+                  <button v-if="!partido.suspendido" type="button" class="boton-ficha" title="Ver ficha del partido" @click="verFicha(partido)">
+                    <i class="pi pi-file"></i>
+                  </button>
                   <span v-if="!partido.suspendido && golesVisitanteNum(partido) !== null" class="gol-numero" :class="claseResultado(partido, false)">
                     {{ golesVisitanteNum(partido) }}
                   </span>
@@ -557,6 +575,9 @@ function claseResultado(partido, esLocal) {
       </div>
     </Dialog>
 
+    <DetallePartidoDialog v-model:visible="fichaVisible" :idPartido="fichaPartido?.id || null"
+                          :equipoLocal="equipoDe(fichaPartido?.id_equipo_local)"
+                          :equipoVisitante="equipoDe(fichaPartido?.id_equipo_visitante)" />
   </div>
 </template>
 
@@ -665,6 +686,25 @@ function claseResultado(partido, esLocal) {
 }
 .gol-numero {
   font-weight: 800;
+}
+.col-ficha {
+  width: 2rem;
+  text-align: center;
+}
+.boton-ficha {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  color: #0F3D22;
+  opacity: 0.7;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+.boton-ficha:hover {
+  background: rgb(15 61 34 / 10%);
+  opacity: 1;
 }
 .partido-suspendido {
   font-size: 0.8rem;
