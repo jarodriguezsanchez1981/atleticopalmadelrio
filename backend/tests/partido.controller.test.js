@@ -830,9 +830,23 @@ describe('Sección Partidos · partido.controller', () => {
       expect(minutos).toEqual({ 1: 90, 2: 30, 3: 20, 4: 0 });
     });
 
+    it('en Fútbol 7 no guarda titulares, cambios ni minutos', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 13, nombre: 'Alevin C', id_tipofutbol: 1 } });
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      for (const fila of PartidoJugador.bulkCreate.mock.calls[0][0]) {
+        expect(fila).toMatchObject({ titular: null, minuto_entrada: null, minuto_salida: null, minutos: null });
+      }
+      // Los goles y tarjetas sí se guardan.
+      expect(PartidoJugador.bulkCreate.mock.calls[0][0][0]).toMatchObject({ goles: 2, tarjeta_amarilla: 1 });
+    });
+
     it('fuera del Senior A no calcula los minutos (pero sí titulares y cambios)', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma());
-      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 13, nombre: 'Alevin A', tiempopartido: 60 } });
+      Plantilla.findOne.mockResolvedValue({ id: 5, categoria: { id: 13, nombre: 'Alevin A', tiempopartido: 60, id_tipofutbol: 2 } });
 
       const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
       await promesa;

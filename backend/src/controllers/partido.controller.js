@@ -12,6 +12,8 @@ const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 // (Finalizar Acta); ver también frontend/src/utils/minutos.js.
 const CATEGORIA_CON_MINUTOS = 'Senior A';
 const MINUTOS_PARTIDO = 90;
+// En Fútbol 7 los cambios son libres: el acta no refleja titulares/cambios útiles.
+const TIPO_FUTBOL_7 = 1;
 
 /** Crea/actualiza sanciones para los jugadores del PALMA DEL RIO ATLETICO C.F.
  * (id 73) que tengan tarjetas en el partido. */
@@ -340,12 +342,14 @@ async function finalizarActa(req, res, next) {
     const equipoActa = esLocal ? acta.local : acta.visitante;
     const plantillaPartido = await Plantilla.findOne({
       where: { id: partido.id_plantilla },
-      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] }]
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol'] }]
     });
     // Los minutos se cuentan sobre los 90 del partido (categoria.tiempopartido
     // es el hueco que ocupa en el calendario, no la duración del juego).
     const duracion = MINUTOS_PARTIDO;
     const conMinutos = plantillaPartido?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
+    // Fútbol 7: sin titulares, cambios ni minutos (todos los del acta han jugado).
+    const conCambios = Number(plantillaPartido?.categoria?.id_tipofutbol) !== TIPO_FUTBOL_7;
 
     const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
     const jugadoresPlantilla = await Jugador.findAll({
@@ -385,10 +389,10 @@ async function finalizarActa(req, res, next) {
         tarjeta_amarilla: rfaf.tarjeta_amarilla,
         tarjeta_roja: rfaf.tarjeta_roja,
         goles: rfaf.goles,
-        titular: !!rfaf.titular,
-        minuto_entrada: rfaf.minuto_entrada ?? null,
-        minuto_salida: rfaf.minuto_salida ?? null,
-        minutos: conMinutos ? minutosJugados(rfaf, duracion) : null
+        titular: conCambios ? !!rfaf.titular : null,
+        minuto_entrada: conCambios ? rfaf.minuto_entrada ?? null : null,
+        minuto_salida: conCambios ? rfaf.minuto_salida ?? null : null,
+        minutos: conCambios && conMinutos ? minutosJugados(rfaf, duracion) : null
       });
       actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
     }
