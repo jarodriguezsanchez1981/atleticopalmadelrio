@@ -142,6 +142,29 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._json.omitidos).toEqual([]);
   });
 
+  it('crear recurrente conserva la hora española al cruzar el cambio de horario', async () => {
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.create.mockResolvedValue({ id: 5 });
+    Entrenamiento.findByPk.mockResolvedValue({ id: 5 });
+
+    const { promesa } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: {
+        // Lunes 19/10/2026 a las 18:15 en España (16:15 UTC, horario de verano),
+        // semanal hasta el 02/11 (ya en horario de invierno).
+        id_plantilla: 1, fecha: '2026-10-19T16:15:00.000Z', id_lugar: 2,
+        recurrente: true, hasta: '2026-11-01T23:00:00.000Z'
+      }
+    });
+    await promesa;
+
+    const fechas = Entrenamiento.create.mock.calls.map(([d]) => new Date(d.fecha).toISOString());
+    // 18:15 en España todas las semanas: 16:15 UTC en verano, 17:15 UTC en invierno.
+    expect(fechas).toEqual(['2026-10-19T16:15:00.000Z', '2026-10-26T17:15:00.000Z', '2026-11-02T17:15:00.000Z']);
+  });
+
   it('crear recurrente omite semanas donde ya hay otro evento y lo reporta', async () => {
     const creado = { id: 5 };
     const completo = { id: 5, plantilla: null, lugar: null };

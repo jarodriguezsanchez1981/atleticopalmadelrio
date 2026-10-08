@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Entrenamiento, Partido, Torneo, Plantilla, Categoria, Lugar } = require('../models');
+const { sumarDiasHoraEspana, diaEspana } = require('../utils/horaEspana');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
@@ -13,19 +14,19 @@ function serialize(entrenamiento) {
   return json;
 }
 
+/** Fechas semanales desde fechaBase hasta el día de `hasta` (incluido), todas a
+ * la misma hora española que fechaBase (no se mueven con el cambio de horario). */
 function calcularFechasSemanal(fechaBase, hasta) {
-  const fechas = [];
   const base = new Date(fechaBase);
-  if (!hasta) {
-    fechas.push(new Date(base));
-    return fechas;
+  if (!hasta) return [base];
+  const ultimoDia = diaEspana(hasta);
+  const fechas = [];
+  for (let semana = 0; ; semana++) {
+    const f = sumarDiasHoraEspana(base, 7 * semana);
+    if (diaEspana(f) > ultimoDia) break;
+    fechas.push(f);
   }
-  const fin = new Date(hasta);
-  const aDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  for (let f = new Date(base); aDia(new Date(f)) <= aDia(fin); f = new Date(f.getTime() + 7 * 24 * 60 * 60 * 1000)) {
-    fechas.push(new Date(f));
-  }
-  if (!fechas.length) fechas.push(new Date(base));
+  if (!fechas.length) fechas.push(base);
   return fechas;
 }
 
