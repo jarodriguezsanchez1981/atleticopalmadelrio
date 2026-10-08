@@ -24,7 +24,9 @@ function leerBorrador() {
 
 const borrador = leerBorrador();
 const datos = reactive({ ...DATOS_POR_DEFECTO, ...(borrador?.datos || {}) });
-const html = ref(borrador?.html || generarFirmaHtml(datos));
+// Sin retoques a mano, se regenera con la plantilla actual (así una mejora de
+// la plantilla llega también a quien ya tenía un borrador guardado).
+const html = ref(borrador?.editadoAMano && borrador.html ? borrador.html : generarFirmaHtml(datos));
 // Si se ha retocado el HTML a mano, el formulario ya no lo sobrescribe
 // hasta pulsar "Regenerar desde el formulario".
 const editadoAMano = ref(!!borrador?.editadoAMano);

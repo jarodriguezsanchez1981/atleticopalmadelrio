@@ -68,19 +68,26 @@ export function generarFirmaHtml(datos = {}) {
   }
   if (d.direccion) lineas.push(`<div style="margin:0;padding:0;color:#777777;">${escaparHtml(d.direccion)}</div>`);
 
+  // Escudo centrado (en horizontal y vertical) en una celda de su mismo ancho,
+  // en una tabla propia para que el aviso legal, más ancho, no la estire.
   const celdaEscudo = d.mostrarEscudo
-    ? `<td style="padding:0 14px 0 0;vertical-align:middle;border-right:3px solid ${c1};">` +
-      `<img src="${URL_ESCUDO}" width="71" height="80" alt="${escaparHtml(NOMBRE_CLUB)}" style="display:block;border:0;width:71px;height:80px;">` +
+    ? `<td width="71" align="center" valign="middle" style="width:71px;padding:0 14px 0 0;text-align:center;vertical-align:middle;border-right:3px solid ${c1};">` +
+      `<img src="${URL_ESCUDO}" width="71" height="80" alt="${escaparHtml(NOMBRE_CLUB)}" style="display:block;margin:0 auto;border:0;width:71px;height:80px;">` +
       '</td>'
     : '';
   const sangria = d.mostrarEscudo ? 'padding:0 0 0 14px;' : `padding:0 0 0 10px;border-left:3px solid ${c1};`;
+  const estiloTabla = 'border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;color:#333333;';
+  const bloque =
+    `<table cellpadding="0" cellspacing="0" border="0" style="${estiloTabla}">` +
+    `<tr>${celdaEscudo}<td valign="middle" style="${sangria}vertical-align:middle;">${lineas.join('')}</td></tr>` +
+    '</table>';
   const aviso = d.mostrarAviso && d.aviso
-    ? `<tr><td colspan="${d.mostrarEscudo ? 2 : 1}" style="padding:12px 0 0 0;font-size:10px;line-height:1.4;color:#999999;max-width:560px;">${escaparHtml(d.aviso)}</td></tr>`
+    ? `<tr><td style="padding:12px 0 0 0;font-size:10px;line-height:1.4;color:#999999;max-width:560px;">${escaparHtml(d.aviso)}</td></tr>`
     : '';
 
   return (
-    '<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;color:#333333;">' +
-    `<tr>${celdaEscudo}<td style="${sangria}vertical-align:middle;">${lineas.join('')}</td></tr>` +
+    `<table cellpadding="0" cellspacing="0" border="0" style="${estiloTabla}">` +
+    `<tr><td style="padding:0;">${bloque}</td></tr>` +
     aviso +
     '</table>'
   );
