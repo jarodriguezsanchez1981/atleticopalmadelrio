@@ -29,11 +29,11 @@ const METRICAS_GOLES = [
   { campo: 'partidos', titulo: 'Partidos' },
   { campo: 'goles', titulo: 'Goles' },
   { campo: 'porcentaje_goles', titulo: '% de sus\ngoles', porcentaje: true, soloLados: true },
-  { campo: 'goles_primera', titulo: 'Goles\n1ª Parte' },
-  { campo: 'goles_segunda', titulo: 'Goles\n2ª Parte' },
-  { campo: 'goles_titular', titulo: 'Goles\nTitular' },
-  { campo: 'goles_banquillo', titulo: 'Goles\nBanquillo' },
-  { campo: 'porcentaje_goles_partido', titulo: '% Goles\npor partido', porcentaje: true }
+  { campo: 'goles_primera', titulo: '1ª Parte' },
+  { campo: 'goles_segunda', titulo: '2ª Parte' },
+  { campo: 'goles_titular', titulo: 'Titular' },
+  { campo: 'goles_banquillo', titulo: 'Banquillo' },
+  { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', porcentaje: true }
 ];
 const METRICAS_SANCIONES = [
   { campo: 'partidos', titulo: 'Partidos' },
