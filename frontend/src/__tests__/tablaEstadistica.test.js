@@ -62,3 +62,34 @@ describe('TablaEstadistica', () => {
     expect(textos(w.findAll('tbody tr')[0].findAll('td'))).toEqual(['Ana López', '1', '1', '33,3 %', '2', '3', '1', '2', '66,7 %']);
   });
 });
+
+describe('TablaEstadistica con subgrupos', () => {
+  const METRICAS_SUB = [
+    { campo: 'partidos', titulo: 'Partidos' },
+    { campo: 'tarjetas_amarillas', titulo: 'Total', subgrupo: 'Amarillas' },
+    { campo: 'amarillas_primera', titulo: '1ª Parte', subgrupo: 'Amarillas' },
+    { campo: 'tarjetas_rojas', titulo: 'Total', subgrupo: 'Rojas' }
+  ];
+  const fila = { id_jugador: 7, jugador: 'Ana López' };
+  for (const s of ['', '_local', '_visitante']) Object.assign(fila, { [`partidos${s}`]: 1, [`tarjetas_amarillas${s}`]: 2, [`amarillas_primera${s}`]: 1, [`tarjetas_rojas${s}`]: 0 });
+
+  it('añade una fila de cabecera con Amarillas y Rojas dentro de cada grupo', async () => {
+    const w = mount(TablaEstadistica, { props: { filas: [fila], metricas: METRICAS_SUB }, global: { plugins: [PrimeVue] } });
+    await nextTick();
+    const cab = w.findAll('thead tr');
+    expect(cab).toHaveLength(3);
+    expect(textos(cab[0].findAll('th'))).toEqual(['Jugador', 'Total', 'Local', 'Visitante']);
+    expect(cab[0].findAll('th')[0].attributes('rowspan')).toBe('3');
+    expect(textos(cab[1].findAll('th'))).toEqual(['Partidos', 'Amarillas', 'Rojas', 'Partidos', 'Amarillas', 'Rojas', 'Partidos', 'Amarillas', 'Rojas']);
+    expect(cab[1].findAll('th').map((th) => th.attributes('colspan') || th.attributes('rowspan')).slice(0, 3)).toEqual(['2', '2', '1']);
+    expect(textos(cab[2].findAll('th'))).toEqual(['Total', '1ª Parte', 'Total', 'Total', '1ª Parte', 'Total', 'Total', '1ª Parte', 'Total']);
+    expect(w.findAll('tbody tr')[0].findAll('td')).toHaveLength(13);
+
+    // Arrastrar Rojas sobre Amarillas: pasan delante en los tres grupos.
+    const dt = { effectAllowed: '' };
+    await cab[1].findAll('th')[2].trigger('dragstart', { dataTransfer: dt });
+    await cab[1].findAll('th')[1].trigger('drop', { dataTransfer: dt });
+    await nextTick();
+    expect(textos(w.findAll('thead tr')[1].findAll('th')).slice(0, 3)).toEqual(['Partidos', 'Rojas', 'Amarillas']);
+  });
+});

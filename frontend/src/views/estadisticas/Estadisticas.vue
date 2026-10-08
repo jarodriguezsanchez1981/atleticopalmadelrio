@@ -37,16 +37,16 @@ const METRICAS_GOLES = [
 ];
 const METRICAS_SANCIONES = [
   { campo: 'partidos', titulo: 'Partidos' },
-  { campo: 'tarjetas_amarillas', titulo: 'Amarillas' },
-  { campo: 'tarjetas_rojas', titulo: 'Rojas' },
-  { campo: 'amarillas_primera', titulo: 'Amarillas\n1ª Parte' },
-  { campo: 'amarillas_segunda', titulo: 'Amarillas\n2ª Parte' },
-  { campo: 'amarillas_ganando', titulo: 'Amarillas\nganando' },
-  { campo: 'amarillas_perdiendo', titulo: 'Amarillas\nperdiendo' },
-  { campo: 'rojas_primera', titulo: 'Rojas\n1ª Parte' },
-  { campo: 'rojas_segunda', titulo: 'Rojas\n2ª Parte' },
-  { campo: 'rojas_ganando', titulo: 'Rojas\nganando' },
-  { campo: 'rojas_perdiendo', titulo: 'Rojas\nperdiendo' }
+  { campo: 'tarjetas_amarillas', titulo: 'Total', subgrupo: 'Amarillas' },
+  { campo: 'amarillas_primera', titulo: '1ª Parte', subgrupo: 'Amarillas' },
+  { campo: 'amarillas_segunda', titulo: '2ª Parte', subgrupo: 'Amarillas' },
+  { campo: 'amarillas_ganando', titulo: 'Ganando', subgrupo: 'Amarillas' },
+  { campo: 'amarillas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Amarillas' },
+  { campo: 'tarjetas_rojas', titulo: 'Total', subgrupo: 'Rojas' },
+  { campo: 'rojas_primera', titulo: '1ª Parte', subgrupo: 'Rojas' },
+  { campo: 'rojas_segunda', titulo: '2ª Parte', subgrupo: 'Rojas' },
+  { campo: 'rojas_ganando', titulo: 'Ganando', subgrupo: 'Rojas' },
+  { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas' }
 ];
 
 const plantilla = ref(null);

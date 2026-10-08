@@ -207,3 +207,6 @@ h1, h2, h3, .font-display {
 .ar-datatable.ar-dt-agrupada th.ar-dt-titulo-grupo .p-datatable-column-title {
   font-weight: 700;
 }
+.ar-datatable.ar-dt-agrupada .ar-dt-inicio-subgrupo {
+  border-left: 1px solid rgb(15 61 34 / 0.15);
+}
