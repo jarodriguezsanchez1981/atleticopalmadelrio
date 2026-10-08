@@ -16,7 +16,7 @@ const METRICAS_CONVOCATORIAS = [
   { campo: 'convocatorias', titulo: 'Convocatorias' },
   { campo: 'titular', titulo: 'Titular' },
   { campo: 'suplente', titulo: 'Suplente' },
-  { campo: 'banquillo_no_jugados', titulo: 'Suplente\nno jugado' }
+  { campo: 'banquillo_no_jugados', titulo: 'Sin jugar' }
 ];
 const METRICAS_TIEMPO = [
   { campo: 'partidos', titulo: 'Partidos' },
