@@ -114,6 +114,8 @@ async function listar(req, res, next) {
     for (const f of porJugador.values()) {
       for (const sufijo of ['', '_local', '_visitante']) {
         f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`goles${sufijo}`], f[`partidos${sufijo}`]);
+        // Parte de sus goles marcados de titular / entrando de suplente.
+        f[`porcentaje_goles_titular${sufijo}`] = porcentaje(f[`goles_titular${sufijo}`], f[`goles${sufijo}`]);
         f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
         // Minutos jugados sobre los posibles en los partidos que ha jugado
         // (3 partidos enteros = 100 %).
