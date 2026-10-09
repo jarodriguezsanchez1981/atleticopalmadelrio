@@ -11,6 +11,17 @@ describe('Utilidad util.controller · protección SSRF', () => {
     expect(esDireccionPrivada('fe80::1')).toBe(true);
   });
 
+  it('detecta IPv6 entre corchetes e IPv4 escritas como IPv6 (metadatos de AWS)', () => {
+    for (const url of ['http://[::1]:3000/', 'http://[::ffff:127.0.0.1]/', 'http://[::ffff:a9fe:a9fe]/', 'http://[fd00::1]/', 'http://100.100.1.1/', 'http://0x7f.1/', 'http://2130706433/']) {
+      expect(esDireccionPrivada(new URL(url).hostname), url).toBe(true);
+    }
+    expect(esDireccionPrivada('[2606:4700:4700::1111]')).toBe(false);
+  });
+
+  it('descargar rechaza una IPv4 escrita como IPv6', async () => {
+    await expect(descargar('http://[::ffff:a9fe:a9fe]/latest/meta-data/')).rejects.toThrow(/internas/);
+  });
+
   it('detecta hostnames internos', () => {
     expect(esDireccionPrivada('localhost')).toBe(true);
     expect(esDireccionPrivada('db')).toBe(true);
