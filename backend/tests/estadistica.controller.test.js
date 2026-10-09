@@ -83,6 +83,25 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     });
   });
 
+  it('cuenta las sustituciones (sale antes del final), pero no las expulsiones', async () => {
+    Partido.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    const ana = { nombre: 'Ana', apellidos: 'López' };
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minuto_salida: 70, minutos: 70, tarjeta_roja: 0, jugador: ana },  // cambiada
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: true, minuto_salida: 60, minutos: 60, tarjeta_roja: 1, jugador: ana }, // expulsada en el 60
+      { id_partido: 3, id_jugador: 7, es_local: false, titular: true, minuto_salida: 50, minutos: 50, tarjeta_roja: 1, jugador: ana }  // cambiada en el 50, roja en el banquillo
+    ]);
+    PartidoTarjeta.findAll.mockResolvedValue([
+      { id_partido: 2, id_jugador: 7, tipo: 'roja', minuto: 60, goles_favor: 0, goles_contra: 0 },
+      { id_partido: 3, id_jugador: 7, tipo: 'roja', minuto: 88, goles_favor: 0, goles_contra: 0 }
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    expect(res._json[0]).toMatchObject({ sustituciones: 2, sustituciones_local: 1, sustituciones_visitante: 1 });
+  });
+
   it('sin partidos devuelve una lista vacía', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });

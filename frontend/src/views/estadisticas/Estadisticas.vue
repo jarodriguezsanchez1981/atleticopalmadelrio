@@ -16,7 +16,8 @@ const METRICAS_CONVOCATORIAS = [
   { campo: 'convocatorias', titulo: 'Convocatorias' },
   { campo: 'titular', titulo: 'Titular' },
   { campo: 'suplente', titulo: 'Suplente' },
-  { campo: 'banquillo_no_jugados', titulo: 'Sin jugar' }
+  { campo: 'banquillo_no_jugados', titulo: 'Sin jugar' },
+  { campo: 'sustituciones', titulo: 'Sustitución' }
 ];
 const METRICAS_TIEMPO = [
   { campo: 'partidos', titulo: 'Partidos' },
@@ -140,7 +141,7 @@ onBeforeUnmount(() => {
         <h2 class="font-display text-lg text-club-green">Estadísticas Convocatorias</h2>
         <p class="text-sm text-ink-tertiary">
           Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente
-          sin jugar.
+          sin jugar. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan).
         </p>
       </div>
       <TablaEstadistica :filas="filasFiltradas" :metricas="METRICAS_CONVOCATORIAS" sortField="convocatorias"

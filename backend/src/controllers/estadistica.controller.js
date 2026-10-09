@@ -11,7 +11,7 @@ const CAMPOS_TARJETAS = [
 // Contadores de cada jugador; cada uno se guarda en total (campo) y según el
 // PALMA jugara en casa o fuera (campo_local / campo_visitante).
 const CONTADORES = [
-  'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
+  'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados', 'sustituciones',
   'minutos', 'minutos_titular', 'minutos_banquillo',
   'goles', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda',
   'tarjetas_amarillas', 'tarjetas_rojas', ...CAMPOS_TARJETAS
@@ -38,7 +38,7 @@ async function listar(req, res, next) {
 
     const filas = await PartidoJugador.findAll({
       where: { id_partido: idsPartidos },
-      attributes: ['id_partido', 'id_jugador', 'es_local', 'titular', 'minuto_entrada', 'minutos', 'goles', 'tarjeta_amarilla', 'tarjeta_roja'],
+      attributes: ['id_partido', 'id_jugador', 'es_local', 'titular', 'minuto_entrada', 'minuto_salida', 'minutos', 'goles', 'tarjeta_amarilla', 'tarjeta_roja'],
       include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
     });
 
@@ -46,6 +46,9 @@ async function listar(req, res, next) {
     // Lado del PALMA (local / visitante) de cada jugador en cada partido, para
     // repartir las tarjetas y los goles con minuto.
     const ladoEnPartido = new Map();
+    // Salidas del campo de jugadores con roja: hasta ver sus tarjetas no se sabe
+    // si los cambiaron o los expulsaron (el expulsado sale en el minuto de la roja).
+    const salidasConRoja = [];
     const sumar = (fila, campo, valor, lado) => {
       fila[campo] += valor;
       fila[`${campo}_${lado}`] += valor;
@@ -85,6 +88,11 @@ async function listar(req, res, next) {
       } else if (esSuplente) {
         sumar(fila, 'banquillo_no_jugados', 1, lado);
       }
+      // Sustitución: sale del campo antes del final (y no por expulsión).
+      if (f.minuto_salida != null) {
+        if (Number(f.tarjeta_roja) > 0) salidasConRoja.push({ fila, lado, id_partido: f.id_partido, minuto: f.minuto_salida });
+        else sumar(fila, 'sustituciones', 1, lado);
+      }
       sumar(fila, 'tarjetas_amarillas', Number(f.tarjeta_amarilla) || 0, lado);
       sumar(fila, 'tarjetas_rojas', Number(f.tarjeta_roja) || 0, lado);
     }
@@ -100,6 +108,12 @@ async function listar(req, res, next) {
       if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, lado);
       if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, lado);
       else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, lado);
+    }
+
+    for (const s of salidasConRoja) {
+      const expulsado = tarjetas.some((t) => t.tipo === 'roja' && t.id_partido === s.id_partido
+        && t.id_jugador === s.fila.id_jugador && t.minuto === s.minuto);
+      if (!expulsado) sumar(s.fila, 'sustituciones', 1, s.lado);
     }
 
     // Goles por parte del partido (partido_goles, de Finalizar Acta).
