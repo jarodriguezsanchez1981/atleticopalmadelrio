@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { authService } from '../services';
+import { TOKEN_ANTIGUO } from '../services/api';
 
 const SECCION_ORDER = [
   'dashboard',
@@ -25,15 +26,28 @@ const SECCION_ORDER = [
  * (un entrenador no las ve aunque tenga el permiso marcado). */
 const SECCIONES_SOLO_COORDINADORES = ['firma_email'];
 
+function leerUsuario() {
+  try {
+    return JSON.parse(localStorage.getItem('apr_user') || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function guardarUsuario(user) {
+  localStorage.setItem('apr_user', JSON.stringify(user));
+}
+
 export const useAuthStore = defineStore('auth', {
+  // La sesión (el token) está en una cookie HttpOnly que el JavaScript no ve;
+  // aquí solo se guardan los datos del usuario para pintar la intranet.
   state: () => ({
-    token: localStorage.getItem('apr_token') || null,
-    user: JSON.parse(localStorage.getItem('apr_user') || 'null'),
+    user: leerUsuario(),
     cargando: false
   }),
 
   getters: {
-    isAuthenticated: (state) => !!state.token,
+    isAuthenticated: (state) => !!state.user,
     secciones: (state) => state.user?.secciones || [],
     permisos: (state) => state.user?.permisos || {},
     nombreCompleto: (state) => (state.user ? `${state.user.nombre} ${state.user.apellidos}` : ''),
@@ -70,11 +84,10 @@ export const useAuthStore = defineStore('auth', {
     async login(usuario, password) {
       this.cargando = true;
       try {
-        const { token, user } = await authService.login(usuario, password);
-        this.token = token;
+        const { user } = await authService.login(usuario, password);
         this.user = user;
-        localStorage.setItem('apr_token', token);
-        localStorage.setItem('apr_user', JSON.stringify(user));
+        guardarUsuario(user);
+        localStorage.removeItem(TOKEN_ANTIGUO);
         return user;
       } finally {
         this.cargando = false;
@@ -82,26 +95,34 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async restoreSession() {
-      if (!this.token) return;
+      // Sesión de antes de la cookie: se envía una vez para que el backend la
+      // pase a la cookie y se borra del navegador.
+      const tokenAntiguo = localStorage.getItem(TOKEN_ANTIGUO);
+      if (!this.user && !tokenAntiguo) return;
       try {
-        // /auth/me devuelve también un token renovado con los permisos
-        // actuales (si cambian, se aplican con solo recargar la página).
-        const { token, ...user } = await authService.me();
-        if (token) {
-          this.token = token;
-          localStorage.setItem('apr_token', token);
-        }
+        // /auth/me renueva la cookie con los permisos actuales (si cambian, se
+        // aplican con solo recargar la página).
+        const user = await authService.me(tokenAntiguo || undefined);
         this.user = user;
-        localStorage.setItem('apr_user', JSON.stringify(user));
+        guardarUsuario(user);
       } catch {
-        this.logout();
+        this.limpiarSesion();
+      } finally {
+        localStorage.removeItem(TOKEN_ANTIGUO);
       }
     },
 
-    logout() {
-      this.token = null;
+    /** Cierra la sesión en el backend (borra la cookie) y en el navegador. */
+    async logout() {
+      this.limpiarSesion();
+      try {
+        await authService.logout();
+      } catch { /* sin conexión: la cookie caduca sola */ }
+    },
+
+    limpiarSesion() {
       this.user = null;
-      localStorage.removeItem('apr_token');
+      localStorage.removeItem(TOKEN_ANTIGUO);
       localStorage.removeItem('apr_user');
     }
   }

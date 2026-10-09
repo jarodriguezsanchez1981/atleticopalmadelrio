@@ -70,7 +70,7 @@ describe('Autenticación · auth.controller', () => {
     expect(passwordUtils.verifyPassword).toHaveBeenCalledWith('Clave123!', 'hash');
   });
 
-  it('login devuelve token y usuario', async () => {
+  it('login guarda el token en la cookie HttpOnly y devuelve el usuario (sin token)', async () => {
     Usuario.scope.mockReturnValue(Usuario);
     Usuario.findOne.mockResolvedValue({
       id: 1,
@@ -97,7 +97,11 @@ describe('Autenticación · auth.controller', () => {
       permisos: { administracion: { ver: true, editar: true }, temporadas: { ver: true, editar: false } },
       rol: 'coordinador', id_categoria: null
     });
-    expect(res._json.token).toBe('token-fake');
+    expect(res._json).not.toHaveProperty('token');
+    expect(res._cookies.apr_sesion).toEqual({
+      valor: 'token-fake',
+      opciones: expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/api' })
+    });
     expect(res._json.user).toEqual({
       id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B',
       secciones: ['administracion', 'temporadas'],
@@ -132,10 +136,10 @@ describe('Autenticación · auth.controller', () => {
       id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B',
       secciones: ['temporadas'],
       permisos: { temporadas: { ver: true, editar: true } },
-      rol: 'coordinador', id_categoria: null,
-      token: 'token-fake'
+      rol: 'coordinador', id_categoria: null
     });
-    // Token renovado con los permisos actuales (no los del login).
+    // Token renovado (en la cookie) con los permisos actuales (no los del login).
+    expect(res._cookies.apr_sesion.valor).toBe('token-fake');
     expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({
       id: 1, secciones: ['temporadas'], permisos: { temporadas: { ver: true, editar: true } }
     }));
@@ -233,5 +237,11 @@ describe('Autenticación · auth.controller', () => {
 
     expect(res._json.user.password).toBeUndefined();
     expect(res._json.user).not.toHaveProperty('password');
+  });
+
+  it('logout borra la cookie de sesión', () => {
+    const { res } = llamar(ctrl.logout);
+    expect(res._cookies.apr_sesion).toEqual({ valor: null, opciones: expect.objectContaining({ httpOnly: true, path: '/api' }) });
+    expect(res._json.message).toBe('Sesión cerrada.');
   });
 });

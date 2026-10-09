@@ -20,6 +20,15 @@ export function mockReqRes(overrides = {}) {
       this._sent = true;
       this._payload = payload;
       return this;
+    },
+    _cookies: {},
+    cookie(nombre, valor, opciones) {
+      this._cookies[nombre] = { valor, opciones };
+      return this;
+    },
+    clearCookie(nombre, opciones) {
+      this._cookies[nombre] = { valor: null, opciones };
+      return this;
     }
   };
   const req = {

@@ -60,4 +60,31 @@ describe('Middleware authenticate', () => {
     expect(res._status).toBe(401);
     expect(res._json.message).toBe('Token inválido o caducado.');
   });
+
+  it('acepta el token de la cookie de sesión', () => {
+    jwtUtils.verifyToken.mockReturnValue({ id: 1, usuario: 'admin' });
+    const req = { method: 'GET', headers: { cookie: 'otra=1; apr_sesion=token-cookie' } };
+    let paso = false;
+    authenticate(req, mockRes(), () => { paso = true; });
+    expect(paso).toBe(true);
+    expect(jwtUtils.verifyToken).toHaveBeenCalledWith('token-cookie');
+  });
+
+  it('con la cookie, las peticiones que modifican datos exigen X-Requested-With (CSRF)', () => {
+    jwtUtils.verifyToken.mockReturnValue({ id: 1 });
+    const sinCabecera = mockRes();
+    let paso = false;
+    authenticate({ method: 'POST', headers: { cookie: 'apr_sesion=t' } }, sinCabecera, () => { paso = true; });
+    expect(paso).toBe(false);
+    expect(sinCabecera._status).toBe(403);
+
+    authenticate({ method: 'DELETE', headers: { cookie: 'apr_sesion=t', 'x-requested-with': 'XMLHttpRequest' } }, mockRes(), () => { paso = true; });
+    expect(paso).toBe(true);
+  });
+
+  it('sin cabecera ni cookie devuelve 401', () => {
+    const res = mockRes();
+    authenticate({ method: 'GET', headers: { cookie: 'otra=1' } }, res, () => {});
+    expect(res._status).toBe(401);
+  });
 });

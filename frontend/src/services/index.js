@@ -93,7 +93,9 @@ export const cambiosService = {
 
 export const authService = {
   login: (usuario, password) => api.post('/auth/login', { usuario, password }).then(r => r.data),
-  me: () => api.get('/auth/me').then(r => r.data)
+  // `token`: solo para pasar a la cookie una sesión antigua guardada en el navegador.
+  me: (token) => api.get('/auth/me', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined).then(r => r.data),
+  logout: () => api.post('/auth/logout').then(r => r.data)
 };
 
 export const calendarioService = {

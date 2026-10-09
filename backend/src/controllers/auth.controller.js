@@ -1,6 +1,7 @@
 const { Usuario, Seccion } = require('../models');
 const { verifyPassword } = require('../utils/password.utils');
 const { signToken } = require('../utils/jwt.utils');
+const { ponerCookieSesion, borrarCookieSesion } = require('../utils/sesionCookie');
 
 const includeAuth = [
   { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: ['puede_ver', 'puede_editar'] } }
@@ -65,12 +66,10 @@ async function login(req, res, next) {
     if (!passwordOk) return credencialesInvalidas();
 
     const payload = userPayload(user);
-    const token = tokenPara(user, payload);
+    // El token va solo en la cookie HttpOnly: el JavaScript de la página no lo ve.
+    ponerCookieSesion(res, tokenPara(user, payload));
 
-    return res.json({
-      token,
-      user: payload
-    });
+    return res.json({ user: payload });
   } catch (err) {
     return next(err);
   }
@@ -85,10 +84,17 @@ async function me(req, res, next) {
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado.' });
     if (user.activo === false || user.activo === 0) return res.status(401).json({ message: 'Usuario desactivado.' });
     const payload = userPayload(user);
-    return res.json({ ...payload, token: tokenPara(user, payload) });
+    ponerCookieSesion(res, tokenPara(user, payload));
+    return res.json(payload);
   } catch (err) {
     return next(err);
   }
 }
 
-module.exports = { login, me };
+/** Cierra la sesión borrando la cookie (no exige estar autenticado). */
+function logout(req, res) {
+  borrarCookieSesion(res);
+  return res.json({ message: 'Sesión cerrada.' });
+}
+
+module.exports = { login, me, logout };

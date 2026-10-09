@@ -38,20 +38,20 @@ describe('Servicio API', () => {
     }));
   });
 
-  it('adjunta token si existe en localStorage', async () => {
-    mockLocalStorage.getItem.mockReturnValue('token-fake');
+  it('no adjunta ningún token: la sesión va en la cookie HttpOnly', async () => {
     const { default: api } = await import('../services/api.js');
-    const requestInterceptor = api.interceptors.request.use.mock.calls[0][0];
-    const config = { headers: {} };
-    requestInterceptor(config);
-    expect(config.headers.Authorization).toBe('Bearer token-fake');
+    expect(api.interceptors.request.use).not.toHaveBeenCalled();
+    expect(axios.create).toHaveBeenCalledWith(expect.objectContaining({
+      withCredentials: true,
+      headers: expect.objectContaining({ 'X-Requested-With': 'XMLHttpRequest' })
+    }));
   });
 
   it('redirige al login en respuesta 401', async () => {
     const { default: api } = await import('../services/api.js');
     const responseInterceptor = api.interceptors.response.use.mock.calls[0][1];
     responseInterceptor({ response: { status: 401 } }).catch(() => {});
-    expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('apr_token');
+    expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('apr_user');
     expect(window.location.href).toBe('/login');
   });
 });
