@@ -853,6 +853,18 @@ describe('Sección Partidos · partido.controller', () => {
       ]);
     });
 
+    it('a un jugador de promoción no le pone dorsal en la plantilla', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      PlantillaJugador.findAll.mockResolvedValue([{ id: 30, id_jugador: 900, dorsal: null, promocion: true }]);
+      PlantillaJugador.update.mockReset();
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(PlantillaJugador.update).not.toHaveBeenCalled();
+      expect(PartidoJugador.bulkCreate.mock.calls[0][0][0]).toMatchObject({ id_jugador: 900, dorsal: 7 });
+    });
+
     it('no cambia el dorsal que ya tiene el jugador en la plantilla', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma());
       PlantillaJugador.findAll.mockResolvedValue([{ id: 30, id_jugador: 900, dorsal: 10 }]);

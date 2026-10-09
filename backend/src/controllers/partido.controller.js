@@ -401,9 +401,10 @@ async function finalizarActa(req, res, next) {
     }
 
     // Dorsal del acta en la plantilla del partido, a los jugadores que aún no
-    // tienen (no se cambia el que ya tengan puesto).
+    // tienen (no se cambia el que ya tengan puesto). Los de promoción no: su
+    // dorsal es el de su propia plantilla (en el partido sí queda el del acta).
     for (const pj of rosterPlantilla) {
-      if (pj.dorsal != null) continue;
+      if (pj.dorsal != null || pj.promocion) continue;
       const delActa = filasConNombre.find((f) => f.id === pj.id_jugador && f.rfaf.dorsal != null);
       if (delActa) await PlantillaJugador.update({ dorsal: delActa.rfaf.dorsal }, { where: { id: pj.id } });
     }
