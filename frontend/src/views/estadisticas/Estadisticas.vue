@@ -32,10 +32,10 @@ const METRICAS_GOLES = [
   { campo: 'porcentaje_goles', titulo: '% de sus\ngoles', porcentaje: true, soloLados: true },
   { campo: 'goles_primera', titulo: '1ª Parte' },
   { campo: 'goles_segunda', titulo: '2ª Parte' },
-  { campo: 'goles_titular', titulo: 'Titular' },
-  { campo: 'goles_banquillo', titulo: 'Suplente' },
-  { campo: 'porcentaje_goles_titular', titulo: '% Goles\nTitular', porcentaje: true },
-  { campo: 'porcentaje_goles_banquillo', titulo: '% Goles\nSuplente', porcentaje: true },
+  { campo: 'goles_titular', titulo: 'Goles', subgrupo: 'Titular' },
+  { campo: 'porcentaje_goles_titular', titulo: '% Goles', porcentaje: true, subgrupo: 'Titular' },
+  { campo: 'goles_banquillo', titulo: 'Goles', subgrupo: 'Suplente' },
+  { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', porcentaje: true, subgrupo: 'Suplente' },
   { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', porcentaje: true }
 ];
 const METRICAS_SANCIONES = [
@@ -161,7 +161,7 @@ onBeforeUnmount(() => {
         <h2 class="font-display text-lg text-club-green">Estadísticas Goles</h2>
         <p class="text-sm text-ink-tertiary">
           Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de
-          suplente ("% Goles Titular / Suplente": parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa /
+          suplente (en Titular / Suplente, "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa /
           fuera. Los goles en propia puerta no cuentan.
         </p>
       </div>
