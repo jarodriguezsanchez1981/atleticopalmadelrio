@@ -89,6 +89,7 @@ const observaciones = computed(() => partido.value?.observaciones ?? props.event
           <table class="w-full text-xs">
             <thead>
               <tr class="bg-club-green/5 text-ink-tertiary">
+                <th class="font-medium px-1.5 py-1.5" title="Dorsal">Nº</th>
                 <th class="text-left font-medium px-2 py-1.5">Jugador</th>
                 <th class="font-medium px-1.5 py-1.5" title="Goles">Goles</th>
                 <th class="font-medium px-1.5 py-1.5" title="Tarjetas amarillas"><span class="tarjeta tarjeta-amarilla" aria-label="Amarillas"></span></th>
@@ -98,6 +99,7 @@ const observaciones = computed(() => partido.value?.observaciones ?? props.event
             </thead>
             <tbody>
               <tr v-for="pj in grupo.filas" :key="`${pj.id_jugador}-${pj.id_equipo_jugador}`" class="border-t border-line">
+                <td class="text-center px-1.5 py-1 font-semibold text-ink-secondary tabular-nums">{{ pj.dorsal ?? '—' }}</td>
                 <td class="px-2 py-1 text-ink-primary">
                   <span class="inline-flex items-center gap-1.5">
                     {{ nombre(pj) }}

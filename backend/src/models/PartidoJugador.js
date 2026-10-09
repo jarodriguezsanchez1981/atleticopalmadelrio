@@ -7,6 +7,7 @@ const PartidoJugador = sequelize.define('PartidoJugador', {
   id_jugador: { type: DataTypes.INTEGER, allowNull: true },
   id_equipo_jugador: { type: DataTypes.INTEGER, allowNull: true },
   es_local: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  dorsal: { type: DataTypes.INTEGER, allowNull: true },
   tarjeta_amarilla: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   tarjeta_roja: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   goles: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },

@@ -144,6 +144,7 @@ async function cargarRegistro() {
       const entrada = {
         id_jugador: pj.id_jugador ?? null,
         id_equipo_jugador: pj.id_equipo_jugador ?? null,
+        dorsal: pj.dorsal ?? null,
         tarjeta_amarilla: pj.tarjeta_amarilla || 0,
         tarjeta_roja: pj.tarjeta_roja || 0,
         goles: pj.goles || 0,
@@ -390,7 +391,7 @@ function jugadorInfo(id) {
 /** Jugadores de una plantilla (para el lado PALMA). */
 function plantillaJugadores() {
   const p = plantillas.value.find((pl) => pl.id === form.value.id_plantilla);
-  return (p?.jugadores || []).map((j) => ({ id: j.id, nombre: j.nombre, apellidos: j.apellidos }));
+  return (p?.jugadores || []).map((j) => ({ id: j.id, nombre: j.nombre, apellidos: j.apellidos, dorsal: j.PlantillaJugador?.dorsal ?? null }));
 }
 
 /** Opciones de jugadores de un lado según su equipo: PALMA -> plantilla, resto -> equipos_jugadores. */
@@ -398,7 +399,7 @@ function jugadoresEquipoDe(lado) {
   const idEquipo = lado === 'local' ? form.value.id_equipo_local : form.value.id_equipo_visitante;
   if (Number(idEquipo) === PALMA_ID) {
     return plantillaJugadores()
-      .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id, tipo: 'jugador' }))
+      .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id, tipo: 'jugador', dorsal: j.dorsal }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   return equiposJugadores.value
@@ -442,7 +443,8 @@ function agregarJugadoresConvocados(lado, opciones) {
   if (!form.value[campo]) form.value[campo] = [];
   for (const opt of opciones) {
     if (form.value[campo].some((j) => valorJugadorConvocado(j) === opt.value)) continue;
-    const entrada = { tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 };
+    // El dorsal de la plantilla como punto de partida (se puede cambiar).
+    const entrada = { dorsal: opt.dorsal ?? null, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 };
     if (opt.tipo === 'jugador') entrada.id_jugador = opt.value;
     else entrada.id_equipo_jugador = opt.value;
     form.value[campo].push(entrada);

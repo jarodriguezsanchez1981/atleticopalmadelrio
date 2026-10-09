@@ -2,8 +2,8 @@
 import InputNumber from 'primevue/inputnumber';
 import Button from 'primevue/button';
 
-/** Tabla editable de los jugadores de un equipo en un partido (tarjetas,
- * goles y minutos). Con datos del acta, junto al nombre se ve el cambio:
+/** Tabla editable de los jugadores de un equipo en un partido (dorsal,
+ * tarjetas, goles y minutos). Con datos del acta, junto al nombre se ve el cambio:
  * flecha a la derecha = sale (en ese minuto), a la izquierda = entra. */
 defineProps({
   jugadores: { type: Array, required: true },
@@ -21,6 +21,7 @@ const emit = defineEmits(['quitar']);
     <table class="w-full border-collapse">
       <thead>
         <tr class="bg-club-green/5">
+          <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-20">Dorsal</th>
           <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
           <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Amarilla</th>
           <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">T. Roja</th>
@@ -31,6 +32,10 @@ const emit = defineEmits(['quitar']);
       </thead>
       <tbody>
         <tr v-for="j in jugadores" :key="clave(j)">
+          <td class="text-center border border-line p-2">
+            <InputNumber v-model="j.dorsal" :min="0" :max="99" :useGrouping="false" class="!w-16" inputClass="!w-16 !text-center"
+                         :aria-label="`Dorsal de ${nombre(j)}`" />
+          </td>
           <td class="text-center border border-line p-2 text-sm">
             <span class="inline-flex items-center gap-1.5">
               {{ nombre(j) }}
@@ -61,7 +66,7 @@ const emit = defineEmits(['quitar']);
           </td>
         </tr>
         <tr v-if="!jugadores.length">
-          <td :colspan="conMinutos ? 6 : 5" class="text-center border border-line p-2 text-sm text-ink-tertiary">{{ vacio }}</td>
+          <td :colspan="conMinutos ? 7 : 6" class="text-center border border-line p-2 text-sm text-ink-tertiary">{{ vacio }}</td>
         </tr>
       </tbody>
     </table>

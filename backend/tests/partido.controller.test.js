@@ -712,7 +712,8 @@ describe('Sección Partidos · partido.controller', () => {
       leerActa = vi.spyOn(rfafActa, 'leerActa');
       leerActa.mockReset();
       leerActa.mockResolvedValue(ACTA);
-      PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 900 }]);
+      PlantillaJugador.findAll.mockResolvedValue([{ id: 30, id_jugador: 900, dorsal: null }]);
+      PlantillaJugador.update.mockReset();
       // 1ª llamada: jugadores de la plantilla; 2ª: todos los jugadores.
       Jugador.findAll.mockImplementation(async ({ where } = {}) => (where
         ? [{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }]
@@ -751,11 +752,13 @@ describe('Sección Partidos · partido.controller', () => {
         where: { id_partido: 1, es_local: true, id_jugador: { [Op.ne]: null } }
       });
       expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
-        { id_partido: 1, id_jugador: 900, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2,
+        { id_partido: 1, id_jugador: 900, es_local: true, dorsal: 7, tarjeta_amarilla: 1, tarjeta_roja: 0, goles: 2,
           titular: true, minuto_entrada: null, minuto_salida: 70, minutos: 70 },
-        { id_partido: 1, id_jugador: 950, es_local: true, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0,
+        { id_partido: 1, id_jugador: 950, es_local: true, dorsal: 4, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0,
           titular: false, minuto_entrada: 70, minuto_salida: null, minutos: 20 }
       ]);
+      // El dorsal del acta pasa a la plantilla del partido si no tenía.
+      expect(PlantillaJugador.update).toHaveBeenCalledWith({ dorsal: 7 }, { where: { id: 30 } });
       // Sanciones: se quitan las de jugadores que ya no están y se crea la
       // del que tiene amarilla; el que no tiene tarjetas no genera sanción.
       expect(Sancion.destroy).toHaveBeenCalledWith({
@@ -795,7 +798,7 @@ describe('Sección Partidos · partido.controller', () => {
       await promesa;
 
       expect(PartidoJugador.bulkCreate).toHaveBeenCalledWith([
-        { id_partido: 1, id_jugador: 901, es_local: false, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 1,
+        { id_partido: 1, id_jugador: 901, es_local: false, dorsal: 9, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 1,
           titular: true, minuto_entrada: null, minuto_salida: null, minutos: 90 }
       ]);
     });
@@ -848,6 +851,19 @@ describe('Sección Partidos · partido.controller', () => {
       expect(PartidoTarjeta.bulkCreate).toHaveBeenCalledWith([
         { id_partido: 1, id_jugador: 900, tipo: 'amarilla', minuto: 50, goles_favor: 2, goles_contra: 1 }
       ]);
+    });
+
+    it('no cambia el dorsal que ya tiene el jugador en la plantilla', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      PlantillaJugador.findAll.mockResolvedValue([{ id: 30, id_jugador: 900, dorsal: 10 }]);
+      PlantillaJugador.update.mockReset();
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(PlantillaJugador.update).not.toHaveBeenCalled();
+      // En el partido sí queda el dorsal con el que jugó.
+      expect(PartidoJugador.bulkCreate.mock.calls[0][0][0]).toMatchObject({ id_jugador: 900, dorsal: 7 });
     });
 
     it('guarda los goles del PALMA con su minuto, sin los de propia puerta', async () => {

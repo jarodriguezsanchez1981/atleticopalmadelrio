@@ -1,7 +1,8 @@
 const { PartidoJugador } = require('../models');
 
-// Datos que pone Finalizar Acta (ver partido.controller.finalizarActa).
-const CAMPOS_ACTA = ['titular', 'minuto_entrada', 'minuto_salida', 'minutos'];
+// Datos que pone Finalizar Acta (ver partido.controller.finalizarActa); el
+// dorsal también se puede poner a mano en el partido.
+const CAMPOS_ACTA = ['titular', 'minuto_entrada', 'minuto_salida', 'minutos', 'dorsal'];
 
 /** Guarda los jugadores convocados (local y visitante) de un partido; lo usan
  * Partidos y Jornadas. */

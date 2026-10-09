@@ -63,7 +63,7 @@ const includesBase = [
     model: PartidoJugador,
     as: 'partidoJugadores',
     attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles',
-      'titular', 'minuto_entrada', 'minuto_salida', 'minutos'],
+      'titular', 'minuto_entrada', 'minuto_salida', 'minutos', 'dorsal'],
     include: [
       { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
       { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }
@@ -388,6 +388,7 @@ async function finalizarActa(req, res, next) {
         id_partido: partido.id,
         id_jugador: jugador.id,
         es_local: esLocal,
+        dorsal: rfaf.dorsal ?? null,
         tarjeta_amarilla: rfaf.tarjeta_amarilla,
         tarjeta_roja: rfaf.tarjeta_roja,
         goles: rfaf.goles,
@@ -397,6 +398,14 @@ async function finalizarActa(req, res, next) {
         minutos: conCambios && conMinutos ? minutosJugados(rfaf, duracion) : null
       });
       actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
+    }
+
+    // Dorsal del acta en la plantilla del partido, a los jugadores que aún no
+    // tienen (no se cambia el que ya tengan puesto).
+    for (const pj of rosterPlantilla) {
+      if (pj.dorsal != null) continue;
+      const delActa = filasConNombre.find((f) => f.id === pj.id_jugador && f.rfaf.dorsal != null);
+      if (delActa) await PlantillaJugador.update({ dorsal: delActa.rfaf.dorsal }, { where: { id: pj.id } });
     }
 
     // Tarjetas del PALMA con su minuto y el marcador justo antes (los goles
