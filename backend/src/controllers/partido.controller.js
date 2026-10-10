@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, Promocion } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -342,7 +342,7 @@ async function finalizarActa(req, res, next) {
     const equipoActa = esLocal ? acta.local : acta.visitante;
     const plantillaPartido = await Plantilla.findOne({
       where: { id: partido.id_plantilla },
-      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol'] }]
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol', 'orden'] }]
     });
     // Los minutos se cuentan sobre los 90 del partido (categoria.tiempopartido
     // es el hueco que ocupa en el calendario, no la duración del juego).
@@ -364,6 +364,7 @@ async function finalizarActa(req, res, next) {
     const filasConNombre = [];
     const actualizados = [];
     const creados = [];
+    const idsCreados = new Set();
     for (const rfaf of equipoActa.jugadores) {
       const nombreActa = rfafActa.normalizarNombre(rfaf.nombre);
       let jugador = porNombre.get(nombreActa);
@@ -379,6 +380,7 @@ async function finalizarActa(req, res, next) {
       if (!jugador) {
         jugador = await Jugador.create(rfafActa.nombreDesdeActa(rfaf.nombre));
         await PlantillaJugador.create({ id_plantilla: partido.id_plantilla, id_jugador: jugador.id, dorsal: rfaf.dorsal ?? null });
+        idsCreados.add(jugador.id);
         todosPorNombre.set(nombreActa, jugador);
         creados.push(`${jugador.nombre} ${jugador.apellidos}`);
       }
@@ -405,25 +407,47 @@ async function finalizarActa(req, res, next) {
     // los que están también en otra plantilla de la temporada (p.ej. uno de
     // Benjamín C que juega con el Benjamín B): su dorsal es el de su propia
     // plantilla. En el partido sí queda siempre el del acta.
-    const sinDorsal = rosterPlantilla.filter((pj) => pj.dorsal == null && !pj.promocion);
-    const enOtraPlantilla = new Set();
-    if (sinDorsal.length && plantillaPartido?.id_temporada) {
-      const otras = await Plantilla.findAll({
-        where: { id_temporada: plantillaPartido.id_temporada, id: { [Op.ne]: partido.id_plantilla } },
-        attributes: ['id']
-      }) || [];
-      const idsOtras = new Set(otras.map((p) => p.id));
-      if (idsOtras.size) {
-        const filasOtras = await PlantillaJugador.findAll({
-          where: { id_plantilla: [...idsOtras], id_jugador: sinDorsal.map((pj) => pj.id_jugador) }
+    // Plantillas de los jugadores en las demás plantillas de la temporada.
+    let idsOtras = null;
+    const ordenCategoria = new Map(); // id_plantilla -> orden de su categoría
+    const enOtrasPlantillas = async (idsJugador) => {
+      if (!idsJugador.length || !plantillaPartido?.id_temporada) return [];
+      if (!idsOtras) {
+        const otras = await Plantilla.findAll({
+          where: { id_temporada: plantillaPartido.id_temporada, id: { [Op.ne]: partido.id_plantilla } },
+          attributes: ['id'],
+          include: [{ model: Categoria, as: 'categoria', attributes: ['orden'] }]
         }) || [];
-        for (const f of filasOtras) if (idsOtras.has(f.id_plantilla)) enOtraPlantilla.add(f.id_jugador);
+        idsOtras = new Set(otras.map((p) => p.id));
+        for (const p of otras) ordenCategoria.set(p.id, p.categoria?.orden);
       }
-    }
+      if (!idsOtras.size) return [];
+      const filasOtras = await PlantillaJugador.findAll({ where: { id_plantilla: [...idsOtras], id_jugador: idsJugador } }) || [];
+      return filasOtras.filter((f) => idsOtras.has(f.id_plantilla));
+    };
+
+    const sinDorsal = rosterPlantilla.filter((pj) => pj.dorsal == null && !pj.promocion);
+    const enOtraPlantilla = new Set((await enOtrasPlantillas(sinDorsal.map((pj) => pj.id_jugador))).map((f) => f.id_jugador));
     for (const pj of sinDorsal) {
       if (enOtraPlantilla.has(pj.id_jugador)) continue;
       const delActa = filasConNombre.find((f) => f.id === pj.id_jugador && f.rfaf.dorsal != null);
       if (delActa) await PlantillaJugador.update({ dorsal: delActa.rfaf.dorsal }, { where: { id: pj.id } });
+    }
+
+    // Promociones: los del acta que no están en la plantilla del partido sino
+    // en otra de la temporada de categoría igual o inferior juegan
+    // promocionados (como al convocarlos en Convocatorias); si ya lo estaban
+    // desde esa plantilla, se deja como está. Jugar con una inferior no lo es.
+    const enRoster = new Set(rosterPlantilla.map((pj) => pj.id_jugador));
+    const deFuera = [...new Set(filasConNombre.map((f) => f.id))].filter((id) => !enRoster.has(id) && !idsCreados.has(id));
+    const ordenPartido = plantillaPartido?.categoria?.orden;
+    for (const f of await enOtrasPlantillas(deFuera)) {
+      const ordenOrigen = ordenCategoria.get(f.id_plantilla);
+      if (ordenOrigen == null || ordenPartido == null || Number(ordenOrigen) > Number(ordenPartido)) continue;
+      await Promocion.findOrCreate({
+        where: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador },
+        defaults: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador, id_categoria: plantillaPartido.id_categoria }
+      });
     }
 
     // Tarjetas del PALMA con su minuto y el marcador justo antes (los goles

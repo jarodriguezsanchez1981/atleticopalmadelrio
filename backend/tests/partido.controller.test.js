@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion, Promocion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -877,9 +877,39 @@ describe('Sección Partidos · partido.controller', () => {
       const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
       await promesa;
 
-      expect(Plantilla.findAll).toHaveBeenCalledWith({ where: { id_temporada: 3, id: { [Op.ne]: 5 } }, attributes: ['id'] });
+      expect(Plantilla.findAll).toHaveBeenCalledWith(expect.objectContaining({ where: { id_temporada: 3, id: { [Op.ne]: 5 } } }));
       expect(PlantillaJugador.update).not.toHaveBeenCalled();
       expect(PartidoJugador.bulkCreate.mock.calls[0][0][0]).toMatchObject({ id_jugador: 900, dorsal: 7 });
+    });
+
+    it('crea la promoción del jugador del acta que es de otra plantilla de la temporada', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      Plantilla.findOne.mockResolvedValue({ id: 5, id_temporada: 3, id_categoria: 13, categoria: { id: 13, nombre: 'Benjamin B', id_tipofutbol: 1, orden: 6 } });
+      Plantilla.findAll.mockResolvedValue([{ id: 6, categoria: { orden: 5 } }, { id: 7, categoria: { orden: 7 } }]); // Benjamín C y A
+      // En la plantilla del partido solo está el 900; el 950 es de Benjamín C.
+      PlantillaJugador.findAll.mockImplementation(async ({ where }) => (
+        where.id_plantilla === 5 ? [{ id: 30, id_jugador: 900, dorsal: 7 }]
+          // El 950 es de Benjamín C (sube: promoción); si fuera de Benjamín A (baja) no lo sería.
+          : [{ id: 41, id_plantilla: 6, id_jugador: 950 }, { id: 42, id_plantilla: 7, id_jugador: 950 }]
+      ));
+      Jugador.findAll.mockImplementation(async ({ where }) => (
+        where?.id ? [{ id: 900, nombre: 'Juan', apellidos: 'Perez Gomez' }]
+          : [{ id: 900, nombre: 'Juan', apellidos: 'Perez Gomez' }, { id: 950, nombre: 'Alguien', apellidos: 'Sin Ficha' }]
+      ));
+      Promocion.findOrCreate.mockReset();
+      Jugador.create.mockReset();
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(Jugador.create).not.toHaveBeenCalled();
+      expect(Promocion.findOrCreate).toHaveBeenCalledTimes(1);
+      expect(Promocion.findOrCreate).toHaveBeenCalledWith({
+        where: { id_plantilla: 6, id_jugador: 950 },
+        defaults: { id_plantilla: 6, id_jugador: 950, id_categoria: 13 }
+      });
+      PlantillaJugador.findAll.mockReset();
+      Jugador.findAll.mockReset();
     });
 
     it('no cambia el dorsal que ya tiene el jugador en la plantilla', async () => {
