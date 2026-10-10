@@ -5,7 +5,7 @@ description: Corregir datos directamente en la base de datos de producción del 
 
 # Corregir datos en producción
 
-Acceso al EC2: memoria `reference_ec2_acceso`. La BD está en el contenedor `apr_mysql`; usar las credenciales del `.env.development` del EC2 sin mostrarlas (`set -a; . ./.env.development; set +a` dentro del comando SSH).
+Acceso al EC2: memoria `reference_ec2_acceso`. La BD está en el contenedor `apr_mysql`; usar las credenciales del `.env.development` del EC2 sin mostrarlas, leyendo solo las variables necesarias: `DBPW=$(grep -m1 '^MYSQL_ROOT_PASSWORD=' .env.development | cut -d= -f2-); DBN=$(grep -m1 '^DB_NAME=' .env.development | cut -d= -f2-)`. **Nunca** `source`/`.` del fichero entero: tiene valores con caracteres especiales y el error de bash imprime la línea (con la contraseña).
 
 1. **Consultar primero** (solo SELECT) y enseñar al usuario lo que hay y lo que se va a cambiar. Si hay ambigüedad (qué plantilla, qué jugador), preguntar.
 2. **Copia** de las filas que se van a tocar, antes de cambiar nada:
