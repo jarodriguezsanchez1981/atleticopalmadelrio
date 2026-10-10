@@ -865,6 +865,23 @@ describe('Sección Partidos · partido.controller', () => {
       expect(PartidoJugador.bulkCreate.mock.calls[0][0][0]).toMatchObject({ id_jugador: 900, dorsal: 7 });
     });
 
+    it('no pone dorsal en la plantilla a quien está también en otra plantilla de la temporada', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      Plantilla.findOne.mockResolvedValue({ id: 5, id_temporada: 3, categoria: { id: 13, nombre: 'Benjamin B', id_tipofutbol: 1 } });
+      Plantilla.findAll.mockResolvedValue([{ id: 6 }]); // Benjamín C, misma temporada
+      PlantillaJugador.findAll
+        .mockResolvedValueOnce([{ id: 30, id_jugador: 900, dorsal: null }])        // plantilla del partido
+        .mockResolvedValueOnce([{ id: 40, id_plantilla: 6, id_jugador: 900 }]);   // también en Benjamín C
+      PlantillaJugador.update.mockReset();
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(Plantilla.findAll).toHaveBeenCalledWith({ where: { id_temporada: 3, id: { [Op.ne]: 5 } }, attributes: ['id'] });
+      expect(PlantillaJugador.update).not.toHaveBeenCalled();
+      expect(PartidoJugador.bulkCreate.mock.calls[0][0][0]).toMatchObject({ id_jugador: 900, dorsal: 7 });
+    });
+
     it('no cambia el dorsal que ya tiene el jugador en la plantilla', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma());
       PlantillaJugador.findAll.mockResolvedValue([{ id: 30, id_jugador: 900, dorsal: 10 }]);

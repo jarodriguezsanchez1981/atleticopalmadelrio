@@ -401,10 +401,27 @@ async function finalizarActa(req, res, next) {
     }
 
     // Dorsal del acta en la plantilla del partido, a los jugadores que aún no
-    // tienen (no se cambia el que ya tengan puesto). Los de promoción no: su
-    // dorsal es el de su propia plantilla (en el partido sí queda el del acta).
-    for (const pj of rosterPlantilla) {
-      if (pj.dorsal != null || pj.promocion) continue;
+    // tienen (no se cambia el que ya tengan puesto). Los de promoción no, ni
+    // los que están también en otra plantilla de la temporada (p.ej. uno de
+    // Benjamín C que juega con el Benjamín B): su dorsal es el de su propia
+    // plantilla. En el partido sí queda siempre el del acta.
+    const sinDorsal = rosterPlantilla.filter((pj) => pj.dorsal == null && !pj.promocion);
+    const enOtraPlantilla = new Set();
+    if (sinDorsal.length && plantillaPartido?.id_temporada) {
+      const otras = await Plantilla.findAll({
+        where: { id_temporada: plantillaPartido.id_temporada, id: { [Op.ne]: partido.id_plantilla } },
+        attributes: ['id']
+      }) || [];
+      const idsOtras = new Set(otras.map((p) => p.id));
+      if (idsOtras.size) {
+        const filasOtras = await PlantillaJugador.findAll({
+          where: { id_plantilla: [...idsOtras], id_jugador: sinDorsal.map((pj) => pj.id_jugador) }
+        }) || [];
+        for (const f of filasOtras) if (idsOtras.has(f.id_plantilla)) enOtraPlantilla.add(f.id_jugador);
+      }
+    }
+    for (const pj of sinDorsal) {
+      if (enOtraPlantilla.has(pj.id_jugador)) continue;
       const delActa = filasConNombre.find((f) => f.id === pj.id_jugador && f.rfaf.dorsal != null);
       if (delActa) await PlantillaJugador.update({ dorsal: delActa.rfaf.dorsal }, { where: { id: pj.id } });
     }
