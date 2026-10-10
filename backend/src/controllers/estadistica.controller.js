@@ -21,7 +21,8 @@ const PALMA_ID = 73;
 // Contadores del equipo (Estadísticas Equipo), en total y como local / visitante.
 const CONTADORES_EQUIPO = [
   'partidos', 'victorias', 'empates', 'derrotas', 'goles_favor', 'goles_contra',
-  'goles_penalti_favor', 'goles_penalti_contra', 'tarjetas_amarillas', 'tarjetas_rojas'
+  'goles_penalti_favor', 'goles_penalti_contra', 'goles_titulares', 'goles_suplentes',
+  'tarjetas_amarillas', 'tarjetas_rojas'
 ];
 
 /** Porcentaje con un decimal (null si no se puede calcular). */
@@ -211,16 +212,20 @@ async function equipo(req, res, next) {
         const goles = await PartidoGol.findAll({ where: { id_partido: [...sinPenaltisFavor], tipo: 'penalti' } }) || [];
         for (const g of goles) sumar('goles_penalti_favor', 1, ladoPartido.get(g.id_partido));
       }
-      // Tarjetas de los jugadores del PALMA (los del rival no tienen id_jugador).
+      // Tarjetas y goles de los jugadores del PALMA (los del rival no tienen
+      // id_jugador); los goles, según los marcara un titular o un suplente que entró.
       const jugadores = await PartidoJugador.findAll({
         where: { id_partido: idsPartidos },
-        attributes: ['id_partido', 'id_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja']
+        attributes: ['id_partido', 'id_jugador', 'es_local', 'titular', 'minuto_entrada', 'goles', 'tarjeta_amarilla', 'tarjeta_roja']
       }) || [];
       for (const j of jugadores) {
         const lado = ladoPartido.get(j.id_partido);
         if (!j.id_jugador || !lado || !!j.es_local !== (lado === 'local')) continue;
         sumar('tarjetas_amarillas', Number(j.tarjeta_amarilla) || 0, lado);
         sumar('tarjetas_rojas', Number(j.tarjeta_roja) || 0, lado);
+        const goles = Number(j.goles) || 0;
+        if (j.titular === true || j.titular === 1) sumar('goles_titulares', goles, lado);
+        else if ((j.titular === false || j.titular === 0) && j.minuto_entrada != null) sumar('goles_suplentes', goles, lado);
       }
     }
 
@@ -228,6 +233,8 @@ async function equipo(req, res, next) {
       const n = fila[`partidos${sufijo}`];
       fila[`media_goles_favor${sufijo}`] = media(fila[`goles_favor${sufijo}`], n);
       fila[`media_goles_contra${sufijo}`] = media(fila[`goles_contra${sufijo}`], n);
+      fila[`media_goles_titulares${sufijo}`] = media(fila[`goles_titulares${sufijo}`], n);
+      fila[`media_goles_suplentes${sufijo}`] = media(fila[`goles_suplentes${sufijo}`], n);
       fila[`media_amarillas${sufijo}`] = media(fila[`tarjetas_amarillas${sufijo}`], n);
       fila[`media_rojas${sufijo}`] = media(fila[`tarjetas_rojas${sufijo}`], n);
     }

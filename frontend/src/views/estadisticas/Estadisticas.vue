@@ -28,6 +28,8 @@ const METRICAS_EQUIPO = [
   { campo: 'goles_penalti_contra', titulo: 'GEP', descripcion: 'Goles en contra de penalti', subgrupo: 'Goles' },
   { campo: 'media_goles_favor', titulo: 'Media GF\npor partido', descripcion: 'Media de goles a favor por partido', decimal: true, subgrupo: 'Goles' },
   { campo: 'media_goles_contra', titulo: 'Media GC\npor partido', descripcion: 'Media de goles en contra por partido', decimal: true, subgrupo: 'Goles' },
+  { campo: 'media_goles_titulares', titulo: 'Media Goles\nTitulares', descripcion: 'Media de goles por partido marcados por titulares', decimal: true, subgrupo: 'Goles' },
+  { campo: 'media_goles_suplentes', titulo: 'Media Goles\nSuplentes', descripcion: 'Media de goles por partido marcados por suplentes que entraron', decimal: true, subgrupo: 'Goles' },
   { campo: 'tarjetas_amarillas', titulo: 'TA', descripcion: 'Tarjetas amarillas', subgrupo: 'Sanciones' },
   { campo: 'tarjetas_rojas', titulo: 'TR', descripcion: 'Tarjetas rojas', subgrupo: 'Sanciones' },
   { campo: 'media_amarillas', titulo: 'Media TA\npor partido', descripcion: 'Media de tarjetas amarillas por partido', decimal: true, subgrupo: 'Sanciones' },
@@ -134,7 +136,7 @@ const TABLAS = {
   equipo: {
     seccion: 'estadisticas_equipo',
     titulo: 'Estadísticas Equipo',
-    descripcion: 'Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50). Las tarjetas son las de los jugadores del PALMA.',
+    descripcion: 'Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50). Media Goles Titulares / Suplentes: goles por partido marcados por jugadores que salieron de titulares / que entraron desde el banquillo (los de propia puerta del rival no son de nadie). Las tarjetas son las de los jugadores del PALMA.',
     metricas: METRICAS_EQUIPO
   },
   convocatorias: {

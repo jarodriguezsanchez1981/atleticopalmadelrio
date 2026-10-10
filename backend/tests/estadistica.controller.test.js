@@ -161,10 +161,11 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       ]);
       PartidoGol.findAll.mockResolvedValue([{ id_partido: 3, id_jugador: 7, tipo: 'penalti' }]);
       PartidoJugador.findAll.mockResolvedValue([
-        { id_partido: 1, id_jugador: 7, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0 },
-        { id_partido: 1, id_jugador: null, es_local: false, tarjeta_amarilla: 2, tarjeta_roja: 1 }, // rival
-        { id_partido: 2, id_jugador: 8, es_local: false, tarjeta_amarilla: 1, tarjeta_roja: 1 },
-        { id_partido: 3, id_jugador: 8, es_local: false, tarjeta_amarilla: 1, tarjeta_roja: 0 }
+        { id_partido: 1, id_jugador: 7, es_local: true, titular: true, goles: 1, tarjeta_amarilla: 1, tarjeta_roja: 0 },
+        { id_partido: 1, id_jugador: 9, es_local: true, titular: false, minuto_entrada: 60, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 0 },
+        { id_partido: 1, id_jugador: null, es_local: false, goles: 1, tarjeta_amarilla: 2, tarjeta_roja: 1 }, // rival
+        { id_partido: 2, id_jugador: 8, es_local: false, titular: 1, goles: 0, tarjeta_amarilla: 1, tarjeta_roja: 1 },
+        { id_partido: 3, id_jugador: 8, es_local: false, titular: 1, goles: 1, tarjeta_amarilla: 1, tarjeta_roja: 0 }
       ]);
 
       const { promesa, res } = llamarEquipo({ query: { id_plantilla: '5' } });
@@ -182,6 +183,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         tarjetas_rojas: 1, tarjetas_rojas_visitante: 1,
         media_goles_favor: 1, media_goles_contra: 1.67, media_goles_favor_visitante: 0.5,
         media_amarillas: 1, media_rojas: 0.33, media_rojas_local: 0,
+        goles_titulares: 2, goles_titulares_local: 1, goles_titulares_visitante: 1, goles_suplentes: 1, goles_suplentes_local: 1,
+        media_goles_titulares: 0.67, media_goles_suplentes: 0.33, media_goles_suplentes_local: 1, media_goles_suplentes_visitante: 0,
         sin_penaltis: 1
       });
     });
