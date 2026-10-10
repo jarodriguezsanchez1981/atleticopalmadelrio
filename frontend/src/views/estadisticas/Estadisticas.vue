@@ -141,7 +141,8 @@ const TABLAS = {
     seccion: 'estadisticas_equipo',
     titulo: 'Estadísticas Equipo',
     descripcion: 'Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50). Media Goles Titulares / Suplentes: goles por partido marcados por jugadores que salieron de titulares / que entraron desde el banquillo (los de propia puerta del rival no son de nadie). Media TA / TR Titulares y Suplentes: tarjetas por partido de los titulares / de los suplentes (también las que ve un suplente en el banquillo sin llegar a jugar). Las tarjetas son las de los jugadores del PALMA.',
-    metricas: METRICAS_EQUIPO
+    metricas: METRICAS_EQUIPO,
+    porLado: true
   },
   convocatorias: {
     seccion: 'estadisticas_convocatorias',
@@ -162,14 +163,16 @@ const TABLAS = {
     titulo: 'Estadísticas Goles',
     descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. Los goles en propia puerta no cuentan.',
     metricas: METRICAS_GOLES,
-    sortField: 'goles'
+    sortField: 'goles',
+    porLado: true
   },
   sanciones: {
     seccion: 'estadisticas_sanciones',
     titulo: 'Estadísticas Sanciones',
     descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo.',
     metricas: METRICAS_SANCIONES,
-    sortField: 'tarjetas_amarillas'
+    sortField: 'tarjetas_amarillas',
+    porLado: true
   }
 };
 const config = computed(() => TABLAS[props.tabla]);
@@ -180,6 +183,22 @@ const filasTabla = computed(() => ({
   goles: filasGoles.value,
   sanciones: filasSanciones.value
 })[props.tabla]);
+// Equipo, Goles y Sanciones: una tabla para Total, otra para Local y otra para
+// Visitante; en Goles y Sanciones, cada una solo con quien tiene goles /
+// tarjetas en ella.
+const LADOS_TABLA = [
+  { clave: 'total', titulo: 'Total', sufijo: '' },
+  { clave: 'local', titulo: 'Local', sufijo: '_local' },
+  { clave: 'visitante', titulo: 'Visitante', sufijo: '_visitante' }
+];
+function filasDelLado(sufijo) {
+  if (props.tabla === 'goles') return filasFiltradas.value.filter((f) => f[`goles${sufijo}`] > 0);
+  if (props.tabla === 'sanciones') {
+    return filasFiltradas.value.filter((f) => f[`tarjetas_amarillas${sufijo}`] > 0 || f[`tarjetas_rojas${sufijo}`] > 0);
+  }
+  return filasTabla.value;
+}
+
 const textoVacioTabla = computed(() => (props.tabla === 'equipo' ? 'Todavía no hay partidos con resultado.' : textoVacio.value));
 
 const titulo = computed(() => plantilla.value
@@ -206,7 +225,7 @@ onBeforeUnmount(() => {
       <p class="text-sm text-ink-tertiary">
         Partidos de <strong>{{ titulo }}</strong>, según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en
         cada partido). Los datos salen en Total, como Local (el PALMA en casa) y como Visitante (fuera); se puede mover
-        un grupo o una columna arrastrando su título.
+        una columna arrastrando su título.
       </p>
       <p class="text-sm text-ink-tertiary mt-1">{{ config.descripcion }}</p>
       <p v-if="tabla === 'equipo' && equipo?.sin_penaltis" class="text-xs text-amber-700 mt-1">
@@ -229,9 +248,14 @@ onBeforeUnmount(() => {
                      :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
       </div>
 
-      <TablaEstadistica v-if="tabla === 'equipo'" :key="tabla" :filas="filasTabla" :metricas="config.metricas"
-                        :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla"
-                        :cargando="cargando" :textoVacio="textoVacioTabla" />
+      <template v-if="config.porLado">
+        <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
+          <h2 class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
+          <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
+                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
+                            v-bind="tabla === 'equipo' ? { columnaNombre: { campo: 'equipo', titulo: 'Equipo' }, dataKey: 'id_plantilla' } : {}" />
+        </div>
+      </template>
       <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
                         :cargando="cargando" :textoVacio="textoVacioTabla" />
     </template>

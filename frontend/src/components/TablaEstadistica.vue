@@ -23,7 +23,10 @@ const props = defineProps({
   textoVacio: { type: String, default: '' },
   // Primera columna (fija) y clave de cada fila: el jugador, o p.ej. el equipo.
   columnaNombre: { type: Object, default: () => ({ campo: 'jugador', titulo: 'Jugador' }) },
-  dataKey: { type: String, default: 'id_jugador' }
+  dataKey: { type: String, default: 'id_jugador' },
+  // Solo uno de los grupos ('total' | 'local' | 'visitante'): la tabla es la de
+  // ese grupo, sin la fila de títulos de grupo (y sortField se refiere a él).
+  soloGrupo: { type: String, default: null }
 });
 
 const GRUPOS = {
@@ -32,13 +35,18 @@ const GRUPOS = {
   visitante: { titulo: 'Visitante', sufijo: '_visitante' }
 };
 
-const ordenGrupos = ref(Object.keys(GRUPOS));
+const ordenGrupos = ref(props.soloGrupo ? [props.soloGrupo] : Object.keys(GRUPOS));
 const ordenMetricas = ref(props.metricas.map((m) => m.campo));
 watch(() => props.metricas, (m) => { ordenMetricas.value = m.map((x) => x.campo); });
 
 const conSubgrupos = computed(() => props.metricas.some((m) => m.subgrupo));
-// Filas de cabecera: grupos, (subgrupos y) columnas.
-const niveles = computed(() => (conSubgrupos.value ? 3 : 2));
+// Filas de cabecera: grupos (si hay varios), (subgrupos y) columnas.
+const niveles = computed(() => (conSubgrupos.value ? 2 : 1) + (props.soloGrupo ? 0 : 1));
+// Filas que ocupa el título de una columna que no está en un subgrupo.
+const filasColumna = computed(() => (conSubgrupos.value ? 2 : 1));
+const campoOrden = computed(() => (props.sortField && props.soloGrupo
+  ? `${props.sortField}${GRUPOS[props.soloGrupo].sufijo}`
+  : props.sortField));
 
 const grupos = computed(() => ordenGrupos.value.map((clave) => {
   const columnas = ordenMetricas.value
@@ -137,17 +145,18 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
 
 <template>
   <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea ar-dt-agrupada" :value="filas" :loading="cargando"
-             :dataKey="dataKey" :sortField="sortField" :sortOrder="-1">
+             :dataKey="dataKey" :sortField="campoOrden" :sortOrder="-1">
     <ColumnGroup type="header">
-      <Row>
+      <Row v-if="!soloGrupo">
         <Column :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <Column v-for="g in grupos" :key="g.clave" :header="g.titulo" :colspan="g.columnas.length"
                 :headerClass="`ar-dt-titulo-grupo ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
       </Row>
       <Row>
+        <Column v-if="soloGrupo" :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <template v-for="g in grupos" :key="g.clave">
           <template v-for="t in g.tramos" :key="t.columna?.field || `${g.clave}-${t.subgrupo}`">
-            <Column v-if="t.columna" :header="t.columna.titulo" :field="t.columna.field" sortable :rowspan="niveles - 1"
+            <Column v-if="t.columna" :header="t.columna.titulo" :field="t.columna.field" sortable :rowspan="filasColumna"
                     :headerClass="`text-center ar-dt-grupo-${g.clave}${claseSeparador(t.columna)}`"
                     :pt="arrastrable(`metrica-${t.columna.subgrupo || ''}`, t.columna.campo, t.columna.descripcion)" />
             <Column v-else :header="t.subgrupo" :colspan="t.columnas.length"

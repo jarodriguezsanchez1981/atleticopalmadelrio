@@ -110,4 +110,16 @@ describe('TablaEstadistica con subgrupos', () => {
     expect(textos(w.findAll('thead tr')[0].findAll('th'))[0]).toBe('Equipo');
     expect(textos(w.findAll('tbody tr')[0].findAll('td'))).toEqual(['Senior A', '3', '1,67', '1', '2,00', '2', '—']);
   });
+
+  it('con soloGrupo muestra solo ese grupo, sin la fila de títulos de grupo', async () => {
+    const w = mount(TablaEstadistica, {
+      props: { filas: FILAS, metricas: METRICAS, sortField: 'goles', soloGrupo: 'local' },
+      global: { plugins: [PrimeVue] }
+    });
+    await nextTick();
+    const filasCabecera = w.findAll('thead tr');
+    expect(filasCabecera).toHaveLength(1);
+    expect(textos(filasCabecera[0].findAll('th'))).toEqual(['Jugador', 'Goles', '% de sus goles', 'Partidos']);
+    expect(textos(w.findAll('tbody tr')[0].findAll('td'))).toEqual(['Ana López', '2', '66,7 %', '1']);
+  });
 });
