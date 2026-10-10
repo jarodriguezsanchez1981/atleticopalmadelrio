@@ -17,16 +17,16 @@ const METRICAS_EQUIPO = [
   { campo: 'victorias', titulo: 'G', descripcion: 'Ganados' },
   { campo: 'empates', titulo: 'E', descripcion: 'Empatados' },
   { campo: 'derrotas', titulo: 'P', descripcion: 'Perdidos' },
-  { campo: 'goles_favor', titulo: 'GF', descripcion: 'Goles a favor' },
-  { campo: 'goles_contra', titulo: 'GC', descripcion: 'Goles en contra' },
-  { campo: 'goles_penalti_favor', titulo: 'GP', descripcion: 'Goles de penalti' },
-  { campo: 'goles_penalti_contra', titulo: 'GEP', descripcion: 'Goles en contra de penalti' },
-  { campo: 'media_goles_favor', titulo: 'Media GF\npor partido', descripcion: 'Media de goles a favor por partido', decimal: true },
-  { campo: 'media_goles_contra', titulo: 'Media GC\npor partido', descripcion: 'Media de goles en contra por partido', decimal: true },
-  { campo: 'tarjetas_amarillas', titulo: 'TA', descripcion: 'Tarjetas amarillas' },
-  { campo: 'tarjetas_rojas', titulo: 'TR', descripcion: 'Tarjetas rojas' },
-  { campo: 'media_amarillas', titulo: 'Media TA\npor partido', descripcion: 'Media de tarjetas amarillas por partido', decimal: true },
-  { campo: 'media_rojas', titulo: 'Media TR\npor partido', descripcion: 'Media de tarjetas rojas por partido', decimal: true }
+  { campo: 'goles_favor', titulo: 'GF', descripcion: 'Goles a favor', subgrupo: 'Goles' },
+  { campo: 'goles_contra', titulo: 'GC', descripcion: 'Goles en contra', subgrupo: 'Goles' },
+  { campo: 'goles_penalti_favor', titulo: 'GP', descripcion: 'Goles de penalti', subgrupo: 'Goles' },
+  { campo: 'goles_penalti_contra', titulo: 'GEP', descripcion: 'Goles en contra de penalti', subgrupo: 'Goles' },
+  { campo: 'media_goles_favor', titulo: 'Media GF\npor partido', descripcion: 'Media de goles a favor por partido', decimal: true, subgrupo: 'Goles' },
+  { campo: 'media_goles_contra', titulo: 'Media GC\npor partido', descripcion: 'Media de goles en contra por partido', decimal: true, subgrupo: 'Goles' },
+  { campo: 'tarjetas_amarillas', titulo: 'TA', descripcion: 'Tarjetas amarillas', subgrupo: 'Sanciones' },
+  { campo: 'tarjetas_rojas', titulo: 'TR', descripcion: 'Tarjetas rojas', subgrupo: 'Sanciones' },
+  { campo: 'media_amarillas', titulo: 'Media TA\npor partido', descripcion: 'Media de tarjetas amarillas por partido', decimal: true, subgrupo: 'Sanciones' },
+  { campo: 'media_rojas', titulo: 'Media TR\npor partido', descripcion: 'Media de tarjetas rojas por partido', decimal: true, subgrupo: 'Sanciones' }
 ];
 const METRICAS_CONVOCATORIAS = [
   { campo: 'convocatorias', titulo: 'Conv.', descripcion: 'Convocatorias' },
