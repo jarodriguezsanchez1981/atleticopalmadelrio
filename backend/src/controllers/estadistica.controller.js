@@ -17,6 +17,12 @@ const CONTADORES = [
   'tarjetas_amarillas', 'tarjetas_rojas', ...CAMPOS_TARJETAS
 ];
 const LADOS = ['local', 'visitante'];
+const PALMA_ID = 73;
+// Contadores del equipo (Estadísticas Equipo), en total y como local / visitante.
+const CONTADORES_EQUIPO = [
+  'partidos', 'victorias', 'empates', 'derrotas', 'goles_favor', 'goles_contra',
+  'goles_penalti_favor', 'goles_penalti_contra', 'tarjetas_amarillas', 'tarjetas_rojas'
+];
 
 /** Porcentaje con un decimal (null si no se puede calcular). */
 const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : null);
@@ -146,4 +152,85 @@ async function listar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar };
+/** Goles de cada equipo a partir del resultado "local-visitante"; null si no es válido. */
+function golesResultado(resultado) {
+  const m = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(String(resultado || ''));
+  return m ? { local: Number(m[1]), visitante: Number(m[2]) } : null;
+}
+
+/** Estadísticas del equipo en los partidos de una plantilla con resultado (no
+ * suspendidos): partidos, victorias / empates / derrotas, goles a favor y en
+ * contra (y de penalti), tarjetas de los jugadores del PALMA, y porcentajes
+ * por partido. En total y como local / visitante del PALMA. `sin_penaltis`:
+ * partidos con resultado cuyo acta no se ha finalizado desde que se guardan
+ * los penaltis (sus penaltis en contra no se conocen). */
+async function equipo(req, res, next) {
+  try {
+    const idPlantilla = Number(req.query.id_plantilla);
+    if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+
+    const fila = { id_plantilla: idPlantilla, sin_penaltis: 0 };
+    for (const c of CONTADORES_EQUIPO) {
+      fila[c] = 0;
+      for (const l of LADOS) fila[`${c}_${l}`] = 0;
+    }
+    const sumar = (campo, valor, lado) => {
+      fila[campo] += valor;
+      fila[`${campo}_${lado}`] += valor;
+    };
+
+    const partidos = (await Partido.findAll({
+      where: { id_plantilla: idPlantilla },
+      attributes: ['id', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido', 'goles_penalti_favor', 'goles_penalti_contra']
+    }) || []).filter((p) => !p.suspendido && golesResultado(p.resultado)
+      && (Number(p.id_equipo_local) === PALMA_ID || Number(p.id_equipo_visitante) === PALMA_ID));
+    const ladoPartido = new Map();
+    for (const p of partidos) {
+      const lado = Number(p.id_equipo_local) === PALMA_ID ? 'local' : 'visitante';
+      ladoPartido.set(p.id, lado);
+      const goles = golesResultado(p.resultado);
+      const favor = lado === 'local' ? goles.local : goles.visitante;
+      const contra = lado === 'local' ? goles.visitante : goles.local;
+      sumar('partidos', 1, lado);
+      sumar(favor > contra ? 'victorias' : favor < contra ? 'derrotas' : 'empates', 1, lado);
+      sumar('goles_favor', favor, lado);
+      sumar('goles_contra', contra, lado);
+      if (p.goles_penalti_contra != null) sumar('goles_penalti_contra', Number(p.goles_penalti_contra), lado);
+      else fila.sin_penaltis += 1;
+      if (p.goles_penalti_favor != null) sumar('goles_penalti_favor', Number(p.goles_penalti_favor), lado);
+    }
+
+    const idsPartidos = [...ladoPartido.keys()];
+    if (idsPartidos.length) {
+      // Partidos de antes de guardar los penaltis en el partido: los a favor
+      // salen de los goles de los jugadores (partido_goles).
+      const sinPenaltisFavor = new Set(partidos.filter((p) => p.goles_penalti_favor == null).map((p) => p.id));
+      if (sinPenaltisFavor.size) {
+        const goles = await PartidoGol.findAll({ where: { id_partido: [...sinPenaltisFavor], tipo: 'penalti' } }) || [];
+        for (const g of goles) sumar('goles_penalti_favor', 1, ladoPartido.get(g.id_partido));
+      }
+      // Tarjetas de los jugadores del PALMA (los del rival no tienen id_jugador).
+      const jugadores = await PartidoJugador.findAll({
+        where: { id_partido: idsPartidos },
+        attributes: ['id_partido', 'id_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja']
+      }) || [];
+      for (const j of jugadores) {
+        const lado = ladoPartido.get(j.id_partido);
+        if (!j.id_jugador || !lado || !!j.es_local !== (lado === 'local')) continue;
+        sumar('tarjetas_amarillas', Number(j.tarjeta_amarilla) || 0, lado);
+        sumar('tarjetas_rojas', Number(j.tarjeta_roja) || 0, lado);
+      }
+    }
+
+    for (const sufijo of ['', '_local', '_visitante']) {
+      const n = fila[`partidos${sufijo}`];
+      fila[`porcentaje_goles_favor${sufijo}`] = porcentaje(fila[`goles_favor${sufijo}`], n);
+      fila[`porcentaje_goles_contra${sufijo}`] = porcentaje(fila[`goles_contra${sufijo}`], n);
+      fila[`porcentaje_amarillas${sufijo}`] = porcentaje(fila[`tarjetas_amarillas${sufijo}`], n);
+      fila[`porcentaje_rojas${sufijo}`] = porcentaje(fila[`tarjetas_rojas${sufijo}`], n);
+    }
+    res.json(fila);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, equipo };

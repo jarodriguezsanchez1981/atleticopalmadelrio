@@ -14,6 +14,9 @@ const Partido = sequelize.define('Partido', {
   incidencias: { type: DataTypes.TEXT, allowNull: true },
   observaciones: { type: DataTypes.TEXT, allowNull: true },
   resultado: { type: DataTypes.STRING(255), allowNull: true },
+  // Goles de penalti a favor / en contra del PALMA (Finalizar Acta).
+  goles_penalti_favor: { type: DataTypes.INTEGER, allowNull: true },
+  goles_penalti_contra: { type: DataTypes.INTEGER, allowNull: true },
   suspendido: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   codigo_acta: { type: DataTypes.STRING(50), allowNull: true },
   acta_finalizada_at: { type: DataTypes.DATE, allowNull: true },

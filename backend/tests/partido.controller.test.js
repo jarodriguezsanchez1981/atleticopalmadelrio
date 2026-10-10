@@ -935,12 +935,18 @@ describe('Sección Partidos · partido.controller', () => {
           { minuto: 10, equipo: 'local', nombre: 'PEREZ GOMEZ, JUAN', tipo: 'normal' },
           { minuto: 30, equipo: 'visitante', nombre: 'GARCIA TORRES, MANUEL', tipo: 'normal' }, // del rival
           { minuto: 40, equipo: 'local', nombre: 'GARCIA TORRES, MANUEL', tipo: 'propia' },     // en propia del rival
-          { minuto: 60, equipo: 'local', nombre: 'PEREZ GOMEZ, JUAN', tipo: 'penalti' }
+          { minuto: 60, equipo: 'local', nombre: 'PEREZ GOMEZ, JUAN', tipo: 'penalti' },
+          { minuto: 80, equipo: 'visitante', nombre: 'GARCIA TORRES, MANUEL', tipo: 'penalti' } // penalti del rival
         ]
       });
+      const partido = partidoPalma();
+      Partido.findByPk.mockResolvedValue(partido);
 
       const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
       await promesa;
+
+      expect(partido.goles_penalti_favor).toBe(1);
+      expect(partido.goles_penalti_contra).toBe(1);
 
       expect(PartidoGol.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
       expect(PartidoGol.bulkCreate).toHaveBeenCalledWith([

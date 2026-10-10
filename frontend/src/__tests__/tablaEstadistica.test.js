@@ -92,4 +92,19 @@ describe('TablaEstadistica con subgrupos', () => {
     await nextTick();
     expect(textos(w.findAll('thead tr')[1].findAll('th')).slice(0, 3)).toEqual(['Partidos', 'Rojas', 'Amarillas']);
   });
+
+  it('la primera columna puede ser otra (p.ej. el equipo)', async () => {
+    const w = mount(TablaEstadistica, {
+      props: {
+        filas: [{ id_plantilla: 5, equipo: 'Senior A', partidos: 3, partidos_local: 1, partidos_visitante: 2 }],
+        metricas: [{ campo: 'partidos', titulo: 'PAR', descripcion: 'Partidos jugados' }],
+        columnaNombre: { campo: 'equipo', titulo: 'Equipo' },
+        dataKey: 'id_plantilla'
+      },
+      global: { plugins: [PrimeVue] }
+    });
+    await nextTick();
+    expect(textos(w.findAll('thead tr')[0].findAll('th'))[0]).toBe('Equipo');
+    expect(textos(w.findAll('tbody tr')[0].findAll('td'))).toEqual(['Senior A', '3', '1', '2']);
+  });
 });

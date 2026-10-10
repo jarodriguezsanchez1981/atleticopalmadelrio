@@ -83,7 +83,8 @@ export const promocionesService = {
 };
 export const torneosService = crudService('torneos');
 export const estadisticasService = {
-  listar: (params = {}) => api.get('/estadisticas', { params }).then(r => r.data)
+  listar: (params = {}) => api.get('/estadisticas', { params }).then(r => r.data),
+  equipo: (params = {}) => api.get('/estadisticas/equipo', { params }).then(r => r.data)
 };
 
 export const cambiosService = {

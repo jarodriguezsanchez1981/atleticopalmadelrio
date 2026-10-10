@@ -20,7 +20,10 @@ const props = defineProps({
   metricas: { type: Array, required: true },
   sortField: { type: String, default: null },
   cargando: { type: Boolean, default: false },
-  textoVacio: { type: String, default: '' }
+  textoVacio: { type: String, default: '' },
+  // Primera columna (fija) y clave de cada fila: el jugador, o p.ej. el equipo.
+  columnaNombre: { type: Object, default: () => ({ campo: 'jugador', titulo: 'Jugador' }) },
+  dataKey: { type: String, default: 'id_jugador' }
 });
 
 const GRUPOS = {
@@ -129,10 +132,10 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
 
 <template>
   <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea ar-dt-agrupada" :value="filas" :loading="cargando"
-             dataKey="id_jugador" :sortField="sortField" :sortOrder="-1">
+             :dataKey="dataKey" :sortField="sortField" :sortOrder="-1">
     <ColumnGroup type="header">
       <Row>
-        <Column header="Jugador" field="jugador" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
+        <Column :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <Column v-for="g in grupos" :key="g.clave" :header="g.titulo" :colspan="g.columnas.length"
                 :headerClass="`ar-dt-titulo-grupo ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
       </Row>
@@ -160,7 +163,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
     </ColumnGroup>
 
     <!-- El nombre en una sola línea: la columna no se estrecha al ensanchar la tabla. -->
-    <Column field="jugador" bodyClass="whitespace-nowrap" />
+    <Column :field="columnaNombre.campo" bodyClass="whitespace-nowrap" />
     <template v-for="g in grupos" :key="g.clave">
       <Column v-for="c in g.columnas" :key="c.field" :field="c.field" :bodyClass="`text-center${claseSeparador(c)}`">
         <template v-if="c.porcentaje" #body="{ data }">{{ formatoPorcentaje(data[c.field]) }}</template>

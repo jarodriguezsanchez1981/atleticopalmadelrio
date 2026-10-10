@@ -8,5 +8,6 @@ const router = Router();
 router.use(authenticate, authorize('estadisticas'));
 
 router.get('/', ctrl.listar);
+router.get('/equipo', ctrl.equipo);
 
 module.exports = router;

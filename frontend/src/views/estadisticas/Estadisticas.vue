@@ -12,6 +12,22 @@ import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 const CATEGORIA = CATEGORIA_CON_MINUTOS;
 
 // Columnas de cada tabla; cada una sale en Total, Local y Visitante (ver TablaEstadistica).
+const METRICAS_EQUIPO = [
+  { campo: 'partidos', titulo: 'PAR', descripcion: 'Partidos jugados' },
+  { campo: 'victorias', titulo: 'G', descripcion: 'Ganados' },
+  { campo: 'empates', titulo: 'E', descripcion: 'Empatados' },
+  { campo: 'derrotas', titulo: 'P', descripcion: 'Perdidos' },
+  { campo: 'goles_favor', titulo: 'GF', descripcion: 'Goles a favor' },
+  { campo: 'goles_contra', titulo: 'GC', descripcion: 'Goles en contra' },
+  { campo: 'goles_penalti_favor', titulo: 'GP', descripcion: 'Goles de penalti' },
+  { campo: 'goles_penalti_contra', titulo: 'GEP', descripcion: 'Goles en contra de penalti' },
+  { campo: 'porcentaje_goles_favor', titulo: '% GF\npartido', descripcion: '% goles por partido', porcentaje: true },
+  { campo: 'porcentaje_goles_contra', titulo: '% GC\npartido', descripcion: '% goles en contra por partido', porcentaje: true },
+  { campo: 'tarjetas_amarillas', titulo: 'TA', descripcion: 'Tarjetas amarillas' },
+  { campo: 'tarjetas_rojas', titulo: 'TR', descripcion: 'Tarjetas rojas' },
+  { campo: 'porcentaje_amarillas', titulo: '% TA\npartido', descripcion: '% tarjetas amarillas por partido', porcentaje: true },
+  { campo: 'porcentaje_rojas', titulo: '% TR\npartido', descripcion: '% tarjetas rojas por partido', porcentaje: true }
+];
 const METRICAS_CONVOCATORIAS = [
   { campo: 'convocatorias', titulo: 'Conv.', descripcion: 'Convocatorias' },
   { campo: 'titular', titulo: 'Tit.', descripcion: 'Titular' },
@@ -54,6 +70,8 @@ const METRICAS_SANCIONES = [
 
 const plantilla = ref(null);
 const filas = ref([]);
+// Estadísticas Equipo: una sola fila, la del equipo.
+const equipo = ref(null);
 const cargando = ref(false);
 const error = ref('');
 // Jugadores elegidos en el filtro (ids); vacío = todos.
@@ -67,12 +85,20 @@ async function cargar() {
     const [plantillas, temporadas] = await Promise.all([plantillasService.listar(), temporadasService.listar()]);
     plantilla.value = filtrarPlantillasTemporadaActual(plantillas, temporadas)
       .find((p) => p.categoria?.nombre === CATEGORIA) || null;
-    filas.value = plantilla.value
-      ? (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
-        .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }))
-      : [];
+    if (plantilla.value) {
+      const [jugadores, datosEquipo] = await Promise.all([
+        estadisticasService.listar({ id_plantilla: plantilla.value.id }),
+        estadisticasService.equipo({ id_plantilla: plantilla.value.id })
+      ]);
+      filas.value = jugadores.map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
+      equipo.value = datosEquipo;
+    } else {
+      filas.value = [];
+      equipo.value = null;
+    }
   } catch (err) {
     filas.value = [];
+    equipo.value = null;
     error.value = err.response?.data?.message || 'No se pudieron cargar las estadísticas.';
   } finally {
     cargando.value = false;
@@ -97,6 +123,10 @@ const filasSanciones = computed(() => filasFiltradas.value.filter((f) => f.tarje
 // Estadísticas Goles: solo los que han marcado.
 const filasGoles = computed(() => filasFiltradas.value.filter((f) => f.goles > 0));
 
+const filasEquipo = computed(() => (equipo.value?.partidos
+  ? [{ ...equipo.value, equipo: plantilla.value?.categoria?.nombre || CATEGORIA }]
+  : []));
+
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
@@ -116,9 +146,9 @@ onBeforeUnmount(() => {
     <div>
       <h1 class="font-display text-xl text-club-green">Estadísticas</h1>
       <p class="text-sm text-ink-tertiary">
-        Partidos, minutos, goles y tarjetas de cada jugador en los partidos de <strong>{{ titulo }}</strong>,
+        Resultados del equipo y partidos, minutos, goles y tarjetas de cada jugador en los partidos de <strong>{{ titulo }}</strong>,
         según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). El filtro de jugadores se
-        aplica a todas las tablas. Cada tabla tiene los datos en Total, como Local (el PALMA en casa) y como Visitante
+        aplica a todas las tablas de jugadores. Cada tabla tiene los datos en Total, como Local (el PALMA en casa) y como Visitante
         (fuera); se puede mover un grupo o una columna arrastrando su título.
       </p>
     </div>
@@ -130,7 +160,22 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="plantilla && !error">
-      <div class="flex flex-wrap items-center gap-2">
+      <div>
+        <h2 class="font-display text-lg text-club-green">Estadísticas Equipo</h2>
+        <p class="text-sm text-ink-tertiary">
+          Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a
+          favor / en contra. Los "% por partido" son goles o tarjetas por cada partido jugado (1,5 goles por partido =
+          150 %). Las tarjetas son las de los jugadores del PALMA.
+        </p>
+        <p v-if="equipo?.sin_penaltis" class="text-xs text-amber-700 mt-1">
+          {{ equipo.sin_penaltis }} {{ equipo.sin_penaltis === 1 ? 'partido no tiene' : 'partidos no tienen' }} los
+          penaltis en contra: vuelve a pulsar "Finalizar Acta" en {{ equipo.sin_penaltis === 1 ? 'él' : 'ellos' }}.
+        </p>
+      </div>
+      <TablaEstadistica :filas="filasEquipo" :metricas="METRICAS_EQUIPO" :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }"
+                        dataKey="id_plantilla" :cargando="cargando" textoVacio="Todavía no hay partidos con resultado." />
+
+      <div class="flex flex-wrap items-center gap-2 mt-2">
         <label for="filtro-jugadores" class="text-sm font-medium text-ink-secondary">Jugadores</label>
         <MultiSelect inputId="filtro-jugadores" v-model="jugadoresFiltro" :options="opcionesJugadores" optionLabel="label"
                      optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear

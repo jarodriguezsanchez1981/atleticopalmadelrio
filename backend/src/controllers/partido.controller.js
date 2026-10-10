@@ -504,6 +504,9 @@ async function finalizarActa(req, res, next) {
     partido.codigo_acta = codigo_acta;
     partido.codigo_primaria = codigo_primaria;
     partido.resultado = acta.resultado;
+    // Penaltis marcados por cada lado (los de propia puerta no son penalti).
+    partido.goles_penalti_favor = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo === ladoPalma).length;
+    partido.goles_penalti_contra = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo !== ladoPalma).length;
     partido.acta_finalizada_at = new Date();
     await partido.save();
 

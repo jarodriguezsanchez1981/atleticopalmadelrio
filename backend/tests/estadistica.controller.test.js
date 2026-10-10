@@ -135,4 +135,62 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       amarillas_segunda_visitante: 1, amarillas_perdiendo_visitante: 1, amarillas_primera_visitante: 0
     });
   });
+
+  describe('equipo', () => {
+    function llamarEquipo(overrides = {}) {
+      const { req, res, next } = mockReqRes(overrides);
+      return { promesa: ctrl.equipo(req, res, next), res };
+    }
+
+    it('exige la plantilla', async () => {
+      const { promesa, res } = llamarEquipo({ query: {} });
+      await promesa;
+      expect(res._status).toBe(400);
+    });
+
+    it('suma resultados, goles, penaltis y tarjetas del PALMA como local y visitante', async () => {
+      Partido.findAll.mockResolvedValue([
+        // En casa 2-1 (gana), con penaltis guardados.
+        { id: 1, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '2-1', suspendido: false, goles_penalti_favor: 1, goles_penalti_contra: 1 },
+        // Fuera 3-0 (pierde); acta antigua: penaltis a favor desde partido_goles.
+        { id: 2, id_equipo_local: 60, id_equipo_visitante: 73, resultado: '3-0', suspendido: false, goles_penalti_favor: null, goles_penalti_contra: null },
+        // Fuera 1-1 (empata), penalti a favor desde partido_goles.
+        { id: 3, id_equipo_local: 61, id_equipo_visitante: 73, resultado: '1 - 1', suspendido: false, goles_penalti_favor: null, goles_penalti_contra: 0 },
+        { id: 4, id_equipo_local: 73, id_equipo_visitante: 62, resultado: null, suspendido: false },  // sin jugar
+        { id: 5, id_equipo_local: 73, id_equipo_visitante: 63, resultado: '0-0', suspendido: true }   // suspendido
+      ]);
+      PartidoGol.findAll.mockResolvedValue([{ id_partido: 3, id_jugador: 7, tipo: 'penalti' }]);
+      PartidoJugador.findAll.mockResolvedValue([
+        { id_partido: 1, id_jugador: 7, es_local: true, tarjeta_amarilla: 1, tarjeta_roja: 0 },
+        { id_partido: 1, id_jugador: null, es_local: false, tarjeta_amarilla: 2, tarjeta_roja: 1 }, // rival
+        { id_partido: 2, id_jugador: 8, es_local: false, tarjeta_amarilla: 1, tarjeta_roja: 1 },
+        { id_partido: 3, id_jugador: 8, es_local: false, tarjeta_amarilla: 1, tarjeta_roja: 0 }
+      ]);
+
+      const { promesa, res } = llamarEquipo({ query: { id_plantilla: '5' } });
+      await promesa;
+
+      expect(PartidoGol.findAll).toHaveBeenCalledWith({ where: { id_partido: [2, 3], tipo: 'penalti' } });
+      expect(res._json).toMatchObject({
+        partidos: 3, partidos_local: 1, partidos_visitante: 2,
+        victorias: 1, victorias_local: 1, empates: 1, empates_visitante: 1, derrotas: 1, derrotas_visitante: 1,
+        goles_favor: 3, goles_favor_local: 2, goles_favor_visitante: 1,
+        goles_contra: 5, goles_contra_local: 1, goles_contra_visitante: 4,
+        goles_penalti_favor: 2, goles_penalti_favor_local: 1, goles_penalti_favor_visitante: 1,
+        goles_penalti_contra: 1, goles_penalti_contra_local: 1,
+        tarjetas_amarillas: 3, tarjetas_amarillas_local: 1, tarjetas_amarillas_visitante: 2,
+        tarjetas_rojas: 1, tarjetas_rojas_visitante: 1,
+        porcentaje_goles_favor: 100, porcentaje_goles_contra: 166.7, porcentaje_goles_favor_visitante: 50,
+        porcentaje_amarillas: 100, porcentaje_rojas: 33.3, porcentaje_rojas_local: 0,
+        sin_penaltis: 1
+      });
+    });
+
+    it('sin partidos jugados, todo a cero y porcentajes vacíos', async () => {
+      Partido.findAll.mockResolvedValue([]);
+      const { promesa, res } = llamarEquipo({ query: { id_plantilla: '5' } });
+      await promesa;
+      expect(res._json).toMatchObject({ partidos: 0, victorias: 0, porcentaje_goles_favor: null });
+    });
+  });
 });
