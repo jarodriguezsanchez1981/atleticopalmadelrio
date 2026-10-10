@@ -33,7 +33,11 @@ const METRICAS_EQUIPO = [
   { campo: 'tarjetas_amarillas', titulo: 'TA', descripcion: 'Tarjetas amarillas', subgrupo: 'Sanciones' },
   { campo: 'tarjetas_rojas', titulo: 'TR', descripcion: 'Tarjetas rojas', subgrupo: 'Sanciones' },
   { campo: 'media_amarillas', titulo: 'Media TA\npor partido', descripcion: 'Media de tarjetas amarillas por partido', decimal: true, subgrupo: 'Sanciones' },
-  { campo: 'media_rojas', titulo: 'Media TR\npor partido', descripcion: 'Media de tarjetas rojas por partido', decimal: true, subgrupo: 'Sanciones' }
+  { campo: 'media_rojas', titulo: 'Media TR\npor partido', descripcion: 'Media de tarjetas rojas por partido', decimal: true, subgrupo: 'Sanciones' },
+  { campo: 'media_amarillas_titulares', titulo: 'Media TA\nTitulares', descripcion: 'Media de tarjetas amarillas por partido de los titulares', decimal: true, subgrupo: 'Sanciones' },
+  { campo: 'media_amarillas_suplentes', titulo: 'Media TA\nSuplentes', descripcion: 'Media de tarjetas amarillas por partido de los suplentes', decimal: true, subgrupo: 'Sanciones' },
+  { campo: 'media_rojas_titulares', titulo: 'Media TR\nTitulares', descripcion: 'Media de tarjetas rojas por partido de los titulares', decimal: true, subgrupo: 'Sanciones' },
+  { campo: 'media_rojas_suplentes', titulo: 'Media TR\nSuplentes', descripcion: 'Media de tarjetas rojas por partido de los suplentes', decimal: true, subgrupo: 'Sanciones' }
 ];
 const METRICAS_CONVOCATORIAS = [
   { campo: 'convocatorias', titulo: 'Conv.', descripcion: 'Convocatorias' },
@@ -136,7 +140,7 @@ const TABLAS = {
   equipo: {
     seccion: 'estadisticas_equipo',
     titulo: 'Estadísticas Equipo',
-    descripcion: 'Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50). Media Goles Titulares / Suplentes: goles por partido marcados por jugadores que salieron de titulares / que entraron desde el banquillo (los de propia puerta del rival no son de nadie). Las tarjetas son las de los jugadores del PALMA.',
+    descripcion: 'Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50). Media Goles Titulares / Suplentes: goles por partido marcados por jugadores que salieron de titulares / que entraron desde el banquillo (los de propia puerta del rival no son de nadie). Media TA / TR Titulares y Suplentes: tarjetas por partido de los titulares / de los suplentes (también las que ve un suplente en el banquillo sin llegar a jugar). Las tarjetas son las de los jugadores del PALMA.',
     metricas: METRICAS_EQUIPO
   },
   convocatorias: {

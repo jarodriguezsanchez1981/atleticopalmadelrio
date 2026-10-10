@@ -22,7 +22,8 @@ const PALMA_ID = 73;
 const CONTADORES_EQUIPO = [
   'partidos', 'victorias', 'empates', 'derrotas', 'goles_favor', 'goles_contra',
   'goles_penalti_favor', 'goles_penalti_contra', 'goles_titulares', 'goles_suplentes',
-  'tarjetas_amarillas', 'tarjetas_rojas'
+  'tarjetas_amarillas', 'tarjetas_rojas',
+  'amarillas_titulares', 'amarillas_suplentes', 'rojas_titulares', 'rojas_suplentes'
 ];
 
 /** Porcentaje con un decimal (null si no se puede calcular). */
@@ -224,8 +225,17 @@ async function equipo(req, res, next) {
         sumar('tarjetas_amarillas', Number(j.tarjeta_amarilla) || 0, lado);
         sumar('tarjetas_rojas', Number(j.tarjeta_roja) || 0, lado);
         const goles = Number(j.goles) || 0;
-        if (j.titular === true || j.titular === 1) sumar('goles_titulares', goles, lado);
-        else if ((j.titular === false || j.titular === 0) && j.minuto_entrada != null) sumar('goles_suplentes', goles, lado);
+        const esTitular = j.titular === true || j.titular === 1;
+        const esSuplente = j.titular === false || j.titular === 0;
+        if (esTitular) sumar('goles_titulares', goles, lado);
+        else if (esSuplente && j.minuto_entrada != null) sumar('goles_suplentes', goles, lado);
+        // Tarjetas de los suplentes: también las de los que no llegaron a entrar
+        // (se puede ver tarjeta en el banquillo).
+        const tipo = esTitular ? 'titulares' : esSuplente ? 'suplentes' : null;
+        if (tipo) {
+          sumar(`amarillas_${tipo}`, Number(j.tarjeta_amarilla) || 0, lado);
+          sumar(`rojas_${tipo}`, Number(j.tarjeta_roja) || 0, lado);
+        }
       }
     }
 
@@ -237,6 +247,10 @@ async function equipo(req, res, next) {
       fila[`media_goles_suplentes${sufijo}`] = media(fila[`goles_suplentes${sufijo}`], n);
       fila[`media_amarillas${sufijo}`] = media(fila[`tarjetas_amarillas${sufijo}`], n);
       fila[`media_rojas${sufijo}`] = media(fila[`tarjetas_rojas${sufijo}`], n);
+      for (const tipo of ['amarillas', 'rojas']) {
+        fila[`media_${tipo}_titulares${sufijo}`] = media(fila[`${tipo}_titulares${sufijo}`], n);
+        fila[`media_${tipo}_suplentes${sufijo}`] = media(fila[`${tipo}_suplentes${sufijo}`], n);
+      }
     }
     res.json(fila);
   } catch (err) { next(err); }
