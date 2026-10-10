@@ -63,7 +63,7 @@ const METRICAS_GOLES = [
   { campo: 'porcentaje_goles_titular', titulo: '% Goles', porcentaje: true, subgrupo: 'Tit.', descripcionSubgrupo: 'Titular' },
   { campo: 'goles_banquillo', titulo: 'Goles', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente' },
   { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', porcentaje: true, subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente' },
-  { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', porcentaje: true }
+  { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true }
 ];
 const METRICAS_SANCIONES = [
   { campo: 'partidos', titulo: 'Partidos' },
@@ -161,7 +161,7 @@ const TABLAS = {
   goles: {
     seccion: 'estadisticas_goles',
     titulo: 'Estadísticas Goles',
-    descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. Los goles en propia puerta no cuentan.',
+    descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol (si marca en 2 de 4 partidos, 50 %; marcar varios en un partido cuenta como uno). Los goles en propia puerta no cuentan.',
     metricas: METRICAS_GOLES,
     sortField: 'goles',
     porLado: true

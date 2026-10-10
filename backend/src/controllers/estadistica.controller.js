@@ -13,7 +13,7 @@ const CAMPOS_TARJETAS = [
 const CONTADORES = [
   'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados', 'sustituciones',
   'minutos', 'minutos_titular', 'minutos_banquillo',
-  'goles', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda',
+  'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda',
   'tarjetas_amarillas', 'tarjetas_rojas', ...CAMPOS_TARJETAS
 ];
 const LADOS = ['local', 'visitante'];
@@ -86,6 +86,7 @@ async function listar(req, res, next) {
       if (minutos > 0) sumar(fila, 'partidos', 1, lado);
       sumar(fila, 'minutos', minutos, lado);
       sumar(fila, 'goles', goles, lado);
+      if (goles > 0) sumar(fila, 'partidos_con_gol', 1, lado);
       if (esTitular) {
         sumar(fila, 'titular', 1, lado);
         sumar(fila, 'minutos_titular', minutos, lado);
@@ -137,7 +138,8 @@ async function listar(req, res, next) {
 
     for (const f of porJugador.values()) {
       for (const sufijo of ['', '_local', '_visitante']) {
-        f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`goles${sufijo}`], f[`partidos${sufijo}`]);
+        // Partidos jugados en los que marca (como mucho 100 %, aunque meta varios en uno).
+        f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`partidos_con_gol${sufijo}`], f[`partidos${sufijo}`]);
         // Parte de sus goles marcados de titular / entrando de suplente.
         f[`porcentaje_goles_titular${sufijo}`] = porcentaje(f[`goles_titular${sufijo}`], f[`goles${sufijo}`]);
         f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
