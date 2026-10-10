@@ -21,12 +21,12 @@ const METRICAS_EQUIPO = [
   { campo: 'goles_contra', titulo: 'GC', descripcion: 'Goles en contra' },
   { campo: 'goles_penalti_favor', titulo: 'GP', descripcion: 'Goles de penalti' },
   { campo: 'goles_penalti_contra', titulo: 'GEP', descripcion: 'Goles en contra de penalti' },
-  { campo: 'porcentaje_goles_favor', titulo: '% GF\npartido', descripcion: '% goles por partido', porcentaje: true },
-  { campo: 'porcentaje_goles_contra', titulo: '% GC\npartido', descripcion: '% goles en contra por partido', porcentaje: true },
+  { campo: 'media_goles_favor', titulo: 'Media GF\npor partido', descripcion: 'Media de goles a favor por partido', decimal: true },
+  { campo: 'media_goles_contra', titulo: 'Media GC\npor partido', descripcion: 'Media de goles en contra por partido', decimal: true },
   { campo: 'tarjetas_amarillas', titulo: 'TA', descripcion: 'Tarjetas amarillas' },
   { campo: 'tarjetas_rojas', titulo: 'TR', descripcion: 'Tarjetas rojas' },
-  { campo: 'porcentaje_amarillas', titulo: '% TA\npartido', descripcion: '% tarjetas amarillas por partido', porcentaje: true },
-  { campo: 'porcentaje_rojas', titulo: '% TR\npartido', descripcion: '% tarjetas rojas por partido', porcentaje: true }
+  { campo: 'media_amarillas', titulo: 'Media TA\npor partido', descripcion: 'Media de tarjetas amarillas por partido', decimal: true },
+  { campo: 'media_rojas', titulo: 'Media TR\npor partido', descripcion: 'Media de tarjetas rojas por partido', decimal: true }
 ];
 const METRICAS_CONVOCATORIAS = [
   { campo: 'convocatorias', titulo: 'Conv.', descripcion: 'Convocatorias' },
@@ -164,8 +164,8 @@ onBeforeUnmount(() => {
         <h2 class="font-display text-lg text-club-green">Estadísticas Equipo</h2>
         <p class="text-sm text-ink-tertiary">
           Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a
-          favor / en contra. Los "% por partido" son goles o tarjetas por cada partido jugado (1,5 goles por partido =
-          150 %). Las tarjetas son las de los jugadores del PALMA.
+          favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50).
+          Las tarjetas son las de los jugadores del PALMA.
         </p>
         <p v-if="equipo?.sin_penaltis" class="text-xs text-amber-700 mt-1">
           {{ equipo.sin_penaltis }} {{ equipo.sin_penaltis === 1 ? 'partido no tiene' : 'partidos no tienen' }} los

@@ -180,17 +180,17 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         goles_penalti_contra: 1, goles_penalti_contra_local: 1,
         tarjetas_amarillas: 3, tarjetas_amarillas_local: 1, tarjetas_amarillas_visitante: 2,
         tarjetas_rojas: 1, tarjetas_rojas_visitante: 1,
-        porcentaje_goles_favor: 100, porcentaje_goles_contra: 166.7, porcentaje_goles_favor_visitante: 50,
-        porcentaje_amarillas: 100, porcentaje_rojas: 33.3, porcentaje_rojas_local: 0,
+        media_goles_favor: 1, media_goles_contra: 1.67, media_goles_favor_visitante: 0.5,
+        media_amarillas: 1, media_rojas: 0.33, media_rojas_local: 0,
         sin_penaltis: 1
       });
     });
 
-    it('sin partidos jugados, todo a cero y porcentajes vacíos', async () => {
+    it('sin partidos jugados, todo a cero y medias vacías', async () => {
       Partido.findAll.mockResolvedValue([]);
       const { promesa, res } = llamarEquipo({ query: { id_plantilla: '5' } });
       await promesa;
-      expect(res._json).toMatchObject({ partidos: 0, victorias: 0, porcentaje_goles_favor: null });
+      expect(res._json).toMatchObject({ partidos: 0, victorias: 0, media_goles_favor: null });
     });
   });
 });

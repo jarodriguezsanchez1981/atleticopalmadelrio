@@ -26,6 +26,8 @@ const CONTADORES_EQUIPO = [
 
 /** Porcentaje con un decimal (null si no se puede calcular). */
 const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : null);
+/** Media con dos decimales (null si no se puede calcular). */
+const media = (parte, total) => (total > 0 ? Math.round((parte / total) * 100) / 100 : null);
 
 /** Estadísticas de cada jugador en los partidos de una plantilla (datos de
  * "Finalizar Acta"): convocatorias (está en el acta), partidos jugados
@@ -160,7 +162,7 @@ function golesResultado(resultado) {
 
 /** Estadísticas del equipo en los partidos de una plantilla con resultado (no
  * suspendidos): partidos, victorias / empates / derrotas, goles a favor y en
- * contra (y de penalti), tarjetas de los jugadores del PALMA, y porcentajes
+ * contra (y de penalti), tarjetas de los jugadores del PALMA, y medias
  * por partido. En total y como local / visitante del PALMA. `sin_penaltis`:
  * partidos con resultado cuyo acta no se ha finalizado desde que se guardan
  * los penaltis (sus penaltis en contra no se conocen). */
@@ -224,10 +226,10 @@ async function equipo(req, res, next) {
 
     for (const sufijo of ['', '_local', '_visitante']) {
       const n = fila[`partidos${sufijo}`];
-      fila[`porcentaje_goles_favor${sufijo}`] = porcentaje(fila[`goles_favor${sufijo}`], n);
-      fila[`porcentaje_goles_contra${sufijo}`] = porcentaje(fila[`goles_contra${sufijo}`], n);
-      fila[`porcentaje_amarillas${sufijo}`] = porcentaje(fila[`tarjetas_amarillas${sufijo}`], n);
-      fila[`porcentaje_rojas${sufijo}`] = porcentaje(fila[`tarjetas_rojas${sufijo}`], n);
+      fila[`media_goles_favor${sufijo}`] = media(fila[`goles_favor${sufijo}`], n);
+      fila[`media_goles_contra${sufijo}`] = media(fila[`goles_contra${sufijo}`], n);
+      fila[`media_amarillas${sufijo}`] = media(fila[`tarjetas_amarillas${sufijo}`], n);
+      fila[`media_rojas${sufijo}`] = media(fila[`tarjetas_rojas${sufijo}`], n);
     }
     res.json(fila);
   } catch (err) { next(err); }
