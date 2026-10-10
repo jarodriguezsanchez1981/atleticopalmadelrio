@@ -32,6 +32,7 @@ const ALL_NAV = [
 const GRUPOS_MENU = [
   { clave: 'club', label: 'Club', icon: 'pi pi-building' },
   { clave: 'liga', label: 'Liga', icon: 'pi pi-flag' },
+  { clave: 'estadisticas', label: 'Estadísticas', icon: 'pi pi-chart-bar' },
   { clave: 'competicion', label: 'Competición', icon: 'pi pi-trophy' },
   { clave: 'admin', label: 'Panel Administración', icon: 'pi pi-server' }
 ];

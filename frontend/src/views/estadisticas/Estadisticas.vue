@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import MultiSelect from 'primevue/multiselect';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
@@ -7,8 +7,13 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 
-/** Estadísticas de los jugadores en los partidos de la plantilla Senior A de
- * la temporada actual (las rellena "Finalizar Acta" en Partidos). */
+/** Estadísticas en los partidos de la plantilla Senior A de la temporada
+ * actual (las rellena "Finalizar Acta" en Partidos). Cada tabla es una sección
+ * propia del menú (grupo Estadísticas, con su permiso): la ruta dice cuál
+ * (`tabla`: equipo, convocatorias, tiempo, goles, sanciones). */
+const props = defineProps({
+  tabla: { type: String, required: true }
+});
 const CATEGORIA = CATEGORIA_CON_MINUTOS;
 
 // Columnas de cada tabla; cada una sale en Total, Local y Visitante (ver TablaEstadistica).
@@ -85,16 +90,13 @@ async function cargar() {
     const [plantillas, temporadas] = await Promise.all([plantillasService.listar(), temporadasService.listar()]);
     plantilla.value = filtrarPlantillasTemporadaActual(plantillas, temporadas)
       .find((p) => p.categoria?.nombre === CATEGORIA) || null;
-    if (plantilla.value) {
-      const [jugadores, datosEquipo] = await Promise.all([
-        estadisticasService.listar({ id_plantilla: plantilla.value.id }),
-        estadisticasService.equipo({ id_plantilla: plantilla.value.id })
-      ]);
-      filas.value = jugadores.map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
-      equipo.value = datosEquipo;
-    } else {
-      filas.value = [];
-      equipo.value = null;
+    filas.value = [];
+    equipo.value = null;
+    if (plantilla.value && props.tabla === 'equipo') {
+      equipo.value = await estadisticasService.equipo({ id_plantilla: plantilla.value.id });
+    } else if (plantilla.value) {
+      filas.value = (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
+        .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
     }
   } catch (err) {
     filas.value = [];
@@ -105,7 +107,7 @@ async function cargar() {
   }
 }
 
-// Filtro común a todas las tablas: los jugadores de la plantilla elegidos.
+// Filtro de las tablas de jugadores: los jugadores de la plantilla elegidos.
 const opcionesJugadores = computed(() => (plantilla.value?.jugadores || [])
   .map((j) => ({ value: j.id, label: `${j.nombre} ${j.apellidos}` }))
   .sort((a, b) => a.label.localeCompare(b.label, 'es')));
@@ -127,9 +129,59 @@ const filasEquipo = computed(() => (equipo.value?.partidos
   ? [{ ...equipo.value, equipo: plantilla.value?.categoria?.nombre || CATEGORIA }]
   : []));
 
+// Cada tabla: título, explicación, métricas, filas y columna por la que se ordena.
+const TABLAS = {
+  equipo: {
+    seccion: 'estadisticas_equipo',
+    titulo: 'Estadísticas Equipo',
+    descripcion: 'Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50). Las tarjetas son las de los jugadores del PALMA.',
+    metricas: METRICAS_EQUIPO
+  },
+  convocatorias: {
+    seccion: 'estadisticas_convocatorias',
+    titulo: 'Estadísticas Convocatorias',
+    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan).',
+    metricas: METRICAS_CONVOCATORIAS,
+    sortField: 'convocatorias'
+  },
+  tiempo: {
+    seccion: 'estadisticas_tiempo',
+    titulo: 'Estadísticas Tiempo',
+    descripcion: 'Minutos jugados por cada jugador. "% Minutos jugados": minutos jugados sobre los posibles (90 por partido) en los partidos que ha jugado; si juega 3 partidos enteros, 100 %.',
+    metricas: METRICAS_TIEMPO,
+    sortField: 'minutos'
+  },
+  goles: {
+    seccion: 'estadisticas_goles',
+    titulo: 'Estadísticas Goles',
+    descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. Los goles en propia puerta no cuentan.',
+    metricas: METRICAS_GOLES,
+    sortField: 'goles'
+  },
+  sanciones: {
+    seccion: 'estadisticas_sanciones',
+    titulo: 'Estadísticas Sanciones',
+    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo.',
+    metricas: METRICAS_SANCIONES,
+    sortField: 'tarjetas_amarillas'
+  }
+};
+const config = computed(() => TABLAS[props.tabla]);
+const filasTabla = computed(() => ({
+  equipo: filasEquipo.value,
+  convocatorias: filasFiltradas.value,
+  tiempo: filasFiltradas.value,
+  goles: filasGoles.value,
+  sanciones: filasSanciones.value
+})[props.tabla]);
+const textoVacioTabla = computed(() => (props.tabla === 'equipo' ? 'Todavía no hay partidos con resultado.' : textoVacio.value));
+
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
+
+// Al pasar de una sección de Estadísticas a otra se reutiliza el componente.
+watch(() => props.tabla, () => { cargar(); });
 
 onMounted(async () => {
   await cargar();
@@ -141,15 +193,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-<SectionGuard seccion="estadisticas">
+<SectionGuard :seccion="config.seccion">
   <div class="flex flex-col gap-4">
     <div>
-      <h1 class="font-display text-xl text-club-green">Estadísticas</h1>
+      <h1 class="font-display text-xl text-club-green">{{ config.titulo }}</h1>
       <p class="text-sm text-ink-tertiary">
-        Resultados del equipo y partidos, minutos, goles y tarjetas de cada jugador en los partidos de <strong>{{ titulo }}</strong>,
-        según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). El filtro de jugadores se
-        aplica a todas las tablas de jugadores. Cada tabla tiene los datos en Total, como Local (el PALMA en casa) y como Visitante
-        (fuera); se puede mover un grupo o una columna arrastrando su título.
+        Partidos de <strong>{{ titulo }}</strong>, según las actas de RFAF (se rellenan al pulsar "Finalizar Acta" en
+        cada partido). Los datos salen en Total, como Local (el PALMA en casa) y como Visitante (fuera); se puede mover
+        un grupo o una columna arrastrando su título.
+      </p>
+      <p class="text-sm text-ink-tertiary mt-1">{{ config.descripcion }}</p>
+      <p v-if="tabla === 'equipo' && equipo?.sin_penaltis" class="text-xs text-amber-700 mt-1">
+        {{ equipo.sin_penaltis }} {{ equipo.sin_penaltis === 1 ? 'partido no tiene' : 'partidos no tienen' }} los
+        penaltis en contra: vuelve a pulsar "Finalizar Acta" en {{ equipo.sin_penaltis === 1 ? 'él' : 'ellos' }}.
       </p>
     </div>
     <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
@@ -160,68 +216,18 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="plantilla && !error">
-      <div>
-        <h2 class="font-display text-lg text-club-green">Estadísticas Equipo</h2>
-        <p class="text-sm text-ink-tertiary">
-          Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a
-          favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50).
-          Las tarjetas son las de los jugadores del PALMA.
-        </p>
-        <p v-if="equipo?.sin_penaltis" class="text-xs text-amber-700 mt-1">
-          {{ equipo.sin_penaltis }} {{ equipo.sin_penaltis === 1 ? 'partido no tiene' : 'partidos no tienen' }} los
-          penaltis en contra: vuelve a pulsar "Finalizar Acta" en {{ equipo.sin_penaltis === 1 ? 'él' : 'ellos' }}.
-        </p>
-      </div>
-      <TablaEstadistica :filas="filasEquipo" :metricas="METRICAS_EQUIPO" :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }"
-                        dataKey="id_plantilla" :cargando="cargando" textoVacio="Todavía no hay partidos con resultado." />
-
-      <div class="flex flex-wrap items-center gap-2 mt-2">
+      <div v-if="tabla !== 'equipo'" class="flex flex-wrap items-center gap-2">
         <label for="filtro-jugadores" class="text-sm font-medium text-ink-secondary">Jugadores</label>
         <MultiSelect inputId="filtro-jugadores" v-model="jugadoresFiltro" :options="opcionesJugadores" optionLabel="label"
                      optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear
                      :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
       </div>
 
-      <div class="mt-2">
-        <h2 class="font-display text-lg text-club-green">Estadísticas Convocatorias</h2>
-        <p class="text-sm text-ink-tertiary">
-          Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente
-          sin jugar. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan).
-        </p>
-      </div>
-      <TablaEstadistica :filas="filasFiltradas" :metricas="METRICAS_CONVOCATORIAS" sortField="convocatorias"
-                        :cargando="cargando" :textoVacio="textoVacio" />
-
-      <div class="mt-2">
-        <h2 class="font-display text-lg text-club-green">Estadísticas Tiempo</h2>
-        <p class="text-sm text-ink-tertiary">
-          Minutos jugados por cada jugador. "% Minutos jugados": minutos jugados sobre los posibles (90 por partido) en
-          los partidos que ha jugado; si juega 3 partidos enteros, 100 %.
-        </p>
-      </div>
-      <TablaEstadistica :filas="filasFiltradas" :metricas="METRICAS_TIEMPO" sortField="minutos"
-                        :cargando="cargando" :textoVacio="textoVacio" />
-
-      <div class="mt-2">
-        <h2 class="font-display text-lg text-club-green">Estadísticas Goles</h2>
-        <p class="text-sm text-ink-tertiary">
-          Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de
-          suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa /
-          fuera. Los goles en propia puerta no cuentan.
-        </p>
-      </div>
-      <TablaEstadistica :filas="filasGoles" :metricas="METRICAS_GOLES" sortField="goles"
-                        :cargando="cargando" :textoVacio="textoVacio" />
-
-      <div class="mt-2">
-        <h2 class="font-display text-lg text-club-green">Estadísticas Sanciones</h2>
-        <p class="text-sm text-ink-tertiary">
-          Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese
-          momento; con empate no cuentan como ganando ni perdiendo.
-        </p>
-      </div>
-      <TablaEstadistica :filas="filasSanciones" :metricas="METRICAS_SANCIONES" sortField="tarjetas_amarillas"
-                        :cargando="cargando" :textoVacio="textoVacio" />
+      <TablaEstadistica v-if="tabla === 'equipo'" :key="tabla" :filas="filasTabla" :metricas="config.metricas"
+                        :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla"
+                        :cargando="cargando" :textoVacio="textoVacioTabla" />
+      <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
+                        :cargando="cargando" :textoVacio="textoVacioTabla" />
     </template>
   </div>
 </SectionGuard>

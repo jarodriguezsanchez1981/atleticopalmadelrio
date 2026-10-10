@@ -160,11 +160,42 @@ const routes = [
         component: () => import('../views/sanciones/Sanciones.vue'),
         meta: { seccion: 'sanciones' }
       },
+      // Estadísticas: una sección (y una ruta) por tabla.
+      { path: 'estadisticas', redirect: '/estadisticas/equipo' },
       {
-        path: 'estadisticas',
-        name: 'estadisticas',
+        path: 'estadisticas/equipo',
+        name: 'estadisticas_equipo',
         component: () => import('../views/estadisticas/Estadisticas.vue'),
-        meta: { seccion: 'estadisticas' }
+        props: { tabla: 'equipo' },
+        meta: { seccion: 'estadisticas_equipo' }
+      },
+      {
+        path: 'estadisticas/convocatorias',
+        name: 'estadisticas_convocatorias',
+        component: () => import('../views/estadisticas/Estadisticas.vue'),
+        props: { tabla: 'convocatorias' },
+        meta: { seccion: 'estadisticas_convocatorias' }
+      },
+      {
+        path: 'estadisticas/tiempo',
+        name: 'estadisticas_tiempo',
+        component: () => import('../views/estadisticas/Estadisticas.vue'),
+        props: { tabla: 'tiempo' },
+        meta: { seccion: 'estadisticas_tiempo' }
+      },
+      {
+        path: 'estadisticas/goles',
+        name: 'estadisticas_goles',
+        component: () => import('../views/estadisticas/Estadisticas.vue'),
+        props: { tabla: 'goles' },
+        meta: { seccion: 'estadisticas_goles' }
+      },
+      {
+        path: 'estadisticas/sanciones',
+        name: 'estadisticas_sanciones',
+        component: () => import('../views/estadisticas/Estadisticas.vue'),
+        props: { tabla: 'sanciones' },
+        meta: { seccion: 'estadisticas_sanciones' }
       },
       {
         path: 'informes',

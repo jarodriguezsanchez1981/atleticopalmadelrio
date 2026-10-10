@@ -5,9 +5,11 @@ const authorize = require('../middlewares/role.middleware');
 
 const router = Router();
 
-router.use(authenticate, authorize('estadisticas'));
+router.use(authenticate);
 
-router.get('/', ctrl.listar);
-router.get('/equipo', ctrl.equipo);
+// Cada tabla de Estadísticas es una sección con su permiso: las de jugadores
+// usan el listado por jugador; Estadísticas Equipo, el del equipo.
+router.get('/', authorize('estadisticas_convocatorias', 'estadisticas_tiempo', 'estadisticas_goles', 'estadisticas_sanciones'), ctrl.listar);
+router.get('/equipo', authorize('estadisticas_equipo'), ctrl.equipo);
 
 module.exports = router;

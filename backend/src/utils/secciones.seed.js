@@ -1,5 +1,5 @@
 // `grupo` decide en qué apartado del menú lateral aparece cada sección
-// (club/liga/competicion/admin); null = fuera de esos apartados (o todavía
+// (club/liga/estadisticas/competicion/admin); null = fuera de esos apartados (o todavía
 // sin enlace propio en el menú, como incidencias/entrenamientos_jugadores).
 // El orden dentro de cada grupo lo da `orden`, editable desde /secciones.
 const SECCIONES = [
@@ -27,7 +27,12 @@ const SECCIONES = [
   { clave: 'categoria_calendario', nombre: 'Jornadas', icono: 'pi pi-calendar-plus', orden: 93, grupo: 'liga' },
   { clave: 'torneo', nombre: 'Torneo', icono: 'pi pi-trophy', orden: 94, grupo: 'competicion' },
   { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98, grupo: 'competicion' },
-  { clave: 'estadisticas', nombre: 'Estadísticas', icono: 'pi pi-chart-bar', orden: 97, grupo: 'liga' },
+  // Estadísticas: una sección por tabla, en su propio apartado del menú.
+  { clave: 'estadisticas_equipo', nombre: 'Estadísticas Equipo', icono: 'pi pi-shield', orden: 95, grupo: 'estadisticas' },
+  { clave: 'estadisticas_convocatorias', nombre: 'Estadísticas Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas' },
+  { clave: 'estadisticas_tiempo', nombre: 'Estadísticas Tiempo', icono: 'pi pi-stopwatch', orden: 97, grupo: 'estadisticas' },
+  { clave: 'estadisticas_goles', nombre: 'Estadísticas Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas' },
+  { clave: 'estadisticas_sanciones', nombre: 'Estadísticas Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'estadisticas' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
   { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' },
