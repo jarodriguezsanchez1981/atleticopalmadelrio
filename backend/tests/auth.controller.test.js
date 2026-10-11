@@ -92,9 +92,9 @@ describe('Autenticación · auth.controller', () => {
     await promesa;
 
     expect(res._status).toBe(200);
+    // Permisos compactos en el token (va en una cookie): claves y editables.
     expect(jwtUtils.signToken).toHaveBeenCalledWith({
-      id: 1, usuario: 'admin', secciones: ['administracion', 'temporadas'],
-      permisos: { administracion: { ver: true, editar: true }, temporadas: { ver: true, editar: false } },
+      id: 1, usuario: 'admin', s: ['administracion', 'temporadas'], e: ['administracion'],
       rol: 'coordinador', id_categoria: null
     });
     expect(res._json).not.toHaveProperty('token');
@@ -141,7 +141,7 @@ describe('Autenticación · auth.controller', () => {
     // Token renovado (en la cookie) con los permisos actuales (no los del login).
     expect(res._cookies.apr_sesion.valor).toBe('token-fake');
     expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({
-      id: 1, secciones: ['temporadas'], permisos: { temporadas: { ver: true, editar: true } }
+      id: 1, s: ['temporadas'], e: '*'
     }));
   });
 
@@ -219,7 +219,7 @@ describe('Autenticación · auth.controller', () => {
     await promesa;
 
     const tokenPayload = jwtUtils.signToken.mock.calls[0][0];
-    expect(Object.keys(tokenPayload).sort()).toEqual(['id', 'id_categoria', 'permisos', 'rol', 'secciones', 'usuario']);
+    expect(Object.keys(tokenPayload).sort()).toEqual(['e', 'id', 'id_categoria', 'rol', 's', 'usuario']);
     expect(tokenPayload).not.toHaveProperty('nombre');
     expect(tokenPayload).not.toHaveProperty('password');
   });

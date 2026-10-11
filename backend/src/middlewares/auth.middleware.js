@@ -1,5 +1,6 @@
 const { verifyToken } = require('../utils/jwt.utils');
 const { COOKIE_SESION, leerCookie } = require('../utils/sesionCookie');
+const { expandirPermisos } = require('../utils/permisosToken');
 
 const METODOS_SEGUROS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -34,7 +35,10 @@ function authenticate(req, res, next) {
   }
 
   try {
-    req.user = verifyToken(token); // { id, usuario, secciones, rol }
+    const datos = verifyToken(token);
+    // { id, usuario, rol, id_categoria, secciones, permisos }
+    const { s, e, n, ...resto } = datos;
+    req.user = { ...resto, ...expandirPermisos(datos) };
     return next();
   } catch (err) {
     return res.status(401).json({ message: 'Token inválido o caducado.' });

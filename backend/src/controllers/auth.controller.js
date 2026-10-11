@@ -1,4 +1,5 @@
 const { Usuario, Seccion } = require('../models');
+const { comprimirPermisos } = require('../utils/permisosToken');
 const { verifyPassword } = require('../utils/password.utils');
 const { signToken } = require('../utils/jwt.utils');
 const { ponerCookieSesion, borrarCookieSesion } = require('../utils/sesionCookie');
@@ -33,8 +34,8 @@ function tokenPara(user, payload) {
   return signToken({
     id: user.id,
     usuario: user.usuario,
-    secciones: payload.secciones,
-    permisos: payload.permisos,
+    // Compactos: el token va en una cookie (ver utils/permisosToken.js).
+    ...comprimirPermisos(payload.permisos),
     rol: payload.rol,
     id_categoria: payload.id_categoria
   });

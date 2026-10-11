@@ -57,5 +57,9 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Authorization $http_authorization;
         proxy_pass_header Authorization;
+        # Cabeceras de respuesta grandes (cookie de sesión + cabeceras de seguridad):
+        # con el búfer por defecto (4 KB) nginx devolvía 502 en el login.
+        proxy_buffer_size 16k;
+        proxy_buffers 8 16k;
     }
 }
