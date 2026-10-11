@@ -776,6 +776,35 @@ describe('Sección Partidos · partido.controller', () => {
       });
     });
 
+    it('pone la foto del acta solo a los jugadores que no tienen', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      PlantillaJugador.create.mockResolvedValue({});
+      Jugador.update.mockReset();
+      const conFotos = structuredClone(ACTA);
+      conFotos.local.jugadores[0].foto = 'https://www.rfaf.es/fotos/900.jpg';
+      conFotos.local.jugadores[1].foto = 'https://www.rfaf.es/fotos/nuevo.jpg';
+      leerActa.mockResolvedValue(conFotos);
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(Jugador.update).toHaveBeenCalledWith({ foto: 'https://www.rfaf.es/fotos/900.jpg' }, {
+        where: { id: 900, [Op.or]: [{ foto: null }, { foto: '' }] }
+      });
+      expect(Jugador.create).toHaveBeenCalledWith({ nombre: 'Alguien', apellidos: 'Sin Ficha', foto: 'https://www.rfaf.es/fotos/nuevo.jpg' });
+    });
+
+    it('sin foto en el acta no toca la del jugador', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      PlantillaJugador.create.mockResolvedValue({});
+      Jugador.update.mockReset();
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(Jugador.update).not.toHaveBeenCalled();
+    });
+
     it('no duplica a un jugador que existe en otra plantilla', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma());
       Jugador.findAll.mockImplementation(async ({ where } = {}) => (where

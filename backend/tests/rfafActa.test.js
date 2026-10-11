@@ -37,8 +37,8 @@ const HTML_EJEMPLO = `
     <div class="desc">
       <h5><strong>Titulares</strong></h5>
       <table class="table"><tbody>
-        <tr><td>7</td><td><img class="fotojug"></td><td>PEREZ GOMEZ, JUAN</td></tr>
-        <tr><td>4</td><td><img class="fotojug"></td><td>LOPEZ RUIZ, ALVARO</td></tr>
+        <tr><td>7</td><td><img class="fotojug" src="/pnfg/fotos/jug_123.jpg"></td><td>PEREZ GOMEZ, JUAN</td></tr>
+        <tr><td>4</td><td><img class="fotojug" src="https://files.rfaf.es/img/sin_foto.png"></td><td>LOPEZ RUIZ, ALVARO</td></tr>
       </tbody></table>
       <h5><strong>Suplentes</strong></h5>
       <table class="table"><tbody>
@@ -67,7 +67,7 @@ const HTML_EJEMPLO = `
     <div class="desc">
       <h5><strong>Titulares</strong></h5>
       <table class="table"><tbody>
-        <tr><td>9</td><td><img class="fotojug"></td><td>GARCIA TORRES, MANUEL</td></tr>
+        <tr><td>9</td><td><img class="fotojug" src="https://otro.example.com/f.jpg"></td><td>GARCIA TORRES, MANUEL</td></tr>
       </tbody></table>
       <h5><strong>Suplentes</strong></h5>
       <table class="table"><tbody></tbody></table>
@@ -120,6 +120,15 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
   afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   const leer = () => leerActa(null, null, { args: ['--html', fichero] });
+
+  it('saca la foto de cada jugador del acta (sin la genérica ni las de fuera de rfaf.es)', async () => {
+    const acta = await leer();
+    const foto = Object.fromEntries(acta.local.jugadores.map((j) => [j.dorsal, j.foto]));
+    expect(foto[7]).toBe('https://www.rfaf.es/pnfg/fotos/jug_123.jpg');
+    expect(foto[4]).toBeNull();
+    expect(foto[15]).toBeNull();
+    expect(acta.visitante.jugadores[0].foto).toBeNull();
+  });
 
   it('saca los dos equipos con titulares y suplentes', async () => {
     const acta = await leer();

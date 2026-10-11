@@ -108,6 +108,28 @@ def texto_sin_minuto(td):
     return limpiar(td.get_text()), minuto
 
 
+FOTO_GENERICA = re.compile(r"sin_?foto|no_?foto|silueta|default|avatar", re.I)
+
+
+def foto_de(td):
+    """Foto del jugador (img.fotojug): una imagen en línea (data:image/…) o la
+    dirección absoluta en rfaf.es. No se descarga (sería una petición más a
+    RFAF por jugador): la carga el navegador. Sin foto o con la genérica, None."""
+    from urllib.parse import urljoin, urlparse
+
+    img = td.find("img") if td else None
+    src = limpiar(img.get("src") if img else "")
+    if not src or FOTO_GENERICA.search(src):
+        return None
+    if src.startswith("data:image/"):
+        return src
+    url = urljoin(URL_ACTA, src)
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not (parsed.netloc == "rfaf.es" or parsed.netloc.endswith(".rfaf.es")):
+        return None
+    return url
+
+
 def tabla_tras(etiqueta):
     return etiqueta.find_next("table") if etiqueta else None
 
@@ -129,6 +151,7 @@ def jugadores_de(bloque, titulo, titular):
         jugadores.append({
             "dorsal": int(dorsal) if dorsal.isdigit() else None,
             "nombre": nombre,
+            "foto": foto_de(tds[1]),
             "titular": titular,
             "goles": 0,
             "tarjeta_amarilla": 0,

@@ -378,11 +378,16 @@ async function finalizarActa(req, res, next) {
         jugador = todosPorNombre.get(nombreActa);
       }
       if (!jugador) {
-        jugador = await Jugador.create(rfafActa.nombreDesdeActa(rfaf.nombre));
+        jugador = await Jugador.create({ ...rfafActa.nombreDesdeActa(rfaf.nombre), ...(rfaf.foto ? { foto: rfaf.foto } : {}) });
         await PlantillaJugador.create({ id_plantilla: partido.id_plantilla, id_jugador: jugador.id, dorsal: rfaf.dorsal ?? null });
         idsCreados.add(jugador.id);
         todosPorNombre.set(nombreActa, jugador);
         creados.push(`${jugador.nombre} ${jugador.apellidos}`);
+      } else if (rfaf.foto) {
+        // La foto del acta solo a quien no tiene: la que ya tenga no se cambia.
+        await Jugador.update({ foto: rfaf.foto }, {
+          where: { id: jugador.id, [Op.or]: [{ foto: null }, { foto: '' }] }
+        });
       }
       filasConNombre.push({ rfaf, id: jugador.id });
       if (filas.some((f) => f.id_jugador === jugador.id)) continue;
