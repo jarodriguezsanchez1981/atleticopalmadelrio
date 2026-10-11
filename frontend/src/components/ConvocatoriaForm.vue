@@ -551,12 +551,14 @@ async function guardar() {
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-10">Nº</th>
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
               <th v-if="!soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="id in jugadoresConvocadosOrdenados" :key="id">
+            <tr v-for="(id, i) in jugadoresConvocadosOrdenados" :key="id">
+              <td class="text-center border border-line p-2 text-sm text-ink-tertiary tabular-nums">{{ i + 1 }}</td>
               <td class="border border-line p-2 text-sm">{{ nombreJugador(id) }}</td>
               <td v-if="!soloLectura" class="text-center border border-line p-2">
                 <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
@@ -564,7 +566,7 @@ async function guardar() {
               </td>
             </tr>
             <tr v-if="!jugadoresConvocadosOrdenados.length">
-              <td :colspan="soloLectura ? 1 : 2" class="text-center text-ink-tertiary p-3 text-sm">Todavía no hay jugadores convocados.</td>
+              <td :colspan="soloLectura ? 2 : 3" class="text-center text-ink-tertiary p-3 text-sm">Todavía no hay jugadores convocados.</td>
             </tr>
           </tbody>
         </table>
@@ -591,13 +593,15 @@ async function guardar() {
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-10">Nº</th>
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Observaciones</th>
               <th v-if="!soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="n in jugadoresNoConvocadosOrdenados" :key="n.id_jugador">
+            <tr v-for="(n, i) in jugadoresNoConvocadosOrdenados" :key="n.id_jugador">
+              <td class="text-center border border-line p-2 text-sm text-ink-tertiary tabular-nums">{{ i + 1 }}</td>
               <td class="border border-line p-2 text-sm">{{ nombreJugador(n.id_jugador) }}</td>
               <td class="border border-line p-2 text-sm text-ink-secondary">{{ n.observaciones || '—' }}</td>
               <td v-if="!soloLectura" class="text-center border border-line p-2">
@@ -606,7 +610,7 @@ async function guardar() {
               </td>
             </tr>
             <tr v-if="!jugadoresNoConvocadosOrdenados.length">
-              <td :colspan="soloLectura ? 2 : 3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores marcados como no convocados.</td>
+              <td :colspan="soloLectura ? 3 : 4" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores marcados como no convocados.</td>
             </tr>
           </tbody>
         </table>
@@ -628,13 +632,15 @@ async function guardar() {
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-10">Nº</th>
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
               <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Plantilla</th>
               <th v-if="!modoEdicion && !soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="x in jugadoresPromocionOrdenados" :key="x.id_jugador">
+            <tr v-for="(x, i) in jugadoresPromocionOrdenados" :key="x.id_jugador">
+              <td class="text-center border border-line p-2 text-sm text-ink-tertiary tabular-nums">{{ i + 1 }}</td>
               <td class="border border-line p-2 text-sm">{{ nombreJugadorPromocion(x) }}</td>
               <td class="border border-line p-2 text-sm text-ink-secondary">{{ plantillaPromocionLabel(x.id_plantilla) }}</td>
               <td v-if="!modoEdicion && !soloLectura" class="text-center border border-line p-2">
@@ -643,7 +649,7 @@ async function guardar() {
               </td>
             </tr>
             <tr v-if="!jugadoresPromocionOrdenados.length">
-              <td :colspan="(modoEdicion || soloLectura) ? 2 : 3" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores de promoción.</td>
+              <td :colspan="(modoEdicion || soloLectura) ? 3 : 4" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores de promoción.</td>
             </tr>
           </tbody>
         </table>
