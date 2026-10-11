@@ -333,6 +333,22 @@ function addNoConvocado() {
   keySelectNoConvocado.value += 1;
 }
 
+// Marca como no convocados a todos los jugadores de la plantilla que no están
+// en ninguna de las dos listas (con las observaciones escritas, si hay).
+function jugadoresRestantes() {
+  const restantes = opcionesJugadorDisponibleNoConv.value.map((o) => o.value);
+  if (!restantes.length) {
+    toast.add({ severity: 'info', summary: 'Sin jugadores restantes', detail: 'Todos los jugadores de la plantilla ya están en convocados o no convocados.', life: 3500 });
+    return;
+  }
+  const observaciones = observacionesNuevoNoConvocado.value.trim();
+  jugadoresNoConvocados.value.push(...restantes.map((id) => ({ id_jugador: id, observaciones })));
+  toast.add({ severity: 'success', summary: 'Añadidos', detail: `${restantes.length} ${restantes.length === 1 ? 'jugador añadido' : 'jugadores añadidos'} a no convocados.`, life: 2500 });
+  nuevoNoConvocado.value = null;
+  observacionesNuevoNoConvocado.value = '';
+  keySelectNoConvocado.value += 1;
+}
+
 function removeNoConvocado(id) {
   jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== id);
 }
@@ -563,7 +579,13 @@ async function guardar() {
     </div>
 
     <div v-if="form.id_partido">
-      <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores no convocados</h3>
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <h3 class="text-sm font-semibold text-club-green">Jugadores no convocados</h3>
+        <Button v-if="!soloLectura" type="button" label="Jugadores restantes" icon="pi pi-users" text size="small"
+                class="!text-club-green" :disabled="!opcionesJugadorDisponibleNoConv.length"
+                v-tooltip.top="'Añade a no convocados a todos los jugadores de la plantilla que no están convocados (con las observaciones escritas abajo, si hay)'"
+                @click="jugadoresRestantes" />
+      </div>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse">
           <thead>
