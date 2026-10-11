@@ -581,7 +581,8 @@ async function guardar() {
     <div v-if="form.id_partido">
       <div class="flex items-center justify-between gap-2 mb-2">
         <h3 class="text-sm font-semibold text-club-green">Jugadores no convocados</h3>
-        <Button v-if="!soloLectura" type="button" label="Jugadores restantes" icon="pi pi-users" text size="small"
+        <!-- Solo cuando ya hay más de un jugador marcado como no convocado. -->
+        <Button v-if="!soloLectura && jugadoresNoConvocados.length > 1" type="button" label="Jugadores restantes" icon="pi pi-users" text size="small"
                 class="!text-club-green" :disabled="!opcionesJugadorDisponibleNoConv.length"
                 v-tooltip.top="'Añade a no convocados a todos los jugadores de la plantilla que no están convocados (con las observaciones escritas abajo, si hay)'"
                 @click="jugadoresRestantes" />
