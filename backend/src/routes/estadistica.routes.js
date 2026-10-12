@@ -11,5 +11,7 @@ router.use(authenticate);
 // usan el listado por jugador; Estadísticas Equipo, el del equipo.
 router.get('/', authorize('estadisticas_convocatorias', 'estadisticas_tiempo', 'estadisticas_goles', 'estadisticas_sanciones'), ctrl.listar);
 router.get('/equipo', authorize('estadisticas_equipo'), ctrl.equipo);
+// Gráficas de balance por plantilla del Dashboard.
+router.get('/balance', authorize('dashboard'), ctrl.balance);
 
 module.exports = router;

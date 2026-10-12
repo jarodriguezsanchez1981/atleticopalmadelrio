@@ -1,12 +1,15 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { partidosService, entrenamientosService } from '../../services';
+import { partidosService, entrenamientosService, estadisticasService } from '../../services';
+import GraficaBalance from '../../components/GraficaBalance.vue';
 
 const PALMA_ID = 73;
 
 const cargando = ref(true);
 const proximosPartidos = ref([]);
 const proximosEntrenamientos = ref([]);
+// Una gráfica por tipo de fútbol (Fútbol 7, Fútbol 11).
+const balance = ref([]);
 
 function inicioHoy() {
   const d = new Date();
@@ -14,8 +17,17 @@ function inicioHoy() {
   return d.toISOString();
 }
 
+async function cargarBalance() {
+  try {
+    balance.value = await estadisticasService.balance();
+  } catch {
+    balance.value = [];
+  }
+}
+
 async function cargar() {
   cargando.value = true;
+  cargarBalance();
   try {
     const desde = inicioHoy();
     const [partidos, entrenamientos] = await Promise.all([
@@ -64,7 +76,7 @@ function formatoFechaHora(fecha) {
       Dashboard
     </h1>
     <p class="text-sm text-ink-tertiary mb-4">
-      Resumen de la próxima actividad del club.
+      Resumen de la próxima actividad del club y balance de la temporada.
     </p>
 
     <div v-if="cargando" class="text-center py-8 text-ink-tertiary">
@@ -117,6 +129,13 @@ function formatoFechaHora(fecha) {
             {{ categoriaNombre(e) }}
           </span>
         </div>
+      </div>
+
+      <div v-for="t in balance" :key="t.id_tipofutbol ?? 'sin-tipo'" class="bg-white rounded-xl border border-line p-4">
+        <h2 class="font-display text-sm text-club-green mb-3 flex items-center gap-2">
+          <i class="pi pi-chart-line"></i> Balance {{ t.tipofutbol }}
+        </h2>
+        <GraficaBalance :plantillas="t.plantillas" />
       </div>
     </div>
   </div>

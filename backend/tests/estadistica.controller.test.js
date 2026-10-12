@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol } from './helpers/models.js';
+import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Plantilla, Temporada } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/estadistica.controller.js';
@@ -198,6 +198,70 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       const { promesa, res } = llamarEquipo({ query: { id_plantilla: '5' } });
       await promesa;
       expect(res._json).toMatchObject({ partidos: 0, victorias: 0, media_goles_favor: null });
+    });
+  });
+
+  describe('balance', () => {
+    function llamarBalance(overrides = {}) {
+      const { req, res, next } = mockReqRes(overrides);
+      return { promesa: ctrl.balance(req, res, next), res };
+    }
+    const plantilla = (id, nombre, orden, idTipo, tipo) => ({
+      id, id_categoria: id * 10,
+      categoria: { id: id * 10, nombre, alias: null, orden, id_tipofutbol: idTipo, tipofutbol: { id: idTipo, nombre: tipo } }
+    });
+
+    beforeEach(() => {
+      Temporada.findOne.mockReset();
+      Plantilla.findAll.mockReset();
+      Partido.findAll.mockReset();
+    });
+
+    it('sin temporada actual devuelve una lista vacía', async () => {
+      Temporada.findOne.mockResolvedValue(null);
+      const { promesa, res } = llamarBalance();
+      await promesa;
+      expect(res._json).toEqual([]);
+    });
+
+    it('cuenta victorias, empates y derrotas por plantilla, agrupadas por tipo de fútbol y por orden', async () => {
+      Temporada.findOne.mockResolvedValue({ id: 3 });
+      Plantilla.findAll.mockResolvedValue([
+        plantilla(2, 'Senior A', 30, 2, 'Fútbol 11'),
+        plantilla(1, 'Benjamin A', 7, 1, 'Fútbol 7'),
+        plantilla(4, 'Prebenjamin C', 2, 1, 'Fútbol 7')
+      ]);
+      Partido.findAll.mockResolvedValue([
+        { id: 1, id_plantilla: 1, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '3-1', suspendido: false }, // gana
+        { id: 2, id_plantilla: 1, id_equipo_local: 50, id_equipo_visitante: 73, resultado: '2-0', suspendido: false }, // pierde
+        { id: 3, id_plantilla: 1, id_equipo_local: 50, id_equipo_visitante: 73, resultado: '1-1', suspendido: false }, // empata
+        { id: 4, id_plantilla: 2, id_equipo_local: 50, id_equipo_visitante: 73, resultado: '0-4', suspendido: false }, // gana fuera
+        { id: 5, id_plantilla: 2, id_equipo_local: 73, id_equipo_visitante: 50, resultado: null, suspendido: false },  // sin jugar
+        { id: 6, id_plantilla: 2, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '0-3', suspendido: true }   // suspendido
+      ]);
+
+      const { promesa, res } = llamarBalance();
+      await promesa;
+
+      expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({ id_temporada: 3 });
+      expect(res._json).toEqual([
+        { id_tipofutbol: 1, tipofutbol: 'Fútbol 7', plantillas: [
+          { id_plantilla: 4, categoria: 'Prebenjamin C', alias: null, orden: 2, partidos: 0, victorias: 0, empates: 0, derrotas: 0 },
+          { id_plantilla: 1, categoria: 'Benjamin A', alias: null, orden: 7, partidos: 3, victorias: 1, empates: 1, derrotas: 1 }
+        ] },
+        { id_tipofutbol: 2, tipofutbol: 'Fútbol 11', plantillas: [
+          { id_plantilla: 2, categoria: 'Senior A', alias: null, orden: 30, partidos: 1, victorias: 1, empates: 0, derrotas: 0 }
+        ] }
+      ]);
+    });
+
+    it('un entrenador solo ve la plantilla de su categoría', async () => {
+      Temporada.findOne.mockResolvedValue({ id: 3 });
+      Plantilla.findAll.mockResolvedValue([]);
+      const { promesa, res } = llamarBalance({ user: { rol: 'entrenador', id_categoria: 10 } });
+      await promesa;
+      expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({ id_temporada: 3, id_categoria: 10 });
+      expect(res._json).toEqual([]);
     });
   });
 });

@@ -1,4 +1,5 @@
-const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador } = require('../models');
+const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, Plantilla, Categoria, TipoFutbol, Temporada } = require('../models');
+const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 
 // Los partidos con estadísticas son de 90' (ver Finalizar Acta).
 const MINUTOS_PARTIDO = 90;
@@ -258,4 +259,62 @@ async function equipo(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, equipo };
+/** Balance de cada plantilla de la temporada actual (Dashboard): partidos con
+ * resultado (no suspendidos) y victorias / empates / derrotas del PALMA,
+ * agrupado por tipo de fútbol y con las plantillas por orden de categoría. Un
+ * entrenador solo ve la de su categoría. */
+async function balance(req, res, next) {
+  try {
+    const temporada = await Temporada.findOne({ where: { actual: true }, attributes: ['id'] });
+    if (!temporada) return res.json([]);
+    const whereCategoria = categoriaDelUsuario(req) ? { id_categoria: categoriaDelUsuario(req) } : {};
+    const plantillas = await Plantilla.findAll({
+      where: { id_temporada: temporada.id, ...whereCategoria },
+      attributes: ['id', 'id_categoria'],
+      include: [{
+        model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'orden', 'id_tipofutbol'],
+        include: [{ model: TipoFutbol, as: 'tipofutbol', attributes: ['id', 'nombre'] }]
+      }]
+    }) || [];
+    if (!plantillas.length) return res.json([]);
+
+    const filas = new Map(plantillas.map((p) => [p.id, {
+      id_plantilla: p.id,
+      categoria: p.categoria?.nombre || '—',
+      alias: p.categoria?.alias || null,
+      orden: p.categoria?.orden ?? null,
+      partidos: 0, victorias: 0, empates: 0, derrotas: 0
+    }]));
+    const partidos = await Partido.findAll({
+      where: { id_plantilla: [...filas.keys()] },
+      attributes: ['id', 'id_plantilla', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido']
+    }) || [];
+    for (const p of partidos) {
+      const goles = golesResultado(p.resultado);
+      const esLocal = Number(p.id_equipo_local) === PALMA_ID;
+      if (p.suspendido || !goles || (!esLocal && Number(p.id_equipo_visitante) !== PALMA_ID)) continue;
+      const fila = filas.get(p.id_plantilla);
+      if (!fila) continue;
+      const favor = esLocal ? goles.local : goles.visitante;
+      const contra = esLocal ? goles.visitante : goles.local;
+      fila.partidos += 1;
+      if (favor > contra) fila.victorias += 1;
+      else if (favor < contra) fila.derrotas += 1;
+      else fila.empates += 1;
+    }
+
+    const porTipo = new Map();
+    for (const p of plantillas) {
+      const id = p.categoria?.id_tipofutbol ?? null;
+      if (!porTipo.has(id)) porTipo.set(id, { id_tipofutbol: id, tipofutbol: p.categoria?.tipofutbol?.nombre || 'Sin tipo', plantillas: [] });
+      porTipo.get(id).plantillas.push(filas.get(p.id));
+    }
+    const resultado = [...porTipo.values()].sort((a, b) => (a.id_tipofutbol ?? 99) - (b.id_tipofutbol ?? 99));
+    for (const t of resultado) {
+      t.plantillas.sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999) || a.categoria.localeCompare(b.categoria, 'es'));
+    }
+    res.json(resultado);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, equipo, balance };
