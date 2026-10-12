@@ -1,4 +1,4 @@
-const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, Plantilla, Categoria, TipoFutbol, Temporada } = require('../models');
+const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
 const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 
 // Los partidos con estadísticas son de 90' (ver Finalizar Acta).
@@ -259,13 +259,32 @@ async function equipo(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/** Balance de cada plantilla de la temporada actual (Dashboard): partidos con
- * resultado (no suspendidos) y victorias / empates / derrotas del PALMA,
- * agrupado por tipo de fútbol y con las plantillas por orden de categoría. Un
- * entrenador solo ve la de su categoría. */
+// Plantilla que en el Dashboard tiene su propia gráfica (partido a partido)
+// en vez de ir en la de su tipo de fútbol.
+const CATEGORIA_GRAFICA_PROPIA = 'Senior A';
+
+/** Resultado del PALMA en un partido: 'victoria' | 'empate' | 'derrota', o
+ * null si no cuenta (suspendido, sin resultado o sin el PALMA). */
+function resultadoPalma(p) {
+  const goles = golesResultado(p.resultado);
+  const esLocal = Number(p.id_equipo_local) === PALMA_ID;
+  if (p.suspendido || !goles || (!esLocal && Number(p.id_equipo_visitante) !== PALMA_ID)) return null;
+  const favor = esLocal ? goles.local : goles.visitante;
+  const contra = esLocal ? goles.visitante : goles.local;
+  if (favor > contra) return 'victoria';
+  return favor < contra ? 'derrota' : 'empate';
+}
+
+/** Gráficas de balance del Dashboard (temporada actual), cada una con `clave`
+ * y `titulo`:
+ * - una por tipo de fútbol con `plantillas` (por orden de categoría):
+ *   partidos con resultado (no suspendidos) y victorias / empates / derrotas;
+ * - la de Senior A con `partidos` (por fecha): resultado de cada partido y
+ *   victorias / empates / derrotas acumuladas hasta él.
+ * Un entrenador solo ve la de su categoría. */
 async function balance(req, res, next) {
   try {
-    const temporada = await Temporada.findOne({ where: { actual: true }, attributes: ['id'] });
+    const temporada = await Temporada.findOne({ where: { actual: true }, attributes: ['id', 'nombre'] });
     if (!temporada) return res.json([]);
     const whereCategoria = categoriaDelUsuario(req) ? { id_categoria: categoriaDelUsuario(req) } : {};
     const plantillas = await Plantilla.findAll({
@@ -287,33 +306,66 @@ async function balance(req, res, next) {
     }]));
     const partidos = await Partido.findAll({
       where: { id_plantilla: [...filas.keys()] },
-      attributes: ['id', 'id_plantilla', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido']
+      attributes: ['id', 'id_plantilla', 'fecha', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
+      ],
+      order: [['fecha', 'ASC']]
     }) || [];
+    const CONTADOR = { victoria: 'victorias', empate: 'empates', derrota: 'derrotas' };
+    const jugadosPorPlantilla = new Map();
     for (const p of partidos) {
-      const goles = golesResultado(p.resultado);
-      const esLocal = Number(p.id_equipo_local) === PALMA_ID;
-      if (p.suspendido || !goles || (!esLocal && Number(p.id_equipo_visitante) !== PALMA_ID)) continue;
+      const r = resultadoPalma(p);
       const fila = filas.get(p.id_plantilla);
-      if (!fila) continue;
-      const favor = esLocal ? goles.local : goles.visitante;
-      const contra = esLocal ? goles.visitante : goles.local;
+      if (!r || !fila) continue;
       fila.partidos += 1;
-      if (favor > contra) fila.victorias += 1;
-      else if (favor < contra) fila.derrotas += 1;
-      else fila.empates += 1;
+      fila[CONTADOR[r]] += 1;
+      if (!jugadosPorPlantilla.has(p.id_plantilla)) jugadosPorPlantilla.set(p.id_plantilla, []);
+      jugadosPorPlantilla.get(p.id_plantilla).push({ partido: p, resultado: r });
     }
 
     const porTipo = new Map();
+    const propias = [];
     for (const p of plantillas) {
+      if (p.categoria?.nombre === CATEGORIA_GRAFICA_PROPIA) {
+        propias.push(p);
+        continue;
+      }
       const id = p.categoria?.id_tipofutbol ?? null;
-      if (!porTipo.has(id)) porTipo.set(id, { id_tipofutbol: id, tipofutbol: p.categoria?.tipofutbol?.nombre || 'Sin tipo', plantillas: [] });
+      if (!porTipo.has(id)) {
+        const nombre = p.categoria?.tipofutbol?.nombre || 'Sin tipo';
+        porTipo.set(id, { clave: `tipo_${id}`, id_tipofutbol: id, tipofutbol: nombre, titulo: nombre, plantillas: [] });
+      }
       porTipo.get(id).plantillas.push(filas.get(p.id));
     }
-    const resultado = [...porTipo.values()].sort((a, b) => (a.id_tipofutbol ?? 99) - (b.id_tipofutbol ?? 99));
-    for (const t of resultado) {
-      t.plantillas.sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999) || a.categoria.localeCompare(b.categoria, 'es'));
+    const graficas = [...porTipo.values()].sort((a, b) => (a.id_tipofutbol ?? 99) - (b.id_tipofutbol ?? 99));
+    for (const g of graficas) {
+      g.plantillas.sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999) || a.categoria.localeCompare(b.categoria, 'es'));
     }
-    res.json(resultado);
+
+    for (const p of propias) {
+      const acumulado = { victorias: 0, empates: 0, derrotas: 0 };
+      graficas.push({
+        clave: `plantilla_${p.id}`,
+        id_plantilla: p.id,
+        titulo: `${p.categoria.nombre} / ${temporada.nombre}`,
+        partidos: (jugadosPorPlantilla.get(p.id) || []).map(({ partido, resultado }) => {
+          acumulado[CONTADOR[resultado]] += 1;
+          const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
+          return {
+            id_partido: partido.id,
+            fecha: partido.fecha,
+            rival: (esLocal ? partido.equipoVisitante?.nombre : partido.equipoLocal?.nombre) || '—',
+            es_local: esLocal,
+            marcador: partido.resultado,
+            resultado,
+            ...acumulado
+          };
+        })
+      });
+    }
+    res.json(graficas);
   } catch (err) { next(err); }
 }
 

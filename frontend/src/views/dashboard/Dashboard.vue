@@ -8,7 +8,7 @@ const PALMA_ID = 73;
 const cargando = ref(true);
 const proximosPartidos = ref([]);
 const proximosEntrenamientos = ref([]);
-// Una gráfica por tipo de fútbol (Fútbol 7, Fútbol 11).
+// Una gráfica por tipo de fútbol (Fútbol 7, Fútbol 11) y otra de Senior A.
 const balance = ref([]);
 
 function inicioHoy() {
@@ -131,11 +131,11 @@ function formatoFechaHora(fecha) {
         </div>
       </div>
 
-      <div v-for="t in balance" :key="t.id_tipofutbol ?? 'sin-tipo'" class="bg-white rounded-xl border border-line p-4">
+      <div v-for="g in balance" :key="g.clave" class="bg-white rounded-xl border border-line p-4">
         <h2 class="font-display text-sm text-club-green mb-3 flex items-center gap-2">
-          <i class="pi pi-chart-line"></i> Balance {{ t.tipofutbol }}
+          <i class="pi pi-chart-line"></i> Balance {{ g.titulo }}
         </h2>
-        <GraficaBalance :plantillas="t.plantillas" />
+        <GraficaBalance :plantillas="g.plantillas" :partidos="g.partidos" />
       </div>
     </div>
   </div>
