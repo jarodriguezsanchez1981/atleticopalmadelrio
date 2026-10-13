@@ -9,12 +9,15 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 
 const TIPO_FUTBOL_11 = 2;
+const PALMA_ID = 73;
 
 const partidos = ref([]);
 const jugadores = ref([]);
 const plantillas = ref([]);
 const temporadas = ref([]);
 const sanciones = ref([]);
+// Filas desplegadas (partidos con tarjeta) de cada tabla, por plantilla.
+const desplegadas = ref({});
 
 async function cargarOpciones() {
   const [pts, jugs, pls, temps, sancs] = await Promise.all([
@@ -50,13 +53,27 @@ const acumuladosFutbol11 = computed(() => {
         jugador: s.jugador ? `${s.jugador.nombre} ${s.jugador.apellidos}` : nombreJugador(s.id_jugador),
         amarillas: 0,
         rojas: 0,
-        partidos: 0
+        partidos: 0,
+        detalle: []
       };
       fila.amarillas += Number(s.amarilla) || 0;
       fila.rojas += Number(s.roja) || 0;
       fila.partidos += 1;
+      const partido = s.partido || partidos.value.find((p) => p.id === s.id_partido) || {};
+      const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
+      fila.detalle.push({
+        id: s.id,
+        fecha: partido.fecha || null,
+        jornada: partido.jornada ?? null,
+        rival: (esLocal ? partido.equipoVisitante?.nombre : partido.equipoLocal?.nombre) || '—',
+        es_local: esLocal,
+        resultado: partido.resultado || null,
+        amarilla: Number(s.amarilla) || 0,
+        roja: Number(s.roja) || 0
+      });
       porJugador.set(s.id_jugador, fila);
     }
+    for (const f of porJugador.values()) f.detalle.sort((a, b) => new Date(a.fecha || 0) - new Date(b.fecha || 0));
     const filas = [...porJugador.values()].sort((a, b) =>
       b.amarillas - a.amarillas || b.rojas - a.rojas || a.jugador.localeCompare(b.jugador, 'es'));
     return {
@@ -120,6 +137,11 @@ function etiquetaPartido(p) {
   const local = p.equipoLocal?.nombre || '';
   const visitante = p.equipoVisitante?.nombre || '';
   return `${fecha} · ${local} vs ${visitante}`;
+}
+
+function formatoFecha(fecha) {
+  const d = new Date(fecha);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function nombrePartido(id) {
@@ -194,7 +216,9 @@ function nombreJugador(id) {
           </div>
         </div>
         <DataTable v-bind="estiloTabla" :value="t.filas" dataKey="id_jugador" sortField="amarillas" :sortOrder="-1"
+                   v-model:expandedRows="desplegadas[t.id]"
                    :tableStyle="{ tableLayout: 'fixed', minWidth: '640px' }">
+          <Column expander style="width: 3rem" />
           <Column field="jugador" header="Jugador" sortable style="width: 46%" />
           <Column field="partidos" header="Partidos" sortable style="width: 18%" class="text-center" />
           <Column field="amarillas" header="Amarillas" sortable style="width: 18%">
@@ -213,6 +237,43 @@ function nombreJugador(id) {
               <span v-else class="text-ink-tertiary">0</span>
             </template>
           </Column>
+          <!-- Partidos en los que vio tarjeta, por fecha. -->
+          <template #expansion="{ data }">
+            <div class="overflow-x-auto py-1">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-xs text-ink-tertiary text-left">
+                    <th class="font-medium p-2">Fecha</th>
+                    <th class="font-medium p-2 text-center">Jornada</th>
+                    <th class="font-medium p-2">Rival</th>
+                    <th class="font-medium p-2 text-center">Resultado</th>
+                    <th class="font-medium p-2 text-center">Amarilla</th>
+                    <th class="font-medium p-2 text-center">Roja</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="p in data.detalle" :key="p.id" class="border-t border-line">
+                    <td class="p-2 whitespace-nowrap tabular-nums">{{ formatoFecha(p.fecha) }}</td>
+                    <td class="p-2 text-center tabular-nums">{{ p.jornada ?? '—' }}</td>
+                    <td class="p-2">{{ p.es_local ? 'vs' : '@' }} {{ p.rival }}</td>
+                    <td class="p-2 text-center tabular-nums whitespace-nowrap">{{ p.resultado || '—' }}</td>
+                    <td class="p-2 text-center">
+                      <span v-if="p.amarilla" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
+                        <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ p.amarilla }}
+                      </span>
+                      <span v-else class="text-ink-tertiary">0</span>
+                    </td>
+                    <td class="p-2 text-center">
+                      <span v-if="p.roja" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
+                        <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ p.roja }}
+                      </span>
+                      <span v-else class="text-ink-tertiary">0</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
           <template #empty>
             <div class="text-center text-ink-tertiary py-3 text-sm">Sin tarjetas en esta plantilla.</div>
           </template>
