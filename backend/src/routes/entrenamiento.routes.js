@@ -1,4 +1,6 @@
 const { Router } = require('express');
+const { restringirACategoria, porPlantilla, plantillaSuya } = require('../middlewares/categoria.middleware');
+const { Entrenamiento } = require('../models');
 const ctrl = require('../controllers/entrenamiento.controller');
 const authenticate = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
@@ -7,6 +9,8 @@ const requireEditar = require('../middlewares/requireEditar');
 const router = Router();
 
 router.use(authenticate, authorize('entrenamientos'));
+// Un entrenador solo ve y toca lo de su categoría (middlewares/categoria.middleware.js).
+router.use(restringirACategoria(porPlantilla(Entrenamiento)));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);

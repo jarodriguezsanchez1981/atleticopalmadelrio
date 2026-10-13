@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const { restringirACategoria, porPlantilla, plantillaSuya } = require('../middlewares/categoria.middleware');
 const ctrl = require('../controllers/calendario.controller');
 const authenticate = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
@@ -6,6 +7,8 @@ const authorize = require('../middlewares/role.middleware');
 const router = Router();
 
 router.use(authenticate, authorize('calendario'));
+// Un entrenador solo ve y toca lo de su categoría (middlewares/categoria.middleware.js).
+router.use(restringirACategoria());
 
 // Solo lectura: GET /api/calendario?desde=...&hasta=...&id_categoria=...
 router.get('/', ctrl.eventos);

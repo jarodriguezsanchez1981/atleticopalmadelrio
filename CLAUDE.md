@@ -56,4 +56,5 @@ docker logs --tail 50 apr_backend     # logs (contenedores: apr_backend, apr_fro
 - **Finalizar Acta** (Partidos): lee el acta de RFAF con `backend/src/scripts/rfaf_acta.py` y rellena `partido_jugadores` (titular, minutos, dorsal, goles, tarjetas), `partido_goles`, `partido_tarjetas`, dorsales vacíos de la plantilla y promociones. Si un jugador del acta no existe, lo crea en la plantilla del partido.
 - **Estadísticas**: solo de la plantilla Senior A de la temporada actual (`CATEGORIA_CON_MINUTOS`), partidos de 90'.
 - **Permisos**: por sección (`usuario_secciones`); backend `authorize('<seccion>')` + `requireEditar('<seccion>')`; frontend `<SectionGuard seccion="...">`.
+- **Rol entrenador** (con `id_categoria`): solo ve y toca lo de su categoría. Cada router lleva `restringirACategoria(...)` (`backend/src/middlewares/categoria.middleware.js`): comprueba el registro `/:id`, el `id_plantilla` del cuerpo y de `?id_plantilla`, y filtra los listados. Al añadir una entidad ligada a una plantilla, añadir su regla.
 - **Auditoría**: todo POST/PUT/DELETE de `/api` se registra solo en `cambios` (middleware), no hay que hacerlo en los controladores.
