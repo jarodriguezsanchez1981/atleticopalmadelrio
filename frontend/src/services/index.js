@@ -30,6 +30,7 @@ export const materialesService = crudService('materiales');
 export const posicionesService = crudService('posiciones');
 export const delegadosService = crudService('delegados');
 export const personalService = crudService('personal');
+export const tiposPersonalService = crudService('tipos-personal');
 export const coordinadoresService = crudService('coordinadores');
 export const categoriasService = {
   ...crudService('categorias'),

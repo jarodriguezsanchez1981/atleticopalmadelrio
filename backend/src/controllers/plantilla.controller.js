@@ -1,4 +1,4 @@
-const { Plantilla, Categoria, Temporada, Division, Coordinador, TipoFutbol, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Personal, PlantillaPersonal, Titulo, Promocion, Posicion, Partido, PartidoJugador } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Coordinador, TipoFutbol, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Personal, PlantillaPersonal, TipoPersonal, Titulo, Promocion, Posicion, Partido, PartidoJugador } = require('../models');
 
 const includes = [
   { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'orden'] },
@@ -9,7 +9,7 @@ const includes = [
   { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['rol'] }, include: [{ model: Titulo, as: 'titulos', attributes: ['id', 'nombre'], through: { attributes: [] } }] },
   { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } },
   // Personal del club (sección Personal); en el formulario solo se ofrece en Senior A.
-  { model: Personal, as: 'personal', attributes: ['id', 'nombre', 'apellidos', 'foto', 'seccion', 'email', 'telefono'], through: { attributes: [] } }
+  { model: Personal, as: 'personal', attributes: ['id', 'nombre', 'apellidos', 'foto', 'id_tipo_personal', 'email', 'telefono'], through: { attributes: [] }, include: [{ model: TipoPersonal, as: 'tipoPersonal', attributes: ['id', 'nombre'] }] }
 ];
 // El personal del club solo se asigna a la plantilla de esta categoría: en
 // cualquier otra, la lista de personal que llegue se guarda vacía.

@@ -147,7 +147,7 @@ const opcionesEntrenador = computed(() =>
 );
 
 const opcionesPersonal = computed(() =>
-  personal.value.map(p => ({ label: `${p.nombre} ${p.apellidos}${p.seccion ? ` · ${p.seccion}` : ''}`, value: p.id }))
+  personal.value.map(p => ({ label: `${p.nombre} ${p.apellidos}${p.tipoPersonal?.nombre ? ` · ${p.tipoPersonal.nombre}` : ''}`, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
@@ -573,7 +573,7 @@ function validarPlantilla(form) {
               <tr class="bg-club-green/5">
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
-                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Sección</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Tipo Personal</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Email</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Teléfono</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
@@ -586,7 +586,7 @@ function validarPlantilla(form) {
                   <span v-else class="text-ink-tertiary">—</span>
                 </td>
                 <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.nombre }} {{ personalInfo(id)?.apellidos }}</td>
-                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.seccion || '—' }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.tipoPersonal?.nombre || '—' }}</td>
                 <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.email || '—' }}</td>
                 <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.telefono || '—' }}</td>
                 <td class="text-center border border-line p-2">
@@ -778,7 +778,7 @@ function validarPlantilla(form) {
             <tr class="bg-club-green/5">
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Sección</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Tipo Personal</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Email</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Teléfono</th>
             </tr>
@@ -790,7 +790,7 @@ function validarPlantilla(form) {
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
               <td class="text-center border border-line p-2 text-sm">{{ p.nombre }} {{ p.apellidos }}</td>
-              <td class="text-center border border-line p-2 text-sm">{{ p.seccion || '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.tipoPersonal?.nombre || '—' }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ p.email || '—' }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ p.telefono || '—' }}</td>
             </tr>

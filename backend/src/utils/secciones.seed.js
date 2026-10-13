@@ -17,6 +17,7 @@ const SECCIONES = [
   { clave: 'material', nombre: 'Material', icono: 'pi pi-box', orden: 52, grupo: 'club' },
   { clave: 'delegados', nombre: 'Delegados', icono: 'pi pi-user-plus', orden: 55, grupo: 'club' },
   { clave: 'personal', nombre: 'Personal', icono: 'pi pi-briefcase', orden: 56, grupo: 'club' },
+  { clave: 'tipo_personal', nombre: 'Tipo Personal', icono: 'pi pi-tag', orden: 57, grupo: 'club' },
   { clave: 'coordinadores', nombre: 'Coordinadores', icono: 'pi pi-address-book', orden: 56, grupo: 'club' },
   { clave: 'categorias', nombre: 'Categorías', icono: 'pi pi-sitemap', orden: 60, grupo: 'club' },
   { clave: 'equipos', nombre: 'Equipos', icono: 'pi pi-trophy', orden: 65, grupo: 'competicion' },

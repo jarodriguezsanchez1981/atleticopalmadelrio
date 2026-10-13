@@ -1,4 +1,6 @@
-const { Personal } = require('../models');
+const { Personal, TipoPersonal } = require('../models');
+
+const include = [{ model: TipoPersonal, as: 'tipoPersonal', attributes: ['id', 'nombre'] }];
 const { esUrlImagen } = require('../utils/imagenes');
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -17,16 +19,24 @@ function validar({ nombre, apellidos, email }, parcial = false) {
   return null;
 }
 
+/** id_tipo_personal: vacío -> null; si viene, tiene que existir. Devuelve { valor } o { error }. */
+async function tipoValido(idTipo) {
+  if (idTipo === undefined) return { valor: undefined };
+  if (idTipo === null || idTipo === '') return { valor: null };
+  const tipo = await TipoPersonal.findOne({ where: { id: idTipo }, attributes: ['id'] });
+  return tipo ? { valor: tipo.id } : { error: 'El tipo de personal indicado no existe.' };
+}
+
 async function listar(req, res, next) {
   try {
-    const personal = await Personal.findAll({ order: [['apellidos', 'ASC'], ['nombre', 'ASC']] });
+    const personal = await Personal.findAll({ include, order: [['apellidos', 'ASC'], ['nombre', 'ASC']] });
     res.json(personal);
   } catch (err) { next(err); }
 }
 
 async function obtener(req, res, next) {
   try {
-    const persona = await Personal.findOne({ where: { id: req.params.id } });
+    const persona = await Personal.findOne({ where: { id: req.params.id }, include });
     if (!persona) return res.status(404).json({ message: 'Persona no encontrada.' });
     res.json(persona);
   } catch (err) { next(err); }
@@ -34,17 +44,20 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, email, telefono, seccion, foto } = req.body;
+    const { nombre, apellidos, email, telefono, id_tipo_personal, foto } = req.body;
     const error = validar(req.body);
     if (error) return res.status(400).json({ message: error });
-    const persona = await Personal.create({
+    const tipo = await tipoValido(id_tipo_personal);
+    if (tipo.error) return res.status(400).json({ message: tipo.error });
+    const creada = await Personal.create({
       nombre: String(nombre).trim(),
       apellidos: String(apellidos).trim(),
       email: opcional(email) ?? null,
       telefono: opcional(telefono) ?? null,
-      seccion: opcional(seccion) ?? null,
+      id_tipo_personal: tipo.valor ?? null,
       foto: esUrlImagen(foto) ? null : (foto || null)
     });
+    const persona = await Personal.findOne({ where: { id: creada.id }, include }) || creada;
     res.status(201).json(persona);
   } catch (err) { next(err); }
 }
@@ -55,16 +68,18 @@ async function actualizar(req, res, next) {
     if (!persona) return res.status(404).json({ message: 'Persona no encontrada.' });
     const error = validar(req.body, true);
     if (error) return res.status(400).json({ message: error });
-    const { nombre, apellidos, email, telefono, seccion, foto } = req.body;
+    const { nombre, apellidos, email, telefono, id_tipo_personal, foto } = req.body;
+    const tipo = await tipoValido(id_tipo_personal);
+    if (tipo.error) return res.status(400).json({ message: tipo.error });
     if (nombre !== undefined) persona.nombre = String(nombre).trim();
     if (apellidos !== undefined) persona.apellidos = String(apellidos).trim();
     if (email !== undefined) persona.email = opcional(email);
     if (telefono !== undefined) persona.telefono = opcional(telefono);
-    if (seccion !== undefined) persona.seccion = opcional(seccion);
+    if (tipo.valor !== undefined) persona.id_tipo_personal = tipo.valor;
     // La URL de /api/imagenes es la foto que ya tenía: no se toca.
     if (foto !== undefined && !esUrlImagen(foto)) persona.foto = foto || null;
     await persona.save();
-    res.json(persona);
+    res.json(await Personal.findOne({ where: { id: persona.id }, include }) || persona);
   } catch (err) { next(err); }
 }
 

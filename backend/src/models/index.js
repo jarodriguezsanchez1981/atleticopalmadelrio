@@ -28,6 +28,7 @@ const PlantillaEntrenador = require('./PlantillaEntrenador');
 const PlantillaDelegado = require('./PlantillaDelegado');
 const Personal = require('./Personal');
 const PlantillaPersonal = require('./PlantillaPersonal');
+const TipoPersonal = require('./TipoPersonal');
 const Cambio = require('./Cambio');
 const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
@@ -254,6 +255,10 @@ Delegado.belongsToMany(Plantilla, {
   timestamps: false
 });
 
+// ---- Personal -> TipoPersonal ----
+Personal.belongsTo(TipoPersonal, { foreignKey: 'id_tipo_personal', targetKey: 'id', as: 'tipoPersonal', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+TipoPersonal.hasMany(Personal, { foreignKey: 'id_tipo_personal', sourceKey: 'id', as: 'personal' });
+
 // ---- Plantilla <-> Personal (Muchos a Muchos) ----
 Plantilla.belongsToMany(Personal, {
   through: PlantillaPersonal,
@@ -321,6 +326,7 @@ module.exports = {
   PlantillaDelegado,
   Personal,
   PlantillaPersonal,
+  TipoPersonal,
   Cambio,
   EquipoJugador,
   Promocion,

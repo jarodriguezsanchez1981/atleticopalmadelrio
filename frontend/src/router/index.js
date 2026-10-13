@@ -95,6 +95,12 @@ const routes = [
         meta: { seccion: 'personal' }
       },
       {
+        path: 'tipo-personal',
+        name: 'tipo_personal',
+        component: () => import('../views/tipoPersonal/TipoPersonal.vue'),
+        meta: { seccion: 'tipo_personal' }
+      },
+      {
         path: 'coordinadores',
         name: 'coordinadores',
         component: () => import('../views/coordinadores/Coordinadores.vue'),

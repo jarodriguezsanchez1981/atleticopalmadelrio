@@ -9,8 +9,8 @@ const Personal = sequelize.define('Personal', {
   apellidos: { type: DataTypes.STRING(150), allowNull: false },
   email: { type: DataTypes.STRING(150), allowNull: true },
   telefono: { type: DataTypes.STRING(20), allowNull: true },
-  // Área o sección del club en la que trabaja (texto libre).
-  seccion: { type: DataTypes.STRING(100), allowNull: true }
+  // Tipo de personal (Fisioterapia, Utillería…): tabla tipo_personal.
+  id_tipo_personal: { type: DataTypes.INTEGER, allowNull: true }
 }, {
   tableName: 'personal'
 });
