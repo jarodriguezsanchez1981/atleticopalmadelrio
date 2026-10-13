@@ -17,6 +17,7 @@ export const RUTA_POR_SECCION = {
   lugares: '/lugares',
   material: '/material',
   delegados: '/delegados',
+  personal: '/personal',
   coordinadores: '/coordinadores',
   categorias: '/categorias',
   equipos: '/equipos',

@@ -1,7 +1,7 @@
-const { Jugador, Entrenador, Delegado, Equipo } = require('../models');
+const { Jugador, Entrenador, Delegado, Personal, Equipo } = require('../models');
 const { CAMPO_IMAGEN, decodificarDataUrl } = require('../utils/imagenes');
 
-const MODELO = { jugadores: Jugador, entrenadores: Entrenador, delegados: Delegado, equipos: Equipo };
+const MODELO = { jugadores: Jugador, entrenadores: Entrenador, delegados: Delegado, personal: Personal, equipos: Equipo };
 
 /** Tipo real por los primeros bytes (algunas fotos de las actas llegan como
  * image/png siendo JPEG); si no se reconoce, el del data URL. */

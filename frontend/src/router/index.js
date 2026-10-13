@@ -89,6 +89,12 @@ const routes = [
         meta: { seccion: 'delegados' }
       },
       {
+        path: 'personal',
+        name: 'personal',
+        component: () => import('../views/personal/Personal.vue'),
+        meta: { seccion: 'personal' }
+      },
+      {
         path: 'coordinadores',
         name: 'coordinadores',
         component: () => import('../views/coordinadores/Coordinadores.vue'),

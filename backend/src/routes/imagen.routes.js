@@ -14,6 +14,7 @@ const PERMISO = {
   jugadores: authorize('jugadores', 'plantillas', 'partidos', 'categoria_calendario'),
   entrenadores: authorize('entrenadores', 'plantillas'),
   delegados: authorize('delegados', 'plantillas'),
+  personal: authorize('personal', 'plantillas'),
   equipos: (req, res, next) => next()
 };
 

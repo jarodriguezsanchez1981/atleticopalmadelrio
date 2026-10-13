@@ -9,7 +9,7 @@ import InputNumber from 'primevue/inputnumber';
 import Checkbox from 'primevue/checkbox';
 import MultiSelect from 'primevue/multiselect';
 import { useToast } from 'primevue/usetoast';
-import { plantillasService, categoriasService, temporadasService, divisionesService, coordinadoresService, jugadoresService, entrenadoresService, delegadosService, posicionesService } from '../../services';
+import { plantillasService, categoriasService, temporadasService, divisionesService, coordinadoresService, jugadoresService, entrenadoresService, delegadosService, personalService, posicionesService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import CamisetaDorsal from '../../components/CamisetaDorsal.vue';
 
@@ -23,6 +23,9 @@ const coordinadores = ref([]);
 const jugadores = ref([]);
 const entrenadores = ref([]);
 const delegados = ref([]);
+// Personal del club: solo se asigna a la plantilla de Senior A.
+const personal = ref([]);
+const CATEGORIA_CON_PERSONAL = 'Senior A';
 const posiciones = ref([]);
 const plantillasExistentes = ref([]);
 let unsubCambio = null;
@@ -32,7 +35,7 @@ const temporadaSeleccionada = ref(null);
 const creandoTemporada = ref(false);
 
 async function cargarOpciones() {
-  const [cats, temps, divs, coords, jug, ents, dels, pos, plants] = await Promise.all([
+  const [cats, temps, divs, coords, jug, ents, dels, pos, pers, plants] = await Promise.all([
     categoriasService.listar(),
     temporadasService.listar(),
     divisionesService.listar().catch(() => []),
@@ -41,6 +44,8 @@ async function cargarOpciones() {
     entrenadoresService.listar(),
     delegadosService.listar(),
     posicionesService.listar().catch(() => []),
+    // Sin permiso de Personal ni de plantillas de Senior A, vacío.
+    personalService.listar().catch(() => []),
     plantillasService.listar()
   ]);
   categorias.value = cats;
@@ -50,6 +55,7 @@ async function cargarOpciones() {
   jugadores.value = jug;
   entrenadores.value = ents;
   delegados.value = dels;
+  personal.value = pers;
   posiciones.value = pos;
   plantillasExistentes.value = plants;
 }
@@ -140,6 +146,11 @@ const opcionesEntrenador = computed(() =>
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
+const opcionesPersonal = computed(() =>
+  personal.value.map(p => ({ label: `${p.nombre} ${p.apellidos}${p.seccion ? ` · ${p.seccion}` : ''}`, value: p.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
 const opcionesDelegado = computed(() =>
   delegados.value.map(d => ({ label: `${d.nombre} ${d.apellidos}`, value: d.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
@@ -166,7 +177,9 @@ const columns = computed(() => [
   { field: 'codigo_temporada', header: 'Cód. Temporada', type: 'text', required: false, enDetalle: false, enTabla: false },
   { field: 'codigo_equipo', header: 'Cód. Equipo', type: 'text', required: false, enDetalle: false, enTabla: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
-  { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
+  { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false },
+  // Solo para cargar ids_personal al editar (relation); se edita en la tabla Personal del formulario.
+  { field: 'ids_personal', header: 'Personal', type: 'multiselect', options: opcionesPersonal.value, required: false, relation: 'personal', enDetalle: false, enForm: false, enTabla: false }
 ]);
 
 const emptyItem = {
@@ -180,6 +193,7 @@ const emptyItem = {
   codigo_equipo: '',
   ids_entrenadores: [],
   ids_delegados: [],
+  ids_personal: [],
   jugadores: []
 };
 
@@ -241,6 +255,33 @@ const ordenJugadoresDetalle = ref({ campo: 'nombre', asc: true });
 
 function entrenadorInfo(id) {
   return entrenadores.value.find(e => e.id === id);
+}
+
+/** La tabla Personal del formulario solo sale con la categoría Senior A. */
+function conPersonal(form) {
+  return categorias.value.find((c) => c.id === form?.id_categoria)?.nombre === CATEGORIA_CON_PERSONAL;
+}
+
+function personalInfo(id) {
+  return personal.value.find(p => p.id === id);
+}
+
+const nuevoPersonal = ref(null);
+
+function addPersonal(form) {
+  if (!nuevoPersonal.value) return;
+  if (!form.ids_personal) form.ids_personal = [];
+  if (!form.ids_personal.includes(nuevoPersonal.value)) form.ids_personal.push(nuevoPersonal.value);
+  nuevoPersonal.value = null;
+}
+
+function removePersonal(form, id) {
+  form.ids_personal = (form.ids_personal || []).filter(i => i !== id);
+}
+
+function opcionesPersonalDisponibles(form) {
+  const usados = new Set(form?.ids_personal || []);
+  return opcionesPersonal.value.filter(o => !usados.has(o.value));
 }
 
 function delegadoInfo(id) {
@@ -524,6 +565,47 @@ function validarPlantilla(form) {
           </div>
         </div>
 
+        <div v-if="conPersonal(form)">
+          <h3 class="text-sm font-semibold text-club-green mb-2">Personal</h3>
+          <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-club-green/5">
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Sección</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Email</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Teléfono</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="id in (form.ids_personal || [])" :key="id">
+                <td class="text-center border border-line p-2">
+                  <img v-if="personalInfo(id)?.foto" :src="personalInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                  <span v-else class="text-ink-tertiary">—</span>
+                </td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.nombre }} {{ personalInfo(id)?.apellidos }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.seccion || '—' }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.email || '—' }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.telefono || '—' }}</td>
+                <td class="text-center border border-line p-2">
+                  <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removePersonal(form, id)" />
+                </td>
+              </tr>
+              <tr v-if="!(form.ids_personal || []).length">
+                <td colspan="6" class="text-center border border-line p-3 text-sm text-ink-tertiary">Sin personal asignado.</td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+          <div class="flex gap-2 mt-2">
+            <Select v-model="nuevoPersonal" :options="opcionesPersonalDisponibles(form)" optionLabel="label" optionValue="value"
+                    placeholder="Seleccionar personal" class="flex-1" filter showClear />
+            <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addPersonal(form)" />
+          </div>
+        </div>
+
         <div>
           <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores</h3>
           <div class="overflow-x-auto">
@@ -682,6 +764,35 @@ function validarPlantilla(form) {
               </td>
               <td class="text-center border border-line p-2 text-sm">{{ d.nombre }} {{ d.apellidos }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ d.tipo || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div v-if="data.personal?.length" class="mb-6">
+        <h3 class="text-sm font-semibold text-club-green mb-2">Personal</h3>
+        <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Sección</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Email</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Teléfono</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in data.personal" :key="p.id">
+              <td class="text-center border border-line p-2">
+                <img v-if="p.foto" :src="p.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                <span v-else class="text-ink-tertiary">—</span>
+              </td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.nombre }} {{ p.apellidos }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.seccion || '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.email || '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.telefono || '—' }}</td>
             </tr>
           </tbody>
         </table>

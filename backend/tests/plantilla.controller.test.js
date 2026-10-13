@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion, PartidoJugador } from './helpers/models.js';
+import { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, PlantillaPersonal, Personal, Promocion, PartidoJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/plantilla.controller.js';
@@ -67,7 +67,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(primera.include.map((i) => i.as)).toEqual(expect.arrayContaining(['jugadores']));
     expect(primera.include.map((i) => i.as)).not.toContain('entrenadores');
     expect(segunda).toMatchObject({ where: { id: [1] }, attributes: ['id'] });
-    expect(segunda.include.map((i) => i.as)).toEqual(['entrenadores', 'delegados']);
+    expect(segunda.include.map((i) => i.as)).toEqual(['entrenadores', 'delegados', 'personal']);
     expect(res._json[0]).toMatchObject({ id: 1, jugadores: [{ id: 9 }], entrenadores: [{ id: 4 }], delegados: [{ id: 6 }] });
   });
 
@@ -262,6 +262,46 @@ describe('Sección Plantillas · plantilla.controller', () => {
       codigo_temporada: 'T3',
       codigo_equipo: 'E4'
     }));
+  });
+
+  describe('Personal (solo Senior A)', () => {
+    function preparar(nombreCategoria) {
+      const plantilla = { id: 1, id_categoria: 20, id_temporada: 1, save: vi.fn().mockResolvedValue() };
+      Plantilla.findOne
+        .mockResolvedValueOnce(plantilla)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 1, jugadores: [], entrenadores: [], delegados: [], personal: [] });
+      mockReferenciasOk();
+      Categoria.findOne.mockResolvedValue({ id: 20, nombre: nombreCategoria });
+      Personal.count.mockReset();
+      Personal.count.mockResolvedValue(2);
+      PlantillaPersonal.destroy.mockReset();
+      PlantillaPersonal.bulkCreate.mockReset();
+    }
+
+    it('en Senior A guarda el personal indicado (sin repetidos)', async () => {
+      preparar('Senior A');
+      const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { ids_personal: [3, 3, 4] } });
+      await promesa;
+      expect(PlantillaPersonal.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
+      expect(PlantillaPersonal.bulkCreate).toHaveBeenCalledWith(
+        [{ id_plantilla: 1, id_personal: 3 }, { id_plantilla: 1, id_personal: 4 }], { ignoreDuplicates: true });
+    });
+
+    it('en Senior A, si no llega ids_personal, no se toca', async () => {
+      preparar('Senior A');
+      const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { codigo_grupo: 'G1' } });
+      await promesa;
+      expect(PlantillaPersonal.destroy).not.toHaveBeenCalled();
+    });
+
+    it('en otra categoría no se guarda personal (y se quita el que tuviera)', async () => {
+      preparar('Senior B');
+      const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { ids_personal: [3, 4] } });
+      await promesa;
+      expect(PlantillaPersonal.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
+      expect(PlantillaPersonal.bulkCreate).not.toHaveBeenCalled();
+    });
   });
 
   it('actualizar guarda los códigos de competición/grupo/temporada/equipo de la RFAF cuando se indican', async () => {

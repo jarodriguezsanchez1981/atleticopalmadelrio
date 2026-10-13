@@ -54,6 +54,8 @@ export function createModelsMock() {
     PlantillaJugador: createModelMock(),
     PlantillaEntrenador: createModelMock(),
     PlantillaDelegado: createModelMock(),
+    Personal: createModelMock(),
+    PlantillaPersonal: createModelMock(),
     Jornada: createModelMock(),
     PartidoJugador: createModelMock(),
     PartidoTarjeta: createModelMock(),
@@ -101,6 +103,8 @@ export const Plantilla = models.Plantilla;
 export const PlantillaJugador = models.PlantillaJugador;
 export const PlantillaEntrenador = models.PlantillaEntrenador;
 export const PlantillaDelegado = models.PlantillaDelegado;
+export const Personal = models.Personal;
+export const PlantillaPersonal = models.PlantillaPersonal;
 export const Jornada = models.Jornada;
 export const PartidoJugador = models.PartidoJugador;
 export const PartidoTarjeta = models.PartidoTarjeta;

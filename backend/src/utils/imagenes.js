@@ -12,6 +12,7 @@ const CAMPO_IMAGEN = {
   jugadores: 'foto',
   entrenadores: 'foto',
   delegados: 'foto',
+  personal: 'foto',
   equipos: 'escudo'
 };
 
@@ -24,6 +25,7 @@ const TIPO_POR_PROPIEDAD = {
   entrenador: 'entrenadores',
   delegados: 'delegados',
   delegado: 'delegados',
+  personal: 'personal',
   equipos: 'equipos',
   equipo: 'equipos',
   equipoLocal: 'equipos',

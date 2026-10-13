@@ -17,7 +17,7 @@ const { categoriaDelUsuario } = require('../utils/filtroCategoria');
  *
  * Además, si la petición trae ?id_plantilla= de otra categoría, se rechaza.
  * ctx: { categoria, plantillas (Set de ids de su categoría, de todas las
- * temporadas), jugadores(), entrenadores(), delegados(), entrenamientos() }
+ * temporadas), jugadores(), entrenadores(), delegados(), personal(), entrenamientos() }
  * (Sets que se calculan solo si una regla los pide).
  */
 
@@ -25,7 +25,7 @@ const MENSAJE = 'Solo puedes acceder a los datos de tu categoría.';
 
 function contexto(categoria) {
   // require diferido: los modelos importan cosas que a su vez usan middlewares.
-  const { Plantilla, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Entrenamiento } = require('../models');
+  const { Plantilla, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, PlantillaPersonal, Entrenamiento } = require('../models');
   const cache = {};
   const unaVez = (clave, fn) => () => {
     if (!cache[clave]) cache[clave] = fn();
@@ -45,6 +45,7 @@ function contexto(categoria) {
     jugadores: unaVez('jugadores', dePlantillas(PlantillaJugador, 'id_jugador')),
     entrenadores: unaVez('entrenadores', dePlantillas(PlantillaEntrenador, 'id_entrenador')),
     delegados: unaVez('delegados', dePlantillas(PlantillaDelegado, 'id_delegado')),
+    personal: unaVez('personal', dePlantillas(PlantillaPersonal, 'id_personal')),
     entrenamientos: unaVez('entrenamientos', dePlantillas(Entrenamiento, 'id'))
   };
 }

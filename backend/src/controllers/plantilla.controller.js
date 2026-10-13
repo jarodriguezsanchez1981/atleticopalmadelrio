@@ -1,4 +1,4 @@
-const { Plantilla, Categoria, Temporada, Division, Coordinador, TipoFutbol, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Titulo, Promocion, Posicion, Partido, PartidoJugador } = require('../models');
+const { Plantilla, Categoria, Temporada, Division, Coordinador, TipoFutbol, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Personal, PlantillaPersonal, Titulo, Promocion, Posicion, Partido, PartidoJugador } = require('../models');
 
 const includes = [
   { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'orden'] },
@@ -7,10 +7,22 @@ const includes = [
   { model: Coordinador, as: 'coordinador', attributes: ['id', 'nombre', 'apellidos'] },
   { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['id', 'dorsal', 'talla', 'titular', 'promocion'] } },
   { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['rol'] }, include: [{ model: Titulo, as: 'titulos', attributes: ['id', 'nombre'], through: { attributes: [] } }] },
-  { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } }
+  { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } },
+  // Personal del club (sección Personal); en el formulario solo se ofrece en Senior A.
+  { model: Personal, as: 'personal', attributes: ['id', 'nombre', 'apellidos', 'foto', 'seccion', 'email', 'telefono'], through: { attributes: [] } }
 ];
+// El personal del club solo se asigna a la plantilla de esta categoría: en
+// cualquier otra, la lista de personal que llegue se guarda vacía.
+const CATEGORIA_CON_PERSONAL = 'Senior A';
+async function personalSegunCategoria(idCategoria, idsPersonal) {
+  const categoria = await Categoria.findOne({ where: { id: idCategoria }, attributes: ['id', 'nombre'] });
+  if (categoria?.nombre !== CATEGORIA_CON_PERSONAL) return [];
+  // Senior A: lo que llegue; si no llega nada, se deja como está (undefined).
+  return idsPersonal === undefined ? undefined : (idsPersonal || []);
+}
+
 // Includes de personas: no van en el listado básico.
-const PERSONAS = ['jugadores', 'entrenadores', 'delegados'];
+const PERSONAS = ['jugadores', 'entrenadores', 'delegados', 'personal'];
 
 // Solo las plantillas de esta temporada toman este código de primaria RFAF por defecto.
 const TEMPORADA_CODIGO_PRIMARIA_DEFECTO = '2026/2027';
@@ -118,7 +130,7 @@ async function listar(req, res, next) {
     // Jugadores por un lado y entrenadores + delegados por otro: en una sola
     // consulta el JOIN multiplica las filas (jugadores × entrenadores × títulos
     // × delegados) y repite la foto de cada jugador en todas ellas.
-    const STAFF = ['entrenadores', 'delegados'];
+    const STAFF = ['entrenadores', 'delegados', 'personal'];
     const plantillas = await Plantilla.findAll({
       where: Object.keys(where).length ? where : undefined,
       include: includes.filter((inc) => (basico ? !PERSONAS.includes(inc.as) : !STAFF.includes(inc.as))),
@@ -155,7 +167,7 @@ async function obtener(req, res, next) {
   } catch (err) { next(err); }
 }
 
-async function validarReferencias({ id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados }) {
+async function validarReferencias({ id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados, ids_personal }) {
   const categoria = await Categoria.findOne({ where: { id: id_categoria } });
   if (!categoria) return 'La categoría indicada no existe.';
   const temporada = await Temporada.findOne({ where: { id: id_temporada } });
@@ -187,6 +199,10 @@ async function validarReferencias({ id_categoria, id_temporada, id_division, id_
   if (ids_delegados && ids_delegados.length) {
     const count = await Delegado.count({ where: { id: ids_delegados } });
     if (count !== ids_delegados.length) return 'Algún delegado indicado no existe.';
+  }
+  if (ids_personal && ids_personal.length) {
+    const count = await Personal.count({ where: { id: ids_personal } });
+    if (count !== new Set(ids_personal).size) return 'Alguna persona del personal indicada no existe.';
   }
   return null;
 }
@@ -236,11 +252,11 @@ async function sincronizarPromociones(plantilla, jugadores, antesMarcados = []) 
 
 async function crear(req, res, next) {
   try {
-    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, codigo_equipo, codigo_primaria, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, codigo_equipo, codigo_primaria, jugadores, ids_entrenadores, ids_delegados, ids_personal } = req.body;
     if (!id_categoria || !id_temporada) {
       return res.status(400).json({ message: 'Categoría y temporada son obligatorias.' });
     }
-    const errorRef = await validarReferencias({ id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados });
+    const errorRef = await validarReferencias({ id_categoria, id_temporada, id_division, id_coordinador, jugadores, ids_entrenadores, ids_delegados, ids_personal });
     if (errorRef) return res.status(400).json({ message: errorRef });
     const errorCategoria = await validarCategoriaDisponible(id_categoria, id_temporada);
     if (errorCategoria) return res.status(409).json({ message: errorCategoria });
@@ -290,6 +306,12 @@ async function crear(req, res, next) {
       await PlantillaDelegado.bulkCreate(rows, { ignoreDuplicates: true });
     }
 
+    // Asociar personal (solo Senior A)
+    const idsPersonal = ids_personal?.length ? await personalSegunCategoria(id_categoria, ids_personal) : [];
+    if (idsPersonal && idsPersonal.length) {
+      await PlantillaPersonal.bulkCreate([...new Set(idsPersonal)].map((id_personal) => ({ id_plantilla: plantilla.id, id_personal })), { ignoreDuplicates: true });
+    }
+
     await sincronizarPromociones(plantilla, jugadores);
 
     const completa = await Plantilla.findOne({ where: { id: plantilla.id }, include: includes });
@@ -330,7 +352,7 @@ async function actualizar(req, res, next) {
     let antesMarcados = [];
     const plantilla = await Plantilla.findOne({ where: { id: req.params.id } });
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
-    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, codigo_equipo, codigo_primaria, jugadores, ids_entrenadores, ids_delegados } = req.body;
+    const { id_categoria, id_temporada, id_division, id_coordinador, codigo_competicion, codigo_grupo, codigo_temporada, codigo_equipo, codigo_primaria, jugadores, ids_entrenadores, ids_delegados, ids_personal } = req.body;
 
     const nuevos = {
       id_categoria: id_categoria !== undefined ? id_categoria : plantilla.id_categoria,
@@ -344,7 +366,7 @@ async function actualizar(req, res, next) {
       codigo_primaria: codigo_primaria !== undefined ? (codigo_primaria || null) : plantilla.codigo_primaria
     };
 
-    const errorRef = await validarReferencias({ ...nuevos, jugadores, ids_entrenadores, ids_delegados });
+    const errorRef = await validarReferencias({ ...nuevos, jugadores, ids_entrenadores, ids_delegados, ids_personal });
     if (errorRef) return res.status(400).json({ message: errorRef });
     const errorCategoria = await validarCategoriaDisponible(nuevos.id_categoria, nuevos.id_temporada, plantilla.id);
     if (errorCategoria) return res.status(409).json({ message: errorCategoria });
@@ -394,6 +416,15 @@ async function actualizar(req, res, next) {
           id_delegado
         }));
         await PlantillaDelegado.bulkCreate(rows, { ignoreDuplicates: true });
+      }
+    }
+
+    // Actualizar personal si se envía (o si la plantilla deja de ser Senior A)
+    const idsPersonal = await personalSegunCategoria(nuevos.id_categoria, ids_personal);
+    if (idsPersonal !== undefined) {
+      await PlantillaPersonal.destroy({ where: { id_plantilla: plantilla.id } });
+      if (idsPersonal.length) {
+        await PlantillaPersonal.bulkCreate([...new Set(idsPersonal)].map((id_personal) => ({ id_plantilla: plantilla.id, id_personal })), { ignoreDuplicates: true });
       }
     }
 
