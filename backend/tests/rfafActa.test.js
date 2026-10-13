@@ -43,6 +43,8 @@ const HTML_EJEMPLO = `
       <h5><strong>Suplentes</strong></h5>
       <table class="table"><tbody>
         <tr><td>15</td><td><img class="fotojug"></td><td>MARTINEZ DIAZ, SERGIO</td></tr>
+        <tr><th colspan="3">Cuerpo Técnico</th></tr>
+        <tr><td>ENT</td><td><img class="fotojug"></td><td>ENTRENADOR APELLIDO, TECNICO</td></tr>
       </tbody></table>
       <h4>Sustituciones</h4>
       <table class="table"><tbody>
@@ -70,7 +72,10 @@ const HTML_EJEMPLO = `
         <tr><td>9</td><td><img class="fotojug" src="https://otro.example.com/f.jpg"></td><td>GARCIA TORRES, MANUEL</td></tr>
       </tbody></table>
       <h5><strong>Suplentes</strong></h5>
-      <table class="table"><tbody></tbody></table>
+      <h5><strong>Cuerpo técnico</strong></h5>
+      <table class="table"><tbody>
+        <tr><td>DEL</td><td><img class="fotojug"></td><td>DELEGADO OTRO, EQUIPO</td></tr>
+      </tbody></table>
       <h4>Tarjetas</h4>
       <table class="table"><tbody></tbody></table>
     </div>
@@ -128,6 +133,14 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_acta.py', () => {
     expect(foto[4]).toBeNull();
     expect(foto[15]).toBeNull();
     expect(acta.visitante.jugadores[0].foto).toBeNull();
+  });
+
+  it('el cuerpo técnico no son jugadores (fila o sección "Cuerpo técnico")', async () => {
+    const acta = await leer();
+    const nombres = [...acta.local.jugadores, ...acta.visitante.jugadores].map((j) => j.nombre);
+    expect(nombres).not.toContain('ENTRENADOR APELLIDO, TECNICO');
+    expect(nombres).not.toContain('DELEGADO OTRO, EQUIPO');
+    expect(acta.visitante.jugadores).toHaveLength(1);
   });
 
   it('saca los dos equipos con titulares y suplentes', async () => {

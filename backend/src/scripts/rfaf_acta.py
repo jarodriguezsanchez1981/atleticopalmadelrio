@@ -134,13 +134,33 @@ def tabla_tras(etiqueta):
     return etiqueta.find_next("table") if etiqueta else None
 
 
+def es_cuerpo_tecnico(texto):
+    """"Cuerpo Técnico" (con o sin tilde, en mayúsculas o no)."""
+    return "CUERPO TECNICO" in normalizar_nombre(texto)
+
+
+def tabla_de_seccion(h5):
+    """La tabla de esa sección: la siguiente al título, siempre que no haya
+    antes otro título (si la sección está vacía, no se coge la de la siguiente,
+    p. ej. la del cuerpo técnico)."""
+    if not h5:
+        return None
+    for el in h5.find_all_next(["table", "h4", "h5"]):
+        return el if el.name == "table" else None
+    return None
+
+
 def jugadores_de(bloque, titulo, titular):
+    """Jugadores de la tabla Titulares / Suplentes. A partir de una fila o un
+    título "Cuerpo Técnico" son entrenadores y delegados, no jugadores."""
     h5 = next((h for h in bloque.find_all("h5") if limpiar(h.get_text()) == titulo), None)
-    tabla = tabla_tras(h5)
+    tabla = tabla_de_seccion(h5)
     jugadores = []
     if not tabla:
         return jugadores
     for tr in tabla.find_all("tr"):
+        if es_cuerpo_tecnico(tr.get_text()):
+            break
         tds = tr.find_all("td")
         if len(tds) < 3:
             continue
