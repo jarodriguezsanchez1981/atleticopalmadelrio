@@ -6,7 +6,7 @@ import { estiloTabla } from '../../utils/estiloTabla';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { promocionesService, plantillasService, categoriasService, jugadoresService, temporadasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
-import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
+import { filtrarPlantillasTemporadaActual, obtenerTemporadaActual } from '../../utils/temporadaActual';
 
 const plantillas = ref([]);
 const temporadas = ref([]);
@@ -36,10 +36,12 @@ async function cargarOpciones() {
  * promocionados y cuántos partidos han jugado fuera de ella: en su mismo grupo
  * de categoría (Promoción RFAF) o en otro (Promoción Categoría). */
 const tablasPorPlantilla = computed(() => {
-  const actuales = new Set(filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value).map((p) => p.id));
+  // Temporada actual por la propia promoción (un entrenador no ve las
+  // plantillas de origen de otras categorías, p. ej. la de Juvenil).
+  const actual = obtenerTemporadaActual(temporadas.value);
   const porPlantilla = new Map();
   for (const p of resumen.value) {
-    if (!actuales.has(p.id_plantilla)) continue;
+    if (actual && Number(p.plantilla?.id_temporada) !== Number(actual.id)) continue;
     if (!porPlantilla.has(p.id_plantilla)) {
       porPlantilla.set(p.id_plantilla, {
         id: p.id_plantilla,

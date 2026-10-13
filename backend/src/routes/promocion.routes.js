@@ -1,6 +1,6 @@
 const { Router } = require('express');
-const { restringirACategoria, porPlantilla, plantillaSuya } = require('../middlewares/categoria.middleware');
-const { Promocion } = require('../models');
+const { restringirACategoria } = require('../middlewares/categoria.middleware');
+const { Promocion, Plantilla, Categoria } = require('../models');
 const ctrl = require('../controllers/promocion.controller');
 const authenticate = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/role.middleware');
@@ -10,9 +10,29 @@ const router = Router();
 
 router.use(authenticate, authorize('promociones'));
 // Un entrenador solo ve y toca lo de su categoría (middlewares/categoria.middleware.js).
-// Una promoción es suya si sale de una plantilla de su categoría o va a su categoría.
-const promocionSuya = async (p, ctx) => (p.id_plantilla != null && await plantillaSuya(p.id_plantilla, ctx))
-  || (p.id_categoria != null && Number(p.id_categoria) === ctx.categoria);
+// Un entrenador solo ve (y crea) las promociones que llegan a su categoría
+// desde el grupo de categorías inmediatamente inferior: el de Senior A, las
+// de Juvenil a Senior A (no las de Senior B a Senior A).
+async function grupo(idCategoria, ctx) {
+  const id = Number(idCategoria);
+  ctx.grupos = ctx.grupos || new Map(); // caché de la petición
+  if (!ctx.grupos.has(id)) {
+    ctx.grupos.set(id, Categoria.findByPk(id, { attributes: ['id', 'grupo'] })
+      .then((c) => (c?.grupo != null ? Number(c.grupo) : null)));
+  }
+  return ctx.grupos.get(id);
+}
+async function categoriaDePlantilla(idPlantilla) {
+  const p = await Plantilla.findByPk(idPlantilla, { attributes: ['id', 'id_categoria'] });
+  return p?.id_categoria ?? null;
+}
+const promocionSuya = async (p, ctx) => {
+  if (p.id_categoria == null || Number(p.id_categoria) !== ctx.categoria || p.id_plantilla == null) return false;
+  const grupoSuyo = await grupo(ctx.categoria, ctx);
+  const origen = p.plantilla?.id_categoria ?? await categoriaDePlantilla(p.id_plantilla);
+  const grupoOrigen = origen != null ? await grupo(origen, ctx) : null;
+  return grupoSuyo != null && grupoOrigen != null && grupoOrigen === grupoSuyo - 1;
+};
 router.use(restringirACategoria({
   listados: ['/', '/resumen'],
   registro: async (id, ctx) => {
