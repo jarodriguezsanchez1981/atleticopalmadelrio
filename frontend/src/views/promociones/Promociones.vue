@@ -13,6 +13,8 @@ const temporadas = ref([]);
 const categorias = ref([]);
 const jugadores = ref([]);
 const resumen = ref([]);
+// Filas desplegadas (partidos de la promoción) de cada tabla, por plantilla.
+const desplegadas = ref({});
 let unsubCambio = null;
 
 async function cargarOpciones() {
@@ -54,7 +56,8 @@ const tablasPorPlantilla = computed(() => {
       jugador: p.jugador ? `${p.jugador.nombre} ${p.jugador.apellidos}` : jugadorLabel(p.id_jugador),
       destino: p.categoria?.nombre || categoriaLabel(p.id_categoria),
       promocion_rfaf: p.promocion_rfaf,
-      promocion_categoria: p.promocion_categoria
+      promocion_categoria: p.promocion_categoria,
+      partidos: p.partidos || []
     });
   }
   return [...porPlantilla.values()]
@@ -77,6 +80,11 @@ const seccionesPorTipo = computed(() => {
   }
   return [...porTipo.values()].sort((a, b) => (a.id ?? 99) - (b.id ?? 99));
 });
+
+function formatoFecha(fecha) {
+  const d = new Date(fecha);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
 onMounted(async () => {
   await cargarOpciones();
@@ -165,11 +173,53 @@ function jugadorLabel(id) {
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
           <span class="text-xs text-ink-tertiary">Grupo {{ t.grupo ?? '—' }}</span>
         </div>
-        <DataTable v-bind="estiloTabla" :value="t.filas" dataKey="id">
-          <Column field="jugador" header="Jugador" sortable />
-          <Column field="destino" header="Promociona a" sortable />
-          <Column field="promocion_rfaf" header="Promoción RFAF" sortable style="width: 130px" class="text-center" />
-          <Column field="promocion_categoria" header="Promoción Categoría" sortable style="width: 150px" class="text-center" />
+        <!-- Mismo ancho de columnas en todas las tablas (table-layout fijo); cada
+             fila se despliega con los partidos que ha jugado en la promoción. -->
+        <DataTable v-bind="estiloTabla" :value="t.filas" dataKey="id"
+                   v-model:expandedRows="desplegadas[t.id]"
+                   :tableStyle="{ tableLayout: 'fixed', minWidth: '640px' }">
+          <Column expander style="width: 3rem" />
+          <Column field="jugador" header="Jugador" sortable style="width: 34%" />
+          <Column field="destino" header="Promociona a" sortable style="width: 26%" />
+          <Column field="promocion_rfaf" header="Promoción RFAF" sortable style="width: 20%" class="text-center" />
+          <Column field="promocion_categoria" header="Promoción Categoría" sortable style="width: 20%" class="text-center" />
+          <template #expansion="{ data }">
+            <div v-if="!data.partidos.length" class="text-sm text-ink-tertiary py-2 px-2">
+              No ha jugado ningún partido con otra plantilla.
+            </div>
+            <div v-else class="overflow-x-auto py-1">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-xs text-ink-tertiary text-left">
+                    <th class="font-medium p-2">Fecha</th>
+                    <th class="font-medium p-2 text-center">Jornada</th>
+                    <th class="font-medium p-2">Categoría</th>
+                    <th class="font-medium p-2">Rival</th>
+                    <th class="font-medium p-2 text-center">Resultado</th>
+                    <th class="font-medium p-2">Promoción</th>
+                    <th class="font-medium p-2 text-center">Min.</th>
+                    <th class="font-medium p-2 text-center">Goles</th>
+                    <th class="font-medium p-2 text-center">TA</th>
+                    <th class="font-medium p-2 text-center">TR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="p in data.partidos" :key="p.id_partido" class="border-t border-line">
+                    <td class="p-2 whitespace-nowrap tabular-nums">{{ formatoFecha(p.fecha) }}</td>
+                    <td class="p-2 text-center tabular-nums">{{ p.jornada ?? '—' }}</td>
+                    <td class="p-2 whitespace-nowrap">{{ p.categoria || '—' }}</td>
+                    <td class="p-2">{{ p.es_local ? 'vs' : '@' }} {{ p.rival || '—' }}</td>
+                    <td class="p-2 text-center tabular-nums whitespace-nowrap">{{ p.suspendido ? 'Suspendido' : (p.resultado || '—') }}</td>
+                    <td class="p-2 whitespace-nowrap">{{ p.tipo === 'rfaf' ? 'RFAF' : 'Categoría' }}</td>
+                    <td class="p-2 text-center tabular-nums">{{ p.minutos ?? '—' }}</td>
+                    <td class="p-2 text-center tabular-nums">{{ p.goles }}</td>
+                    <td class="p-2 text-center tabular-nums">{{ p.tarjeta_amarilla }}</td>
+                    <td class="p-2 text-center tabular-nums">{{ p.tarjeta_roja }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
         </DataTable>
       </div>
     </div>

@@ -1,4 +1,6 @@
-const { Promocion, Plantilla, Categoria, Temporada, Jugador, PartidoJugador, Partido, TipoFutbol } = require('../models');
+const { Promocion, Plantilla, Categoria, Temporada, Jugador, PartidoJugador, Partido, TipoFutbol, Equipo } = require('../models');
+
+const PALMA_ID = 73;
 
 const includes = [
   {
@@ -36,7 +38,9 @@ function mismoGrupo(a, b) {
 /** Promociones con el número de partidos de la temporada que cada jugador ha
  * jugado con una plantilla que no es la suya (la de la promoción):
  * - promocion_rfaf: la categoría de ese partido es del mismo grupo que la suya.
- * - promocion_categoria: es de otro grupo (o alguna de las dos no tiene grupo). */
+ * - promocion_categoria: es de otro grupo (o alguna de las dos no tiene grupo).
+ * En `partidos`, esos partidos por fecha: categoría, rival, marcador, tipo
+ * ('rfaf' | 'categoria') y lo que hizo el jugador (goles, tarjetas, minutos). */
 async function resumen(req, res, next) {
   try {
     const promociones = await Promocion.findAll({
@@ -62,17 +66,21 @@ async function resumen(req, res, next) {
     const jugados = idsJugador.length
       ? await PartidoJugador.findAll({
         where: { id_jugador: idsJugador },
-        attributes: ['id_partido', 'id_jugador'],
+        attributes: ['id_partido', 'id_jugador', 'goles', 'tarjeta_amarilla', 'tarjeta_roja', 'minutos'],
         include: [{
           model: Partido,
           as: 'partido',
-          attributes: ['id', 'id_plantilla'],
-          include: [{
-            model: Plantilla,
-            as: 'plantilla',
-            attributes: ['id', 'id_temporada'],
-            include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'grupo'] }]
-          }]
+          attributes: ['id', 'id_plantilla', 'fecha', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido'],
+          include: [
+            {
+              model: Plantilla,
+              as: 'plantilla',
+              attributes: ['id', 'id_temporada'],
+              include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'grupo'] }]
+            },
+            { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
+            { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
+          ]
         }]
       })
       : [];
@@ -82,6 +90,7 @@ async function resumen(req, res, next) {
       const contados = new Set();
       let promocion_rfaf = 0;
       let promocion_categoria = 0;
+      const partidos = [];
       for (const pj of jugados) {
         const partido = pj.partido;
         if (Number(pj.id_jugador) !== Number(promocion.id_jugador) || !partido) continue;
@@ -89,10 +98,28 @@ async function resumen(req, res, next) {
         if (Number(partido.plantilla?.id_temporada) !== Number(origen?.id_temporada)) continue;
         if (contados.has(partido.id)) continue;
         contados.add(partido.id);
-        if (mismoGrupo(partido.plantilla?.categoria?.grupo, origen?.categoria?.grupo)) promocion_rfaf += 1;
+        const tipo = mismoGrupo(partido.plantilla?.categoria?.grupo, origen?.categoria?.grupo) ? 'rfaf' : 'categoria';
+        if (tipo === 'rfaf') promocion_rfaf += 1;
         else promocion_categoria += 1;
+        const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
+        partidos.push({
+          id_partido: partido.id,
+          fecha: partido.fecha ?? null,
+          jornada: partido.jornada ?? null,
+          categoria: partido.plantilla?.categoria?.nombre || null,
+          rival: (esLocal ? partido.equipoVisitante?.nombre : partido.equipoLocal?.nombre) || null,
+          es_local: esLocal,
+          resultado: partido.resultado ?? null,
+          suspendido: !!partido.suspendido,
+          tipo,
+          goles: Number(pj.goles) || 0,
+          tarjeta_amarilla: Number(pj.tarjeta_amarilla) || 0,
+          tarjeta_roja: Number(pj.tarjeta_roja) || 0,
+          minutos: pj.minutos ?? null
+        });
       }
-      return { ...serializePromocion(promocion), promocion_rfaf, promocion_categoria };
+      partidos.sort((a, b) => new Date(a.fecha || 0) - new Date(b.fecha || 0));
+      return { ...serializePromocion(promocion), promocion_rfaf, promocion_categoria, partidos };
     });
     res.json(resultado);
   } catch (err) { next(err); }
