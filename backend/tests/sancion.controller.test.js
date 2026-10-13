@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Sancion } from './helpers/models.js';
+import { Sancion, PartidoTarjeta } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/sancion.controller.js';
@@ -7,6 +7,7 @@ import * as ctrl from '../src/controllers/sancion.controller.js';
 describe('Sección Sanciones · sancion.controller', () => {
   beforeEach(() => {
     Sancion.findAll.mockReset();
+    PartidoTarjeta.findAll.mockReset();
     Sancion.findByPk.mockReset();
     Sancion.create.mockReset();
     Sancion.destroy.mockReset();
@@ -22,6 +23,21 @@ describe('Sección Sanciones · sancion.controller', () => {
     const { promesa, res } = llamar(ctrl.listar);
     await promesa;
     expect(res._json).toHaveLength(1);
+  });
+
+  it('listar añade los minutos de las tarjetas del jugador en el partido', async () => {
+    Sancion.findAll.mockResolvedValue([{ id: 1, id_partido: 5, id_jugador: 9, amarilla: 2, roja: 1 }, { id: 2, id_partido: 6, id_jugador: 9, amarilla: 1, roja: 0 }]);
+    PartidoTarjeta.findAll.mockResolvedValue([
+      { id_partido: 5, id_jugador: 9, tipo: 'amarilla', minuto: 70 },
+      { id_partido: 5, id_jugador: 9, tipo: 'amarilla', minuto: 12 },
+      { id_partido: 5, id_jugador: 9, tipo: 'roja', minuto: 70 },
+      { id_partido: 5, id_jugador: 3, tipo: 'amarilla', minuto: 40 }
+    ]);
+    const { promesa, res } = llamar(ctrl.listar);
+    await promesa;
+    expect(PartidoTarjeta.findAll.mock.calls[0][0].where).toEqual({ id_partido: [5, 6] });
+    expect(res._json[0]).toMatchObject({ id: 1, minutos_amarilla: [12, 70], minutos_roja: [70] });
+    expect(res._json[1]).toMatchObject({ id: 2, minutos_amarilla: [], minutos_roja: [] });
   });
 
   it('listar filtra por partido y jugador', async () => {

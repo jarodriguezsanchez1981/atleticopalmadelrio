@@ -69,7 +69,9 @@ const acumuladosFutbol11 = computed(() => {
         es_local: esLocal,
         resultado: partido.resultado || null,
         amarilla: Number(s.amarilla) || 0,
-        roja: Number(s.roja) || 0
+        roja: Number(s.roja) || 0,
+        minutos_amarilla: s.minutos_amarilla || [],
+        minutos_roja: s.minutos_roja || []
       });
       porJugador.set(s.id_jugador, fila);
     }
@@ -137,6 +139,11 @@ function etiquetaPartido(p) {
   const local = p.equipoLocal?.nombre || '';
   const visitante = p.equipoVisitante?.nombre || '';
   return `${fecha} · ${local} vs ${visitante}`;
+}
+
+/** [12, 70] -> "12', 70'"; sin minutos, "—". */
+function formatoMinutos(minutos) {
+  return minutos?.length ? minutos.map((m) => `${m}'`).join(', ') : '—';
 }
 
 function formatoFecha(fecha) {
@@ -248,7 +255,9 @@ function nombreJugador(id) {
                     <th class="font-medium p-2">Rival</th>
                     <th class="font-medium p-2 text-center">Resultado</th>
                     <th class="font-medium p-2 text-center">Amarilla</th>
+                    <th class="font-medium p-2 text-center">Minuto amarilla</th>
                     <th class="font-medium p-2 text-center">Roja</th>
+                    <th class="font-medium p-2 text-center">Minuto roja</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -263,12 +272,14 @@ function nombreJugador(id) {
                       </span>
                       <span v-else class="text-ink-tertiary">0</span>
                     </td>
+                    <td class="p-2 text-center tabular-nums whitespace-nowrap">{{ p.amarilla ? formatoMinutos(p.minutos_amarilla) : '' }}</td>
                     <td class="p-2 text-center">
                       <span v-if="p.roja" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
                         <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ p.roja }}
                       </span>
                       <span v-else class="text-ink-tertiary">0</span>
                     </td>
+                    <td class="p-2 text-center tabular-nums whitespace-nowrap">{{ p.roja ? formatoMinutos(p.minutos_roja) : '' }}</td>
                   </tr>
                 </tbody>
               </table>
