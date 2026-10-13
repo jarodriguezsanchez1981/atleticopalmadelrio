@@ -4,14 +4,14 @@ import Chart from 'primevue/chart';
 
 /** Gráfica de balance del Dashboard, victorias (línea verde) y derrotas (línea
  * roja):
- * - con `plantillas`: cada plantilla de un tipo de fútbol, por orden de
- *   categoría; en la etiqueta y el tooltip, los partidos jugados (y empates);
+ * - con `jornadas`: un tipo de fútbol jornada a jornada, con la suma de las
+ *   victorias (verde), empates (gris) y derrotas (rojo) de todas las categorías;
  * - con `partidos`: una plantilla partido a partido en una sola línea, que
  *   sube con la victoria, queda en medio con el empate y baja con la derrota
  *   (cada punto y su tramo en verde, gris o rojo). */
 const props = defineProps({
-  // [{ id_plantilla, categoria, alias, partidos, victorias, empates, derrotas }]
-  plantillas: { type: Array, default: null },
+  // [{ jornada, partidos, victorias, empates, derrotas }]
+  jornadas: { type: Array, default: null },
   // [{ id_partido, fecha, rival, es_local, marcador, resultado, victorias, empates, derrotas }]
   partidos: { type: Array, default: null }
 });
@@ -27,19 +27,19 @@ const COLOR = { victoria: VERDE, empate: GRIS, derrota: ROJO };
 const TEXTO_NIVEL = { 1: 'Victoria', 0: 'Empate', '-1': 'Derrota' };
 
 const porPartido = computed(() => !!props.partidos);
-const puntos = computed(() => props.partidos || props.plantillas || []);
+const puntos = computed(() => props.partidos || props.jornadas || []);
 
-const etiqueta = (p) => p.alias || p.categoria;
 const fechaCorta = (f) => {
   const d = new Date(f);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
 };
 const LETRA = { victoria: 'G', empate: 'E', derrota: 'P' };
 
-const datosPlantillas = () => ({
-  labels: puntos.value.map((p) => `${etiqueta(p)} (${p.partidos} PJ)`),
+const datosJornadas = () => ({
+  labels: puntos.value.map((p) => `J${p.jornada}`),
   datasets: [
     { label: 'Victorias', data: puntos.value.map((p) => p.victorias), borderColor: VERDE, backgroundColor: VERDE, tension: 0.3 },
+    { label: 'Empates', data: puntos.value.map((p) => p.empates), borderColor: GRIS, backgroundColor: GRIS, tension: 0.3 },
     { label: 'Derrotas', data: puntos.value.map((p) => p.derrotas), borderColor: ROJO, backgroundColor: ROJO, tension: 0.3 }
   ]
 });
@@ -62,7 +62,7 @@ const datosPartidos = () => {
   };
 };
 
-const datos = computed(() => (porPartido.value ? datosPartidos() : datosPlantillas()));
+const datos = computed(() => (porPartido.value ? datosPartidos() : datosJornadas()));
 
 const opciones = computed(() => ({
   maintainAspectRatio: false,
@@ -75,7 +75,7 @@ const opciones = computed(() => ({
           const p = puntos.value[items[0].dataIndex];
           return porPartido.value
             ? `${fechaCorta(p.fecha)} · ${p.es_local ? 'vs' : '@'} ${p.rival} · ${p.marcador}`
-            : etiqueta(p);
+            : `Jornada ${p.jornada}`;
         },
         label: (item) => (porPartido.value
           ? TEXTO_NIVEL[item.raw]
@@ -84,7 +84,7 @@ const opciones = computed(() => ({
           const p = puntos.value[items[0].dataIndex];
           return porPartido.value
             ? `Hasta aquí: ${p.victorias} G · ${p.empates} E · ${p.derrotas} P`
-            : `Partidos: ${p.partidos} · Empates: ${p.empates}`;
+            : `Partidos jugados: ${p.partidos}`;
         }
       }
     }
@@ -101,7 +101,7 @@ const opciones = computed(() => ({
 
 <template>
   <div v-if="!puntos.length" class="text-sm text-ink-tertiary py-4 text-center">
-    {{ porPartido ? 'Sin partidos jugados esta temporada.' : 'Sin plantillas esta temporada.' }}
+    Sin partidos jugados esta temporada.
   </div>
   <div v-else class="h-72">
     <Chart type="line" :data="datos" :options="opciones" class="h-full" />

@@ -277,8 +277,10 @@ function resultadoPalma(p) {
 
 /** Gráficas de balance del Dashboard (temporada actual), cada una con `clave`
  * y `titulo`:
- * - una por tipo de fútbol con `plantillas` (por orden de categoría):
- *   partidos con resultado (no suspendidos) y victorias / empates / derrotas;
+ * - una por tipo de fútbol con `jornadas` (de la 1 a la última con algún
+ *   resultado): partidos con resultado (no suspendidos) de esa jornada y
+ *   victorias / empates / derrotas del PALMA, sumando todas las categorías
+ *   (sin Senior A ni los partidos sin jornada, p. ej. amistosos);
  * - la de Senior A con `partidos` (por fecha): resultado de cada partido y
  *   victorias / empates / derrotas acumuladas hasta él.
  * Un entrenador solo ve la de su categoría. */
@@ -297,16 +299,27 @@ async function balance(req, res, next) {
     }) || [];
     if (!plantillas.length) return res.json([]);
 
-    const filas = new Map(plantillas.map((p) => [p.id, {
-      id_plantilla: p.id,
-      categoria: p.categoria?.nombre || '—',
-      alias: p.categoria?.alias || null,
-      orden: p.categoria?.orden ?? null,
-      partidos: 0, victorias: 0, empates: 0, derrotas: 0
-    }]));
+    // Gráfica de cada plantilla: la de su tipo de fútbol o la suya propia.
+    const porTipo = new Map();
+    const propias = new Map();
+    const graficaDe = new Map();
+    for (const p of plantillas) {
+      if (p.categoria?.nombre === CATEGORIA_GRAFICA_PROPIA) {
+        const g = { clave: `plantilla_${p.id}`, id_plantilla: p.id, titulo: `${p.categoria.nombre} / ${temporada.nombre}`, partidos: [] };
+        propias.set(p.id, { grafica: g, acumulado: { victorias: 0, empates: 0, derrotas: 0 } });
+        continue;
+      }
+      const id = p.categoria?.id_tipofutbol ?? null;
+      if (!porTipo.has(id)) {
+        const nombre = p.categoria?.tipofutbol?.nombre || 'Sin tipo';
+        porTipo.set(id, { clave: `tipo_${id}`, id_tipofutbol: id, tipofutbol: nombre, titulo: nombre, porJornada: new Map() });
+      }
+      graficaDe.set(p.id, porTipo.get(id));
+    }
+
     const partidos = await Partido.findAll({
-      where: { id_plantilla: [...filas.keys()] },
-      attributes: ['id', 'id_plantilla', 'fecha', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido'],
+      where: { id_plantilla: plantillas.map((p) => p.id) },
+      attributes: ['id', 'id_plantilla', 'jornada', 'fecha', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido'],
       include: [
         { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
         { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
@@ -314,57 +327,43 @@ async function balance(req, res, next) {
       order: [['fecha', 'ASC']]
     }) || [];
     const CONTADOR = { victoria: 'victorias', empate: 'empates', derrota: 'derrotas' };
-    const jugadosPorPlantilla = new Map();
     for (const p of partidos) {
       const r = resultadoPalma(p);
-      const fila = filas.get(p.id_plantilla);
-      if (!r || !fila) continue;
-      fila.partidos += 1;
-      fila[CONTADOR[r]] += 1;
-      if (!jugadosPorPlantilla.has(p.id_plantilla)) jugadosPorPlantilla.set(p.id_plantilla, []);
-      jugadosPorPlantilla.get(p.id_plantilla).push({ partido: p, resultado: r });
-    }
-
-    const porTipo = new Map();
-    const propias = [];
-    for (const p of plantillas) {
-      if (p.categoria?.nombre === CATEGORIA_GRAFICA_PROPIA) {
-        propias.push(p);
+      if (!r) continue;
+      const propia = propias.get(p.id_plantilla);
+      if (propia) {
+        propia.acumulado[CONTADOR[r]] += 1;
+        const esLocal = Number(p.id_equipo_local) === PALMA_ID;
+        propia.grafica.partidos.push({
+          id_partido: p.id,
+          fecha: p.fecha,
+          rival: (esLocal ? p.equipoVisitante?.nombre : p.equipoLocal?.nombre) || '—',
+          es_local: esLocal,
+          marcador: p.resultado,
+          resultado: r,
+          ...propia.acumulado
+        });
         continue;
       }
-      const id = p.categoria?.id_tipofutbol ?? null;
-      if (!porTipo.has(id)) {
-        const nombre = p.categoria?.tipofutbol?.nombre || 'Sin tipo';
-        porTipo.set(id, { clave: `tipo_${id}`, id_tipofutbol: id, tipofutbol: nombre, titulo: nombre, plantillas: [] });
-      }
-      porTipo.get(id).plantillas.push(filas.get(p.id));
-    }
-    const graficas = [...porTipo.values()].sort((a, b) => (a.id_tipofutbol ?? 99) - (b.id_tipofutbol ?? 99));
-    for (const g of graficas) {
-      g.plantillas.sort((a, b) => (a.orden ?? 999) - (b.orden ?? 999) || a.categoria.localeCompare(b.categoria, 'es'));
+      const grafica = graficaDe.get(p.id_plantilla);
+      const jornada = Number(p.jornada);
+      if (!grafica || !(jornada > 0)) continue;
+      if (!grafica.porJornada.has(jornada)) grafica.porJornada.set(jornada, { jornada, partidos: 0, victorias: 0, empates: 0, derrotas: 0 });
+      const fila = grafica.porJornada.get(jornada);
+      fila.partidos += 1;
+      fila[CONTADOR[r]] += 1;
     }
 
-    for (const p of propias) {
-      const acumulado = { victorias: 0, empates: 0, derrotas: 0 };
-      graficas.push({
-        clave: `plantilla_${p.id}`,
-        id_plantilla: p.id,
-        titulo: `${p.categoria.nombre} / ${temporada.nombre}`,
-        partidos: (jugadosPorPlantilla.get(p.id) || []).map(({ partido, resultado }) => {
-          acumulado[CONTADOR[resultado]] += 1;
-          const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
-          return {
-            id_partido: partido.id,
-            fecha: partido.fecha,
-            rival: (esLocal ? partido.equipoVisitante?.nombre : partido.equipoLocal?.nombre) || '—',
-            es_local: esLocal,
-            marcador: partido.resultado,
-            resultado,
-            ...acumulado
-          };
-        })
+    const graficas = [...porTipo.values()]
+      .sort((a, b) => (a.id_tipofutbol ?? 99) - (b.id_tipofutbol ?? 99))
+      .map(({ porJornada, ...g }) => {
+        // De la jornada 1 a la última jugada (las intermedias sin resultados, a cero).
+        const ultima = Math.max(0, ...porJornada.keys());
+        const jornadas = Array.from({ length: ultima }, (_, k) => porJornada.get(k + 1)
+          || { jornada: k + 1, partidos: 0, victorias: 0, empates: 0, derrotas: 0 });
+        return { ...g, jornadas };
       });
-    }
+    for (const { grafica } of propias.values()) graficas.push(grafica);
     res.json(graficas);
   } catch (err) { next(err); }
 }
