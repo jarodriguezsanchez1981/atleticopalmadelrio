@@ -89,12 +89,11 @@ async function contarVecesConvocadoSuperior(idsJugadores, ordenActual) {
 
 /** Adjunta a cada jugador el nº de veces convocado por una categoría superior. */
 async function adjuntarVecesConvocado(plantillas) {
-  const lista = Array.isArray(plantillas) ? plantillas : [plantillas];
-  for (const p of lista) {
-    if (!p?.jugadores?.length) continue;
-    const ordenActual = p.categoria?.orden;
-    const ids = p.jugadores.map((j) => j.id);
-    const mapa = await contarVecesConvocadoSuperior(ids, ordenActual);
+  const lista = (Array.isArray(plantillas) ? plantillas : [plantillas]).filter((p) => p?.jugadores?.length);
+  // Una consulta por plantilla, en paralelo (en serie eran ~20 seguidas en el listado).
+  const mapas = await Promise.all(lista.map((p) => contarVecesConvocadoSuperior(p.jugadores.map((j) => j.id), p.categoria?.orden)));
+  lista.forEach((p, i) => {
+    const mapa = mapas[i];
     p.jugadores.forEach((j) => {
       const veces = mapa.get(j.id) || 0;
       if (j.PlantillaJugador && typeof j.PlantillaJugador.setDataValue === 'function') {
@@ -103,7 +102,7 @@ async function adjuntarVecesConvocado(plantillas) {
         j.PlantillaJugador.veces_convocado_superior = veces;
       }
     });
-  }
+  });
   return plantillas;
 }
 
