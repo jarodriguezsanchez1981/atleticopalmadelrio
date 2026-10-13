@@ -36,7 +36,8 @@ async function cargarOpciones() {
 const acumuladosFutbol11 = computed(() => {
   const plantillasF11 = filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
     .filter((p) => p.categoria?.id_tipofutbol === TIPO_FUTBOL_11)
-    .sort((a, b) => (a.categoria?.orden ?? 999) - (b.categoria?.orden ?? 999));
+    .sort((a, b) => Number(a.categoria?.orden ?? 999) - Number(b.categoria?.orden ?? 999)
+      || (a.categoria?.nombre || '').localeCompare(b.categoria?.nombre || '', 'es'));
   const plantillaDePartido = new Map(partidos.value.map((p) => [p.id, p.id_plantilla]));
 
   return plantillasF11.map((plantilla) => {
@@ -144,6 +145,7 @@ function nombreJugador(id) {
     :emptyItem="emptyItem"
     sortField="amarilla"
     :sortOrder="-1"
+    ocultarTabla
   >
     <template #cell-id_partido="{ data }">
       {{ data.partido ? nombrePartido(data.partido.id) : nombrePartido(data.id_partido) }}
@@ -176,7 +178,9 @@ function nombreJugador(id) {
       <h2 class="font-display text-lg font-bold text-club-green">Tarjetas acumuladas · Fútbol 11</h2>
       <p class="text-sm text-ink-tertiary">Suma de tarjetas por jugador en los partidos de cada plantilla de la temporada actual.</p>
     </div>
-    <div class="grid gap-4 lg:grid-cols-2">
+    <!-- Como en Promociones: una tabla debajo de otra, por orden de categoría,
+         todas con el mismo ancho de columnas (table-layout fijo). -->
+    <div class="flex flex-col gap-4">
       <div v-for="t in acumuladosFutbol11" :key="t.id">
         <div class="flex items-center justify-between gap-2 mb-2">
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
@@ -189,10 +193,11 @@ function nombreJugador(id) {
             </span>
           </div>
         </div>
-        <DataTable v-bind="estiloTabla" :value="t.filas" dataKey="id_jugador" sortField="amarillas" :sortOrder="-1">
-          <Column field="jugador" header="Jugador" sortable />
-          <Column field="partidos" header="Partidos" sortable style="width: 90px" class="text-center" />
-          <Column field="amarillas" header="Amarillas" sortable style="width: 100px">
+        <DataTable v-bind="estiloTabla" :value="t.filas" dataKey="id_jugador" sortField="amarillas" :sortOrder="-1"
+                   :tableStyle="{ tableLayout: 'fixed', minWidth: '640px' }">
+          <Column field="jugador" header="Jugador" sortable style="width: 46%" />
+          <Column field="partidos" header="Partidos" sortable style="width: 18%" class="text-center" />
+          <Column field="amarillas" header="Amarillas" sortable style="width: 18%">
             <template #body="{ data }">
               <span v-if="data.amarillas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
                 <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ data.amarillas }}
@@ -200,7 +205,7 @@ function nombreJugador(id) {
               <span v-else class="text-ink-tertiary">0</span>
             </template>
           </Column>
-          <Column field="rojas" header="Rojas" sortable style="width: 90px">
+          <Column field="rojas" header="Rojas" sortable style="width: 18%">
             <template #body="{ data }">
               <span v-if="data.rojas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
                 <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ data.rojas }}
