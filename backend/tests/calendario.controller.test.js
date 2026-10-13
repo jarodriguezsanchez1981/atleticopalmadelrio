@@ -119,6 +119,18 @@ describe('Calendario · calendario.controller', () => {
     expect(res._json[0].es_local).toBe(false);
   });
 
+  it('un entrenador solo ve los torneos de su categoría (y un coordinador, todos)', async () => {
+    let r = llamar(ctrl.eventos, { query: { tipo: 'torneo' }, user: { id: 20, rol: 'entrenador', id_categoria: 30, secciones: ['calendario'] } });
+    await r.promesa;
+    const plantilla = Torneo.findAll.mock.calls[0][0].include.find((i) => i.as === 'plantilla');
+    expect(plantilla).toMatchObject({ required: true, where: { id_categoria: 30 } });
+
+    Torneo.findAll.mockClear();
+    r = llamar(ctrl.eventos, { query: { tipo: 'torneo' }, user: { id: 1, rol: 'coordinador', secciones: ['calendario'] } });
+    await r.promesa;
+    expect(Torneo.findAll.mock.calls[0][0].include.find((i) => i.as === 'plantilla').where).toBeUndefined();
+  });
+
   it('solo consulta entrenamientos si tipo=entrenamiento', async () => {
     Entrenamiento.findAll.mockResolvedValue([entrenamiento]);
     const { promesa, res } = llamar(ctrl.eventos, { query: { tipo: 'entrenamiento' } });

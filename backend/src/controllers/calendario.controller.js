@@ -88,10 +88,11 @@ async function eventos(req, res, next) {
       }
       promesas.push(Torneo.findAll({
         where: whereTorneo,
-        include: [
+        // Un entrenador solo ve los torneos en los que juega su plantilla.
+        include: includesConCategoria([
           { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] }] },
           { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'localidad'] }
-        ],
+        ], categoriaDelUsuario(req)),
         order: [['fecha', 'ASC'], ['hora', 'ASC']]
       }));
     } else {
