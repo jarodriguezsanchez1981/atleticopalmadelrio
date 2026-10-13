@@ -56,7 +56,7 @@ const tablasPorPlantilla = computed(() => {
     });
   }
   return [...porPlantilla.values()]
-    .sort((a, b) => a.orden - b.orden)
+    .sort((a, b) => Number(a.orden) - Number(b.orden) || a.titulo.localeCompare(b.titulo, 'es'))
     .map((t) => ({
       ...t,
       filas: t.filas.sort((a, b) =>
@@ -143,7 +143,8 @@ function jugadorLabel(id) {
         mismo grupo que la del jugador, <strong>Promoción Categoría</strong> si es de otro grupo (o no tiene grupo).
       </p>
     </div>
-    <div class="grid gap-4 lg:grid-cols-2">
+    <!-- Una tabla debajo de otra, por orden de categoría de la plantilla. -->
+    <div class="flex flex-col gap-4">
       <div v-for="t in tablasPorPlantilla" :key="t.id">
         <div class="flex items-center justify-between gap-2 mb-2">
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
