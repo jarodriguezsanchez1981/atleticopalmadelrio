@@ -19,6 +19,7 @@ import { useMediaQuery } from '../composables/useMediaQuery';
 import { suscribirseCambio, emitirCambio } from '../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual, obtenerTemporadaActual } from '../utils/temporadaActual';
 import { etiquetaPrenda } from '../utils/coloresEquipacion';
+import { useAuthStore } from '../stores/auth.store';
 
 const esMovil = useMediaQuery('(max-width: 639px)');
 const toast = useToast();
@@ -32,6 +33,9 @@ const numPagina = ref(0);
 const cargando = ref(false);
 const cargandoJornada = ref(false);
 const filtroPlantilla = ref(null);
+// Un entrenador con categoría no elige: ve siempre los partidos de su plantilla.
+const auth = useAuthStore();
+const esEntrenador = computed(() => auth.rol === 'entrenador' && !!auth.idCategoria);
 let unsubCambio = null;
 
 /** Al filtrar por categoría se listan todas sus jornadas de golpe, paginadas de 10 en 10. */
@@ -55,6 +59,12 @@ async function cargarInit() {
   cargando.value = true;
   try {
     await cargarCatalogo();
+    if (esEntrenador.value) {
+      const suya = filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
+        .find((p) => Number(p.id_categoria ?? p.categoria?.id) === Number(auth.idCategoria));
+      // El watch de filtroPlantilla carga sus jornadas.
+      if (suya) { filtroPlantilla.value = suya.id; return; }
+    }
     await cargarNumeros();
   } finally {
     cargando.value = false;
@@ -295,6 +305,7 @@ function claseResultado(partido, esLocal) {
       </h2>
       <div class="flex items-center gap-2 flex-wrap">
         <Select
+          v-if="!esEntrenador"
           v-model="filtroPlantilla"
           :options="opcionesPlantilla"
           optionLabel="label"
