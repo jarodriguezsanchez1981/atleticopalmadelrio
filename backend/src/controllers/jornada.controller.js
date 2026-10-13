@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { filasPlanas } = require('../utils/filasPlanas');
 const { Partido, PartidoJugador, Equipo, Plantilla, Categoria, Temporada, Jugador, EquipoJugador, Sancion, Entrenamiento, Torneo } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
@@ -47,6 +48,9 @@ const includes = [
     ]
   }
 ];
+
+// Listado: sin los jugadores de cada partido (el detalle sí los trae).
+const includesListado = includes.filter((inc) => inc.as !== 'partidoJugadores');
 
 /** Detalle: incluye escudo de los equipos para la vista de detalle. */
 const includesDetalle = [
@@ -118,10 +122,13 @@ async function listar(req, res, next) {
     if (jornada) where.jornada = jornada;
     const items = await Partido.findAll({
       where,
-      include: includesConCategoria(includes, categoriaDelUsuario(req)),
+      include: includesConCategoria(includesListado, categoriaDelUsuario(req)),
+      // Objetos planos (ver utils/filasPlanas.js): el listado solo tiene relaciones 1 a 1.
+      raw: true,
+      nest: true,
       order: [['fecha', 'ASC'], ['jornada', 'ASC']]
     });
-    res.json(items.map(serializeJornada));
+    res.json(filasPlanas(items, ['suspendido']).map(serializeJornada));
   } catch (err) { next(err); }
 }
 

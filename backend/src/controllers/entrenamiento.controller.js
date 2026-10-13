@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { limiteConsulta } = require('../utils/limiteConsulta');
 const { Entrenamiento, Partido, Torneo, Plantilla, Categoria, Lugar } = require('../models');
 const { sumarDiasHoraEspana, diaEspana, partesEspana, desdeHoraEspana } = require('../utils/horaEspana');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
@@ -44,7 +45,9 @@ async function listar(req, res, next) {
     const entrenamientos = await Entrenamiento.findAll({
       where,
       include: includesConCategoria(includes, categoriaDelUsuario(req)),
-      order: [['fecha', 'ASC']]
+      order: [['fecha', 'ASC']],
+      // ?limite=N: solo los N primeros por fecha (p. ej. los próximos del Dashboard).
+      limit: limiteConsulta(req.query.limite)
     });
     res.json(entrenamientos.map(serialize));
   } catch (err) { next(err); }

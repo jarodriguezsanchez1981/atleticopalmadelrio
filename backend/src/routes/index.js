@@ -31,6 +31,7 @@ const torneoRoutes = require('./torneo.routes');
 const materialRoutes = require('./material.routes');
 const coordinadorRoutes = require('./coordinador.routes');
 const convocatoriaRoutes = require('./convocatoria.routes');
+const imagenRoutes = require('./imagen.routes');
 
 const router = Router();
 
@@ -62,6 +63,7 @@ router.use('/cambios', cambioRoutes);
 router.use('/equipos-jugadores', equipoJugadorRoutes);
 router.use('/promociones', promocionRoutes);
 router.use('/torneos', torneoRoutes);
+router.use('/imagenes', imagenRoutes);
 router.use('/materiales', materialRoutes);
 router.use('/coordinadores', coordinadorRoutes);
 router.use('/convocatorias', convocatoriaRoutes);

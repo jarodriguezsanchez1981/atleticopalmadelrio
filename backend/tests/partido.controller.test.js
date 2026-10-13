@@ -46,6 +46,22 @@ describe('Sección Partidos · partido.controller', () => {
     expect(res._json[0]).toEqual({ id: 1, id_equipo_local: 5, id_equipo_visitante: 6 });
   });
 
+  it('listar no trae los jugadores de cada partido (el detalle sí) y admite ?limite', async () => {
+    Partido.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { limite: '5' } });
+    await promesa;
+    const opciones = Partido.findAll.mock.calls[0][0];
+    expect(opciones.include.map((i) => i.as)).not.toContain('partidoJugadores');
+    expect(opciones.limit).toBe(5);
+  });
+
+  it('listar sin ?limite (o no válido) no limita', async () => {
+    Partido.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { limite: 'x' } });
+    await promesa;
+    expect(Partido.findAll.mock.calls[0][0].limit).toBeUndefined();
+  });
+
   it('listar incluye el orden de la categoría (para poder agrupar por categoría en el listado)', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa } = llamar(ctrl.listar);

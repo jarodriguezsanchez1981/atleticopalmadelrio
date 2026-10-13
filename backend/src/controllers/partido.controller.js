@@ -1,4 +1,6 @@
 const { Op } = require('sequelize');
+const { filasPlanas } = require('../utils/filasPlanas');
+const { limiteConsulta } = require('../utils/limiteConsulta');
 const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, Promocion } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
@@ -71,6 +73,10 @@ const includesBase = [
   }
 ];
 
+// Listado: sin los jugadores de cada partido (con ellos pesaba varios MB);
+// el detalle (obtener) sí los trae.
+const includesListado = includesBase.filter((inc) => inc.as !== 'partidoJugadores');
+
 function serialize(partido) {
   return partido.toJSON ? partido.toJSON() : partido;
 }
@@ -91,10 +97,15 @@ async function listar(req, res, next) {
 
     const partidos = await Partido.findAll({
       where,
-      include: includesConCategoria(includesBase, categoriaDelUsuario(req)),
-      order: [['fecha', 'ASC']]
+      include: includesConCategoria(includesListado, categoriaDelUsuario(req)),
+      // Objetos planos (ver utils/filasPlanas.js): el listado solo tiene relaciones 1 a 1.
+      raw: true,
+      nest: true,
+      order: [['fecha', 'ASC']],
+      // ?limite=N: solo los N primeros por fecha (p. ej. los próximos del Dashboard).
+      limit: limiteConsulta(req.query.limite)
     });
-    res.json(partidos.map(serialize));
+    res.json(filasPlanas(partidos, ['suspendido']));
   } catch (err) { next(err); }
 }
 

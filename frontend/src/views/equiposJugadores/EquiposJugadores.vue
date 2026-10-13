@@ -10,7 +10,7 @@ let unsubCambio = null;
 
 async function cargarOpciones() {
   const [eqs, cats] = await Promise.all([
-    equiposService.listar(),
+    equiposService.listar({ basico: 1 }),
     categoriasService.listar()
   ]);
   equipos.value = eqs;

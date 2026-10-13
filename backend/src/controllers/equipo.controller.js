@@ -2,10 +2,16 @@ const { Op } = require('sequelize');
 const { Equipo, Partido, Plantilla, Categoria, Temporada } = require('../models');
 const { descargar } = require('./util.controller');
 const { reducirEscudo } = require('../utils/escudo.utils');
+const { esUrlImagen } = require('../utils/imagenes');
 
 async function listar(req, res, next) {
   try {
-    const equipos = await Equipo.findAll({ order: [['nombre', 'ASC']] });
+    // ?basico=1: sin el escudo (para desplegables).
+    const basico = req.query?.basico === '1';
+    const equipos = await Equipo.findAll({
+      ...(basico ? { attributes: { exclude: ['escudo'] } } : {}),
+      order: [['nombre', 'ASC']]
+    });
     res.json(equipos);
   } catch (err) { next(err); }
 }
@@ -24,7 +30,7 @@ async function crear(req, res, next) {
     if (!nombre) return res.status(400).json({ message: 'El nombre es obligatorio.' });
     const equipo = await Equipo.create({
       nombre,
-      escudo: await reducirEscudo(req.body.escudo || null),
+      escudo: esUrlImagen(req.body.escudo) ? null : await reducirEscudo(req.body.escudo || null),
       direccion: req.body.direccion || null,
       codigopostal: req.body.codigopostal || null,
       localidad: req.body.localidad || null,
@@ -43,7 +49,8 @@ async function actualizar(req, res, next) {
     if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado.' });
     const { nombre } = req.body;
     if (nombre !== undefined) equipo.nombre = nombre;
-    if (req.body.escudo !== undefined) equipo.escudo = await reducirEscudo(req.body.escudo || null);
+    // La URL de /api/imagenes es el escudo que ya tenía: no se toca.
+    if (req.body.escudo !== undefined && !esUrlImagen(req.body.escudo)) equipo.escudo = await reducirEscudo(req.body.escudo || null);
     if (req.body.direccion !== undefined) equipo.direccion = req.body.direccion || null;
     if (req.body.codigopostal !== undefined) equipo.codigopostal = req.body.codigopostal || null;
     if (req.body.localidad !== undefined) equipo.localidad = req.body.localidad || null;

@@ -57,6 +57,31 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(res._json).toEqual([{ id: 1, id_categoria: 1 }]);
   });
 
+  it('listar trae entrenadores y delegados en una consulta aparte (sin multiplicar filas)', async () => {
+    Plantilla.findAll
+      .mockResolvedValueOnce([{ id: 1, jugadores: [{ id: 9 }] }])
+      .mockResolvedValueOnce([{ id: 1, entrenadores: [{ id: 4 }], delegados: [{ id: 6 }] }]);
+    const { promesa, res } = llamar(ctrl.listar);
+    await promesa;
+    const [primera, segunda] = Plantilla.findAll.mock.calls.map((c) => c[0]);
+    expect(primera.include.map((i) => i.as)).toEqual(expect.arrayContaining(['jugadores']));
+    expect(primera.include.map((i) => i.as)).not.toContain('entrenadores');
+    expect(segunda).toMatchObject({ where: { id: [1] }, attributes: ['id'] });
+    expect(segunda.include.map((i) => i.as)).toEqual(['entrenadores', 'delegados']);
+    expect(res._json[0]).toMatchObject({ id: 1, jugadores: [{ id: 9 }], entrenadores: [{ id: 4 }], delegados: [{ id: 6 }] });
+  });
+
+  it('listar con ?basico=1 no trae personas ni hace más consultas', async () => {
+    Plantilla.findAll.mockResolvedValue([{ id: 1 }]);
+    const { promesa } = llamar(ctrl.listar, { query: { basico: '1' } });
+    await promesa;
+    expect(Plantilla.findAll).toHaveBeenCalledTimes(1);
+    const ases = Plantilla.findAll.mock.calls[0][0].include.map((i) => i.as);
+    expect(ases).not.toContain('jugadores');
+    expect(ases).not.toContain('entrenadores');
+    expect(ases).not.toContain('delegados');
+  });
+
   it('listar filtra por categoría y temporada', async () => {
     Plantilla.findAll.mockResolvedValue([]);
     const { promesa } = llamar(ctrl.listar, { query: { id_categoria: '2', id_temporada: '3' } });

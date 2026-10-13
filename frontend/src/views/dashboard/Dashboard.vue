@@ -31,8 +31,9 @@ async function cargar() {
   try {
     const desde = inicioHoy();
     const [partidos, entrenamientos] = await Promise.all([
-      partidosService.listar({ desde }),
-      entrenamientosService.listar({ desde })
+      // Solo los 5 próximos (el backend los da ya por fecha).
+      partidosService.listar({ desde, limite: 5 }),
+      entrenamientosService.listar({ desde, limite: 5 })
     ]);
     proximosPartidos.value = partidos
       .slice()

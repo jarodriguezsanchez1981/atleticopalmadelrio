@@ -7,6 +7,7 @@ require('./config/env');
 const apiRoutes = require('./routes');
 const errorHandler = require('./middlewares/error.middleware');
 const auditMiddleware = require('./middlewares/audit.middleware');
+const imagenesUrl = require('./middlewares/imagenesUrl.middleware');
 
 const app = express();
 
@@ -42,6 +43,9 @@ app.get('/health', (req, res) => res.json({ status: 'ok', club: 'Atlético Palma
 
 // Auditoría automática: intercepta POST/PUT/DELETE y registra cambios
 app.use('/api', auditMiddleware);
+
+// Fotos y escudos como URL cacheable en vez de base64 dentro del JSON.
+app.use('/api', imagenesUrl);
 
 app.use('/api', apiRoutes);
 

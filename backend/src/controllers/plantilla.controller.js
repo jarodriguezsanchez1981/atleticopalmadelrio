@@ -9,6 +9,8 @@ const includes = [
   { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['rol'] }, include: [{ model: Titulo, as: 'titulos', attributes: ['id', 'nombre'], through: { attributes: [] } }] },
   { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } }
 ];
+// Includes de personas: no van en el listado básico.
+const PERSONAS = ['jugadores', 'entrenadores', 'delegados'];
 
 // Solo las plantillas de esta temporada toman este código de primaria RFAF por defecto.
 const TEMPORADA_CODIGO_PRIMARIA_DEFECTO = '2026/2027';
@@ -111,17 +113,36 @@ async function listar(req, res, next) {
     const where = {};
     if (id_categoria) where.id_categoria = id_categoria;
     if (id_temporada) where.id_temporada = id_temporada;
+    // ?basico=1: sin jugadores, entrenadores ni delegados (para desplegables y
+    // filtros por temporada / categoría).
+    const basico = req.query.basico === '1';
+    // Jugadores por un lado y entrenadores + delegados por otro: en una sola
+    // consulta el JOIN multiplica las filas (jugadores × entrenadores × títulos
+    // × delegados) y repite la foto de cada jugador en todas ellas.
+    const STAFF = ['entrenadores', 'delegados'];
     const plantillas = await Plantilla.findAll({
       where: Object.keys(where).length ? where : undefined,
-      include: includes,
+      include: includes.filter((inc) => (basico ? !PERSONAS.includes(inc.as) : !STAFF.includes(inc.as))),
       order: [
         [{ model: Categoria, as: 'categoria' }, 'nombre', 'ASC'],
         [{ model: Temporada, as: 'temporada' }, 'nombre', 'DESC']
       ]
     });
+    if (basico) return res.json(plantillas.map(serializePlantilla));
+
+    const ids = plantillas.map((p) => p.id).filter(Boolean);
+    const staff = ids.length
+      ? await Plantilla.findAll({ where: { id: ids }, attributes: ['id'], include: includes.filter((inc) => STAFF.includes(inc.as)) }) || []
+      : [];
+    const staffPorId = new Map(staff.map((p) => [p.id, p.toJSON ? p.toJSON() : p]));
     await adjuntarPosiciones(plantillas);
     await adjuntarVecesConvocado(plantillas);
-    res.json(plantillas.map(serializePlantilla));
+    res.json(plantillas.map((p) => {
+      const json = serializePlantilla(p);
+      const extra = staffPorId.get(json.id);
+      for (const clave of STAFF) if (extra && Array.isArray(extra[clave])) json[clave] = extra[clave];
+      return json;
+    }));
   } catch (err) { next(err); }
 }
 

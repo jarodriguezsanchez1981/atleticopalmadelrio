@@ -101,6 +101,21 @@ describe('Sección Equipos · equipo.controller', () => {
     expect(res._status).toBe(201);
   });
 
+  it('listar con ?basico=1 no trae el escudo', async () => {
+    Equipo.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { basico: '1' } });
+    await promesa;
+    expect(Equipo.findAll).toHaveBeenCalledWith({ attributes: { exclude: ['escudo'] }, order: [['nombre', 'ASC']] });
+  });
+
+  it('actualizar no cambia el escudo si llega su propia URL de /api/imagenes', async () => {
+    const equipo = { id: 1, nombre: 'X', escudo: 'data:image/png;base64,AAAA', save: vi.fn().mockResolvedValue() };
+    Equipo.findOne.mockResolvedValue(equipo);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { escudo: '/api/imagenes/equipos/1?v=abc' } });
+    await promesa;
+    expect(equipo.escudo).toBe('data:image/png;base64,AAAA');
+  });
+
   it('actualizar devuelve 404 si no existe', async () => {
     Equipo.findOne.mockResolvedValue(null);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'X' } });

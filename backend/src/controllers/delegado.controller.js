@@ -1,4 +1,5 @@
 const { Delegado } = require('../models');
+const { esUrlImagen } = require('../utils/imagenes');
 const { whereDni } = require('../utils/dniCrypto.mixin');
 const { validarDNI } = require('../utils/dni.utils');
 
@@ -32,7 +33,7 @@ async function crear(req, res, next) {
       const existe = await Delegado.findOne({ where: whereDni(dni) });
       if (existe) return res.status(409).json({ message: 'Ya existe un delegado con ese DNI.' });
     }
-    const delegado = await Delegado.create({ nombre, apellidos, dni: dni || null, foto: foto || null, tipo: tipo || 'campo', email: email || null, telefono: telefono || null });
+    const delegado = await Delegado.create({ nombre, apellidos, dni: dni || null, foto: esUrlImagen(foto) ? null : (foto || null), tipo: tipo || 'campo', email: email || null, telefono: telefono || null });
     res.status(201).json(delegado);
   } catch (err) { next(err); }
 }
@@ -55,7 +56,8 @@ async function actualizar(req, res, next) {
       }
       delegado.dni = dni || null;
     }
-    if (foto !== undefined) delegado.foto = foto || null;
+    // La URL de /api/imagenes es la foto que ya tenía: no se toca.
+    if (foto !== undefined && !esUrlImagen(foto)) delegado.foto = foto || null;
     if (tipo !== undefined) delegado.tipo = tipo;
     if (telefono !== undefined) delegado.telefono = telefono || null;
     await delegado.save();

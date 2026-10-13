@@ -19,10 +19,10 @@ let unsubCambio = null;
 
 async function cargarOpciones() {
   const [plants, temps, cats, jugs, res] = await Promise.all([
-    plantillasService.listar(),
+    plantillasService.listar({ basico: 1 }),
     temporadasService.listar(),
     categoriasService.listar(),
-    jugadoresService.listar(),
+    jugadoresService.listar({ basico: 1 }),
     promocionesService.resumen()
   ]);
   plantillas.value = plants;

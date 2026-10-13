@@ -71,7 +71,13 @@ async function cargarPartidosDelDia() {
     partidosDelDia.value = [];
   } else {
     const dia = claveDia(form.value?.fecha);
-    const todos = await partidosService.listar();
+    // Solo los partidos de ese día (no todos los de la temporada).
+    const inicio = form.value?.fecha ? new Date(form.value.fecha) : null;
+    if (!dia || !inicio || Number.isNaN(inicio.getTime())) { partidosDelDia.value = []; return; }
+    inicio.setHours(0, 0, 0, 0);
+    const fin = new Date(inicio);
+    fin.setHours(23, 59, 59, 999);
+    const todos = await partidosService.listar({ desde: inicio.toISOString(), hasta: fin.toISOString() });
     partidosDelDia.value = todos.filter((p) =>
       dia && diaDePartido(p) === dia && String(p.id) !== String(props.registroId || '')
     );
@@ -117,7 +123,7 @@ async function cargarCatalogo() {
   try {
     const promesas = [plantillasService.listar(), temporadasService.listar(), lugaresService.listar()];
     if (props.tipo === 'partido') {
-      promesas.push(equiposService.listar(), jugadoresService.listar(), equiposJugadoresService.listar().catch(() => []));
+      promesas.push(equiposService.listar(), jugadoresService.listar({ basico: 1 }), equiposJugadoresService.listar().catch(() => []));
     }
     const [pls, temps, lugs, eqs, jugs, eqjugs] = await Promise.all(promesas);
     plantillas.value = pls;
@@ -736,7 +742,7 @@ async function finalizarActa() {
     // Los jugadores y plantillas se cargan al abrir el formulario: sin
     // recargarlos, los recién creados se verían como "—" en la tabla.
     if (r.creados?.length) {
-      const [jugs, pls] = await Promise.all([jugadoresService.listar(), plantillasService.listar()]);
+      const [jugs, pls] = await Promise.all([jugadoresService.listar({ basico: 1 }), plantillasService.listar()]);
       jugadores.value = jugs;
       plantillas.value = pls;
     }

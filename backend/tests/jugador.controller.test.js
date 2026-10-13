@@ -147,6 +147,24 @@ describe('Sección Jugadores · jugador.controller', () => {
     expect(res._status).toBe(404);
   });
 
+  it('listar con ?basico=1 solo trae id y nombre', async () => {
+    Jugador.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { basico: '1' } });
+    await promesa;
+    expect(Jugador.findAll.mock.calls[0][0].attributes).toEqual(['id', 'nombre', 'apellidos']);
+  });
+
+  it('actualizar no cambia la foto si llega su propia URL de /api/imagenes (y sí si es nueva o se quita)', async () => {
+    const jugador = { id: 1, foto: 'data:image/png;base64,AAAA', save: vi.fn().mockResolvedValue() };
+    Jugador.findOne.mockResolvedValue(jugador);
+    let r = llamar(ctrl.actualizar, { params: { id: '1' }, body: { foto: '/api/imagenes/jugadores/1?v=abc' } });
+    await r.promesa;
+    expect(jugador.foto).toBe('data:image/png;base64,AAAA');
+    r = llamar(ctrl.actualizar, { params: { id: '1' }, body: { foto: null } });
+    await r.promesa;
+    expect(jugador.foto).toBeNull();
+  });
+
   it('actualizar guarda los cambios', async () => {
     const jugador = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue() };
     Jugador.findOne.mockResolvedValue(jugador);

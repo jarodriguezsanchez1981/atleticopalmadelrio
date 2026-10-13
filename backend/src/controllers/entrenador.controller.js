@@ -1,4 +1,5 @@
 const { Entrenador, Titulo } = require('../models');
+const { esUrlImagen } = require('../utils/imagenes');
 const { whereDni } = require('../utils/dniCrypto.mixin');
 const { validarDNI } = require('../utils/dni.utils');
 
@@ -58,7 +59,7 @@ async function crear(req, res, next) {
       if (existe) return res.status(409).json({ message: 'Ya existe un entrenador con ese DNI.' });
     }
     const entrenador = await Entrenador.create({
-      nombre, apellidos, dni: dni || null, foto: foto || null, email: email || null, telefono: telefono || null
+      nombre, apellidos, dni: dni || null, foto: esUrlImagen(foto) ? null : (foto || null), email: email || null, telefono: telefono || null
     });
     if (idsTitulos.length) await entrenador.setTitulos(idsTitulos);
     const completo = await Entrenador.findOne({ where: { id: entrenador.id }, include: includeEntrenador });
@@ -86,7 +87,8 @@ async function actualizar(req, res, next) {
       }
       entrenador.dni = dni || null;
     }
-    if (foto !== undefined) entrenador.foto = foto || null;
+    // La URL de /api/imagenes es la foto que ya tenía: no se toca.
+    if (foto !== undefined && !esUrlImagen(foto)) entrenador.foto = foto || null;
     await entrenador.save();
     if (idsTitulos) await entrenador.setTitulos(idsTitulos);
     const actualizado = await Entrenador.findOne({ where: { id: entrenador.id }, include: includeEntrenador });

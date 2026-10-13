@@ -1,4 +1,5 @@
 const { Jugador, Categoria, Lugar, Entrenamiento, EntrenamientoJugador, Plantilla, PlantillaJugador, Temporada, Division, Partido, Equipo } = require('../models');
+const { esUrlImagen } = require('../utils/imagenes');
 const { whereDni } = require('../utils/dniCrypto.mixin');
 const { validarDNI } = require('../utils/dni.utils');
 
@@ -34,7 +35,10 @@ function serializeJugador(jugador) {
 
 async function listar(req, res, next) {
   try {
+    // ?basico=1: solo id y nombre (para desplegables y etiquetas).
+    const basico = req.query?.basico === '1';
     const jugadores = await Jugador.findAll({
+      ...(basico ? { attributes: ['id', 'nombre', 'apellidos'] } : {}),
       order: [['apellidos', 'ASC']]
     });
     res.json(jugadores.map(serializeJugador));
@@ -67,7 +71,7 @@ async function crear(req, res, next) {
       apellidos,
       dni: dni || null,
       fecha_nacimiento: fecha_nacimiento || null,
-      foto: foto || null,
+      foto: esUrlImagen(foto) ? null : (foto || null),
       telefono: telefono || null
     });
     res.status(201).json(serializeJugador(jugador));
@@ -90,7 +94,8 @@ async function actualizar(req, res, next) {
       jugador.dni = dni;
     }
     if (fecha_nacimiento !== undefined) jugador.fecha_nacimiento = fecha_nacimiento || null;
-    if (foto !== undefined) jugador.foto = foto || null;
+    // La URL de /api/imagenes es la foto que ya tenía: no se toca.
+    if (foto !== undefined && !esUrlImagen(foto)) jugador.foto = foto || null;
     if (telefono !== undefined) jugador.telefono = telefono || null;
     await jugador.save();
     res.json(serializeJugador(jugador));

@@ -36,9 +36,9 @@ const eventosLista = ref([]);
 
 async function cargarOpciones() {
   const [pls, temps, eqs] = await Promise.all([
-    plantillasService.listar(),
+    plantillasService.listar({ basico: 1 }),
     temporadasService.listar(),
-    equiposService.listar()
+    equiposService.listar({ basico: 1 })
   ]);
   plantillas.value = pls;
   temporadas.value = temps;

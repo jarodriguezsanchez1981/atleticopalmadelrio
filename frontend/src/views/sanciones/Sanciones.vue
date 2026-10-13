@@ -22,8 +22,8 @@ const desplegadas = ref({});
 async function cargarOpciones() {
   const [pts, jugs, pls, temps, sancs] = await Promise.all([
     partidosService.listar(),
-    jugadoresService.listar(),
-    plantillasService.listar(),
+    jugadoresService.listar({ basico: 1 }),
+    plantillasService.listar({ basico: 1 }),
     temporadasService.listar(),
     sancionesService.listar()
   ]);

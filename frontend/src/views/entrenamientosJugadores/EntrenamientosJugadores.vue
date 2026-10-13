@@ -11,7 +11,7 @@ const jugadores = ref([]);
 async function cargarOpciones() {
   const [ets, jugs] = await Promise.all([
     entrenamientosService.listar(),
-    jugadoresService.listar()
+    jugadoresService.listar({ basico: 1 })
   ]);
   entrenamientos.value = ets;
   jugadores.value = jugs;
