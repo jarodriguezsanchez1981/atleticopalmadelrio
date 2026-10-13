@@ -12,7 +12,8 @@ const CAMPOS_TARJETAS = [
 // Contadores de cada jugador; cada uno se guarda en total (campo) y según el
 // PALMA jugara en casa o fuera (campo_local / campo_visitante).
 const CONTADORES = [
-  'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados', 'sustituciones',
+  'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
+  'sustituciones', 'sustituciones_primera', 'sustituciones_segunda',
   'minutos', 'minutos_titular', 'minutos_banquillo',
   'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda',
   'tarjetas_amarillas', 'tarjetas_rojas', ...CAMPOS_TARJETAS
@@ -64,6 +65,11 @@ async function listar(req, res, next) {
       fila[campo] += valor;
       fila[`${campo}_${lado}`] += valor;
     };
+    // Una sustitución (sale del campo en `minuto`), también por parte del partido.
+    const sumarSustitucion = (fila, minuto, lado) => {
+      sumar(fila, 'sustituciones', 1, lado);
+      sumar(fila, Number(minuto) <= FIN_PRIMERA_PARTE ? 'sustituciones_primera' : 'sustituciones_segunda', 1, lado);
+    };
     for (const f of filas) {
       if (!f.id_jugador) continue;
       let fila = porJugador.get(f.id_jugador);
@@ -103,7 +109,7 @@ async function listar(req, res, next) {
       // Sustitución: sale del campo antes del final (y no por expulsión).
       if (f.minuto_salida != null) {
         if (Number(f.tarjeta_roja) > 0) salidasConRoja.push({ fila, lado, id_partido: f.id_partido, minuto: f.minuto_salida });
-        else sumar(fila, 'sustituciones', 1, lado);
+        else sumarSustitucion(fila, f.minuto_salida, lado);
       }
       sumar(fila, 'tarjetas_amarillas', Number(f.tarjeta_amarilla) || 0, lado);
       sumar(fila, 'tarjetas_rojas', Number(f.tarjeta_roja) || 0, lado);
@@ -125,7 +131,7 @@ async function listar(req, res, next) {
     for (const s of salidasConRoja) {
       const expulsado = tarjetas.some((t) => t.tipo === 'roja' && t.id_partido === s.id_partido
         && t.id_jugador === s.fila.id_jugador && t.minuto === s.minuto);
-      if (!expulsado) sumar(s.fila, 'sustituciones', 1, s.lado);
+      if (!expulsado) sumarSustitucion(s.fila, s.minuto, s.lado);
     }
 
     // Goles por parte del partido (partido_goles, de Finalizar Acta).

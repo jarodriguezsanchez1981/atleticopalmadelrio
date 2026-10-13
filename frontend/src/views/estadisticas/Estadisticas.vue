@@ -44,7 +44,9 @@ const METRICAS_CONVOCATORIAS = [
   { campo: 'titular', titulo: 'Tit.', descripcion: 'Titular' },
   { campo: 'suplente', titulo: 'Supl.', descripcion: 'Suplente' },
   { campo: 'banquillo_no_jugados', titulo: 'Sin jugar' },
-  { campo: 'sustituciones', titulo: 'Sust.', descripcion: 'Sustitución' }
+  { campo: 'sustituciones', titulo: 'Sust.', descripcion: 'Sustitución' },
+  { campo: 'sustituciones_primera', titulo: 'Sust. 1 Parte', descripcion: 'Sustituido en la 1ª parte (hasta el minuto 45)' },
+  { campo: 'sustituciones_segunda', titulo: 'Sust. 2 Parte', descripcion: 'Sustituido en la 2ª parte' }
 ];
 const METRICAS_TIEMPO = [
   { campo: 'partidos', titulo: 'Partidos' },
@@ -147,7 +149,7 @@ const TABLAS = {
   convocatorias: {
     seccion: 'estadisticas_convocatorias',
     titulo: 'Estadísticas Convocatorias',
-    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan).',
+    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan), y en qué parte (1ª parte hasta el minuto 45).',
     metricas: METRICAS_CONVOCATORIAS,
     sortField: 'convocatorias'
   },
