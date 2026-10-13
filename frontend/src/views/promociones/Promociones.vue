@@ -44,6 +44,8 @@ const tablasPorPlantilla = computed(() => {
         titulo: `${p.plantilla?.categoria?.nombre || 'Plantilla'} · ${p.plantilla?.temporada?.nombre || ''}`,
         grupo: p.plantilla?.categoria?.grupo ?? null,
         orden: p.plantilla?.categoria?.orden ?? 999,
+        id_tipofutbol: p.plantilla?.categoria?.id_tipofutbol ?? null,
+        tipofutbol: p.plantilla?.categoria?.tipofutbol?.nombre || 'Sin tipo de fútbol',
         filas: []
       });
     }
@@ -63,6 +65,17 @@ const tablasPorPlantilla = computed(() => {
         (b.promocion_rfaf + b.promocion_categoria) - (a.promocion_rfaf + a.promocion_categoria)
         || a.jugador.localeCompare(b.jugador, 'es'))
     }));
+});
+
+/** Las tablas en una sección por tipo de fútbol (Fútbol 7, Fútbol 11), cada
+ * una con sus plantillas por orden de categoría. */
+const seccionesPorTipo = computed(() => {
+  const porTipo = new Map();
+  for (const t of tablasPorPlantilla.value) {
+    if (!porTipo.has(t.id_tipofutbol)) porTipo.set(t.id_tipofutbol, { id: t.id_tipofutbol, titulo: t.tipofutbol, tablas: [] });
+    porTipo.get(t.id_tipofutbol).tablas.push(t);
+  }
+  return [...porTipo.values()].sort((a, b) => (a.id ?? 99) - (b.id ?? 99));
 });
 
 onMounted(async () => {
@@ -143,9 +156,11 @@ function jugadorLabel(id) {
         mismo grupo que la del jugador, <strong>Promoción Categoría</strong> si es de otro grupo (o no tiene grupo).
       </p>
     </div>
-    <!-- Una tabla debajo de otra, por orden de categoría de la plantilla. -->
+    <!-- Una sección por tipo de fútbol; dentro, una tabla debajo de otra por orden de categoría. -->
+    <div v-for="s in seccionesPorTipo" :key="s.id ?? 'sin-tipo'" class="mb-6 last:mb-0">
+    <h3 class="font-display text-base font-bold text-club-green border-b border-line pb-1 mb-3">{{ s.titulo }}</h3>
     <div class="flex flex-col gap-4">
-      <div v-for="t in tablasPorPlantilla" :key="t.id">
+      <div v-for="t in s.tablas" :key="t.id">
         <div class="flex items-center justify-between gap-2 mb-2">
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
           <span class="text-xs text-ink-tertiary">Grupo {{ t.grupo ?? '—' }}</span>
@@ -157,6 +172,7 @@ function jugadorLabel(id) {
           <Column field="promocion_categoria" header="Promoción Categoría" sortable style="width: 150px" class="text-center" />
         </DataTable>
       </div>
+    </div>
     </div>
   </section>
   </div>

@@ -1,4 +1,4 @@
-const { Promocion, Plantilla, Categoria, Temporada, Jugador, PartidoJugador, Partido } = require('../models');
+const { Promocion, Plantilla, Categoria, Temporada, Jugador, PartidoJugador, Partido, TipoFutbol } = require('../models');
 
 const includes = [
   {
@@ -46,7 +46,10 @@ async function resumen(req, res, next) {
           as: 'plantilla',
           attributes: ['id', 'id_categoria', 'id_temporada'],
           include: [
-            { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'grupo', 'orden'] },
+            {
+              model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'grupo', 'orden', 'id_tipofutbol'],
+              include: [{ model: TipoFutbol, as: 'tipofutbol', attributes: ['id', 'nombre'] }]
+            },
             { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
           ]
         },
