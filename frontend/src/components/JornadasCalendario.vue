@@ -137,6 +137,20 @@ const categoriaFiltradaLabel = computed(() =>
 );
 const partidosVisibles = computed(() => filtroPlantilla.value ? bloqueVisible.value : jornadaActual.value);
 
+/** Título de la tabla: sin categoría, la jornada y la temporada actual; con
+ * una categoría, su nombre, las jornadas del bloque visible y su temporada. */
+const tituloTabla = computed(() => {
+  if (!filtroPlantilla.value) return `Jornada ${numActual.value ?? '—'} | ${temporadaActualNombre.value}`;
+  const plantilla = plantillas.value.find((p) => p.id === filtroPlantilla.value);
+  const categoria = plantilla?.categoria?.alias || plantilla?.categoria?.nombre || categoriaFiltradaLabel.value || '—';
+  const temporada = plantilla?.temporada?.nombre || temporadaActualNombre.value;
+  const numeros = bloqueVisible.value.map((p) => Number(p.jornada)).filter((n) => n > 0);
+  if (!numeros.length) return `${categoria} | ${temporada}`;
+  const desde = Math.min(...numeros);
+  const hasta = Math.max(...numeros);
+  return `${categoria} | ${desde === hasta ? `Jornada ${desde}` : `Jornadas ${desde}-${hasta}`} | ${temporada}`;
+});
+
 function irBloque(idx) {
   if (idx >= 0 && idx < totalBloques.value && idx !== paginaBloque.value) {
     paginaBloque.value = idx;
@@ -315,11 +329,10 @@ function claseResultado(partido, esLocal) {
       <div class="jornada-bloque">
         <div class="jornada-header">
           <div class="jornada-header-lado jornada-header-izq">
-            <span v-if="filtroPlantilla" class="jornada-num">{{ categoriaFiltradaLabel }}</span>
           </div>
           <div class="jornada-header-centro">
             <i class="pi pi-calendar"></i>
-            <span>Jornada {{ numActual }} | {{ temporadaActualNombre }}</span>
+            <span>{{ tituloTabla }}</span>
           </div>
           <div class="jornada-header-lado jornada-header-der"></div>
         </div>
