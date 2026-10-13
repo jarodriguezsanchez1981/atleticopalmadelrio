@@ -144,6 +144,7 @@ function jugadorLabel(id) {
     :columns="columns"
     :service="promocionesService"
     :emptyItem="emptyItem"
+    ocultarTabla
   >
     <template #cell-id_plantilla="{ data }">
       {{ data.plantilla?.categoria?.nombre || plantillaLabel(data.id_plantilla) }}

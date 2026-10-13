@@ -46,7 +46,10 @@ const props = defineProps({
   // Orden inicial de la tabla (también en la vista de móvil): campo y
   // 1 = ascendente, -1 = descendente.
   sortField: { type: String, default: null },
-  sortOrder: { type: Number, default: 1 }
+  sortOrder: { type: Number, default: 1 },
+  // Solo la cabecera (título, nº de registros y Nuevo): sin la tabla (ni las
+  // tarjetas en móvil) ni el buscador.
+  ocultarTabla: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['changed', 'data-loaded', 'delete-error']);
@@ -652,7 +655,7 @@ watch(
             class="!text-club-garnet !border-club-garnet/50 hover:!bg-club-garnet/5"
             @click="eliminarSeleccionados"
           />
-          <IconField>
+          <IconField v-if="!ocultarTabla">
             <InputIcon class="pi pi-search" />
             <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
           </IconField>
@@ -665,7 +668,7 @@ watch(
     </div>
 
     <DataTable
-      v-if="!esMovil"
+      v-if="!esMovil && !ocultarTabla"
       :value="items"
       v-model:selection="seleccionados"
       :dataKey="'id'"
@@ -718,7 +721,7 @@ watch(
     </DataTable>
 
     <!-- Vista tarjetas móvil -->
-    <div v-if="esMovil" class="space-y-3">
+    <div v-if="esMovil && !ocultarTabla" class="space-y-3">
       <div v-if="!items.length && !cargando" class="text-center text-ink-tertiary py-8">
         <i class="pi pi-inbox text-2xl block mb-2"></i>
         No hay registros todavía.
