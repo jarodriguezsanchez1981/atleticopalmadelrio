@@ -277,7 +277,8 @@ function resultadoPalma(p) {
 
 /** Gráficas de balance del Dashboard (temporada actual), cada una con `clave`
  * y `titulo`:
- * - una por tipo de fútbol con `jornadas` (de la 1 a la última con algún
+ * - una por tipo de fútbol con `equipos` (sus plantillas con partidos de
+ *   liga, con jornada) y `jornadas` (de la 1 a la última con algún
  *   resultado): partidos con resultado (no suspendidos) de esa jornada y
  *   victorias / empates / derrotas del PALMA, sumando todas las categorías
  *   (sin Senior A ni los partidos sin jornada, p. ej. amistosos);
@@ -312,7 +313,7 @@ async function balance(req, res, next) {
       const id = p.categoria?.id_tipofutbol ?? null;
       if (!porTipo.has(id)) {
         const nombre = p.categoria?.tipofutbol?.nombre || 'Sin tipo';
-        porTipo.set(id, { clave: `tipo_${id}`, id_tipofutbol: id, tipofutbol: nombre, titulo: nombre, porJornada: new Map() });
+        porTipo.set(id, { clave: `tipo_${id}`, id_tipofutbol: id, tipofutbol: nombre, titulo: nombre, conLiga: new Set(), porJornada: new Map() });
       }
       graficaDe.set(p.id, porTipo.get(id));
     }
@@ -328,6 +329,7 @@ async function balance(req, res, next) {
     }) || [];
     const CONTADOR = { victoria: 'victorias', empate: 'empates', derrota: 'derrotas' };
     for (const p of partidos) {
+      if (Number(p.jornada) > 0) graficaDe.get(p.id_plantilla)?.conLiga.add(p.id_plantilla);
       const r = resultadoPalma(p);
       if (!r) continue;
       const propia = propias.get(p.id_plantilla);
@@ -356,12 +358,12 @@ async function balance(req, res, next) {
 
     const graficas = [...porTipo.values()]
       .sort((a, b) => (a.id_tipofutbol ?? 99) - (b.id_tipofutbol ?? 99))
-      .map(({ porJornada, ...g }) => {
+      .map(({ porJornada, conLiga, ...g }) => {
         // De la jornada 1 a la última jugada (las intermedias sin resultados, a cero).
         const ultima = Math.max(0, ...porJornada.keys());
         const jornadas = Array.from({ length: ultima }, (_, k) => porJornada.get(k + 1)
           || { jornada: k + 1, partidos: 0, victorias: 0, empates: 0, derrotas: 0 });
-        return { ...g, jornadas };
+        return { ...g, equipos: conLiga.size, jornadas };
       });
     for (const { grafica } of propias.values()) graficas.push(grafica);
     res.json(graficas);

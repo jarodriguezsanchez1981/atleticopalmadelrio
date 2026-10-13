@@ -230,7 +230,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         plantilla(2, 'Senior A', 30, 2, 'Fútbol 11'),
         plantilla(1, 'Benjamin A', 7, 1, 'Fútbol 7'),
         plantilla(4, 'Prebenjamin C', 2, 1, 'Fútbol 7'),
-        plantilla(5, 'Cadete A', 20, 2, 'Fútbol 11')
+        plantilla(5, 'Cadete A', 20, 2, 'Fútbol 11'),
+        plantilla(6, 'Bebe', 1, 1, 'Fútbol 7') // sin partidos de liga: no cuenta como equipo
       ]);
       const rival = { nombre: 'RIVAL C.F.' };
       Partido.findAll.mockResolvedValue([
@@ -252,12 +253,12 @@ describe('Sección Estadísticas · estadistica.controller', () => {
 
       expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({ id_temporada: 3 });
       expect(res._json).toEqual([
-        { clave: 'tipo_1', id_tipofutbol: 1, tipofutbol: 'Fútbol 7', titulo: 'Fútbol 7', jornadas: [
+        { clave: 'tipo_1', id_tipofutbol: 1, tipofutbol: 'Fútbol 7', titulo: 'Fútbol 7', equipos: 2, jornadas: [
           { jornada: 1, partidos: 2, victorias: 1, empates: 1, derrotas: 0 },
           { jornada: 2, partidos: 0, victorias: 0, empates: 0, derrotas: 0 },
           { jornada: 3, partidos: 2, victorias: 1, empates: 0, derrotas: 1 }
         ] },
-        { clave: 'tipo_2', id_tipofutbol: 2, tipofutbol: 'Fútbol 11', titulo: 'Fútbol 11', jornadas: [
+        { clave: 'tipo_2', id_tipofutbol: 2, tipofutbol: 'Fútbol 11', titulo: 'Fútbol 11', equipos: 1, jornadas: [
           { jornada: 1, partidos: 1, victorias: 0, empates: 0, derrotas: 1 }
         ] },
         { clave: 'plantilla_2', id_plantilla: 2, titulo: 'Senior A / 2026/2027', partidos: [

@@ -134,8 +134,11 @@ function formatoFechaHora(fecha) {
       <div v-for="g in balance" :key="g.clave" class="bg-white rounded-xl border border-line p-4">
         <h2 class="font-display text-sm text-club-green mb-3 flex items-center gap-2">
           <i class="pi pi-chart-line"></i> Balance {{ g.titulo }}
+          <span v-if="g.equipos != null" class="ml-auto text-xs bg-club-green/10 text-club-green px-2 py-0.5 rounded-full whitespace-nowrap">
+            {{ g.equipos }} {{ g.equipos === 1 ? 'equipo' : 'equipos' }}
+          </span>
         </h2>
-        <GraficaBalance :jornadas="g.jornadas" :partidos="g.partidos" />
+        <GraficaBalance :jornadas="g.jornadas" :partidos="g.partidos" :equipos="g.equipos" />
       </div>
     </div>
   </div>

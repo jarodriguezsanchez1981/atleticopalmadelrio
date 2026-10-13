@@ -12,6 +12,8 @@ import Chart from 'primevue/chart';
 const props = defineProps({
   // [{ jornada, partidos, victorias, empates, derrotas }]
   jornadas: { type: Array, default: null },
+  // Equipos (plantillas) del tipo de fútbol: arriba de cada jornada, "jugados/equipos".
+  equipos: { type: Number, default: null },
   // [{ id_partido, fecha, rival, es_local, marcador, resultado, victorias, empates, derrotas }]
   partidos: { type: Array, default: null }
 });
@@ -62,10 +64,31 @@ const datosPartidos = () => {
   };
 };
 
+// Texto encima de cada jornada: equipos con resultado en ella / equipos del tipo.
+const etiquetasArriba = {
+  id: 'etiquetasArriba',
+  afterDatasetsDraw(chart) {
+    if (porPartido.value || props.equipos == null) return;
+    const { ctx, chartArea, scales } = chart;
+    ctx.save();
+    ctx.font = '600 11px Inter, sans-serif';
+    ctx.fillStyle = '#6b7280';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    puntos.value.forEach((p, i) => {
+      ctx.fillText(`${p.partidos}/${props.equipos}`, scales.x.getPixelForValue(i), chartArea.top - 4);
+    });
+    ctx.restore();
+  }
+};
+const plugins = [etiquetasArriba];
+
 const datos = computed(() => (porPartido.value ? datosPartidos() : datosJornadas()));
 
 const opciones = computed(() => ({
   maintainAspectRatio: false,
+  // Hueco arriba para los textos de cada jornada.
+  layout: { padding: { top: porPartido.value ? 0 : 18 } },
   interaction: { mode: 'index', intersect: false },
   plugins: {
     legend: { display: !porPartido.value, position: 'bottom', labels: { usePointStyle: true, boxHeight: 6 } },
@@ -84,7 +107,7 @@ const opciones = computed(() => ({
           const p = puntos.value[items[0].dataIndex];
           return porPartido.value
             ? `Hasta aquí: ${p.victorias} G · ${p.empates} E · ${p.derrotas} P`
-            : `Partidos jugados: ${p.partidos}`;
+            : `Equipos que han jugado: ${p.partidos}${props.equipos != null ? ` de ${props.equipos}` : ''}`;
         }
       }
     }
@@ -104,6 +127,6 @@ const opciones = computed(() => ({
     Sin partidos jugados esta temporada.
   </div>
   <div v-else class="h-72">
-    <Chart type="line" :data="datos" :options="opciones" class="h-full" />
+    <Chart type="line" :data="datos" :options="opciones" :plugins="plugins" class="h-full" />
   </div>
 </template>
