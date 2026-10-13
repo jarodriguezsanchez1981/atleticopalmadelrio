@@ -60,7 +60,14 @@ function itemsDelGrupo(clave) {
   return catalogoSecciones.value
     .filter((s) => s.grupo === clave && RUTA_POR_SECCION[s.clave] && auth.puedeVer(s.clave))
     .sort((a, b) => a.orden - b.orden)
-    .map((s) => ({ label: s.nombre, icon: s.icono || 'pi pi-minus', to: RUTA_POR_SECCION[s.clave], seccion: s.clave }));
+    .map((s) => ({ label: etiquetaEnGrupo(s.nombre, clave), icon: s.icono || 'pi pi-minus', to: RUTA_POR_SECCION[s.clave], seccion: s.clave }));
+}
+
+/** Dentro del grupo Estadísticas sobra repetir "Estadísticas": "Estadísticas
+ * Equipo" -> "Equipo" (en Administración y demás sigue el nombre completo). */
+function etiquetaEnGrupo(nombre, grupo) {
+  if (grupo !== 'estadisticas') return nombre;
+  return String(nombre || '').replace(/^Estad[íi]sticas\s+/i, '') || nombre;
 }
 
 const gruposNav = computed(() =>
