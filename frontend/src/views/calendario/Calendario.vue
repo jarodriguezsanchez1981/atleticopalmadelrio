@@ -184,6 +184,14 @@ const calzonasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitan
 const mediasLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.medias || null);
 const mediasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.medias || null);
 
+const tipoAdjunto = computed(() => {
+  const nombre = eventoSeleccionado.value?.adjunto_nombre || '';
+  const ext = nombre.split('.').pop()?.toLowerCase() || '';
+  if (['jpg', 'jpeg', 'png'].includes(ext)) return 'imagen';
+  if (ext === 'pdf') return 'pdf';
+  return 'otro';
+});
+
 const lugarPartido = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '—';
@@ -810,6 +818,29 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
               <i class="pi pi-sync"></i> Recurrente
             </span>
+          </div>
+          <div v-if="eventoSeleccionado.adjunto_url" class="space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <i class="pi pi-paperclip text-club-green"></i>
+              <a :href="eventoSeleccionado.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">
+                {{ eventoSeleccionado.adjunto_nombre || 'Ver adjunto' }}
+              </a>
+            </div>
+            <a
+              v-if="tipoAdjunto === 'imagen'"
+              :href="eventoSeleccionado.adjunto_url"
+              target="_blank"
+              rel="noopener"
+              class="block rounded-lg overflow-hidden border border-line"
+            >
+              <img :src="eventoSeleccionado.adjunto_url" :alt="eventoSeleccionado.adjunto_nombre || 'Adjunto'" class="w-full max-h-96 object-contain bg-ink-surface" />
+            </a>
+            <iframe
+              v-else-if="tipoAdjunto === 'pdf'"
+              :src="eventoSeleccionado.adjunto_url"
+              :title="eventoSeleccionado.adjunto_nombre || 'Adjunto'"
+              class="w-full h-96 rounded-lg border border-line"
+            ></iframe>
           </div>
         </template>
 
