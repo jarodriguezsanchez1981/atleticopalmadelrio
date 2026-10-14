@@ -29,6 +29,7 @@ const PlantillaDelegado = require('./PlantillaDelegado');
 const Personal = require('./Personal');
 const PlantillaPersonal = require('./PlantillaPersonal');
 const TipoPersonal = require('./TipoPersonal');
+const Clasificacion = require('./Clasificacion');
 const Cambio = require('./Cambio');
 const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
@@ -327,6 +328,7 @@ module.exports = {
   Personal,
   PlantillaPersonal,
   TipoPersonal,
+  Clasificacion,
   Cambio,
   EquipoJugador,
   Promocion,

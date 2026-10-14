@@ -47,6 +47,13 @@ MAX_PETICIONES = 3
 
 def descargar_acta(cod_primaria, cod_acta):
     """Devuelve (html, cookie). Ver el docstring del módulo."""
+    return descargar(URL_ACTA, {"cod_primaria": cod_primaria, "CodActa": cod_acta}, "el acta")
+
+
+def descargar(url_base, params, que):
+    """GET a una página de RFAF con la sesión de RFAF_COOKIE (y el ida y vuelta
+    por NLogin si ha caducado). Devuelve (html, cookie). `que` es para los
+    mensajes de error ("el acta", "la clasificación")."""
     import requests
     from urllib.parse import urljoin, urlparse
 
@@ -56,7 +63,7 @@ def descargar_acta(cod_primaria, cod_acta):
     if cookie:
         sesion.headers["Cookie"] = cookie
 
-    url = requests.Request("GET", URL_ACTA, params={"cod_primaria": cod_primaria, "CodActa": cod_acta}).prepare().url
+    url = requests.Request("GET", url_base, params=params).prepare().url
     siguiente = url
     for _ in range(MAX_PETICIONES):
         res = sesion.get(siguiente, timeout=30, allow_redirects=False)
@@ -73,15 +80,15 @@ def descargar_acta(cod_primaria, cod_acta):
             raise RuntimeError(f"RFAF ha redirigido a una página inesperada ({destino}).")
         siguiente = destino
     else:
-        raise RuntimeError("RFAF no ha entregado el acta (demasiadas redirecciones).")
+        raise RuntimeError(f"RFAF no ha entregado {que} (demasiadas redirecciones).")
 
     if res.status_code != 200:
-        raise RuntimeError(f"RFAF respondió {res.status_code} al pedir el acta.")
+        raise RuntimeError(f"RFAF respondió {res.status_code} al pedir {que}.")
     res.encoding = res.encoding or "utf-8"
     if not res.text.strip():
         # Pasa cuando la sesión no vale y RFAF no la deja crear (p.ej. desde
         # la IP del servidor): hay que dar una JSESSIONID de un navegador.
-        raise RuntimeError("RFAF ha devuelto el acta vacía: la sesión de RFAF no es válida, "
+        raise RuntimeError(f"RFAF ha devuelto {que} vacía: la sesión de RFAF no es válida, "
                            "hay que poner una JSESSIONID nueva en RFAF_COOKIE.")
     return res.text, sesion.headers.get("Cookie", "")
 

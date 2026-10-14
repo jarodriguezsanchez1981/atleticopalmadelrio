@@ -210,6 +210,12 @@ const routes = [
         meta: { seccion: 'estadisticas_sanciones' }
       },
       {
+        path: 'estadisticas/clasificacion',
+        name: 'estadisticas_clasificacion',
+        component: () => import('../views/estadisticas/EstadisticasClasificacion.vue'),
+        meta: { seccion: 'estadisticas_clasificacion' }
+      },
+      {
         path: 'informes',
         name: 'informes',
         component: () => import('../views/informes/Informes.vue'),

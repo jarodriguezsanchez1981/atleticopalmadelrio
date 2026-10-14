@@ -7,7 +7,7 @@
 - Nueva ruta: registrarla en `src/routes/index.js`; protegerla con `authenticate`, `authorize('<seccion>')` y, en escritura, `requireEditar('<seccion>')`.
 - Controladores: `async function x(req, res, next) { try { … } catch (err) { next(err); } }`; errores de validación con `res.status(400).json({ message: '…' })` en español.
 - `src/utils/`: cifrado AES del DNI (`aesCrypto`, `dniCrypto.mixin`), sesión (`sesionCookie`, `jwt.utils`), `partidoJugadores` (campos del acta), `migrate.js`.
-- `src/scripts/rfaf_acta.py`: parser del acta de RFAF (lo invoca `utils/rfafActa.js`).
+- `src/scripts/rfaf_acta.py`: parser del acta de RFAF; `rfaf_clasificacion.py`: clasificación de una jornada (los dos los invoca `utils/rfafActa.js`, con la misma sesión `RFAF_COOKIE`).
 
 ## Base de datos
 

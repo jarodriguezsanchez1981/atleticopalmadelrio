@@ -35,6 +35,7 @@ const SECCIONES = [
   { clave: 'estadisticas_tiempo', nombre: 'Estadísticas Tiempo', icono: 'pi pi-stopwatch', orden: 97, grupo: 'estadisticas' },
   { clave: 'estadisticas_goles', nombre: 'Estadísticas Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas' },
   { clave: 'estadisticas_sanciones', nombre: 'Estadísticas Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'estadisticas' },
+  { clave: 'estadisticas_clasificacion', nombre: 'Estadísticas Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
   { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' },

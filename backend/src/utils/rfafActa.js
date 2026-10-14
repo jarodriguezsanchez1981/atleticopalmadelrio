@@ -2,6 +2,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 
 const SCRIPT = path.join(__dirname, '..', 'scripts', 'rfaf_acta.py');
+const SCRIPT_CLASIFICACION = path.join(__dirname, '..', 'scripts', 'rfaf_clasificacion.py');
 
 /** Error de RFAF con el código HTTP que debe devolver la API. */
 class ErrorActa extends Error {
@@ -16,26 +17,40 @@ class ErrorActa extends Error {
  * servidor) y se reutiliza mientras siga viva (ver scripts/rfaf_acta.py). */
 let sesionRfaf = process.env.RFAF_COOKIE || '';
 
-/** Lee el acta de RFAF con el script de Python. Devuelve { local, visitante,
- * resultado }. */
-function leerActa(codigoPrimaria, codigoActa, { script = SCRIPT, args } = {}) {
+/** Ejecuta un script de RFAF con la sesión compartida (el acta y la
+ * clasificación usan la misma: si RFAF la rota, la nueva vale para las dos).
+ * Devuelve su JSON sin la cookie. */
+function ejecutarScript(script, args, error) {
   return new Promise((resolve, reject) => {
     execFile(
       'python3',
-      [script, ...(args || [String(codigoPrimaria), String(codigoActa)])],
+      [script, ...args],
       { timeout: 45000, env: { PATH: process.env.PATH, RFAF_COOKIE: sesionRfaf } },
       (err, stdout) => {
         let salida = null;
         try { salida = JSON.parse(stdout); } catch { /* sin JSON: fallo del propio script */ }
         if (!salida || salida.error || err) {
-          return reject(new ErrorActa(salida?.error || 'No se pudo leer el acta de RFAF.', 502));
+          return reject(new ErrorActa(salida?.error || error, 502));
         }
-        const { cookie, ...acta } = salida;
+        const { cookie, ...datos } = salida;
         if (cookie) sesionRfaf = cookie;
-        return resolve(acta);
+        return resolve(datos);
       }
     );
   });
+}
+
+/** Lee el acta de RFAF con el script de Python. Devuelve { local, visitante,
+ * resultado }. */
+function leerActa(codigoPrimaria, codigoActa, { script = SCRIPT, args } = {}) {
+  return ejecutarScript(script, args || [String(codigoPrimaria), String(codigoActa)], 'No se pudo leer el acta de RFAF.');
+}
+
+/** Lee la clasificación de una jornada de liga en RFAF. Devuelve { jornada,
+ * fecha, equipos: [...] } (ver scripts/rfaf_clasificacion.py). */
+function leerClasificacion({ codPrimaria, codGrupo, codCompeticion }, jornada, { script = SCRIPT_CLASIFICACION, args } = {}) {
+  return ejecutarScript(script, args || [codPrimaria, codGrupo, codCompeticion, jornada].map(String),
+    'No se pudo leer la clasificación de RFAF.');
 }
 
 /** "PÉREZ GÓMEZ, JUAN" -> "PEREZ GOMEZ JUAN", para poder comparar nombres
@@ -79,4 +94,4 @@ function nombreDesdeActa(texto) {
   return { nombre: capitalizar(nombre), apellidos: capitalizar(apellidos) || '-' };
 }
 
-module.exports = { leerActa, normalizarNombre, nombreDesdeActa, ErrorActa, SCRIPT };
+module.exports = { leerActa, leerClasificacion, normalizarNombre, nombreDesdeActa, ErrorActa, SCRIPT, SCRIPT_CLASIFICACION };
