@@ -142,7 +142,7 @@ atleticopalmadelrio/
 | Sección        | CRUD | Nivel | Descripción |
 |----------------|------|-------|-------------|
 | Calendario     | No   | read  | Vista calendario (mes/semana/año) |
-| Entrenamientos | Sí   | write | Gestión de entrenamientos |
+| Entrenamientos | Sí   | write | Gestión de entrenamientos (con adjunto PDF/imagen de la sesión) |
 | Entren. Jugadores | Sí | write | Asignación de jugadores a entrenamientos |
 | Partidos       | Sí   | write | Partidos con filtros temporada/categoría |
 | Temporadas     | Sí   | write | Temporadas del club; una puede marcarse como **actual** (solo puede haber una) |

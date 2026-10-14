@@ -852,6 +852,12 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
               <i class="pi pi-sync"></i> Recurrente
             </span>
           </div>
+          <div v-if="eventoSeleccionado.adjunto_url" class="flex items-center gap-2 text-sm">
+            <i class="pi pi-paperclip text-club-green"></i>
+            <a :href="eventoSeleccionado.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">
+              {{ eventoSeleccionado.adjunto_nombre || 'Ver adjunto' }}
+            </a>
+          </div>
         </template>
 
         <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">

@@ -531,4 +531,90 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._status).toBe(204);
   });
 
+  describe('adjunto', () => {
+    // data URLs reales mínimos (los decodifica el util real de imagenes).
+    const PDF = 'data:application/pdf;base64,JVBERi0xLjQK';
+    const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+    const TXT = 'data:text/plain;base64,aG9sYQ==';
+
+    it('subirAdjunto guarda el PDF y devuelve nombre y URL, sin el base64', async () => {
+      const update = vi.fn().mockResolvedValue();
+      Entrenamiento.findByPk
+        .mockResolvedValueOnce({ id: 7, update })
+        .mockResolvedValueOnce({ toJSON: () => ({ id: 7, adjunto_nombre: 'plan.pdf', updatedAt: '2026-10-14T00:00:00Z' }) });
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: PDF, adjunto_nombre: 'plan.pdf' } });
+      await promesa;
+
+      expect(update).toHaveBeenCalledWith({ adjunto: PDF, adjunto_nombre: 'plan.pdf' });
+      expect(res._json.adjunto_nombre).toBe('plan.pdf');
+      expect(res._json.adjunto_url).toContain('/api/entrenamientos/7/adjunto');
+      expect(res._json.adjunto).toBeUndefined();
+    });
+
+    it('subirAdjunto acepta imágenes PNG', async () => {
+      const update = vi.fn().mockResolvedValue();
+      Entrenamiento.findByPk
+        .mockResolvedValueOnce({ id: 7, update })
+        .mockResolvedValueOnce({ toJSON: () => ({ id: 7, adjunto_nombre: 'pizarra.png' }) });
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: PNG, adjunto_nombre: 'pizarra.png' } });
+      await promesa;
+      expect(update).toHaveBeenCalled();
+      expect(res._json.adjunto_url).toContain('/adjunto');
+    });
+
+    it('subirAdjunto rechaza un tipo no admitido (400)', async () => {
+      const update = vi.fn();
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, update });
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: TXT, adjunto_nombre: 'x.txt' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('subirAdjunto rechaza un fichero de más de 5 MB (400)', async () => {
+      const update = vi.fn();
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, update });
+      const grande = `data:application/pdf;base64,${'A'.repeat(Math.ceil(5 * 1024 * 1024 / 3) * 4 + 8)}`;
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: grande, adjunto_nombre: 'gordo.pdf' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('subirAdjunto 404 si el entrenamiento no existe', async () => {
+      Entrenamiento.findByPk.mockResolvedValue(null);
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '99' }, body: { adjunto: PDF, adjunto_nombre: 'p.pdf' } });
+      await promesa;
+      expect(res._status).toBe(404);
+    });
+
+    it('eliminarAdjunto pone adjunto y nombre a null', async () => {
+      const update = vi.fn().mockResolvedValue();
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, update });
+      const { promesa, res } = llamar(ctrl.eliminarAdjunto, { params: { id: '7' } });
+      await promesa;
+      expect(update).toHaveBeenCalledWith({ adjunto: null, adjunto_nombre: null });
+      expect(res._json.message).toMatch(/eliminado/i);
+    });
+
+    it('descargarAdjunto devuelve el fichero con su tipo y nombre', async () => {
+      Entrenamiento.scope.mockReturnValue(Entrenamiento);
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, adjunto: PDF, adjunto_nombre: 'plan.pdf' });
+      const { promesa, res } = llamar(ctrl.descargarAdjunto, { params: { id: '7' } });
+      await promesa;
+      expect(Entrenamiento.scope).toHaveBeenCalledWith('conAdjunto');
+      expect(res._headers['Content-Type']).toBe('application/pdf');
+      expect(res._headers['Content-Disposition']).toContain('plan.pdf');
+      expect(Buffer.isBuffer(res._payload)).toBe(true);
+    });
+
+    it('descargarAdjunto 404 si no hay adjunto', async () => {
+      Entrenamiento.scope.mockReturnValue(Entrenamiento);
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, adjunto: null });
+      const { promesa, res } = llamar(ctrl.descargarAdjunto, { params: { id: '7' } });
+      await promesa;
+      expect(res._status).toBe(404);
+    });
+  });
+
 });

@@ -114,7 +114,9 @@ async function eventos(req, res, next) {
         incidencias: null,
         plantilla: e.plantilla,
         categoria: e.plantilla?.categoria,
-        recurrente: e.recurrente ? true : false
+        recurrente: e.recurrente ? true : false,
+        adjunto_nombre: e.adjunto_nombre || null,
+        adjunto_url: e.adjunto_nombre ? `/api/entrenamientos/${e.id}/adjunto?v=${e.updatedAt ? new Date(e.updatedAt).getTime() : ''}` : null
       };
     });
 

@@ -41,7 +41,10 @@ export const entrenadoresService = crudService('entrenadores');
 export const entrenamientosService = {
   ...crudService('entrenamientos'),
   // alcance: 'serie' además elimina el resto de semanas de la misma serie recurrente.
-  eliminar: (id, alcance) => api.delete(`/entrenamientos/${id}`, { params: alcance ? { alcance } : undefined }).then(r => r.data)
+  eliminar: (id, alcance) => api.delete(`/entrenamientos/${id}`, { params: alcance ? { alcance } : undefined }).then(r => r.data),
+  // Adjunto de la sesión (PDF o imagen, en base64). Es solo de esa sesión.
+  subirAdjunto: (id, adjunto, nombre) => api.put(`/entrenamientos/${id}/adjunto`, { adjunto, adjunto_nombre: nombre }).then(r => r.data),
+  eliminarAdjunto: (id) => api.delete(`/entrenamientos/${id}/adjunto`).then(r => r.data)
 };
 export const partidosService = {
   ...crudService('partidos'),

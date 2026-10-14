@@ -36,6 +36,15 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
+// El adjunto de un entrenamiento (PDF o imagen en base64, hasta 5 MB) necesita
+// más que el límite general: un parser propio de 8 MB solo para esa ruta, antes
+// del parser general (una vez parseado, el de 2 MB lo deja pasar).
+const adjuntoParser = express.json({ limit: '8mb' });
+app.use('/api', (req, res, next) => {
+  if (req.method === 'PUT' && /^\/entrenamientos\/\d+\/adjunto$/.test(req.path)) return adjuntoParser(req, res, next);
+  next();
+});
+
 // Body parser con límite reducido (2mb en vez de 10mb)
 app.use(express.json({ limit: '2mb' }));
 

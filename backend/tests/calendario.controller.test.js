@@ -89,7 +89,9 @@ describe('Calendario · calendario.controller', () => {
       incidencias: null,
       plantilla: { id: 10, id_categoria: 3, id_temporada: 1, categoria: { id: 3, nombre: 'Alevín' }, temporada: { id: 1, nombre: '2025/26' } },
       categoria: { id: 3, nombre: 'Alevín' },
-      recurrente: false
+      recurrente: false,
+      adjunto_nombre: null,
+      adjunto_url: null
     });
     expect(res._json[1].id).toBe('partido-4');
     expect(res._json[1].titulo).toBe('PALMA DEL RIO ATLETICO C.F. vs Rival FC');

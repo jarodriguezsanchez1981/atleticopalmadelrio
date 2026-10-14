@@ -10,8 +10,27 @@ const includes = [
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
 ];
 
+// Adjunto: PDF o imagen (el navegador los puede previsualizar). 5 MB por fichero.
+const TIPOS_ADJUNTO = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_ADJUNTO = 5 * 1024 * 1024;
+const DATA_URL_ADJUNTO = /^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,/i;
+
+/** data URL (de cualquier tipo, no solo imagen) -> { tipoMime, buffer }; null si no lo es. */
+function decodificarAdjunto(valor) {
+  const m = typeof valor === 'string' ? DATA_URL_ADJUNTO.exec(valor) : null;
+  if (!m) return null;
+  return { tipoMime: m[1].toLowerCase(), buffer: Buffer.from(valor.slice(m[0].length), 'base64') };
+}
+
 function serialize(entrenamiento) {
   const json = entrenamiento.toJSON ? entrenamiento.toJSON() : entrenamiento;
+  // El base64 no se devuelve nunca aquí (lo excluye el defaultScope); solo el
+  // nombre y la URL de descarga, versionada por updated_at para la caché.
+  if (json.adjunto_nombre) {
+    const v = json.updatedAt ? new Date(json.updatedAt).getTime() : '';
+    json.adjunto_url = `/api/entrenamientos/${json.id}/adjunto?v=${v}`;
+  }
+  delete json.adjunto;
   return json;
 }
 
@@ -260,4 +279,60 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+/** PUT /:id/adjunto { adjunto: dataURL, adjunto_nombre }: guarda (o sustituye)
+ * el fichero de la sesión. El base64 llega en el cuerpo (parser con límite
+ * ampliado en app.js). Solo PDF o imagen, hasta 5 MB. */
+async function subirAdjunto(req, res, next) {
+  try {
+    const entrenamiento = await Entrenamiento.findByPk(req.params.id);
+    if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+
+    const { adjunto, adjunto_nombre } = req.body || {};
+    const decodificado = decodificarAdjunto(adjunto);
+    if (!decodificado) return res.status(400).json({ message: 'El fichero no es válido.' });
+    if (!TIPOS_ADJUNTO.includes(decodificado.tipoMime)) {
+      return res.status(400).json({ message: 'Solo se admiten ficheros PDF, JPG o PNG.' });
+    }
+    if (decodificado.buffer.length > MAX_ADJUNTO) {
+      return res.status(400).json({ message: 'El fichero supera el máximo de 5 MB.' });
+    }
+    const nombre = String(adjunto_nombre || 'adjunto').slice(0, 255);
+    await entrenamiento.update({ adjunto, adjunto_nombre: nombre });
+
+    const completo = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
+    res.json(serialize(completo));
+  } catch (err) { next(err); }
+}
+
+/** DELETE /:id/adjunto: quita el fichero de la sesión. */
+async function eliminarAdjunto(req, res, next) {
+  try {
+    const entrenamiento = await Entrenamiento.findByPk(req.params.id);
+    if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+    await entrenamiento.update({ adjunto: null, adjunto_nombre: null });
+    res.json({ message: 'Adjunto eliminado.' });
+  } catch (err) { next(err); }
+}
+
+/** GET /:id/adjunto: devuelve el fichero para verlo o descargarlo. */
+async function descargarAdjunto(req, res, next) {
+  try {
+    const entrenamiento = await Entrenamiento.scope('conAdjunto').findByPk(req.params.id, {
+      attributes: ['id', 'adjunto', 'adjunto_nombre']
+    });
+    const fichero = decodificarAdjunto(entrenamiento?.adjunto);
+    if (!fichero) return res.status(404).json({ message: 'Este entrenamiento no tiene adjunto.' });
+
+    const nombre = (entrenamiento.adjunto_nombre || 'adjunto').replace(/[\r\n"]/g, '');
+    res.set({
+      'Content-Type': fichero.tipoMime,
+      'Content-Disposition': `inline; filename="${nombre}"`,
+      'Cache-Control': 'private, max-age=31536000, immutable',
+      // El fichero abierto directamente no puede ejecutar nada en la intranet.
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    });
+    res.send(fichero.buffer);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, subirAdjunto, eliminarAdjunto, descargarAdjunto };

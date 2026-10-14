@@ -55,6 +55,48 @@ const esSerieRecurrente = ref(false);
  * el valor por defecto al elegir solo el día, que se muestra a medianoche). */
 const horaPartidoTocada = ref(false);
 
+// Adjunto de la sesión (PDF o imagen): fichero nuevo elegido pendiente de
+// subir, y si el usuario ha quitado el que ya tenía. El base64 solo se envía
+// al guardar, a su propia ruta (no va en el payload del entrenamiento).
+const TIPOS_ADJUNTO = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_ADJUNTO = 5 * 1024 * 1024;
+const adjuntoNuevo = ref(null);      // { dataUrl, nombre }
+const adjuntoQuitar = ref(false);
+const inputAdjunto = ref(null);
+
+function elegirAdjunto(evento) {
+  const fichero = evento.target.files?.[0];
+  evento.target.value = '';
+  if (!fichero) return;
+  if (!TIPOS_ADJUNTO.includes(fichero.type)) {
+    toast.add({ severity: 'warn', summary: 'Formato no admitido', detail: 'Solo se admiten ficheros PDF, JPG o PNG.', life: 4000 });
+    return;
+  }
+  if (fichero.size > MAX_ADJUNTO) {
+    toast.add({ severity: 'warn', summary: 'Fichero demasiado grande', detail: 'El máximo es 5 MB.', life: 4000 });
+    return;
+  }
+  const lector = new FileReader();
+  lector.onload = () => { adjuntoNuevo.value = { dataUrl: lector.result, nombre: fichero.name }; adjuntoQuitar.value = false; };
+  lector.onerror = () => toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo leer el fichero.', life: 4000 });
+  lector.readAsDataURL(fichero);
+}
+
+function quitarAdjunto() {
+  adjuntoNuevo.value = null;
+  adjuntoQuitar.value = true;
+}
+
+/** Sube o elimina el adjunto de la sesión tras guardar el entrenamiento. */
+async function guardarAdjunto(id) {
+  if (!id) return;
+  if (adjuntoNuevo.value) {
+    await entrenamientosService.subirAdjunto(id, adjuntoNuevo.value.dataUrl, adjuntoNuevo.value.nombre);
+  } else if (adjuntoQuitar.value && form.value.adjunto_nombre) {
+    await entrenamientosService.eliminarAdjunto(id);
+  }
+}
+
 function claveDia(fecha) {
   if (!fecha) return null;
   const d = fecha instanceof Date ? fecha : new Date(fecha);
@@ -112,10 +154,14 @@ function resetForm() {
     codigo_acta: '',
     codigo_primaria: '',
     jugadores_local: [],
-    jugadores_visitante: []
+    jugadores_visitante: [],
+    adjunto_nombre: null,
+    adjunto_url: null
   };
   horaPartidoTocada.value = false;
   esSerieRecurrente.value = false;
+  adjuntoNuevo.value = null;
+  adjuntoQuitar.value = false;
 }
 
 async function cargarCatalogo() {
@@ -168,6 +214,8 @@ async function cargarRegistro() {
       id_lugar: item.id_lugar ?? item.lugar?.id ?? null,
       hasta: item.hasta ? new Date(item.hasta) : null,
       horario_reducido: !!item.horario_reducido,
+      adjunto_nombre: item.adjunto_nombre || null,
+      adjunto_url: item.adjunto_url || null,
       id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
       id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
@@ -665,6 +713,16 @@ async function guardarConAlcance(alcance) {
       resultado = await service.crear(payload);
       toast.add({ severity: 'success', summary: 'Creado', detail: 'Registro creado correctamente.', life: 3000 });
     }
+    // El adjunto es de esta sesión: se guarda sobre el id de este registro (en
+    // una serie recurrente, solo sobre el que se está editando/creando).
+    if (props.tipo === 'entrenamiento') {
+      try {
+        await guardarAdjunto(props.registroId || resultado?.id);
+      } catch (errAdj) {
+        toast.add({ severity: 'warn', summary: 'Adjunto no guardado',
+          detail: errAdj.response?.data?.message || 'El entrenamiento se guardó, pero el adjunto no.', life: 6000 });
+      }
+    }
     if (props.tipo === 'entrenamiento' && resultado?.generados > 1) {
       let detalle = `Se han generado ${resultado.generados} entrenamientos semanales.`;
       if (resultado.omitidos?.length) {
@@ -837,6 +895,29 @@ async function finalizarActa() {
               class="w-24"
               @update:modelValue="(v) => onHoraInput('hasta', v)"
             />
+          </div>
+        </div>
+
+        <!-- Adjunto de la sesión: planificación en PDF o imagen. -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Adjunto (planificación)</label>
+          <p class="text-xs text-ink-tertiary">PDF, JPG o PNG, hasta 5 MB. Es solo de esta sesión.</p>
+          <div v-if="adjuntoNuevo" class="flex items-center gap-2 text-sm">
+            <i class="pi pi-paperclip text-club-green" />
+            <span class="truncate">{{ adjuntoNuevo.nombre }}</span>
+            <span class="text-xs text-ink-tertiary">(sin guardar)</span>
+            <Button icon="pi pi-times" text severity="secondary" size="small" @click="adjuntoNuevo = null" />
+          </div>
+          <div v-else-if="form.adjunto_url && !adjuntoQuitar" class="flex items-center gap-2 text-sm">
+            <i class="pi pi-paperclip text-club-green" />
+            <a :href="form.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">{{ form.adjunto_nombre }}</a>
+            <Button icon="pi pi-trash" text severity="danger" size="small" @click="quitarAdjunto" />
+          </div>
+          <div class="flex items-center gap-2">
+            <input ref="inputAdjunto" type="file" accept=".pdf,image/png,image/jpeg" class="hidden" @change="elegirAdjunto" />
+            <Button :label="(form.adjunto_url && !adjuntoQuitar) || adjuntoNuevo ? 'Cambiar fichero' : 'Elegir fichero'"
+                    icon="pi pi-upload" text size="small" @click="inputAdjunto?.click()" />
+            <span v-if="adjuntoQuitar && form.adjunto_nombre" class="text-xs text-club-garnet">Se quitará al guardar</span>
           </div>
         </div>
       </template>
