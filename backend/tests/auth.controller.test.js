@@ -244,4 +244,49 @@ describe('Autenticación · auth.controller', () => {
     expect(res._cookies.apr_sesion).toEqual({ valor: null, opciones: expect.objectContaining({ httpOnly: true, path: '/api' }) });
     expect(res._json.message).toBe('Sesión cerrada.');
   });
+
+  describe('cambiarPassword', () => {
+    const user = { id: 7 };
+    const valida = 'Nueva#2026';
+
+    beforeEach(() => {
+      passwordUtils.isPasswordValid.mockReset();
+      passwordUtils.hashPassword.mockReset();
+      passwordUtils.hashPassword.mockResolvedValue('hash-nuevo');
+    });
+
+    it('rechaza si falta la confirmación (400)', async () => {
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: valida } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(Usuario.findByPk).not.toHaveBeenCalled();
+    });
+
+    it('rechaza si las dos contraseñas no coinciden (400)', async () => {
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: valida, confirmacion: 'Otra#2026' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(res._json.message).toBe('Las dos contraseñas no coinciden.');
+    });
+
+    it('rechaza una contraseña que no cumple la política (400)', async () => {
+      passwordUtils.isPasswordValid.mockReturnValue(false);
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: 'abc', confirmacion: 'abc' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(Usuario.findByPk).not.toHaveBeenCalled();
+    });
+
+    it('guarda el hash del propio usuario y cierra la sesión', async () => {
+      passwordUtils.isPasswordValid.mockReturnValue(true);
+      const registro = { update: vi.fn().mockResolvedValue() };
+      Usuario.findByPk.mockResolvedValue(registro);
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: valida, confirmacion: valida, id: 1 } });
+      await promesa;
+      expect(Usuario.findByPk).toHaveBeenCalledWith(7);
+      expect(registro.update).toHaveBeenCalledWith({ password: 'hash-nuevo' });
+      expect(res._cookies.apr_sesion.valor).toBeNull();
+      expect(res._status ?? 200).toBe(200);
+    });
+  });
 });

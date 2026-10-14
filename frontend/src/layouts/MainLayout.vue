@@ -37,6 +37,12 @@ const GRUPOS_MENU = [
   { clave: 'admin', label: 'Panel Administración', icon: 'pi pi-server' }
 ];
 
+// Entradas fijas de un apartado que no dependen de permisos (las ve todo el
+// mundo), detrás de las secciones de la base de datos.
+const ITEMS_FIJOS = {
+  admin: [{ label: 'Cambiar Contraseña', icon: 'pi pi-key', to: '/cambiar-password' }]
+};
+
 const catalogoSecciones = ref([]);
 let unsubCambio = null;
 
@@ -60,7 +66,8 @@ function itemsDelGrupo(clave) {
   return catalogoSecciones.value
     .filter((s) => s.grupo === clave && RUTA_POR_SECCION[s.clave] && auth.puedeVer(s.clave))
     .sort((a, b) => a.orden - b.orden)
-    .map((s) => ({ label: etiquetaEnGrupo(s.nombre, clave), icon: s.icono || 'pi pi-minus', to: RUTA_POR_SECCION[s.clave], seccion: s.clave }));
+    .map((s) => ({ label: etiquetaEnGrupo(s.nombre, clave), icon: s.icono || 'pi pi-minus', to: RUTA_POR_SECCION[s.clave], seccion: s.clave }))
+    .concat(ITEMS_FIJOS[clave] || []);
 }
 
 /** Dentro del grupo Estadísticas sobra repetir "Estadísticas": "Estadísticas

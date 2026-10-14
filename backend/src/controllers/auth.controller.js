@@ -1,6 +1,6 @@
 const { Usuario, Seccion } = require('../models');
 const { comprimirPermisos } = require('../utils/permisosToken');
-const { verifyPassword } = require('../utils/password.utils');
+const { verifyPassword, hashPassword, isPasswordValid } = require('../utils/password.utils');
 const { signToken } = require('../utils/jwt.utils');
 const { ponerCookieSesion, borrarCookieSesion } = require('../utils/sesionCookie');
 
@@ -98,4 +98,30 @@ function logout(req, res) {
   return res.json({ message: 'Sesión cerrada.' });
 }
 
-module.exports = { login, me, logout };
+/** Cualquier usuario cambia su propia contraseña (la nueva dos veces). Tras
+ * cambiarla se borra la cookie: tiene que volver a iniciar sesión. */
+async function cambiarPassword(req, res, next) {
+  try {
+    const { password, confirmacion } = req.body || {};
+    if (typeof password !== 'string' || typeof confirmacion !== 'string' || !password) {
+      return res.status(400).json({ message: 'Escribe la nueva contraseña dos veces.' });
+    }
+    if (password !== confirmacion) {
+      return res.status(400).json({ message: 'Las dos contraseñas no coinciden.' });
+    }
+    if (!isPasswordValid(password)) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener mínimo 8 caracteres, una minúscula, una mayúscula, un número y un símbolo.'
+      });
+    }
+    const user = await Usuario.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado.' });
+    await user.update({ password: await hashPassword(password) });
+    borrarCookieSesion(res);
+    return res.json({ message: 'Contraseña cambiada. Vuelve a iniciar sesión.' });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+module.exports = { login, me, logout, cambiarPassword };

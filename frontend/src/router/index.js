@@ -228,6 +228,12 @@ const routes = [
         meta: { seccion: 'firma_email' }
       },
       {
+        // Sin `seccion`: cualquier usuario puede cambiar su contraseña.
+        path: 'cambiar-password',
+        name: 'cambiar_password',
+        component: () => import('../views/cambiarPassword/CambiarPassword.vue')
+      },
+      {
         path: 'promociones',
         name: 'promociones',
         component: () => import('../views/promociones/Promociones.vue'),
