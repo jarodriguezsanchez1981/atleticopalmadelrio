@@ -101,6 +101,14 @@ const lugarPartido = computed(() => {
   if (!e.es_local) return e.equipoLocal?.localidad || '—';
   return e.lugar || '—';
 });
+
+const tipoAdjunto = computed(() => {
+  const nombre = eventoSeleccionado.value?.adjunto_nombre || '';
+  const ext = nombre.split('.').pop()?.toLowerCase() || '';
+  if (['jpg', 'jpeg', 'png'].includes(ext)) return 'imagen';
+  if (ext === 'pdf') return 'pdf';
+  return 'otro';
+});
 const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
 const pdfSemana = ref(new Date());
@@ -852,11 +860,28 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
               <i class="pi pi-sync"></i> Recurrente
             </span>
           </div>
-          <div v-if="eventoSeleccionado.adjunto_url" class="flex items-center gap-2 text-sm">
-            <i class="pi pi-paperclip text-club-green"></i>
-            <a :href="eventoSeleccionado.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">
-              {{ eventoSeleccionado.adjunto_nombre || 'Ver adjunto' }}
+          <div v-if="eventoSeleccionado.adjunto_url" class="space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <i class="pi pi-paperclip text-club-green"></i>
+              <a :href="eventoSeleccionado.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">
+                {{ eventoSeleccionado.adjunto_nombre || 'Ver adjunto' }}
+              </a>
+            </div>
+            <a
+              v-if="tipoAdjunto === 'imagen'"
+              :href="eventoSeleccionado.adjunto_url"
+              target="_blank"
+              rel="noopener"
+              class="block rounded-lg overflow-hidden border border-line"
+            >
+              <img :src="eventoSeleccionado.adjunto_url" :alt="eventoSeleccionado.adjunto_nombre || 'Adjunto'" class="w-full max-h-96 object-contain bg-ink-surface" />
             </a>
+            <iframe
+              v-else-if="tipoAdjunto === 'pdf'"
+              :src="eventoSeleccionado.adjunto_url"
+              :title="eventoSeleccionado.adjunto_nombre || 'Adjunto'"
+              class="w-full h-96 rounded-lg border border-line"
+            ></iframe>
           </div>
         </template>
 
