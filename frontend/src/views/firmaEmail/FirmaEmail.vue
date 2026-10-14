@@ -56,6 +56,15 @@ function restablecer() {
   regenerar();
 }
 
+// Campos de texto de los datos personales; "Limpiar" los vacía sin tocar los
+// colores, las casillas ni el texto del aviso legal.
+const CAMPOS_DATOS = ['nombre', 'cargo', 'telefono', 'email', 'web', 'direccion'];
+
+function limpiar() {
+  for (const campo of CAMPOS_DATOS) datos[campo] = '';
+  regenerar();
+}
+
 // La vista previa va en un iframe sin scripts (sandbox): el HTML escrito a
 // mano no puede ejecutar nada en la intranet.
 const documentoPrevia = computed(() =>
@@ -161,7 +170,8 @@ function descargarHtml() {
           <label class="text-xs font-medium text-ink-secondary" for="firma-aviso">Texto del aviso legal</label>
           <Textarea id="firma-aviso" v-model="datos.aviso" rows="4" autoResize />
         </div>
-        <div class="flex justify-end">
+        <div class="flex justify-end gap-2">
+          <Button label="Limpiar" icon="pi pi-eraser" text severity="secondary" @click="limpiar" />
           <Button label="Restablecer" icon="pi pi-refresh" text severity="secondary" @click="restablecer" />
         </div>
       </div>
