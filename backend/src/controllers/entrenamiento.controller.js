@@ -328,8 +328,10 @@ async function descargarAdjunto(req, res, next) {
       'Content-Type': fichero.tipoMime,
       'Content-Disposition': `inline; filename="${nombre}"`,
       'Cache-Control': 'private, max-age=31536000, immutable',
-      // El fichero abierto directamente no puede ejecutar nada en la intranet.
-      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+      // Aislado en un origen opaco (sandbox sin allow-same-origin): el visor de PDF de
+      // Firefox (pdf.js) necesita scripts para dibujarse, pero al no tener acceso al mismo
+      // origen no puede leer la sesión ni tocar la intranet.
+      'Content-Security-Policy': "default-src 'none'; img-src 'self' blob: data:; style-src 'unsafe-inline'; sandbox allow-scripts"
     });
     res.send(fichero.buffer);
   } catch (err) { next(err); }
