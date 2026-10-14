@@ -324,9 +324,12 @@ async function descargarAdjunto(req, res, next) {
     if (!fichero) return res.status(404).json({ message: 'Este entrenamiento no tiene adjunto.' });
 
     const nombre = (entrenamiento.adjunto_nombre || 'adjunto').replace(/[\r\n"]/g, '');
+    // Las cabeceras HTTP solo admiten ASCII: fallback ASCII para filename y el nombre
+    // real (con acentos) en filename* (RFC 5987), que entienden los navegadores.
+    const nombreAscii = nombre.replace(/[^\x20-\x7E]/g, '_');
     res.set({
       'Content-Type': fichero.tipoMime,
-      'Content-Disposition': `inline; filename="${nombre}"`,
+      'Content-Disposition': `inline; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
       'Cache-Control': 'private, max-age=31536000, immutable',
       // Aislado en un origen opaco (sandbox sin allow-same-origin): el visor de PDF de
       // Firefox (pdf.js) necesita scripts para dibujarse, pero al no tener acceso al mismo

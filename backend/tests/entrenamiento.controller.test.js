@@ -608,6 +608,19 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
       expect(Buffer.isBuffer(res._payload)).toBe(true);
     });
 
+    it('descargarAdjunto codifica en la cabecera un nombre con acentos (sin romper el header)', async () => {
+      Entrenamiento.scope.mockReturnValue(Entrenamiento);
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, adjunto: PDF, adjunto_nombre: 'PayPal_ Detalles de la transacción.pdf' });
+      const { promesa, res } = llamar(ctrl.descargarAdjunto, { params: { id: '7' } });
+      await promesa;
+      const cd = res._headers['Content-Disposition'];
+      // El valor de la cabecera debe ser ASCII puro (si no, Node lanza ERR_INVALID_CHAR)
+      expect(/^[\x20-\x7E]*$/.test(cd)).toBe(true);
+      expect(cd).toContain("filename*=UTF-8''");
+      expect(cd).toContain(encodeURIComponent('PayPal_ Detalles de la transacción.pdf'));
+      expect(Buffer.isBuffer(res._payload)).toBe(true);
+    });
+
     it('descargarAdjunto 404 si no hay adjunto', async () => {
       Entrenamiento.scope.mockReturnValue(Entrenamiento);
       Entrenamiento.findByPk.mockResolvedValue({ id: 7, adjunto: null });
