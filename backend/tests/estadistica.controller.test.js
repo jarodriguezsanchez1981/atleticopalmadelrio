@@ -61,6 +61,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       porcentaje_goles_titular_local: 100, porcentaje_goles_titular_visitante: 0,
       // 124' de 180' posibles: 90' de 90' en casa y 34' de 90' fuera.
       porcentaje_minutos: 68.9, porcentaje_minutos_local: 100, porcentaje_minutos_visitante: 37.8,
+      // Sobre todos los partidos del equipo (2: uno en casa y otro fuera).
+      porcentaje_minutos_equipo: 68.9, porcentaje_minutos_equipo_local: 100, porcentaje_minutos_equipo_visitante: 37.8,
       porcentaje_goles_local: 66.7, porcentaje_goles_visitante: 33.3,
       // En casa (partido 1): titular, 90', 2 goles en la 1ª parte, amarilla.
       convocatorias_local: 1, partidos_local: 1, titular_local: 1, suplente_local: 0, minutos_local: 90,
@@ -77,6 +79,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       porcentaje_goles_partido: 0, porcentaje_goles_titular: null, porcentaje_goles_banquillo: null,
       // Fuera no jugó ningún partido: sin porcentaje.
       porcentaje_minutos: 100, porcentaje_minutos_local: 100, porcentaje_minutos_visitante: null,
+      // 90' de los 180' del equipo; fuera estuvo en el banquillo: 0 %.
+      porcentaje_minutos_equipo: 50, porcentaje_minutos_equipo_local: 100, porcentaje_minutos_equipo_visitante: 0,
       porcentaje_goles_local: null, porcentaje_goles_visitante: null,
       banquillo_no_jugados_local: 0, banquillo_no_jugados_visitante: 1,
       partidos_visitante: 0, porcentaje_goles_partido_visitante: null

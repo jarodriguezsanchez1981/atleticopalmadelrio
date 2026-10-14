@@ -52,6 +52,7 @@ const METRICAS_TIEMPO = [
   { campo: 'partidos', titulo: 'Partidos' },
   { campo: 'minutos', titulo: 'Min.', descripcion: 'Minutos' },
   { campo: 'porcentaje_minutos', titulo: '% Min.\njugados', descripcion: '% Minutos jugados', porcentaje: true },
+  { campo: 'porcentaje_minutos_equipo', titulo: '% Min. Jugados\nTotal Partidos', descripcion: '% Minutos jugados sobre el total de partidos del equipo', porcentaje: true },
   { campo: 'minutos_titular', titulo: 'Min.\nTit.', descripcion: 'Minutos Titular' },
   { campo: 'minutos_banquillo', titulo: 'Min.\nSupl.', descripcion: 'Minutos Suplente' }
 ];
@@ -156,7 +157,7 @@ const TABLAS = {
   tiempo: {
     seccion: 'estadisticas_tiempo',
     titulo: 'Estadísticas Tiempo',
-    descripcion: 'Minutos jugados por cada jugador. "% Minutos jugados": minutos jugados sobre los posibles (90 por partido) en los partidos que ha jugado; si juega 3 partidos enteros, 100 %.',
+    descripcion: 'Minutos jugados por cada jugador. "% Minutos jugados": minutos jugados sobre los posibles (90 por partido) en los partidos que ha jugado; si juega 3 partidos enteros, 100 %. "% Min. Jugados Total Partidos": minutos jugados sobre los de todos los partidos del equipo (90 por partido), los haya jugado o no; si el equipo lleva 6 partidos y él ha jugado 3 enteros, 50 %.',
     metricas: METRICAS_TIEMPO,
     sortField: 'minutos'
   },

@@ -143,6 +143,14 @@ async function listar(req, res, next) {
       sumar(fila, g.minuto <= FIN_PRIMERA_PARTE ? 'goles_primera' : 'goles_segunda', 1, lado);
     }
 
+    // Partidos del equipo con acta (los que tienen jugadores), en total y por
+    // lado, para el % de minutos sobre todos los partidos. Solo filas del
+    // PALMA: las del rival llevan su propio es_local.
+    const ladoPartido = new Map();
+    for (const f of filas) if (f.id_jugador) ladoPartido.set(f.id_partido, f.es_local ? 'local' : 'visitante');
+    const partidosEquipo = { '': ladoPartido.size, _local: 0, _visitante: 0 };
+    for (const lado of ladoPartido.values()) partidosEquipo[`_${lado}`] += 1;
+
     for (const f of porJugador.values()) {
       for (const sufijo of ['', '_local', '_visitante']) {
         // Partidos jugados en los que marca (como mucho 100 %, aunque meta varios en uno).
@@ -153,6 +161,9 @@ async function listar(req, res, next) {
         // Minutos jugados sobre los posibles en los partidos que ha jugado
         // (3 partidos enteros = 100 %).
         f[`porcentaje_minutos${sufijo}`] = porcentaje(f[`minutos${sufijo}`], f[`partidos${sufijo}`] * MINUTOS_PARTIDO);
+        // Minutos jugados sobre los de todos los partidos del equipo, los
+        // haya jugado o no.
+        f[`porcentaje_minutos_equipo${sufijo}`] = porcentaje(f[`minutos${sufijo}`], partidosEquipo[sufijo] * MINUTOS_PARTIDO);
       }
       // Parte de sus goles marcados en casa o fuera.
       for (const l of LADOS) f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
