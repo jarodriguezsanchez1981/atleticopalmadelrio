@@ -187,16 +187,6 @@ h1, h2, h3, .font-display {
   line-height: 1.2;
 }
 
-/* Estadísticas: cálculo de las columnas de % y medias, bajo su título. */
-.ar-datatable .ar-dt-calculo {
-  margin-top: 0.25rem;
-  font-size: 0.65rem;
-  font-weight: 400;
-  line-height: 1.2;
-  white-space: pre-line;
-  opacity: 0.75;
-}
-
 /* Estadísticas: columnas agrupadas en Total / Local / Visitante. */
 .ar-datatable.ar-dt-agrupada .ar-dt-inicio-grupo {
   border-left: 2px solid rgb(15 61 34 / 0.25);

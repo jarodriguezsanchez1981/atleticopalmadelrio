@@ -14,7 +14,7 @@ import { estiloTabla } from '../utils/estiloTabla';
  * moverla (en los tres grupos a la vez). */
 const props = defineProps({
   filas: { type: Array, default: () => [] },
-  // [{ campo, titulo, descripcion?: 'nombre completo (tooltip)', calculo?: 'fórmula bajo el título', porcentaje?: true, decimal?: true, soloLados?: true, subgrupo?: 'Amarillas' }]
+  // [{ campo, titulo, descripcion?: 'nombre completo (tooltip)', calculo?: 'fórmula (tooltip)', porcentaje?: true, decimal?: true, soloLados?: true, subgrupo?: 'Amarillas' }]
   // Las métricas seguidas con el mismo `subgrupo` van bajo un título común
   // dentro de cada grupo (una fila más de cabecera).
   metricas: { type: Array, required: true },
@@ -112,6 +112,12 @@ function moverSubgrupo(desde, hasta) {
   return [...resto.slice(0, destino), ...bloque, ...resto.slice(destino)];
 }
 
+/** Tooltip de una métrica: su nombre completo y, en % y medias, el cálculo. */
+function ayuda(c) {
+  const calculo = c.calculo ? `Cálculo: ${c.calculo.replace(/\s*\n\s*/g, ' ')}` : '';
+  return [c.descripcion || (calculo ? c.titulo.replace(/\s*\n\s*/g, ' ') : ''), calculo].filter(Boolean).join(' · ');
+}
+
 function arrastrable(tipo, clave, descripcion = '') {
   return {
     headerCell: {
@@ -156,16 +162,9 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
         <Column v-if="soloGrupo" :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <template v-for="g in grupos" :key="g.clave">
           <template v-for="t in g.tramos" :key="t.columna?.field || `${g.clave}-${t.subgrupo}`">
-            <Column v-if="t.columna" :header="t.columna.calculo ? undefined : t.columna.titulo" :field="t.columna.field" sortable :rowspan="filasColumna"
+            <Column v-if="t.columna" :header="t.columna.titulo" :field="t.columna.field" sortable :rowspan="filasColumna"
                     :headerClass="`text-center ar-dt-grupo-${g.clave}${claseSeparador(t.columna)}`"
-                    :pt="arrastrable(`metrica-${t.columna.subgrupo || ''}`, t.columna.campo, t.columna.descripcion)">
-              <template v-if="t.columna.calculo" #header>
-                <span class="flex flex-col items-center">
-                  <span class="p-datatable-column-title">{{ t.columna.titulo }}</span>
-                  <span class="ar-dt-calculo">{{ t.columna.calculo }}</span>
-                </span>
-              </template>
-            </Column>
+                    :pt="arrastrable(`metrica-${t.columna.subgrupo || ''}`, t.columna.campo, ayuda(t.columna))" />
             <Column v-else :header="t.subgrupo" :colspan="t.columnas.length"
                     :headerClass="`ar-dt-titulo-grupo ar-dt-grupo-${g.clave}${claseSeparador(t.columnas[0])}`"
                     :pt="arrastrable('subgrupo', t.subgrupo, t.columnas[0].descripcionSubgrupo)" />
@@ -175,16 +174,9 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
       <Row v-if="conSubgrupos">
         <template v-for="g in grupos" :key="g.clave">
           <template v-for="t in g.tramos.filter((x) => x.subgrupo)" :key="`${g.clave}-${t.subgrupo}`">
-            <Column v-for="c in t.columnas" :key="c.field" :header="c.calculo ? undefined : c.titulo" :field="c.field" sortable
+            <Column v-for="c in t.columnas" :key="c.field" :header="c.titulo" :field="c.field" sortable
                     :headerClass="`text-center ar-dt-grupo-${g.clave}${claseSeparador(c)}`"
-                    :pt="arrastrable(`metrica-${c.subgrupo}`, c.campo, c.descripcion)">
-              <template v-if="c.calculo" #header>
-                <span class="flex flex-col items-center">
-                  <span class="p-datatable-column-title">{{ c.titulo }}</span>
-                  <span class="ar-dt-calculo">{{ c.calculo }}</span>
-                </span>
-              </template>
-            </Column>
+                    :pt="arrastrable(`metrica-${c.subgrupo}`, c.campo, ayuda(c))" />
           </template>
         </template>
       </Row>
