@@ -95,8 +95,10 @@ describe('Autenticación · auth.controller', () => {
     // Permisos compactos en el token (va en una cookie): claves y editables.
     expect(jwtUtils.signToken).toHaveBeenCalledWith({
       id: 1, usuario: 'admin', s: ['administracion', 'temporadas'], e: ['administracion'],
-      rol: 'coordinador', id_categoria: null
+      rol: 'coordinador', id_categoria: null, ini: expect.any(Number), exp: expect.any(Number)
     });
+    const { ini, exp } = jwtUtils.signToken.mock.calls[0][0];
+    expect(exp - ini).toBe(3600);
     expect(res._json).not.toHaveProperty('token');
     expect(res._cookies.apr_sesion).toEqual({
       valor: 'token-fake',
@@ -178,6 +180,14 @@ describe('Autenticación · auth.controller', () => {
     expect(res._json.user.id_categoria).toBe(7);
   });
 
+  it('me renueva el token sin alargar la sesión (1 hora desde el login)', async () => {
+    Usuario.findByPk.mockResolvedValue({ id: 1, usuario: 'admin', rol: 'coordinador', secciones: [] });
+    const ini = Math.floor(Date.now() / 1000) - 1800;
+    const { promesa } = llamar(ctrl.me, { user: { id: 1, ini, iat: ini + 1000 } });
+    await promesa;
+    expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({ ini, exp: ini + 3600 }));
+  });
+
   it('me rechaza a un usuario desactivado', async () => {
     Usuario.findByPk.mockResolvedValue({ id: 3, usuario: 'baja', activo: false, secciones: [] });
     const { promesa, res } = llamar(ctrl.me, { user: { id: 3 } });
@@ -219,7 +229,7 @@ describe('Autenticación · auth.controller', () => {
     await promesa;
 
     const tokenPayload = jwtUtils.signToken.mock.calls[0][0];
-    expect(Object.keys(tokenPayload).sort()).toEqual(['e', 'id', 'id_categoria', 'rol', 's', 'usuario']);
+    expect(Object.keys(tokenPayload).sort()).toEqual(['e', 'exp', 'id', 'id_categoria', 'ini', 'rol', 's', 'usuario']);
     expect(tokenPayload).not.toHaveProperty('nombre');
     expect(tokenPayload).not.toHaveProperty('password');
   });
@@ -248,22 +258,32 @@ describe('Autenticación · auth.controller', () => {
   describe('cambiarPassword', () => {
     const user = { id: 7 };
     const valida = 'Nueva#2026';
+    const cuerpo = (extra) => ({ password_actual: 'Vieja#2026', password: valida, confirmacion: valida, ...extra });
 
     beforeEach(() => {
+      Usuario.scope = vi.fn().mockReturnValue(Usuario);
       passwordUtils.isPasswordValid.mockReset();
+      passwordUtils.isPasswordValid.mockReturnValue(true);
       passwordUtils.hashPassword.mockReset();
       passwordUtils.hashPassword.mockResolvedValue('hash-nuevo');
     });
 
+    it('exige la contraseña actual (400)', async () => {
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: cuerpo({ password_actual: '' }) });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(Usuario.findByPk).not.toHaveBeenCalled();
+    });
+
     it('rechaza si falta la confirmación (400)', async () => {
-      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: valida } });
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: cuerpo({ confirmacion: undefined }) });
       await promesa;
       expect(res._status).toBe(400);
       expect(Usuario.findByPk).not.toHaveBeenCalled();
     });
 
     it('rechaza si las dos contraseñas no coinciden (400)', async () => {
-      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: valida, confirmacion: 'Otra#2026' } });
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: cuerpo({ confirmacion: 'Otra#2026' }) });
       await promesa;
       expect(res._status).toBe(400);
       expect(res._json.message).toBe('Las dos contraseñas no coinciden.');
@@ -271,19 +291,31 @@ describe('Autenticación · auth.controller', () => {
 
     it('rechaza una contraseña que no cumple la política (400)', async () => {
       passwordUtils.isPasswordValid.mockReturnValue(false);
-      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: 'abc', confirmacion: 'abc' } });
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: cuerpo({ password: 'abc', confirmacion: 'abc' }) });
       await promesa;
       expect(res._status).toBe(400);
       expect(Usuario.findByPk).not.toHaveBeenCalled();
     });
 
-    it('guarda el hash del propio usuario y cierra la sesión', async () => {
-      passwordUtils.isPasswordValid.mockReturnValue(true);
-      const registro = { update: vi.fn().mockResolvedValue() };
+    it('rechaza una contraseña actual incorrecta con 400 (no 401) y no la cambia', async () => {
+      const registro = { password: 'hash-viejo', update: vi.fn() };
       Usuario.findByPk.mockResolvedValue(registro);
-      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: { password: valida, confirmacion: valida, id: 1 } });
+      passwordUtils.verifyPassword.mockResolvedValue(false);
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: cuerpo() });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(res._json.message).toBe('La contraseña actual no es correcta.');
+      expect(registro.update).not.toHaveBeenCalled();
+    });
+
+    it('guarda el hash del propio usuario y cierra la sesión', async () => {
+      const registro = { password: 'hash-viejo', update: vi.fn().mockResolvedValue() };
+      Usuario.findByPk.mockResolvedValue(registro);
+      passwordUtils.verifyPassword.mockResolvedValue(true);
+      const { promesa, res } = llamar(ctrl.cambiarPassword, { user, body: cuerpo({ id: 1 }) });
       await promesa;
       expect(Usuario.findByPk).toHaveBeenCalledWith(7);
+      expect(passwordUtils.verifyPassword).toHaveBeenCalledWith('Vieja#2026', 'hash-viejo');
       expect(registro.update).toHaveBeenCalledWith({ password: 'hash-nuevo' });
       expect(res._cookies.apr_sesion.valor).toBeNull();
       expect(res._status ?? 200).toBe(200);

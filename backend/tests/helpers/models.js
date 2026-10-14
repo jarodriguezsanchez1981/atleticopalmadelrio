@@ -139,7 +139,8 @@ export function createPasswordUtilsMock() {
 export function createJwtUtilsMock() {
   return {
     signToken: vi.fn(),
-    verifyToken: vi.fn()
+    verifyToken: vi.fn(),
+    DURACION_SESION_SEG: 3600
   };
 }
 

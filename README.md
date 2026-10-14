@@ -245,7 +245,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **SSRF protection**: proxy de imágenes bloquea IPs privadas, loopback y DNS rebinding
 - **Rate limiting**: 10 000 req/15min globales y 10 intentos de login/15min por IP
 - **Body limit**: 2MB máximo por petición
-- **JWT**: tokens de 8h con secrets generados por entorno
+- **JWT**: sesión de 1 hora como máximo desde el login (renovar el token no la alarga), con secrets generados por entorno
 - **bcrypt**: hashing de contraseñas con 12 rondas
 - **Política de contraseñas**: mín. 8 caracteres + mayúscula + minúscula + número + símbolo
 - **Autorización**: `requireNivel()` en rutas de escritura, `authorize()` por sección

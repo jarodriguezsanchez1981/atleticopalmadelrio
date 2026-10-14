@@ -15,6 +15,7 @@ const auth = useAuthStore();
 const router = useRouter();
 const toast = useToast();
 
+const passwordActual = ref('');
 const password = ref('');
 const confirmacion = ref('');
 const error = ref('');
@@ -22,14 +23,16 @@ const guardando = ref(false);
 
 const requisitos = computed(() => estadoRequisitos(password.value));
 const coinciden = computed(() => !!confirmacion.value && password.value === confirmacion.value);
-const puedeGuardar = computed(() => requisitos.value.every((r) => r.ok) && coinciden.value && !guardando.value);
+const igualQueActual = computed(() => !!password.value && password.value === passwordActual.value);
+const puedeGuardar = computed(() =>
+  !!passwordActual.value && requisitos.value.every((r) => r.ok) && coinciden.value && !igualQueActual.value && !guardando.value);
 
 async function guardar() {
   if (!puedeGuardar.value) return;
   error.value = '';
   guardando.value = true;
   try {
-    await authService.cambiarPassword(password.value, confirmacion.value);
+    await authService.cambiarPassword(passwordActual.value, password.value, confirmacion.value);
     toast.add({ severity: 'success', summary: 'Contraseña cambiada', detail: 'Inicia sesión con la nueva contraseña.', life: 5000 });
     await auth.logout();
     router.push({ name: 'login' });
@@ -46,11 +49,24 @@ async function guardar() {
     <div>
       <h1 class="font-display text-xl text-club-green">Cambiar Contraseña</h1>
       <p class="text-sm text-ink-tertiary">
-        Escribe la nueva contraseña dos veces. Al guardarla se cerrará la sesión y tendrás que entrar con la nueva.
+        Escribe tu contraseña actual y la nueva dos veces. Al guardarla se cerrará la sesión y tendrás que entrar con la nueva.
       </p>
     </div>
 
     <form class="rounded-xl border border-line bg-white p-4 flex flex-col gap-4" @submit.prevent="guardar">
+      <div class="flex flex-col gap-1">
+        <label for="password-actual" class="text-xs font-medium text-ink-secondary">Contraseña actual</label>
+        <Password
+          id="password-actual"
+          v-model="passwordActual"
+          autocomplete="current-password"
+          :feedback="false"
+          toggleMask
+          inputClass="w-full"
+          class="w-full"
+        />
+      </div>
+
       <div class="flex flex-col gap-1">
         <label for="password-nueva" class="text-xs font-medium text-ink-secondary">Nueva contraseña</label>
         <Password
@@ -62,21 +78,7 @@ async function guardar() {
           inputClass="w-full"
           class="w-full"
         />
-      </div>
-
-      <div class="rounded-lg border border-line bg-club-cream/40 p-3">
-        <p class="text-xs font-semibold text-ink-secondary mb-2">La contraseña debe contener:</p>
-        <ul class="flex flex-col gap-1 text-sm">
-          <li
-            v-for="r in requisitos"
-            :key="r.clave"
-            class="flex items-center gap-2"
-            :class="r.ok ? 'text-green-700 underline decoration-2 underline-offset-4' : 'text-ink-tertiary'"
-          >
-            <i :class="r.ok ? 'pi pi-check-circle' : 'pi pi-circle'" class="text-xs" />
-            <span>{{ r.texto }}</span>
-          </li>
-        </ul>
+        <small v-if="igualQueActual" class="text-red-600">La nueva contraseña debe ser distinta de la actual.</small>
       </div>
 
       <div class="flex flex-col gap-1">
@@ -92,6 +94,21 @@ async function guardar() {
         />
         <small v-if="confirmacion && !coinciden" class="text-red-600">Las dos contraseñas no coinciden.</small>
         <small v-else-if="coinciden" class="text-green-700">Las dos contraseñas coinciden.</small>
+      </div>
+
+      <div class="rounded-lg border border-line bg-club-cream/40 p-3">
+        <p class="text-xs font-semibold text-ink-secondary mb-2">La contraseña debe contener:</p>
+        <ul class="flex flex-col gap-1 text-sm">
+          <li
+            v-for="r in requisitos"
+            :key="r.clave"
+            class="flex items-center gap-2"
+            :class="r.ok ? 'text-green-700 underline decoration-2 underline-offset-4' : 'text-ink-tertiary'"
+          >
+            <i :class="r.ok ? 'pi pi-check-circle' : 'pi pi-circle'" class="text-xs" />
+            <span>{{ r.texto }}</span>
+          </li>
+        </ul>
       </div>
 
       <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
