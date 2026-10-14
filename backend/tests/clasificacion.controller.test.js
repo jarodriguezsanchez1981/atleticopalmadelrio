@@ -71,20 +71,19 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     expect(res._json.siguiente).toEqual({ jornada: 2, desde: '2026-09-21', disponible: true });
   });
 
+  it('siguienteJornada: el día siguiente al partido, solo desde las 12:00', async () => {
+    vi.setSystemTime(new Date('2026-09-21T09:59:00Z')); // 11:59 en España
+    expect(await ctrl.siguienteJornada(36, new Set([1]))).toEqual({ jornada: 2, desde: '2026-09-21', disponible: false });
+  });
+
   it('guardar: rechaza una plantilla sin competición de RFAF', async () => {
-    Plantilla.findByPk.mockResolvedValue({ id: 5, categoria: { nombre: 'Juvenil A' }, temporada: { actual: true } });
-    const { promesa, res } = llamar(ctrl.guardarSiguiente, { body: { id_plantilla: 5 } });
-    await promesa;
-    expect(res._status).toBe(400);
+    await expect(ctrl.guardarSiguiente({ id: 5, categoria: { nombre: 'Juvenil A' } })).rejects.toThrow('no tiene configurada');
     expect(leer).not.toHaveBeenCalled();
   });
 
-  it('guardar: antes del día siguiente al partido no pide nada a RFAF (409)', async () => {
+  it('guardar: antes del día siguiente al partido no pide nada a RFAF', async () => {
     Clasificacion.findAll.mockResolvedValue([{ jornada: 1 }, { jornada: 2 }]);
-    const { promesa, res } = llamar(ctrl.guardarSiguiente, { body: { id_plantilla: 36 } });
-    await promesa;
-    expect(res._status).toBe(409);
-    expect(res._json.message).toBe('La clasificación de la jornada 3 se podrá guardar a partir del 28/09/2026.');
+    expect(await ctrl.guardarSiguiente(SENIOR_A)).toBeNull();
     expect(leer).not.toHaveBeenCalled();
   });
 
@@ -94,51 +93,72 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
       jornada: 2, fecha: '2026-09-20',
       equipos: [equipo(1, 'LA PALMA C.F.'), equipo(2, 'PALMA DEL RIO ATLETICO C.F.')]
     });
-    const { promesa, res } = llamar(ctrl.guardarSiguiente, { body: { id_plantilla: 36 } });
-    await promesa;
+    const r = await ctrl.guardarSiguiente(SENIOR_A);
     expect(leer).toHaveBeenCalledWith(ctrl.COMPETICIONES_RFAF['Senior A'], 2);
     const filas = Clasificacion.bulkCreate.mock.calls[0][0];
     expect(filas.map((f) => [f.equipo, f.es_palma, f.jornada, f.id_plantilla, f.fecha])).toEqual([
       ['LA PALMA C.F.', false, 2, 36, '2026-09-20'],
       ['PALMA DEL RIO ATLETICO C.F.', true, 2, 36, '2026-09-20']
     ]);
-    expect(res._status).toBe(201);
-    expect(res._json).toEqual({ jornada: 2, posicion: 2, puntos: 8, total_equipos: 2 });
+    expect(r).toEqual({ jornada: 2, posicion: 2, puntos: 8, total_equipos: 2 });
   });
 
   it('guardar: no guarda si RFAF devuelve otra jornada', async () => {
     Clasificacion.findAll.mockResolvedValue([]);
     leer.mockResolvedValue({ jornada: 5, fecha: '2026-10-11', equipos: [equipo(1, 'PALMA DEL RIO ATLETICO C.F.')] });
-    const { promesa, res } = llamar(ctrl.guardarSiguiente, { body: { id_plantilla: 36 } });
-    await promesa;
-    expect(res._status).toBe(502);
+    await expect(ctrl.guardarSiguiente(SENIOR_A)).rejects.toThrow('jornada 5 en lugar de la 1');
     expect(Clasificacion.bulkCreate).not.toHaveBeenCalled();
   });
 
   it('guardar: no guarda si según RFAF la jornada aún no se ha jugado', async () => {
     Clasificacion.findAll.mockResolvedValue([{ jornada: 1 }]);
     leer.mockResolvedValue({ jornada: 2, fecha: '2026-09-21', equipos: [equipo(1, 'PALMA DEL RIO ATLETICO C.F.')] });
-    const { promesa, res } = llamar(ctrl.guardarSiguiente, { body: { id_plantilla: 36 } });
-    await promesa;
-    expect(res._status).toBe(409);
+    await expect(ctrl.guardarSiguiente(SENIOR_A)).rejects.toThrow('se juega el 21/09/2026');
     expect(Clasificacion.bulkCreate).not.toHaveBeenCalled();
   });
 
   it('guardar: no guarda si el PALMA no está en la clasificación', async () => {
     Clasificacion.findAll.mockResolvedValue([]);
     leer.mockResolvedValue({ jornada: 1, fecha: '2026-09-13', equipos: [equipo(1, 'LA PALMA C.F.')] });
-    const { promesa, res } = llamar(ctrl.guardarSiguiente, { body: { id_plantilla: 36 } });
-    await promesa;
-    expect(res._status).toBe(502);
+    await expect(ctrl.guardarSiguiente(SENIOR_A)).rejects.toThrow('no aparece');
     expect(Clasificacion.bulkCreate).not.toHaveBeenCalled();
   });
 
-  it('guardar: el error de RFAF (p. ej. sesión caducada) llega al usuario', async () => {
-    Clasificacion.findAll.mockResolvedValue([]);
-    leer.mockRejectedValue(Object.assign(new Error('RFAF ha devuelto la clasificación vacía'), { status: 502 }));
-    const { promesa, res } = llamar(ctrl.guardarSiguiente, { body: { id_plantilla: 36 } });
-    await promesa;
-    expect(res._status).toBe(502);
-    expect(res._json.message).toMatch('vacía');
+  describe('actualizarTodas', () => {
+    const log = { log: vi.fn(), warn: vi.fn() };
+    beforeEach(() => { log.log.mockReset(); log.warn.mockReset(); Plantilla.findAll.mockReset(); });
+
+    it('guarda una tras otra las jornadas ya disponibles (una petición por jornada)', async () => {
+      Plantilla.findAll.mockResolvedValue([SENIOR_A]);
+      const guardadas = [];
+      Clasificacion.findAll.mockImplementation(async () => guardadas.map((jornada) => ({ jornada })));
+      Clasificacion.bulkCreate.mockImplementation(async (filas) => { guardadas.push(filas[0].jornada); });
+      leer.mockImplementation(async (_c, jornada) => ({
+        jornada, fecha: PARTIDOS[jornada - 1].fecha.toISOString().slice(0, 10), equipos: [equipo(3, 'PALMA DEL RIO ATLETICO C.F.')]
+      }));
+      const r = await ctrl.actualizarTodas(log);
+      expect(r.map((g) => g.jornada)).toEqual([1, 2]);
+      expect(leer).toHaveBeenCalledTimes(2);
+      expect(log.warn).not.toHaveBeenCalled();
+    });
+
+    it('al primer error de RFAF se para y lo deja en el log', async () => {
+      Plantilla.findAll.mockResolvedValue([SENIOR_A]);
+      Clasificacion.findAll.mockResolvedValue([]);
+      leer.mockRejectedValue(Object.assign(new Error('RFAF ha devuelto la clasificación vacía'), { status: 502 }));
+      expect(await ctrl.actualizarTodas(log)).toEqual([]);
+      expect(leer).toHaveBeenCalledTimes(1);
+      expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('vacía'));
+    });
+  });
+});
+
+describe('clasificacionAutomatica · proximaEjecucion', () => {
+  const { proximaEjecucion } = createRequire(import.meta.url)('../src/utils/clasificacionAutomatica.js');
+  it('las 12:00 españolas de hoy, o de mañana si ya han pasado', () => {
+    expect(proximaEjecucion(12, new Date('2026-09-21T08:00:00Z')).toISOString()).toBe('2026-09-21T10:00:00.000Z');
+    expect(proximaEjecucion(12, new Date('2026-09-21T10:00:01Z')).toISOString()).toBe('2026-09-22T10:00:00.000Z');
+    // Tras el cambio de hora (invierno, UTC+1).
+    expect(proximaEjecucion(12, new Date('2026-10-25T12:00:00Z')).toISOString()).toBe('2026-10-26T11:00:00.000Z');
   });
 });

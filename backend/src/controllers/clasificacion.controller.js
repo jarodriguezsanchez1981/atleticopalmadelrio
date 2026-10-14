@@ -1,14 +1,17 @@
 const { UniqueConstraintError } = require('sequelize');
 const { Clasificacion, Partido, Plantilla, Categoria, Temporada } = require('../models');
 const rfafActa = require('../utils/rfafActa');
-const { diaEspana } = require('../utils/horaEspana');
+const { diaEspana, partesEspana } = require('../utils/horaEspana');
 
 /**
  * Estadísticas → Clasificación: la clasificación de la liga jornada a jornada.
- * Se copia de RFAF (NFG_VisClasificacion) una jornada cada vez con el botón de
- * la sección, a partir del día siguiente al partido de esa jornada, y se
- * guarda en `clasificaciones` para no volver a pedirla a rfaf.es.
+ * Se copia sola de RFAF (NFG_VisClasificacion) el día siguiente al partido de
+ * cada jornada a las 12:00 (utils/clasificacionAutomatica.js) y se guarda en
+ * `clasificaciones` para no volver a pedirla a rfaf.es.
  */
+
+// Hora española a partir de la cual se copia la clasificación el día siguiente al partido.
+const HORA_ACTUALIZACION = 12;
 
 // Competición de RFAF de cada categoría (temporada actual). Al empezar otra
 // temporada RFAF da códigos nuevos: cambiarlos aquí (están en la URL de la
@@ -36,11 +39,19 @@ const diaPartido = (fecha) => new Date(fecha).toISOString().slice(0, 10);
 
 const formatoDia = (dia) => dia.split('-').reverse().join('/');
 
+/** true si ya ha llegado el día `desde` a las 12:00 (hora española). */
+function haLlegado(desde) {
+  if (!desde) return false;
+  const ahora = new Date();
+  const hoy = diaEspana(ahora);
+  return hoy > desde || (hoy === desde && partesEspana(ahora).h >= HORA_ACTUALIZACION);
+}
+
 /**
  * Siguiente jornada por guardar: la primera de la liga (1, 2, …) que todavía no
- * está en la tabla. Se puede guardar desde el día siguiente a su partido; una
- * jornada sin partido del PALMA (descansa) se puede guardar una semana después
- * que la anterior. null si ya están todas.
+ * está en la tabla. Se puede guardar desde el día siguiente a su partido a las
+ * 12:00; una jornada sin partido del PALMA (descansa), una semana después que
+ * la anterior. null si ya están todas.
  */
 async function siguienteJornada(idPlantilla, guardadas) {
   const partidos = await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['jornada', 'fecha'] }) || [];
@@ -51,12 +62,11 @@ async function siguienteJornada(idPlantilla, guardadas) {
   }
   if (!diaDeJornada.size) return null;
   const ultima = Math.max(...diaDeJornada.keys());
-  const hoy = diaEspana(new Date());
   let desde = null;
   for (let j = 1; j <= ultima; j++) {
     if (diaDeJornada.has(j)) desde = sumarDias(diaDeJornada.get(j), 1);
     else if (desde) desde = sumarDias(desde, 7);
-    if (!guardadas.has(j)) return { jornada: j, desde, disponible: !!desde && hoy >= desde };
+    if (!guardadas.has(j)) return { jornada: j, desde, disponible: haLlegado(desde) };
   }
   return null;
 }
@@ -94,71 +104,77 @@ async function listar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/** POST /estadisticas/clasificacion { id_plantilla }: guarda la siguiente
- * jornada pendiente (la decide el servidor) leyéndola de RFAF. */
-async function guardarSiguiente(req, res, next) {
+/** Error de una actualización: se registra en el log y se deja para la
+ * siguiente (sin reintentos contra rfaf.es). */
+const fallo = (message) => Object.assign(new Error(message), { esperado: true });
+
+/**
+ * Guarda la siguiente jornada pendiente de la plantilla (con su categoría)
+ * leyéndola de RFAF: una petición. Devuelve { jornada, posicion, puntos,
+ * total_equipos }, o null si no hay ninguna disponible todavía.
+ */
+async function guardarSiguiente(plantilla) {
+  const competicion = COMPETICIONES_RFAF[plantilla.categoria?.nombre];
+  if (!competicion) throw fallo(`La categoría ${plantilla.categoria?.nombre} no tiene configurada su clasificación de RFAF.`);
+  const idPlantilla = plantilla.id;
+
+  const guardadas = await Clasificacion.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['jornada'], raw: true }) || [];
+  const siguiente = await siguienteJornada(idPlantilla, new Set(guardadas.map((g) => g.jornada)));
+  if (!siguiente?.disponible) return null;
+
+  const datos = await rfafActa.leerClasificacion(competicion, siguiente.jornada);
+  if (datos.jornada != null && Number(datos.jornada) !== siguiente.jornada) {
+    throw fallo(`RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${siguiente.jornada}.`);
+  }
+  // La fecha de RFAF manda (p. ej. una jornada aplazada o entre semana).
+  if (datos.fecha && diaEspana(new Date()) <= datos.fecha) {
+    throw fallo(`La jornada ${siguiente.jornada} se juega el ${formatoDia(datos.fecha)}: todavía no se guarda.`);
+  }
+  const equipos = (datos.equipos || []).map((e) => ({
+    ...e,
+    id_plantilla: idPlantilla,
+    jornada: siguiente.jornada,
+    fecha: datos.fecha || null,
+    es_palma: esPalma(e.equipo)
+  }));
+  const palma = equipos.find((e) => e.es_palma);
+  if (!palma) throw fallo('El PALMA no aparece en la clasificación de RFAF.');
+
   try {
-    const idPlantilla = Number(req.body?.id_plantilla);
-    if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
-
-    const plantilla = await Plantilla.findByPk(idPlantilla, {
-      include: [
-        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] },
-        { model: Temporada, as: 'temporada', attributes: ['id', 'actual'] }
-      ]
-    });
-    if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada.' });
-    const competicion = COMPETICIONES_RFAF[plantilla.categoria?.nombre];
-    if (!competicion || !plantilla.temporada?.actual) {
-      return res.status(400).json({ message: 'Esta plantilla no tiene configurada su clasificación de RFAF.' });
-    }
-
-    const guardadas = await Clasificacion.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['jornada'], raw: true }) || [];
-    const siguiente = await siguienteJornada(idPlantilla, new Set(guardadas.map((g) => g.jornada)));
-    if (!siguiente) return res.status(409).json({ message: 'Ya están guardadas todas las jornadas.' });
-    if (!siguiente.disponible) {
-      return res.status(409).json({
-        message: siguiente.desde
-          ? `La clasificación de la jornada ${siguiente.jornada} se podrá guardar a partir del ${formatoDia(siguiente.desde)}.`
-          : `Todavía no se puede guardar la clasificación de la jornada ${siguiente.jornada}.`
-      });
-    }
-
-    let datos;
-    try {
-      datos = await rfafActa.leerClasificacion(competicion, siguiente.jornada);
-    } catch (err) {
-      return res.status(err.status || 502).json({ message: err.message });
-    }
-    if (datos.jornada != null && Number(datos.jornada) !== siguiente.jornada) {
-      return res.status(502).json({ message: `RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${siguiente.jornada}.` });
-    }
-    // La fecha de RFAF manda (p. ej. una jornada de descanso entre semana).
-    if (datos.fecha && diaEspana(new Date()) <= datos.fecha) {
-      return res.status(409).json({
-        message: `La jornada ${siguiente.jornada} se juega el ${formatoDia(datos.fecha)}: su clasificación se podrá guardar a partir del ${formatoDia(sumarDias(datos.fecha, 1))}.`
-      });
-    }
-    const equipos = (datos.equipos || []).map((e) => ({
-      ...e,
-      id_plantilla: idPlantilla,
-      jornada: siguiente.jornada,
-      fecha: datos.fecha || null,
-      es_palma: esPalma(e.equipo)
-    }));
-    const palma = equipos.find((e) => e.es_palma);
-    if (!palma) return res.status(502).json({ message: 'El PALMA no aparece en la clasificación de RFAF.' });
-
-    try {
-      await Clasificacion.bulkCreate(equipos);
-    } catch (err) {
-      if (err instanceof UniqueConstraintError) {
-        return res.status(409).json({ message: `La jornada ${siguiente.jornada} ya está guardada.` });
-      }
-      throw err;
-    }
-    res.status(201).json({ jornada: siguiente.jornada, posicion: palma.posicion, puntos: palma.puntos, total_equipos: equipos.length });
-  } catch (err) { next(err); }
+    await Clasificacion.bulkCreate(equipos);
+  } catch (err) {
+    if (err instanceof UniqueConstraintError) throw fallo(`La jornada ${siguiente.jornada} ya está guardada.`);
+    throw err;
+  }
+  return { jornada: siguiente.jornada, posicion: palma.posicion, puntos: palma.puntos, total_equipos: equipos.length };
 }
 
-module.exports = { listar, guardarSiguiente, siguienteJornada, esPalma, COMPETICIONES_RFAF };
+/**
+ * Pone al día la clasificación de todas las plantillas de la temporada actual
+ * con competición de RFAF: guarda una tras otra las jornadas ya disponibles.
+ * Al primer fallo de una plantilla se para (se vuelve a intentar en la
+ * siguiente actualización). Devuelve las jornadas guardadas.
+ */
+async function actualizarTodas(log = console) {
+  const plantillas = await Plantilla.findAll({
+    include: [
+      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'], where: { nombre: Object.keys(COMPETICIONES_RFAF) } },
+      { model: Temporada, as: 'temporada', attributes: ['id', 'actual'], where: { actual: true } }
+    ]
+  }) || [];
+  const guardadas = [];
+  for (const plantilla of plantillas) {
+    try {
+      let r;
+      while ((r = await guardarSiguiente(plantilla))) {
+        guardadas.push({ id_plantilla: plantilla.id, ...r });
+        log.log(`📊 Clasificación ${plantilla.categoria.nombre} jornada ${r.jornada}: PALMA ${r.posicion}º de ${r.total_equipos} (${r.puntos} pts).`);
+      }
+    } catch (err) {
+      log.warn(`⚠️  Clasificación ${plantilla.categoria?.nombre}: ${err.message}`);
+    }
+  }
+  return guardadas;
+}
+
+module.exports = { listar, guardarSiguiente, actualizarTodas, siguienteJornada, esPalma, COMPETICIONES_RFAF, HORA_ACTUALIZACION };

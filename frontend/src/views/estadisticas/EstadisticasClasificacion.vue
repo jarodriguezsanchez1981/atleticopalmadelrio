@@ -1,30 +1,23 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import Chart from 'primevue/chart';
-import Button from 'primevue/button';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
-import { useAuthStore } from '../../stores/auth.store';
-import { suscribirseCambio, emitirCambio } from '../../utils/cambioBus';
+import { suscribirseCambio } from '../../utils/cambioBus';
 import { estiloTabla } from '../../utils/estiloTabla';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 
 /** Estadísticas → Clasificación: posición del PALMA en la liga jornada a
- * jornada (plantilla Senior A de la temporada actual). Cada clasificación se
- * copia de RFAF una vez, con el botón, a partir del día siguiente al partido
- * de esa jornada. */
+ * jornada (plantilla Senior A de la temporada actual). El servidor copia cada
+ * clasificación de RFAF él solo, el día siguiente al partido a las 12:00. */
 const SECCION = 'estadisticas_clasificacion';
 const CATEGORIA = CATEGORIA_CON_MINUTOS;
-const auth = useAuthStore();
-const toast = useToast();
 
 const plantilla = ref(null);
 const datos = ref({ jornadas: [], ultima: null, siguiente: null });
 const cargando = ref(false);
-const guardando = ref(false);
 const error = ref('');
 let unsubCambio = null;
 
@@ -48,28 +41,6 @@ async function cargar() {
 const formatoDia = (dia) => (dia ? String(dia).slice(0, 10).split('-').reverse().join('/') : '');
 
 const siguiente = computed(() => datos.value.siguiente);
-const puedeGuardar = computed(() => auth.puedeEditar(SECCION) && siguiente.value?.disponible);
-
-async function guardarJornada() {
-  if (!plantilla.value || guardando.value) return;
-  guardando.value = true;
-  try {
-    const r = await estadisticasService.guardarClasificacion(plantilla.value.id);
-    toast.add({
-      severity: 'success',
-      summary: `Jornada ${r.jornada} guardada`,
-      detail: `El PALMA va ${r.posicion}º de ${r.total_equipos} con ${r.puntos} puntos.`,
-      life: 5000
-    });
-    // Recarga esta vista (está suscrita) y las demás que lo estén.
-    emitirCambio();
-  } catch (err) {
-    toast.add({ severity: 'error', summary: 'No se pudo guardar', detail: err.response?.data?.message || 'Inténtalo de nuevo.', life: 7000 });
-  } finally {
-    guardando.value = false;
-  }
-}
-
 // ---- Gráfica: posición por jornada (1º arriba) ----
 // Canvas: el color va en JS (verde de marca, club-green).
 const VERDE = '#0B3D2E';
@@ -157,15 +128,13 @@ onBeforeUnmount(() => {
         <p class="text-sm text-ink-tertiary">
           Posición del PALMA en la liga jornada a jornada
           <template v-if="plantilla">(<strong>{{ plantilla.categoria?.nombre }} / {{ plantilla.temporada?.nombre }}</strong>)</template>,
-          según la clasificación de RFAF. Cada jornada se guarda una vez con el botón, a partir del día siguiente a su partido.
+          según la clasificación de RFAF. Cada jornada se guarda automáticamente el día siguiente a su partido a las 12:00.
         </p>
       </div>
-      <div v-if="plantilla && siguiente && auth.puedeEditar(SECCION)" class="flex flex-col items-end gap-1">
-        <Button :label="`Guardar clasificación jornada ${siguiente.jornada}`" icon="pi pi-download"
-                :disabled="!puedeGuardar" :loading="guardando" @click="guardarJornada" />
-        <small v-if="!siguiente.disponible && siguiente.desde" class="text-xs text-ink-tertiary">
-          Disponible a partir del {{ formatoDia(siguiente.desde) }}
-        </small>
+      <div v-if="plantilla && siguiente" class="rounded-lg border border-line bg-white px-3 py-2 text-xs text-ink-tertiary">
+        <i class="pi pi-clock mr-1" />
+        <template v-if="siguiente.disponible">Jornada {{ siguiente.jornada }} pendiente: se guardará en la próxima actualización (12:00).</template>
+        <template v-else-if="siguiente.desde">Jornada {{ siguiente.jornada }}: se guardará el {{ formatoDia(siguiente.desde) }} a las 12:00.</template>
       </div>
     </div>
 

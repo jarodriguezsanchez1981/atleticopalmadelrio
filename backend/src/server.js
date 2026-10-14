@@ -4,6 +4,7 @@ const { hashPassword, isPasswordValid } = require('./utils/password.utils');
 const { ensureSecciones } = require('./utils/secciones.seed');
 const { ensureTiposFutbol } = require('./utils/tipofutbol.seed');
 const { migrate } = require('./utils/migrate');
+const clasificacionAutomatica = require('./utils/clasificacionAutomatica');
 
 const PORT = process.env.PORT || 4000;
 const MAX_RETRIES = 30;
@@ -112,6 +113,8 @@ async function start() {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 API de la intranet escuchando en el puerto ${PORT}`);
     });
+    // Clasificación de RFAF: cada día a las 12:00 (y al arrancar, lo pendiente).
+    clasificacionAutomatica.iniciar();
   } catch (err) {
     console.error('❌ No se pudo iniciar el servidor:', err);
     process.exit(1);
