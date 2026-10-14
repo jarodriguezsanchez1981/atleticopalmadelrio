@@ -13,6 +13,15 @@ server_tokens off;
 # la IP que tenía al arrancar (502 si el contenedor se recrea).
 resolver 127.0.0.11 valid=10s ipv6=off;
 
+# Primer cortafuegos de carga, donde se ve la IP real del cliente (internet):
+# por IP, 20 peticiones/s con ráfagas de hasta 40 (sobra para un humano usando
+# la SPA, corta en seco una inundación desde una IP) y 30 conexiones simultáneas.
+# Un DDoS volumétrico de muchas IPs no se para aquí: eso es capa de AWS/CDN.
+limit_req_zone $binary_remote_addr zone=apr_req:10m rate=20r/s;
+limit_conn_zone $binary_remote_addr zone=apr_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+
 # Peticiones que no vienen con el dominio (p.ej. escáneres entrando por la IP):
 # se corta la conexión sin responder ni enseñar el certificado.
 server {
@@ -47,10 +56,22 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
+    # Mismo cortafuegos de carga que el frontend: cuerpo máximo y timeouts para
+    # que una conexión lenta no retenga un worker.
+    client_max_body_size 4m;
+    client_body_timeout 10s;
+    client_header_timeout 10s;
+    send_timeout 15s;
+
     location / {
+        limit_req zone=apr_req burst=40 nodelay;
+        limit_conn apr_conn 30;
         set $frontend_upstream http://frontend:80;
         proxy_pass $frontend_upstream;
         proxy_http_version 1.1;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

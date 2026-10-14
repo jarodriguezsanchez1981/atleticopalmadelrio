@@ -243,7 +243,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 ### Protección de la aplicación
 - **Auditoría**: middleware automático que registra todos los cambios en la tabla `cambios`
 - **SSRF protection**: proxy de imágenes bloquea IPs privadas, loopback y DNS rebinding
-- **Rate limiting**: 10 000 req/15min globales y 10 intentos de login/15min por IP
+- **Rate limiting**: 10 000 req/15min globales y 10 intentos de login/15min por IP (backend). Además, el reverse-proxy limita por IP real 20 req/s (ráfaga 40) y 30 conexiones simultáneas, con cuerpo máximo y timeouts en ambos nginx contra slowloris; `/health` va limitado a 5 req/s
 - **Body limit**: 2MB máximo por petición
 - **JWT**: sesión de 1 hora como máximo desde el login (renovar el token no la alarga), con secrets generados por entorno
 - **bcrypt**: hashing de contraseñas con 12 rondas
