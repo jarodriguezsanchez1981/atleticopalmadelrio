@@ -232,6 +232,12 @@ const routes = [
         meta: { seccion: 'estadisticas_cat_goles' }
       },
       {
+        path: 'estadisticas-categoria/clasificacion',
+        name: 'estadisticas_cat_clasificacion',
+        component: () => import('../views/estadisticas/EstadisticasClasificacionCategoria.vue'),
+        meta: { seccion: 'estadisticas_cat_clasificacion' }
+      },
+      {
         path: 'informes',
         name: 'informes',
         component: () => import('../views/informes/Informes.vue'),

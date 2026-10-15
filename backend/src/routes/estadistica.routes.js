@@ -23,7 +23,7 @@ router.get('/', authorize(...SECCIONES_LISTADO), ctrl.listar);
 router.get('/plantillas', authorize(...SECCIONES_LISTADO), ctrl.plantillasEstadisticas);
 router.get('/equipo', authorize('estadisticas_equipo'), ctrl.equipo);
 // Clasificación de la liga por jornada (se copia sola de RFAF: utils/clasificacionAutomatica.js).
-router.get('/clasificacion', authorize('estadisticas_clasificacion'), clasificacion.listar);
+router.get('/clasificacion', authorize('estadisticas_clasificacion', 'estadisticas_cat_clasificacion'), clasificacion.listar);
 // Gráficas de balance por plantilla del Dashboard.
 router.get('/balance', authorize('dashboard'), ctrl.balance);
 

@@ -41,6 +41,7 @@ const SECCIONES = [
   // aparte del de Senior A, con solo Convocatorias y Goles.
   { clave: 'estadisticas_cat_convocatorias', nombre: 'Estadísticas Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas_cat' },
   { clave: 'estadisticas_cat_goles', nombre: 'Estadísticas Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas_cat' },
+  { clave: 'estadisticas_cat_clasificacion', nombre: 'Estadísticas Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas_cat' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
   { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' },

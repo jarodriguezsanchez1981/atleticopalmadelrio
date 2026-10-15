@@ -43,7 +43,8 @@ const SECCIONES_SOLO_CATEGORIA_ESTADISTICAS = [
  * (ya tiene su propio apartado "Estadísticas Senior A"). */
 const SECCIONES_OCULTAS_AL_ENTRENADOR_ESTADISTICAS = [
   'estadisticas_cat_convocatorias',
-  'estadisticas_cat_goles'
+  'estadisticas_cat_goles',
+  'estadisticas_cat_clasificacion'
 ];
 
 function leerUsuario() {
