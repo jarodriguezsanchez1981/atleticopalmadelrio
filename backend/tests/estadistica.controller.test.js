@@ -29,7 +29,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   });
 
   it('suma partidos jugados y minutos por jugador, de más a menos minutos', async () => {
-    Partido.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }]);
     const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
     const luis = { id: 8, nombre: 'Luis', apellidos: 'Ruiz' };
     PartidoJugador.findAll.mockResolvedValue([
@@ -51,7 +51,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
     await promesa;
 
-    expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id'] });
+    expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id', 'jornada'] });
     expect(res._json.map((f) => f.id_jugador)).toEqual([7, 8]);
     const [anaFila, luisFila] = res._json;
     expect(anaFila).toMatchObject({
@@ -91,7 +91,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   });
 
   it('cuenta las sustituciones (sale antes del final), pero no las expulsiones', async () => {
-    Partido.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }, { id: 3, jornada: 3 }, { id: 4, jornada: 4 }]);
     const ana = { nombre: 'Ana', apellidos: 'López' };
     PartidoJugador.findAll.mockResolvedValue([
       { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minuto_salida: 70, minutos: 70, tarjeta_roja: 0, jugador: ana },  // cambiada
@@ -114,6 +114,23 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     });
   });
 
+  it('solo cuenta los partidos de liga (con jornada): ignora los amistosos', async () => {
+    // El partido 2 es un amistoso (sin jornada): no debe entrar en el cálculo.
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: null }]);
+    const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
+    // El mock devuelve lo que daría la BD para id_partido IN (1): solo el de liga.
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: ana }
+    ]);
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+    // Solo pide los jugadores del partido de liga (el 1), no del amistoso (el 2).
+    expect(PartidoJugador.findAll.mock.calls[0][0].where).toEqual({ id_partido: [1] });
+    const fila = res._json.find((f) => f.id_jugador === 7);
+    expect(fila.goles).toBe(1);
+    expect(fila.partidos).toBe(1);
+  });
+
   it('sin partidos devuelve una lista vacía', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
@@ -123,7 +140,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   });
 
   it('reparte las tarjetas por parte y según el marcador', async () => {
-    Partido.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }]);
     PartidoJugador.findAll.mockResolvedValue([
       { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 0, tarjeta_amarilla: 2, tarjeta_roja: 1, jugador: { nombre: 'Ana', apellidos: 'López' } },
       { id_partido: 2, id_jugador: 7, es_local: false, titular: true, minutos: 90, goles: 0, tarjeta_amarilla: 1, tarjeta_roja: 0, jugador: { nombre: 'Ana', apellidos: 'López' } }
@@ -151,7 +168,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   it('en una categoría sin minutos, aparecer en el acta cuenta como partido jugado', async () => {
     // Infantil A (no Senior A): el acta no trae minutos; un suplente que aparece ha jugado.
     Plantilla.findByPk.mockResolvedValue({ categoria: { nombre: 'Infantil A' } });
-    Partido.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }]);
     const nora = { id: 7, nombre: 'Nora', apellidos: 'Gil' };
     PartidoJugador.findAll.mockResolvedValue([
       // Sin minutos (null) ni minuto_entrada: aun así, al estar en el acta, jugó.
@@ -190,13 +207,14 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     it('suma resultados, goles, penaltis y tarjetas del PALMA como local y visitante', async () => {
       Partido.findAll.mockResolvedValue([
         // En casa 2-1 (gana), con penaltis guardados.
-        { id: 1, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '2-1', suspendido: false, goles_penalti_favor: 1, goles_penalti_contra: 1 },
+        { id: 1, jornada: 1, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '2-1', suspendido: false, goles_penalti_favor: 1, goles_penalti_contra: 1 },
         // Fuera 3-0 (pierde); acta antigua: penaltis a favor desde partido_goles.
-        { id: 2, id_equipo_local: 60, id_equipo_visitante: 73, resultado: '3-0', suspendido: false, goles_penalti_favor: null, goles_penalti_contra: null },
+        { id: 2, jornada: 2, id_equipo_local: 60, id_equipo_visitante: 73, resultado: '3-0', suspendido: false, goles_penalti_favor: null, goles_penalti_contra: null },
         // Fuera 1-1 (empata), penalti a favor desde partido_goles.
-        { id: 3, id_equipo_local: 61, id_equipo_visitante: 73, resultado: '1 - 1', suspendido: false, goles_penalti_favor: null, goles_penalti_contra: 0 },
-        { id: 4, id_equipo_local: 73, id_equipo_visitante: 62, resultado: null, suspendido: false },  // sin jugar
-        { id: 5, id_equipo_local: 73, id_equipo_visitante: 63, resultado: '0-0', suspendido: true }   // suspendido
+        { id: 3, jornada: 3, id_equipo_local: 61, id_equipo_visitante: 73, resultado: '1 - 1', suspendido: false, goles_penalti_favor: null, goles_penalti_contra: 0 },
+        { id: 4, jornada: 4, id_equipo_local: 73, id_equipo_visitante: 62, resultado: null, suspendido: false },  // sin jugar
+        { id: 5, jornada: 5, id_equipo_local: 73, id_equipo_visitante: 63, resultado: '0-0', suspendido: true },  // suspendido
+        { id: 6, jornada: null, id_equipo_local: 73, id_equipo_visitante: 64, resultado: '9-0', suspendido: false } // amistoso: no cuenta (sin jornada)
       ]);
       PartidoGol.findAll.mockResolvedValue([{ id_partido: 3, id_jugador: 7, tipo: 'penalti' }]);
       PartidoJugador.findAll.mockResolvedValue([

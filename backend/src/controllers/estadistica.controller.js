@@ -55,7 +55,10 @@ async function listar(req, res, next) {
     });
     const conMinutos = plantilla?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
 
-    const partidos = await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['id'] });
+    // Solo los partidos de liga (con jornada): los amistosos y de torneo no
+    // cuentan en las Estadísticas.
+    const partidos = (await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['id', 'jornada'] }) || [])
+      .filter((p) => Number(p.jornada) > 0);
     if (!partidos.length) return res.json([]);
     const idsPartidos = partidos.map((p) => p.id);
 
@@ -220,8 +223,8 @@ async function equipo(req, res, next) {
 
     const partidos = (await Partido.findAll({
       where: { id_plantilla: idPlantilla },
-      attributes: ['id', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido', 'goles_penalti_favor', 'goles_penalti_contra']
-    }) || []).filter((p) => !p.suspendido && golesResultado(p.resultado)
+      attributes: ['id', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido', 'goles_penalti_favor', 'goles_penalti_contra']
+    }) || []).filter((p) => Number(p.jornada) > 0 && !p.suspendido && golesResultado(p.resultado)
       && (Number(p.id_equipo_local) === PALMA_ID || Number(p.id_equipo_visitante) === PALMA_ID));
     const ladoPartido = new Map();
     for (const p of partidos) {
