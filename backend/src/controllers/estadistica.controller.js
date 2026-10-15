@@ -4,6 +4,10 @@ const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 // Los partidos con estadísticas son de 90' (ver Finalizar Acta).
 const MINUTOS_PARTIDO = 90;
 const FIN_PRIMERA_PARTE = 45;
+// Solo Senior A registra minutos en el acta. En el resto de categorías las
+// sustituciones son ilimitadas y el acta no dice quién jugó: aparecer en ella
+// significa haber jugado (ver partido.controller: CATEGORIA_CON_MINUTOS).
+const CATEGORIA_CON_MINUTOS = 'Senior A';
 const CAMPOS_TARJETAS = [
   'amarillas_primera', 'amarillas_segunda', 'amarillas_ganando', 'amarillas_perdiendo',
   'rojas_primera', 'rojas_segunda', 'rojas_ganando', 'rojas_perdiendo'
@@ -43,6 +47,13 @@ async function listar(req, res, next) {
   try {
     const idPlantilla = Number(req.query.id_plantilla);
     if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+
+    // En las categorías sin minutos (todo lo que no es Senior A) aparecer en el
+    // acta ya cuenta como partido jugado.
+    const plantilla = await Plantilla.findByPk(idPlantilla, {
+      include: [{ model: Categoria, as: 'categoria', attributes: ['nombre'] }]
+    });
+    const conMinutos = plantilla?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
 
     const partidos = await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['id'] });
     if (!partidos.length) return res.json([]);
@@ -88,9 +99,12 @@ async function listar(req, res, next) {
       const goles = Number(f.goles) || 0;
       const esTitular = f.titular === true || f.titular === 1;
       const esSuplente = f.titular === false || f.titular === 0;
+      // Jugó el partido: con minutos, haber jugado alguno; sin minutos, basta
+      // con estar en el acta (sustituciones ilimitadas, no se registra quién no jugó).
+      const jugo = conMinutos ? minutos > 0 : true;
       // Convocado: está en el acta del partido (haya jugado o no).
       sumar(fila, 'convocatorias', 1, lado);
-      if (minutos > 0) sumar(fila, 'partidos', 1, lado);
+      if (jugo) sumar(fila, 'partidos', 1, lado);
       sumar(fila, 'minutos', minutos, lado);
       sumar(fila, 'goles', goles, lado);
       if (goles > 0) sumar(fila, 'partidos_con_gol', 1, lado);
@@ -98,8 +112,9 @@ async function listar(req, res, next) {
         sumar(fila, 'titular', 1, lado);
         sumar(fila, 'minutos_titular', minutos, lado);
         sumar(fila, 'goles_titular', goles, lado);
-      } else if (esSuplente && f.minuto_entrada != null) {
-        // Entró desde el banquillo: todos sus goles de ese partido son "desde el banquillo".
+      } else if (esSuplente && (f.minuto_entrada != null || !conMinutos)) {
+        // Entró desde el banquillo (o, sin minutos, un suplente que aparece en
+        // el acta ha jugado): sus goles de ese partido son "desde el banquillo".
         sumar(fila, 'suplente', 1, lado);
         sumar(fila, 'minutos_banquillo', minutos, lado);
         sumar(fila, 'goles_banquillo', goles, lado);

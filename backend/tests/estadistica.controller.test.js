@@ -12,6 +12,9 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     PartidoTarjeta.findAll.mockResolvedValue([]);
     PartidoGol.findAll.mockReset();
     PartidoGol.findAll.mockResolvedValue([]);
+    // Por defecto, Senior A (categoría con minutos): "jugó" = minutos > 0.
+    Plantilla.findByPk.mockReset();
+    Plantilla.findByPk.mockResolvedValue({ categoria: { nombre: 'Senior A' } });
   });
 
   function llamar(overrides = {}) {
@@ -142,6 +145,33 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       // Tres en casa (partido 1) y una fuera (partido 2).
       amarillas_primera_local: 2, amarillas_ganando_local: 1, rojas_segunda_local: 1, rojas_perdiendo_local: 1,
       amarillas_segunda_visitante: 1, amarillas_perdiendo_visitante: 1, amarillas_primera_visitante: 0
+    });
+  });
+
+  it('en una categoría sin minutos, aparecer en el acta cuenta como partido jugado', async () => {
+    // Infantil A (no Senior A): el acta no trae minutos; un suplente que aparece ha jugado.
+    Plantilla.findByPk.mockResolvedValue({ categoria: { nombre: 'Infantil A' } });
+    Partido.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    const nora = { id: 7, nombre: 'Nora', apellidos: 'Gil' };
+    PartidoJugador.findAll.mockResolvedValue([
+      // Sin minutos (null) ni minuto_entrada: aun así, al estar en el acta, jugó.
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: false, minuto_entrada: null, minutos: null, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: nora },
+      { id_partido: 2, id_jugador: 7, es_local: true, titular: true, minuto_entrada: null, minutos: null, goles: 0, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: nora }
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    const fila = res._json.find((f) => f.id_jugador === 7);
+    expect(fila).toMatchObject({
+      convocatorias: 2,
+      partidos: 2,              // los dos partidos cuentan como jugados
+      banquillo_no_jugados: 0,  // no existe "sin jugar" sin minutos
+      suplente: 1,              // el partido 1 lo jugó de suplente
+      titular: 1,
+      goles: 1,
+      partidos_con_gol: 1,
+      porcentaje_goles_partido: 50
     });
   });
 
