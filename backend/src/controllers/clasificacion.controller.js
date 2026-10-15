@@ -1,4 +1,4 @@
-const { UniqueConstraintError } = require('sequelize');
+const { UniqueConstraintError, Op } = require('sequelize');
 const { Clasificacion, Partido, Plantilla, Categoria, Temporada } = require('../models');
 const rfafActa = require('../utils/rfafActa');
 const { diaEspana, partesEspana } = require('../utils/horaEspana');
@@ -13,12 +13,17 @@ const { diaEspana, partesEspana } = require('../utils/horaEspana');
 // Hora española a partir de la cual se copia la clasificación el día siguiente al partido.
 const HORA_ACTUALIZACION = 12;
 
-// Competición de RFAF de cada categoría (temporada actual). Al empezar otra
-// temporada RFAF da códigos nuevos: cambiarlos aquí (están en la URL de la
-// clasificación en rfaf.es).
-const COMPETICIONES_RFAF = {
-  'Senior A': { codPrimaria: '1000120', codGrupo: '49641343', codCompeticion: '48466530' }
-};
+/** Códigos de la competición de RFAF de una plantilla (en sus columnas
+ * codigo_primaria/codigo_grupo/codigo_competicion, que se rellenan al crear o
+ * editar la plantilla y cambian cada temporada; están en la URL de la
+ * clasificación en rfaf.es). null si le falta alguno: esa plantilla no tiene
+ * clasificación configurada. */
+function competicionDe(plantilla) {
+  const codPrimaria = plantilla?.codigo_primaria;
+  const codGrupo = plantilla?.codigo_grupo;
+  const codCompeticion = plantilla?.codigo_competicion;
+  return codPrimaria && codGrupo && codCompeticion ? { codPrimaria, codGrupo, codCompeticion } : null;
+}
 
 // En RFAF también está "LA PALMA C.F.": el nuestro se reconoce por el nombre completo.
 const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO';
@@ -114,8 +119,8 @@ const fallo = (message) => Object.assign(new Error(message), { esperado: true })
  * total_equipos }, o null si no hay ninguna disponible todavía.
  */
 async function guardarSiguiente(plantilla) {
-  const competicion = COMPETICIONES_RFAF[plantilla.categoria?.nombre];
-  if (!competicion) throw fallo(`La categoría ${plantilla.categoria?.nombre} no tiene configurada su clasificación de RFAF.`);
+  const competicion = competicionDe(plantilla);
+  if (!competicion) throw fallo(`La categoría ${plantilla.categoria?.nombre} no tiene configurada su clasificación de RFAF (faltan los códigos en la plantilla).`);
   const idPlantilla = plantilla.id;
 
   const guardadas = await Clasificacion.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['jornada'], raw: true }) || [];
@@ -157,8 +162,15 @@ async function guardarSiguiente(plantilla) {
  */
 async function actualizarTodas(log = console) {
   const plantillas = await Plantilla.findAll({
+    // Solo las plantillas de la temporada actual con su competición de RFAF
+    // configurada (los tres códigos en la plantilla).
+    where: {
+      codigo_primaria: { [Op.ne]: null },
+      codigo_grupo: { [Op.ne]: null },
+      codigo_competicion: { [Op.ne]: null }
+    },
     include: [
-      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'], where: { nombre: Object.keys(COMPETICIONES_RFAF) } },
+      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] },
       { model: Temporada, as: 'temporada', attributes: ['id', 'actual'], where: { actual: true } }
     ]
   }) || [];
@@ -177,4 +189,4 @@ async function actualizarTodas(log = console) {
   return guardadas;
 }
 
-module.exports = { listar, guardarSiguiente, actualizarTodas, siguienteJornada, esPalma, COMPETICIONES_RFAF, HORA_ACTUALIZACION };
+module.exports = { listar, guardarSiguiente, actualizarTodas, siguienteJornada, esPalma, competicionDe, HORA_ACTUALIZACION };

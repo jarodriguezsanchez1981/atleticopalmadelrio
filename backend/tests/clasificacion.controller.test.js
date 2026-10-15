@@ -14,7 +14,10 @@ const PARTIDOS = [
   // La 3 descansa el PALMA.
   { jornada: 4, fecha: new Date('2026-10-04T16:00:00Z') }
 ];
-const SENIOR_A = { id: 36, categoria: { nombre: 'Senior A' }, temporada: { actual: true } };
+const SENIOR_A = {
+  id: 36, categoria: { nombre: 'Senior A' }, temporada: { actual: true },
+  codigo_primaria: '1000120', codigo_grupo: '49641343', codigo_competicion: '48466530'
+};
 const equipo = (posicion, nombre, extra = {}) => ({
   posicion, equipo: nombre, codigo_equipo: String(posicion), puntos: 10 - posicion,
   jugados: 1, ganados: 1, empatados: 0, perdidos: 0, goles_favor: 2, goles_contra: 1, puntos_sancion: 0, ...extra
@@ -94,13 +97,24 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
       equipos: [equipo(1, 'LA PALMA C.F.'), equipo(2, 'PALMA DEL RIO ATLETICO C.F.')]
     });
     const r = await ctrl.guardarSiguiente(SENIOR_A);
-    expect(leer).toHaveBeenCalledWith(ctrl.COMPETICIONES_RFAF['Senior A'], 2);
+    expect(leer).toHaveBeenCalledWith({ codPrimaria: '1000120', codGrupo: '49641343', codCompeticion: '48466530' }, 2);
     const filas = Clasificacion.bulkCreate.mock.calls[0][0];
     expect(filas.map((f) => [f.equipo, f.es_palma, f.jornada, f.id_plantilla, f.fecha])).toEqual([
       ['LA PALMA C.F.', false, 2, 36, '2026-09-20'],
       ['PALMA DEL RIO ATLETICO C.F.', true, 2, 36, '2026-09-20']
     ]);
     expect(r).toEqual({ jornada: 2, posicion: 2, puntos: 8, total_equipos: 2 });
+  });
+
+  it('guardar: usa los códigos de RFAF de la propia plantilla (no los de Senior A)', async () => {
+    const benjaminA = {
+      id: 26, categoria: { nombre: 'Benjamin A' }, temporada: { actual: true },
+      codigo_primaria: '1000120', codigo_grupo: '48466134', codigo_competicion: '48466133'
+    };
+    Clasificacion.findAll.mockResolvedValue([{ jornada: 1 }]);
+    leer.mockResolvedValue({ jornada: 2, fecha: '2026-09-20', equipos: [equipo(1, 'PALMA DEL RIO ATLETICO C.F.')] });
+    await ctrl.guardarSiguiente(benjaminA);
+    expect(leer).toHaveBeenCalledWith({ codPrimaria: '1000120', codGrupo: '48466134', codCompeticion: '48466133' }, 2);
   });
 
   it('guardar: no guarda si RFAF devuelve otra jornada', async () => {
