@@ -210,3 +210,9 @@ h1, h2, h3, .font-display {
 .ar-datatable.ar-dt-agrupada .ar-dt-inicio-subgrupo {
   border-left: 1px solid rgb(15 61 34 / 0.15);
 }
+/* Títulos de las columnas numéricas (grupo Total/Local/Visitante) centrados,
+   para que cuadren con los datos, que van centrados. La primera columna
+   (Jugador/Equipo) no lleva clase de grupo y se queda a la izquierda. */
+.ar-datatable.ar-dt-agrupada th[class*="ar-dt-grupo-"] .p-datatable-column-header-content {
+  justify-content: center;
+}
