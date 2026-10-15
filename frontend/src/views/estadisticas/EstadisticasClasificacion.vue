@@ -8,6 +8,7 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { estiloTabla } from '../../utils/estiloTabla';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
+import { colorPosicion } from '../../utils/colorPosicion';
 
 /** Estadísticas → Clasificación: posición del PALMA en la liga jornada a
  * jornada (plantilla Senior A de la temporada actual). El servidor copia cada
@@ -46,14 +47,21 @@ const siguiente = computed(() => datos.value.siguiente);
 const VERDE = '#0B3D2E';
 const jornadas = computed(() => datos.value.jornadas.filter((j) => j.palma));
 const totalEquipos = computed(() => Math.max(0, ...jornadas.value.map((j) => j.total_equipos)));
+const posiciones = computed(() => jornadas.value.map((j) => j.palma.posicion));
+// Color de cada jornada: subió (mejor puesto) verde, bajó rojo, igual amarillo.
+const coloresPuntos = computed(() => posiciones.value.map((_, i) => colorPosicion(posiciones.value, i)));
 
 const datosGrafica = computed(() => ({
   labels: jornadas.value.map((j) => `J${j.jornada}`),
   datasets: [{
     label: 'Posición',
-    data: jornadas.value.map((j) => j.palma.posicion),
+    data: posiciones.value,
     borderColor: VERDE,
     backgroundColor: VERDE,
+    pointBackgroundColor: coloresPuntos.value,
+    pointBorderColor: coloresPuntos.value,
+    // Cada tramo se pinta según el cambio de posición entre sus dos jornadas.
+    segment: { borderColor: (ctx) => colorPosicion(posiciones.value, ctx.p1DataIndex) },
     pointRadius: 5,
     pointHoverRadius: 7,
     tension: 0.2
@@ -68,10 +76,12 @@ const etiquetas = {
     const meta = chart.getDatasetMeta(0);
     ctx.save();
     ctx.font = '600 11px Inter, sans-serif';
-    ctx.fillStyle = VERDE;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    meta.data.forEach((punto, i) => ctx.fillText(`${jornadas.value[i].palma.posicion}º`, punto.x, punto.y - 8));
+    meta.data.forEach((punto, i) => {
+      ctx.fillStyle = colorPosicion(posiciones.value, i);
+      ctx.fillText(`${jornadas.value[i].palma.posicion}º`, punto.x, punto.y - 8);
+    });
     ctx.restore();
   }
 };
