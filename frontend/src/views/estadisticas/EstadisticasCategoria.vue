@@ -18,18 +18,26 @@ const props = defineProps({
   seccion: { type: String, required: true }   // clave para SectionGuard
 });
 
+// Fuera de Senior A el acta no permite saber si un jugador fue titular o
+// suplente (ni quién no jugó), así que se ocultan esas columnas.
+const CAMPOS_OCULTOS = new Set([
+  'titular', 'suplente', 'banquillo_no_jugados',
+  'goles_titular', 'porcentaje_goles_titular', 'goles_banquillo', 'porcentaje_goles_banquillo'
+]);
+const sinTitularSuplente = (metricas) => metricas.filter((m) => !CAMPOS_OCULTOS.has(m.campo));
+
 const TABLAS = {
   convocatorias: {
     titulo: 'Convocatorias',
-    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan), y en qué parte (1ª parte hasta el minuto 45).',
-    metricas: METRICAS_CONVOCATORIAS,
+    descripcion: 'Partidos en los que el jugador aparece en el acta (en estas categorías, aparecer significa haber jugado). Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan), y en qué parte (1ª parte hasta el minuto 45).',
+    metricas: sinTitularSuplente(METRICAS_CONVOCATORIAS),
     sortField: 'convocatorias',
     porLado: false
   },
   goles: {
     titulo: 'Goles',
-    descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
-    metricas: METRICAS_GOLES,
+    descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
+    metricas: sinTitularSuplente(METRICAS_GOLES),
     sortField: 'goles',
     porLado: true
   }
