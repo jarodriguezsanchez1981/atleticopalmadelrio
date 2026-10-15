@@ -44,6 +44,16 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     return { promesa: fn(req, res, next), res, next };
   };
 
+  describe('esPalma', () => {
+    it('reconoce al PALMA en cualquier orden y no confunde a "LA PALMA C.F."', () => {
+      expect(ctrl.esPalma('PALMA DEL RIO ATLETICO C.F.')).toBe(true);
+      expect(ctrl.esPalma('ATLETICO PALMA DEL RIO C.F.')).toBe(true);   // RFAF lo escribe así en algunas competiciones
+      expect(ctrl.esPalma('Atlético Palma del Río C.F.')).toBe(true);   // con tildes y minúsculas
+      expect(ctrl.esPalma('LA PALMA C.F.')).toBe(false);
+      expect(ctrl.esPalma('C.D. SANTAELLA 2010')).toBe(false);
+    });
+  });
+
   describe('siguienteJornada', () => {
     it('la primera sin guardar, desde el día siguiente a su partido', async () => {
       expect(await ctrl.siguienteJornada(36, new Set())).toEqual({ jornada: 1, desde: '2026-09-14', disponible: true });

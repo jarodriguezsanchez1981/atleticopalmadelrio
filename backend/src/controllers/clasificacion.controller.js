@@ -25,13 +25,16 @@ function competicionDe(plantilla) {
   return codPrimaria && codGrupo && codCompeticion ? { codPrimaria, codGrupo, codCompeticion } : null;
 }
 
-// En RFAF también está "LA PALMA C.F.": el nuestro se reconoce por el nombre completo.
-const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO';
 const CAMPOS_PALMA = ['posicion', 'puntos', 'jugados', 'ganados', 'empatados', 'perdidos', 'goles_favor', 'goles_contra'];
 
-const esPalma = (nombre) => String(nombre || '')
-  .normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
-  .startsWith(NOMBRE_PALMA);
+// En RFAF también está "LA PALMA C.F." (otro club distinto): el nuestro se
+// reconoce porque lleva a la vez "PALMA DEL RIO" y "ATLETICO", en el orden que
+// sea ("PALMA DEL RIO ATLETICO C.F." o "ATLETICO PALMA DEL RIO C.F." según la
+// competición de RFAF).
+const esPalma = (nombre) => {
+  const n = String(nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+  return n.includes('PALMA DEL RIO') && n.includes('ATLETICO');
+};
 
 /** 'YYYY-MM-DD' + días. */
 function sumarDias(dia, dias) {
