@@ -216,3 +216,8 @@ h1, h2, h3, .font-display {
 .ar-datatable.ar-dt-agrupada th[class*="ar-dt-grupo-"] .p-datatable-column-header-content {
   justify-content: center;
 }
+/* Y el texto del título centrado, para que las cabeceras de dos líneas (p. ej.
+   "% Min. jugados" en Estadísticas Tiempo) queden centradas sobre su dato. */
+.ar-datatable.ar-dt-agrupada th[class*="ar-dt-grupo-"] .p-datatable-column-title {
+  text-align: center;
+}
