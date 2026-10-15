@@ -51,7 +51,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
     await promesa;
 
-    expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id', 'jornada', 'acta_finalizada_at'] });
+    expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id', 'jornada', 'acta_finalizada_at', 'suspendido'] });
     expect(res._json.map((f) => f.id_jugador)).toEqual([7, 8]);
     const [anaFila, luisFila] = res._json;
     expect(anaFila).toMatchObject({
@@ -144,6 +144,21 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
     await promesa;
     // Solo se piden los jugadores del partido finalizado (el 1).
+    expect(PartidoJugador.findAll.mock.calls[0][0].where).toEqual({ id_partido: [1] });
+    expect(res._json.find((f) => f.id_jugador === 7).convocatorias).toBe(1);
+  });
+
+  it('no cuenta un partido suspendido aunque esté finalizado', async () => {
+    Partido.findAll.mockResolvedValue([
+      { id: 1, jornada: 1, acta_finalizada_at: new Date(), suspendido: false },
+      { id: 2, jornada: 2, acta_finalizada_at: new Date(), suspendido: true }
+    ]);
+    const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: ana }
+    ]);
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
     expect(PartidoJugador.findAll.mock.calls[0][0].where).toEqual({ id_partido: [1] });
     expect(res._json.find((f) => f.id_jugador === 7).convocatorias).toBe(1);
   });

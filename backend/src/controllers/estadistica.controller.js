@@ -55,11 +55,11 @@ async function listar(req, res, next) {
     });
     const conMinutos = plantilla?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
 
-    // Solo los partidos de liga (con jornada) ya finalizados: las estadísticas
-    // salen del acta, no de la convocatoria previa. Un partido con jugadores solo
-    // por la convocatoria (sin acta finalizada) no cuenta como partido jugado.
-    const partidos = (await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['id', 'jornada', 'acta_finalizada_at'] }) || [])
-      .filter((p) => Number(p.jornada) > 0 && p.acta_finalizada_at != null);
+    // Solo los partidos de liga (con jornada), ya finalizados y no suspendidos:
+    // las estadísticas salen del acta, no de la convocatoria previa, y un partido
+    // suspendido no cuenta (igual que en Estadísticas Equipo).
+    const partidos = (await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['id', 'jornada', 'acta_finalizada_at', 'suspendido'] }) || [])
+      .filter((p) => Number(p.jornada) > 0 && p.acta_finalizada_at != null && !p.suspendido);
     if (!partidos.length) return res.json([]);
     const idsPartidos = partidos.map((p) => p.id);
 
