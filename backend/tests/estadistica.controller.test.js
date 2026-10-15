@@ -323,14 +323,15 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         plantilla(6, 'Bebe', 1, 1, 'Fútbol 7') // sin partidos de liga: no cuenta como equipo
       ]);
       const rival = { nombre: 'RIVAL C.F.' };
+      // Mismo fin de semana (12 sáb y 13 dom); la jornada 3 de F7, otro finde (27 dom).
       Partido.findAll.mockResolvedValue([
-        { id: 1, id_plantilla: 1, jornada: 1, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '3-1', suspendido: false }, // gana
-        { id: 9, id_plantilla: 4, jornada: 1, id_equipo_local: 73, id_equipo_visitante: 51, resultado: '0-0', suspendido: false }, // empata
-        { id: 2, id_plantilla: 1, jornada: 3, id_equipo_local: 50, id_equipo_visitante: 73, resultado: '2-0', suspendido: false }, // pierde
-        { id: 3, id_plantilla: 4, jornada: 3, id_equipo_local: 50, id_equipo_visitante: 73, resultado: '1-4', suspendido: false }, // gana
-        { id: 10, id_plantilla: 1, jornada: 4, id_equipo_local: 73, id_equipo_visitante: 50, resultado: null, suspendido: false }, // sin jugar
-        { id: 11, id_plantilla: 1, jornada: null, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '5-0', suspendido: false }, // amistoso
-        { id: 7, id_plantilla: 5, jornada: 1, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '0-1', suspendido: false }, // pierde
+        { id: 1, id_plantilla: 1, jornada: 1, fecha: '2026-09-13', id_equipo_local: 73, id_equipo_visitante: 50, resultado: '3-1', suspendido: false }, // gana (dom)
+        { id: 9, id_plantilla: 4, jornada: 1, fecha: '2026-09-12', id_equipo_local: 73, id_equipo_visitante: 51, resultado: '0-0', suspendido: false }, // empata (sáb, mismo finde)
+        { id: 2, id_plantilla: 1, jornada: 3, fecha: '2026-09-27', id_equipo_local: 50, id_equipo_visitante: 73, resultado: '2-0', suspendido: false }, // pierde
+        { id: 3, id_plantilla: 4, jornada: 3, fecha: '2026-09-27', id_equipo_local: 50, id_equipo_visitante: 73, resultado: '1-4', suspendido: false }, // gana (mismo finde)
+        { id: 10, id_plantilla: 1, jornada: 4, fecha: '2026-10-04', id_equipo_local: 73, id_equipo_visitante: 50, resultado: null, suspendido: false }, // sin jugar
+        { id: 11, id_plantilla: 1, jornada: null, fecha: '2026-10-05', id_equipo_local: 73, id_equipo_visitante: 50, resultado: '5-0', suspendido: false }, // amistoso
+        { id: 7, id_plantilla: 5, jornada: 1, fecha: '2026-09-13', id_equipo_local: 73, id_equipo_visitante: 50, resultado: '0-1', suspendido: false }, // pierde
         { id: 4, id_plantilla: 2, jornada: 1, fecha: '2026-09-06', id_equipo_local: 50, id_equipo_visitante: 73, resultado: '0-4', suspendido: false, equipoLocal: rival },
         { id: 5, id_plantilla: 2, jornada: 2, id_equipo_local: 73, id_equipo_visitante: 50, resultado: null, suspendido: false },  // sin jugar
         { id: 6, id_plantilla: 2, jornada: 2, id_equipo_local: 73, id_equipo_visitante: 50, resultado: '0-3', suspendido: true },  // suspendido
@@ -342,13 +343,13 @@ describe('Sección Estadísticas · estadistica.controller', () => {
 
       expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({ id_temporada: 3 });
       expect(res._json).toEqual([
+        // F7: un punto por fin de semana (el 12/13 y el 27), no por número de jornada.
         { clave: 'tipo_1', id_tipofutbol: 1, tipofutbol: 'Fútbol 7', titulo: 'Fútbol 7', equipos: 2, jornadas: [
-          { jornada: 1, partidos: 2, victorias: 1, empates: 1, derrotas: 0 },
-          { jornada: 2, partidos: 0, victorias: 0, empates: 0, derrotas: 0 },
-          { jornada: 3, partidos: 2, victorias: 1, empates: 0, derrotas: 1 }
+          { fecha: '2026-09-12', partidos: 2, victorias: 1, empates: 1, derrotas: 0 },
+          { fecha: '2026-09-27', partidos: 2, victorias: 1, empates: 0, derrotas: 1 }
         ] },
         { clave: 'tipo_2', id_tipofutbol: 2, tipofutbol: 'Fútbol 11', titulo: 'Fútbol 11', equipos: 1, jornadas: [
-          { jornada: 1, partidos: 1, victorias: 0, empates: 0, derrotas: 1 }
+          { fecha: '2026-09-13', partidos: 1, victorias: 0, empates: 0, derrotas: 1 }
         ] },
         { clave: 'plantilla_2', id_plantilla: 2, titulo: 'Senior A / 2026/2027', partidos: [
           { id_partido: 4, fecha: '2026-09-06', rival: 'RIVAL C.F.', es_local: false, marcador: '0-4', resultado: 'victoria', victorias: 1, empates: 0, derrotas: 0 },

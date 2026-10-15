@@ -4,13 +4,14 @@ import Chart from 'primevue/chart';
 
 /** Gráfica de balance del Dashboard, victorias (línea verde) y derrotas (línea
  * roja):
- * - con `jornadas`: un tipo de fútbol jornada a jornada, con la suma de las
- *   victorias (verde), empates (gris) y derrotas (rojo) de todas las categorías;
+ * - con `jornadas`: un tipo de fútbol fin de semana a fin de semana (un punto
+ *   por finde con liga), con la suma de las victorias (verde), empates (gris)
+ *   y derrotas (rojo) de todas las categorías;
  * - con `partidos`: una plantilla partido a partido en una sola línea, que
  *   sube con la victoria, queda en medio con el empate y baja con la derrota
  *   (cada punto y su tramo en verde, gris o rojo). */
 const props = defineProps({
-  // [{ jornada, partidos, victorias, empates, derrotas }]
+  // [{ fecha, partidos, victorias, empates, derrotas }] — un punto por finde de liga
   jornadas: { type: Array, default: null },
   // Equipos (plantillas) del tipo de fútbol: arriba de cada jornada, "jugados/equipos".
   equipos: { type: Number, default: null },
@@ -38,7 +39,7 @@ const fechaCorta = (f) => {
 const LETRA = { victoria: 'G', empate: 'E', derrota: 'P' };
 
 const datosJornadas = () => ({
-  labels: puntos.value.map((p) => `J${p.jornada}`),
+  labels: puntos.value.map((p) => fechaCorta(p.fecha)),
   datasets: [
     { label: 'Victorias', data: puntos.value.map((p) => p.victorias), borderColor: VERDE, backgroundColor: VERDE, tension: 0.3 },
     { label: 'Empates', data: puntos.value.map((p) => p.empates), borderColor: GRIS, backgroundColor: GRIS, tension: 0.3 },
@@ -98,7 +99,7 @@ const opciones = computed(() => ({
           const p = puntos.value[items[0].dataIndex];
           return porPartido.value
             ? `${fechaCorta(p.fecha)} · ${p.es_local ? 'vs' : '@'} ${p.rival} · ${p.marcador}`
-            : `Jornada ${p.jornada}`;
+            : `Fin de semana del ${fechaCorta(p.fecha)}`;
         },
         label: (item) => (porPartido.value
           ? TEXTO_NIVEL[item.raw]

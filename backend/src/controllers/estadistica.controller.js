@@ -1,5 +1,16 @@
 const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
 const { categoriaDelUsuario } = require('../utils/filtroCategoria');
+const { diaEspana } = require('../utils/horaEspana');
+
+/** Lunes (en hora española, 'YYYY-MM-DD') de la semana de una fecha: agrupa los
+ * partidos del mismo fin de semana de liga aunque sean de distinta jornada o
+ * categoría (p. ej. Benjamín juega la jornada 5 y Alevín la 4 el mismo finde). */
+function lunesDeLaSemana(fecha) {
+  const [y, m, d] = diaEspana(new Date(fecha)).split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return date.toISOString().slice(0, 10);
+}
 
 // Los partidos con estadísticas son de 90' (ver Finalizar Acta).
 const MINUTOS_PARTIDO = 90;
@@ -314,9 +325,9 @@ function resultadoPalma(p) {
 /** Gráficas de balance del Dashboard (temporada actual), cada una con `clave`
  * y `titulo`:
  * - una por tipo de fútbol con `equipos` (sus plantillas con partidos de
- *   liga, con jornada) y `jornadas` (de la 1 a la última con algún
- *   resultado): partidos con resultado (no suspendidos) de esa jornada y
- *   victorias / empates / derrotas del PALMA, sumando todas las categorías
+ *   liga, con jornada) y `jornadas` (en realidad, un punto por fin de semana
+ *   con liga, por fecha): partidos con resultado (no suspendidos) de ese finde
+ *   y victorias / empates / derrotas del PALMA, sumando todas las categorías
  *   (sin Senior A ni los partidos sin jornada, p. ej. amistosos);
  * - la de Senior A con `partidos` (por fecha): resultado de cada partido y
  *   victorias / empates / derrotas acumuladas hasta él.
@@ -349,7 +360,7 @@ async function balance(req, res, next) {
       const id = p.categoria?.id_tipofutbol ?? null;
       if (!porTipo.has(id)) {
         const nombre = p.categoria?.tipofutbol?.nombre || 'Sin tipo';
-        porTipo.set(id, { clave: `tipo_${id}`, id_tipofutbol: id, tipofutbol: nombre, titulo: nombre, conLiga: new Set(), porJornada: new Map() });
+        porTipo.set(id, { clave: `tipo_${id}`, id_tipofutbol: id, tipofutbol: nombre, titulo: nombre, conLiga: new Set(), porSemana: new Map() });
       }
       graficaDe.set(p.id, porTipo.get(id));
     }
@@ -384,21 +395,23 @@ async function balance(req, res, next) {
         continue;
       }
       const grafica = graficaDe.get(p.id_plantilla);
-      const jornada = Number(p.jornada);
-      if (!grafica || !(jornada > 0)) continue;
-      if (!grafica.porJornada.has(jornada)) grafica.porJornada.set(jornada, { jornada, partidos: 0, victorias: 0, empates: 0, derrotas: 0 });
-      const fila = grafica.porJornada.get(jornada);
+      if (!grafica || !(Number(p.jornada) > 0)) continue;
+      // Un punto por fin de semana de liga (todas las categorías del tipo juntas).
+      const semana = lunesDeLaSemana(p.fecha);
+      if (!grafica.porSemana.has(semana)) grafica.porSemana.set(semana, { semana, fecha: p.fecha, partidos: 0, victorias: 0, empates: 0, derrotas: 0 });
+      const fila = grafica.porSemana.get(semana);
+      if (new Date(p.fecha) < new Date(fila.fecha)) fila.fecha = p.fecha; // la fecha más temprana del finde
       fila.partidos += 1;
       fila[CONTADOR[r]] += 1;
     }
 
     const graficas = [...porTipo.values()]
       .sort((a, b) => (a.id_tipofutbol ?? 99) - (b.id_tipofutbol ?? 99))
-      .map(({ porJornada, conLiga, ...g }) => {
-        // De la jornada 1 a la última jugada (las intermedias sin resultados, a cero).
-        const ultima = Math.max(0, ...porJornada.keys());
-        const jornadas = Array.from({ length: ultima }, (_, k) => porJornada.get(k + 1)
-          || { jornada: k + 1, partidos: 0, victorias: 0, empates: 0, derrotas: 0 });
+      .map(({ porSemana, conLiga, ...g }) => {
+        // Un punto por fin de semana con liga, en orden cronológico (sin huecos).
+        const jornadas = [...porSemana.values()]
+          .sort((a, b) => (a.semana < b.semana ? -1 : a.semana > b.semana ? 1 : 0))
+          .map(({ semana, ...fila }) => fila);
         return { ...g, equipos: conLiga.size, jornadas };
       });
     for (const { grafica } of propias.values()) graficas.push(grafica);
