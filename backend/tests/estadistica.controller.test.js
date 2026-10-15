@@ -29,7 +29,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   });
 
   it('suma partidos jugados y minutos por jugador, de más a menos minutos', async () => {
-    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1, acta_finalizada_at: new Date() }, { id: 2, jornada: 2, acta_finalizada_at: new Date() }]);
     const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
     const luis = { id: 8, nombre: 'Luis', apellidos: 'Ruiz' };
     PartidoJugador.findAll.mockResolvedValue([
@@ -51,7 +51,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
     await promesa;
 
-    expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id', 'jornada'] });
+    expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id', 'jornada', 'acta_finalizada_at'] });
     expect(res._json.map((f) => f.id_jugador)).toEqual([7, 8]);
     const [anaFila, luisFila] = res._json;
     expect(anaFila).toMatchObject({
@@ -91,7 +91,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   });
 
   it('cuenta las sustituciones (sale antes del final), pero no las expulsiones', async () => {
-    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }, { id: 3, jornada: 3 }, { id: 4, jornada: 4 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1, acta_finalizada_at: new Date() }, { id: 2, jornada: 2, acta_finalizada_at: new Date() }, { id: 3, jornada: 3, acta_finalizada_at: new Date() }, { id: 4, jornada: 4, acta_finalizada_at: new Date() }]);
     const ana = { nombre: 'Ana', apellidos: 'López' };
     PartidoJugador.findAll.mockResolvedValue([
       { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minuto_salida: 70, minutos: 70, tarjeta_roja: 0, jugador: ana },  // cambiada
@@ -116,7 +116,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
 
   it('solo cuenta los partidos de liga (con jornada): ignora los amistosos', async () => {
     // El partido 2 es un amistoso (sin jornada): no debe entrar en el cálculo.
-    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: null }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1, acta_finalizada_at: new Date() }, { id: 2, jornada: null, acta_finalizada_at: new Date() }]);
     const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
     // El mock devuelve lo que daría la BD para id_partido IN (1): solo el de liga.
     PartidoJugador.findAll.mockResolvedValue([
@@ -131,6 +131,23 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     expect(fila.partidos).toBe(1);
   });
 
+  it('no cuenta un partido con convocatoria pero sin acta finalizada', async () => {
+    // El 1 está finalizado (acta); el 2 solo tiene la convocatoria previa (sin finalizar).
+    Partido.findAll.mockResolvedValue([
+      { id: 1, jornada: 1, acta_finalizada_at: new Date() },
+      { id: 2, jornada: 2, acta_finalizada_at: null }
+    ]);
+    const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 1, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: ana }
+    ]);
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+    // Solo se piden los jugadores del partido finalizado (el 1).
+    expect(PartidoJugador.findAll.mock.calls[0][0].where).toEqual({ id_partido: [1] });
+    expect(res._json.find((f) => f.id_jugador === 7).convocatorias).toBe(1);
+  });
+
   it('sin partidos devuelve una lista vacía', async () => {
     Partido.findAll.mockResolvedValue([]);
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
@@ -140,7 +157,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   });
 
   it('reparte las tarjetas por parte y según el marcador', async () => {
-    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1, acta_finalizada_at: new Date() }, { id: 2, jornada: 2, acta_finalizada_at: new Date() }]);
     PartidoJugador.findAll.mockResolvedValue([
       { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 0, tarjeta_amarilla: 2, tarjeta_roja: 1, jugador: { nombre: 'Ana', apellidos: 'López' } },
       { id_partido: 2, id_jugador: 7, es_local: false, titular: true, minutos: 90, goles: 0, tarjeta_amarilla: 1, tarjeta_roja: 0, jugador: { nombre: 'Ana', apellidos: 'López' } }
@@ -168,7 +185,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
   it('en una categoría sin minutos, aparecer en el acta cuenta como partido jugado', async () => {
     // Infantil A (no Senior A): el acta no trae minutos; un suplente que aparece ha jugado.
     Plantilla.findByPk.mockResolvedValue({ categoria: { nombre: 'Infantil A' } });
-    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1 }, { id: 2, jornada: 2 }]);
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1, acta_finalizada_at: new Date() }, { id: 2, jornada: 2, acta_finalizada_at: new Date() }]);
     const nora = { id: 7, nombre: 'Nora', apellidos: 'Gil' };
     PartidoJugador.findAll.mockResolvedValue([
       // Sin minutos (null) ni minuto_entrada: aun así, al estar en el acta, jugó.
