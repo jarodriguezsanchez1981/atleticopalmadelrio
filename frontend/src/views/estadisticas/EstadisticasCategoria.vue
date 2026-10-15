@@ -19,13 +19,12 @@ const props = defineProps({
 });
 
 // Fuera de Senior A el acta no permite saber si un jugador fue titular o
-// suplente (ni quién no jugó), así que se ocultan esas columnas. Tampoco trae
-// el minuto de cada gol (solo el total por jugador), así que se ocultan también
-// el reparto de goles por parte del partido.
+// suplente (ni quién no jugó), así que se ocultan esas columnas. El reparto de
+// goles por parte (1ª/2ª) sí se puede: "Finalizar Acta" guarda el minuto de
+// cada gol (requiere que el acta esté finalizada con la versión que lo guarda).
 const CAMPOS_OCULTOS = new Set([
   'titular', 'suplente', 'banquillo_no_jugados',
-  'goles_titular', 'porcentaje_goles_titular', 'goles_banquillo', 'porcentaje_goles_banquillo',
-  'goles_primera', 'goles_segunda'
+  'goles_titular', 'porcentaje_goles_titular', 'goles_banquillo', 'porcentaje_goles_banquillo'
 ]);
 const sinTitularSuplente = (metricas) => metricas.filter((m) => !CAMPOS_OCULTOS.has(m.campo));
 
@@ -39,7 +38,7 @@ const TABLAS = {
   },
   goles: {
     titulo: 'Goles',
-    descripcion: 'Goles de cada jugador. En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
+    descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
     metricas: sinTitularSuplente(METRICAS_GOLES),
     sortField: 'goles',
     porLado: true
