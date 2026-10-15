@@ -148,4 +148,18 @@ describe('Auth Store', () => {
     store.user = { id: 3, rol: 'entrenador', id_categoria: 4, categoria_nombre: 'Senior A', permisos };
     expect(store.puedeVer('estadisticas_goles')).toBe(true);
   });
+
+  it('las Estadísticas por categoría las ve todo el mundo menos el entrenador de Senior A', () => {
+    const store = useAuthStore();
+    const permisos = { estadisticas_cat_goles: { ver: true, editar: false } };
+    // Coordinador: las ve.
+    store.user = { id: 1, rol: 'coordinador', permisos };
+    expect(store.puedeVer('estadisticas_cat_goles')).toBe(true);
+    // Entrenador de otra categoría: las ve (son las de su categoría).
+    store.user = { id: 2, rol: 'entrenador', id_categoria: 9, categoria_nombre: 'Infantil A', permisos };
+    expect(store.puedeVer('estadisticas_cat_goles')).toBe(true);
+    // Entrenador de Senior A: NO las ve (ya tiene su propio apartado).
+    store.user = { id: 3, rol: 'entrenador', id_categoria: 4, categoria_nombre: 'Senior A', permisos };
+    expect(store.puedeVer('estadisticas_cat_goles')).toBe(false);
+  });
 });

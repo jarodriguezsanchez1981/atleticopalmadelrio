@@ -286,4 +286,42 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       expect(res._json).toEqual([]);
     });
   });
+
+  describe('plantillasEstadisticas', () => {
+    function llamarPlantillas(overrides = {}) {
+      const { req, res, next } = mockReqRes(overrides);
+      return { promesa: ctrl.plantillasEstadisticas(req, res, next), res };
+    }
+
+    beforeEach(() => {
+      Temporada.findOne.mockReset();
+      Plantilla.findAll.mockReset();
+    });
+
+    it('un coordinador recibe las plantillas de la temporada actual (todas las categorías)', async () => {
+      Temporada.findOne.mockResolvedValue({ id: 3 });
+      const plantillas = [{ id: 1, categoria: { nombre: 'Infantil A' }, temporada: { nombre: '2026/2027' }, jugadores: [] }];
+      Plantilla.findAll.mockResolvedValue(plantillas);
+      const { promesa, res } = llamarPlantillas();
+      await promesa;
+      expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({ id_temporada: 3 });
+      expect(res._json).toEqual(plantillas);
+    });
+
+    it('un entrenador solo recibe las de su categoría', async () => {
+      Temporada.findOne.mockResolvedValue({ id: 3 });
+      Plantilla.findAll.mockResolvedValue([]);
+      const { promesa } = llamarPlantillas({ user: { rol: 'entrenador', id_categoria: 10 } });
+      await promesa;
+      expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({ id_categoria: 10, id_temporada: 3 });
+    });
+
+    it('sin temporada actual no filtra por temporada', async () => {
+      Temporada.findOne.mockResolvedValue(null);
+      Plantilla.findAll.mockResolvedValue([]);
+      const { promesa } = llamarPlantillas();
+      await promesa;
+      expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({});
+    });
+  });
 });

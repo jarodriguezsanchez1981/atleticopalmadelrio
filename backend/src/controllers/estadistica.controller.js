@@ -387,4 +387,30 @@ async function balance(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, equipo, balance };
+/** Plantillas de la temporada actual con sus jugadores, para el selector de las
+ * Estadísticas por categoría. Un entrenador solo recibe las de su categoría
+ * (categoriaDelUsuario); un coordinador, todas. Si no hay temporada marcada
+ * como actual, devuelve las de todas las temporadas (como el filtro del front).
+ * No expone datos personales de los jugadores (solo id, nombre y apellidos). */
+async function plantillasEstadisticas(req, res, next) {
+  try {
+    const temporada = await Temporada.findOne({ where: { actual: true }, attributes: ['id'] });
+    const where = {
+      ...(categoriaDelUsuario(req) ? { id_categoria: categoriaDelUsuario(req) } : {}),
+      ...(temporada ? { id_temporada: temporada.id } : {})
+    };
+    const plantillas = await Plantilla.findAll({
+      where,
+      attributes: ['id', 'id_categoria', 'id_temporada'],
+      include: [
+        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'orden'] },
+        { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
+        { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos'], through: { attributes: [] } }
+      ],
+      order: [[{ model: Categoria, as: 'categoria' }, 'orden', 'ASC']]
+    }) || [];
+    res.json(plantillas);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, equipo, balance, plantillasEstadisticas };

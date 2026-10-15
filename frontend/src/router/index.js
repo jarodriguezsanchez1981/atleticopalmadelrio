@@ -215,6 +215,22 @@ const routes = [
         component: () => import('../views/estadisticas/EstadisticasClasificacion.vue'),
         meta: { seccion: 'estadisticas_clasificacion' }
       },
+      // Estadísticas por categoría (Convocatorias y Goles de la categoría del
+      // usuario), apartado distinto al de Senior A.
+      {
+        path: 'estadisticas-categoria/convocatorias',
+        name: 'estadisticas_cat_convocatorias',
+        component: () => import('../views/estadisticas/EstadisticasCategoria.vue'),
+        props: { tabla: 'convocatorias', seccion: 'estadisticas_cat_convocatorias' },
+        meta: { seccion: 'estadisticas_cat_convocatorias' }
+      },
+      {
+        path: 'estadisticas-categoria/goles',
+        name: 'estadisticas_cat_goles',
+        component: () => import('../views/estadisticas/EstadisticasCategoria.vue'),
+        props: { tabla: 'goles', seccion: 'estadisticas_cat_goles' },
+        meta: { seccion: 'estadisticas_cat_goles' }
+      },
       {
         path: 'informes',
         name: 'informes',

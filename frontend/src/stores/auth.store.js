@@ -38,6 +38,14 @@ const SECCIONES_SOLO_CATEGORIA_ESTADISTICAS = [
   'estadisticas_clasificacion'
 ];
 
+/** Estadísticas por categoría: su público es el resto (entrenadores de otras
+ * categorías y coordinadores), así que el entrenador de Senior A no las ve
+ * (ya tiene su propio apartado "Estadísticas Senior A"). */
+const SECCIONES_OCULTAS_AL_ENTRENADOR_ESTADISTICAS = [
+  'estadisticas_cat_convocatorias',
+  'estadisticas_cat_goles'
+];
+
 function leerUsuario() {
   try {
     return JSON.parse(localStorage.getItem('apr_user') || 'null');
@@ -81,6 +89,12 @@ export const useAuthStore = defineStore('auth', {
         SECCIONES_SOLO_CATEGORIA_ESTADISTICAS.includes(clave) &&
         this.rol === 'entrenador' &&
         this.categoriaNombre !== CATEGORIA_ESTADISTICAS
+      ) return false;
+      // Estadísticas por categoría: el entrenador de Senior A no las ve.
+      if (
+        SECCIONES_OCULTAS_AL_ENTRENADOR_ESTADISTICAS.includes(clave) &&
+        this.rol === 'entrenador' &&
+        this.categoriaNombre === CATEGORIA_ESTADISTICAS
       ) return false;
       return !!(this.user.permisos?.[clave]?.ver);
     },

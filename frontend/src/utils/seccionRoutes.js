@@ -35,6 +35,8 @@ export const RUTA_POR_SECCION = {
   estadisticas_goles: '/estadisticas/goles',
   estadisticas_sanciones: '/estadisticas/sanciones',
   estadisticas_clasificacion: '/estadisticas/clasificacion',
+  estadisticas_cat_convocatorias: '/estadisticas-categoria/convocatorias',
+  estadisticas_cat_goles: '/estadisticas-categoria/goles',
   informes: '/informes',
   cambios: '/cambios',
   firma_email: '/firma-email',

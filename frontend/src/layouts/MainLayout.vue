@@ -33,6 +33,7 @@ const GRUPOS_MENU = [
   { clave: 'club', label: 'Club', icon: 'pi pi-building' },
   { clave: 'liga', label: 'Liga', icon: 'pi pi-flag' },
   { clave: 'estadisticas', label: 'Estadísticas Senior A', icon: 'pi pi-chart-bar' },
+  { clave: 'estadisticas_cat', label: 'Estadísticas', icon: 'pi pi-chart-line' },
   { clave: 'competicion', label: 'Competición', icon: 'pi pi-trophy' },
   { clave: 'admin', label: 'Panel Administración', icon: 'pi pi-server' }
 ];
@@ -70,11 +71,11 @@ function itemsDelGrupo(clave) {
     .concat(ITEMS_FIJOS[clave] || []);
 }
 
-/** Dentro del grupo Estadísticas sobra repetir "Estadísticas Senior A":
- * "Estadísticas Senior A Equipo" -> "Equipo" (en Administración y demás sigue
- * el nombre completo). */
+/** En los apartados de Estadísticas sobra repetir "Estadísticas": "Estadísticas
+ * Senior A Equipo" -> "Equipo", "Estadísticas Convocatorias" -> "Convocatorias"
+ * (en Administración y demás sigue el nombre completo). */
 function etiquetaEnGrupo(nombre, grupo) {
-  if (grupo !== 'estadisticas') return nombre;
+  if (grupo !== 'estadisticas' && grupo !== 'estadisticas_cat') return nombre;
   return String(nombre || '').replace(/^Estad[íi]sticas(\s+Senior\s+A)?\s+/i, '') || nombre;
 }
 

@@ -93,7 +93,10 @@ export const estadisticasService = {
   // Clasificación de la liga por jornada; guardar copia de RFAF la siguiente jornada.
   clasificacion: (params = {}) => api.get('/estadisticas/clasificacion', { params }).then(r => r.data),
   // Victorias/empates/derrotas por plantilla de la temporada actual (Dashboard).
-  balance: () => api.get('/estadisticas/balance').then(r => r.data)
+  balance: () => api.get('/estadisticas/balance').then(r => r.data),
+  // Plantillas de la temporada actual (filtradas por la categoría del usuario),
+  // con sus jugadores, para las Estadísticas por categoría.
+  plantillas: () => api.get('/estadisticas/plantillas').then(r => r.data)
 };
 
 export const cambiosService = {
