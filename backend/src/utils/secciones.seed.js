@@ -29,13 +29,14 @@ const SECCIONES = [
   { clave: 'categoria_calendario', nombre: 'Jornadas', icono: 'pi pi-calendar-plus', orden: 93, grupo: 'liga' },
   { clave: 'torneo', nombre: 'Torneo', icono: 'pi pi-trophy', orden: 94, grupo: 'competicion' },
   { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98, grupo: 'competicion' },
-  // Estadísticas: una sección por tabla, en su propio apartado del menú.
-  { clave: 'estadisticas_equipo', nombre: 'Estadísticas Equipo', icono: 'pi pi-shield', orden: 95, grupo: 'estadisticas' },
-  { clave: 'estadisticas_convocatorias', nombre: 'Estadísticas Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas' },
-  { clave: 'estadisticas_tiempo', nombre: 'Estadísticas Tiempo', icono: 'pi pi-stopwatch', orden: 97, grupo: 'estadisticas' },
-  { clave: 'estadisticas_goles', nombre: 'Estadísticas Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas' },
-  { clave: 'estadisticas_sanciones', nombre: 'Estadísticas Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'estadisticas' },
-  { clave: 'estadisticas_clasificacion', nombre: 'Estadísticas Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas' },
+  // Estadísticas (solo de la plantilla Senior A): una sección por tabla, en su
+  // propio apartado del menú.
+  { clave: 'estadisticas_equipo', nombre: 'Estadísticas Senior A Equipo', icono: 'pi pi-shield', orden: 95, grupo: 'estadisticas' },
+  { clave: 'estadisticas_convocatorias', nombre: 'Estadísticas Senior A Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas' },
+  { clave: 'estadisticas_tiempo', nombre: 'Estadísticas Senior A Tiempo', icono: 'pi pi-stopwatch', orden: 97, grupo: 'estadisticas' },
+  { clave: 'estadisticas_goles', nombre: 'Estadísticas Senior A Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas' },
+  { clave: 'estadisticas_sanciones', nombre: 'Estadísticas Senior A Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'estadisticas' },
+  { clave: 'estadisticas_clasificacion', nombre: 'Estadísticas Senior A Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
   { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' },

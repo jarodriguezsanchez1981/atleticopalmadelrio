@@ -62,6 +62,11 @@ Seccion.belongsToMany(Usuario, {
   attributes: ['id', 'clave', 'nombre', 'icono', 'orden']
 });
 
+// La categoría del usuario (solo la usan los entrenadores): sirve para saber
+// su nombre, p. ej. para enseñar las Estadísticas solo al entrenador de Senior A.
+// Sin constraint: `usuarios.id_categoria` es opcional y solo se lee.
+Usuario.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', constraints: false });
+
 Titulo.belongsToMany(Entrenador, { through: 'entrenador_titulos', foreignKey: 'id_titulo', otherKey: 'id_entrenador', as: 'entrenadores', timestamps: false });
 Entrenador.belongsToMany(Titulo, { through: 'entrenador_titulos', foreignKey: 'id_entrenador', otherKey: 'id_titulo', targetKey: 'id', as: 'titulos', timestamps: false });
 

@@ -26,6 +26,18 @@ const SECCION_ORDER = [
  * (un entrenador no las ve aunque tenga el permiso marcado). */
 const SECCIONES_SOLO_COORDINADORES = ['firma_email'];
 
+/** Las Estadísticas son solo de la plantilla Senior A: de los entrenadores,
+ * únicamente el de esa categoría las ve (los coordinadores, todas). */
+const CATEGORIA_ESTADISTICAS = 'Senior A';
+const SECCIONES_SOLO_CATEGORIA_ESTADISTICAS = [
+  'estadisticas_equipo',
+  'estadisticas_convocatorias',
+  'estadisticas_tiempo',
+  'estadisticas_goles',
+  'estadisticas_sanciones',
+  'estadisticas_clasificacion'
+];
+
 function leerUsuario() {
   try {
     return JSON.parse(localStorage.getItem('apr_user') || 'null');
@@ -56,13 +68,20 @@ export const useAuthStore = defineStore('auth', {
       return SECCION_ORDER.find((s) => set.has(s)) || 'calendario';
     },
     rol: (state) => state.user?.rol || 'coordinador',
-    idCategoria: (state) => state.user?.id_categoria || null
+    idCategoria: (state) => state.user?.id_categoria || null,
+    categoriaNombre: (state) => state.user?.categoria_nombre || null
   },
 
   actions: {
     puedeVer(clave) {
       if (!this.user) return false;
       if (SECCIONES_SOLO_COORDINADORES.includes(clave) && this.rol !== 'coordinador') return false;
+      // Estadísticas (Senior A): un entrenador solo las ve si es el de esa categoría.
+      if (
+        SECCIONES_SOLO_CATEGORIA_ESTADISTICAS.includes(clave) &&
+        this.rol === 'entrenador' &&
+        this.categoriaNombre !== CATEGORIA_ESTADISTICAS
+      ) return false;
       return !!(this.user.permisos?.[clave]?.ver);
     },
 

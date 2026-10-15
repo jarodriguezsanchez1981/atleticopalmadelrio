@@ -1,11 +1,14 @@
-const { Usuario, Seccion } = require('../models');
+const { Usuario, Seccion, Categoria } = require('../models');
 const { comprimirPermisos } = require('../utils/permisosToken');
 const { verifyPassword, hashPassword, isPasswordValid } = require('../utils/password.utils');
 const { signToken, DURACION_SESION_SEG } = require('../utils/jwt.utils');
 const { ponerCookieSesion, borrarCookieSesion } = require('../utils/sesionCookie');
 
 const includeAuth = [
-  { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: ['puede_ver', 'puede_editar'] } }
+  { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: ['puede_ver', 'puede_editar'] } },
+  // Nombre de la categoría del usuario (para que el frontend pueda, p. ej.,
+  // enseñar las Estadísticas solo al entrenador de Senior A).
+  { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'], required: false }
 ];
 
 function userPayload(user) {
@@ -25,7 +28,8 @@ function userPayload(user) {
     secciones,
     permisos,
     rol: user.rol,
-    id_categoria: user.id_categoria || null
+    id_categoria: user.id_categoria || null,
+    categoria_nombre: user.categoria?.nombre || null
   };
 }
 

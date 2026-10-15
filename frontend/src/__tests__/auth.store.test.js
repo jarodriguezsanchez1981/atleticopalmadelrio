@@ -133,4 +133,19 @@ describe('Auth Store', () => {
     expect(store.puedeVer('firma_email')).toBe(false);
     expect(store.puedeVer('calendario')).toBe(true);
   });
+
+  it('las Estadísticas (Senior A) solo las ve el entrenador de esa categoría; los coordinadores, todas', () => {
+    const store = useAuthStore();
+    const permisos = { estadisticas_goles: { ver: true, editar: false }, calendario: { ver: true, editar: false } };
+    // Coordinador: las ve aunque no tenga categoría.
+    store.user = { id: 1, rol: 'coordinador', permisos };
+    expect(store.puedeVer('estadisticas_goles')).toBe(true);
+    // Entrenador de otra categoría: no las ve aunque tenga el permiso.
+    store.user = { id: 2, rol: 'entrenador', id_categoria: 9, categoria_nombre: 'Infantil A', permisos };
+    expect(store.puedeVer('estadisticas_goles')).toBe(false);
+    expect(store.puedeVer('calendario')).toBe(true);
+    // Entrenador de Senior A: sí las ve.
+    store.user = { id: 3, rol: 'entrenador', id_categoria: 4, categoria_nombre: 'Senior A', permisos };
+    expect(store.puedeVer('estadisticas_goles')).toBe(true);
+  });
 });

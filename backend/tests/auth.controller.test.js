@@ -108,7 +108,7 @@ describe('Autenticación · auth.controller', () => {
       id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B',
       secciones: ['administracion', 'temporadas'],
       permisos: { administracion: { ver: true, editar: true }, temporadas: { ver: true, editar: false } },
-      rol: 'coordinador', id_categoria: null
+      rol: 'coordinador', id_categoria: null, categoria_nombre: null
     });
   });
 
@@ -138,7 +138,7 @@ describe('Autenticación · auth.controller', () => {
       id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B',
       secciones: ['temporadas'],
       permisos: { temporadas: { ver: true, editar: true } },
-      rol: 'coordinador', id_categoria: null
+      rol: 'coordinador', id_categoria: null, categoria_nombre: null
     });
     // Token renovado (en la cookie) con los permisos actuales (no los del login).
     expect(res._cookies.apr_sesion.valor).toBe('token-fake');
@@ -178,6 +178,21 @@ describe('Autenticación · auth.controller', () => {
       expect.objectContaining({ id_categoria: 7, rol: 'entrenador' })
     );
     expect(res._json.user.id_categoria).toBe(7);
+  });
+
+  it('el payload incluye el nombre de la categoría del usuario (para las Estadísticas de Senior A)', async () => {
+    Usuario.scope.mockReturnValue(Usuario);
+    Usuario.findOne.mockResolvedValue({
+      id: 8, usuario: 'coachsr', nombre: 'S', apellidos: 'R', activo: true,
+      rol: 'entrenador', id_categoria: 4, categoria: { id: 4, nombre: 'Senior A' },
+      password: 'hash', secciones: []
+    });
+    passwordUtils.verifyPassword.mockResolvedValue(true);
+    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'coachsr', password: 'Clave123!' } });
+
+    await promesa;
+
+    expect(res._json.user.categoria_nombre).toBe('Senior A');
   });
 
   it('me renueva el token sin alargar la sesión (1 hora desde el login)', async () => {

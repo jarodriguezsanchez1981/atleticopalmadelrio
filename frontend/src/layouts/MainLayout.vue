@@ -32,7 +32,7 @@ const ALL_NAV = [
 const GRUPOS_MENU = [
   { clave: 'club', label: 'Club', icon: 'pi pi-building' },
   { clave: 'liga', label: 'Liga', icon: 'pi pi-flag' },
-  { clave: 'estadisticas', label: 'Estadísticas', icon: 'pi pi-chart-bar' },
+  { clave: 'estadisticas', label: 'Estadísticas Senior A', icon: 'pi pi-chart-bar' },
   { clave: 'competicion', label: 'Competición', icon: 'pi pi-trophy' },
   { clave: 'admin', label: 'Panel Administración', icon: 'pi pi-server' }
 ];
@@ -70,11 +70,12 @@ function itemsDelGrupo(clave) {
     .concat(ITEMS_FIJOS[clave] || []);
 }
 
-/** Dentro del grupo Estadísticas sobra repetir "Estadísticas": "Estadísticas
- * Equipo" -> "Equipo" (en Administración y demás sigue el nombre completo). */
+/** Dentro del grupo Estadísticas sobra repetir "Estadísticas Senior A":
+ * "Estadísticas Senior A Equipo" -> "Equipo" (en Administración y demás sigue
+ * el nombre completo). */
 function etiquetaEnGrupo(nombre, grupo) {
   if (grupo !== 'estadisticas') return nombre;
-  return String(nombre || '').replace(/^Estad[íi]sticas\s+/i, '') || nombre;
+  return String(nombre || '').replace(/^Estad[íi]sticas(\s+Senior\s+A)?\s+/i, '') || nombre;
 }
 
 const gruposNav = computed(() =>
