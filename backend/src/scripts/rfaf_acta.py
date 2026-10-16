@@ -189,28 +189,32 @@ def jugadores_de(bloque, titulo, titular):
     return jugadores
 
 
-def cuerpo_tecnico_de(bloque):
-    """Cuerpo técnico del equipo (entrenadores y delegados): las filas que van
-    tras la marca "Cuerpo Técnico" en la tabla, con su nombre y foto (misma
-    estructura que los jugadores: la foto en la 2ª celda y el nombre en la 3ª)."""
-    staff = []
-    for tabla in bloque.find_all("table"):
-        tras_marca = False
-        for tr in tabla.find_all("tr"):
-            if es_cuerpo_tecnico(tr.get_text()):
-                tras_marca = True
-                continue
-            if not tras_marca:
-                continue
-            tds = tr.find_all("td")
-            if len(tds) < 3:
-                continue
-            nombre = limpiar(tds[2].get_text())
-            if nombre:
-                staff.append({"nombre": nombre, "foto": foto_de(tds[1])})
-        if tras_marca:
-            break
-    return staff
+def cuerpos_tecnicos(soup):
+    """Cuerpo técnico de cada equipo, en el orden del acta (local, visitante).
+    Tras cada cabecera "Cuerpo Técnico" vienen sus miembros, cada uno un h5
+    "Rol: Nombre" (Entrenador, DEL. Campo, DEL. Equipo…) con una tabla interna
+    [foto, nombre]. Devuelve una lista por equipo de {nombre, foto, rol}."""
+    bloques = []
+    actual = None
+    # "Cuerpo Técnico" es un h4 y cada miembro un h5: hay que recorrer ambos.
+    for h in soup.find_all(["h4", "h5"]):
+        t = limpiar(h.get_text())
+        if es_cuerpo_tecnico(t):
+            actual = []
+            bloques.append(actual)
+            continue
+        if actual is None:
+            continue
+        if t in ("Titulares", "Suplentes"):  # empieza otra sección: fin del bloque
+            actual = None
+            continue
+        if ":" not in t or not h.find("img"):
+            continue
+        rol, nombre = t.split(":", 1)
+        nombre = limpiar(nombre)
+        if nombre:
+            actual.append({"nombre": nombre, "foto": foto_de(h), "rol": limpiar(rol)})
+    return bloques
 
 
 def sustituciones_de(bloque):
@@ -326,11 +330,17 @@ def parsear_acta(html):
                 if tipo == "roja" and minuto is not None and en_campo \
                         and (j["minuto_salida"] is None or minuto < j["minuto_salida"]):
                     j["minuto_salida"] = minuto
-        equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0, "tarjetas": tarjetas_equipo, "cuerpo_tecnico": cuerpo_tecnico_de(bloque)})
+        equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0, "tarjetas": tarjetas_equipo, "cuerpo_tecnico": []})
 
     if len(equipos) != 2:
         raise RuntimeError("El acta no tiene el formato esperado (no aparecen los dos equipos).")
     local, visitante = equipos
+
+    # El cuerpo técnico va en cabeceras h5 fuera del bloque del equipo, en orden
+    # (local, visitante): se asigna a cada uno por ese orden.
+    tecnicos = cuerpos_tecnicos(soup)
+    local["cuerpo_tecnico"] = tecnicos[0] if len(tecnicos) > 0 else []
+    visitante["cuerpo_tecnico"] = tecnicos[1] if len(tecnicos) > 1 else []
 
     # Cada gol se asigna al equipo del jugador; uno en propia puerta suma al
     # rival y no cuenta como gol del jugador. "goles" guarda el minuto y el
