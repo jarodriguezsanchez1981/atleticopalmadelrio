@@ -335,9 +335,11 @@ function minutosJugados(jugador, duracion) {
 async function sincronizarCuerpoTecnico(cuerpoTecnico = []) {
   const claveBD = (apellidos, nombre) => rfafActa.normalizarNombre(`${apellidos} ${nombre}`);
   const rolDe = (t) => (t.rol || '').toUpperCase();
+  // El acta pone "No Presenta" cuando no hay esa persona: no se crea ni se toca.
+  const esNoPresenta = (nombre) => rfafActa.normalizarNombre(nombre) === 'NO PRESENTA';
 
   // Entrenadores (rol con "ENTRENADOR": entrenador, 2º entrenador…).
-  const entrenadoresActa = cuerpoTecnico.filter((t) => t.nombre && rolDe(t).includes('ENTRENADOR'));
+  const entrenadoresActa = cuerpoTecnico.filter((t) => t.nombre && !esNoPresenta(t.nombre) && rolDe(t).includes('ENTRENADOR'));
   if (entrenadoresActa.length) {
     const existentes = await Entrenador.findAll({ attributes: ['id', 'nombre', 'apellidos', 'foto'] }) || [];
     const porNombre = new Map();
@@ -360,7 +362,7 @@ async function sincronizarCuerpoTecnico(cuerpoTecnico = []) {
 
   // Delegados (rol que empieza por "DEL"): una persona puede ser de campo y de
   // equipo a la vez (tipo 'ambos').
-  const delegadosActa = cuerpoTecnico.filter((t) => t.nombre && rolDe(t).startsWith('DEL'));
+  const delegadosActa = cuerpoTecnico.filter((t) => t.nombre && !esNoPresenta(t.nombre) && rolDe(t).startsWith('DEL'));
   if (delegadosActa.length) {
     const porPersona = new Map();
     for (const t of delegadosActa) {
