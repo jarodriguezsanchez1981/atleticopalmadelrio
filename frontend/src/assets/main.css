@@ -221,3 +221,9 @@ h1, h2, h3, .font-display {
 .ar-datatable.ar-dt-agrupada th[class*="ar-dt-grupo-"] .p-datatable-column-title {
   text-align: center;
 }
+/* Los datos de las columnas numéricas centrados también (el text-center del td
+   lo pisaba PrimeVue), para que cuadren con su cabecera. La primera columna
+   (Jugador/Equipo) no lleva text-center y se queda a la izquierda. */
+.ar-datatable.ar-dt-agrupada .p-datatable-tbody > tr > td.text-center {
+  text-align: center;
+}
