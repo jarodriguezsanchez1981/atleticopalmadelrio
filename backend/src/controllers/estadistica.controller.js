@@ -23,6 +23,17 @@ const CAMPOS_TARJETAS = [
   'amarillas_primera', 'amarillas_segunda', 'amarillas_ganando', 'amarillas_perdiendo',
   'rojas_primera', 'rojas_segunda', 'rojas_ganando', 'rojas_perdiendo'
 ];
+// Goles por tramos de 15 min dentro de cada parte (de partido_goles, que lleva el minuto).
+const CAMPOS_GOLES_TRAMO = ['goles_0_15', 'goles_16_30', 'goles_31_45', 'goles_46_60', 'goles_61_75', 'goles_76_90'];
+/** Tramo de 15 min de un gol según su minuto (45+ cae en el último de 1ª; 90+ en el último de 2ª). */
+function tramoGol(minuto) {
+  if (minuto <= 15) return 'goles_0_15';
+  if (minuto <= 30) return 'goles_16_30';
+  if (minuto <= FIN_PRIMERA_PARTE) return 'goles_31_45';
+  if (minuto <= 60) return 'goles_46_60';
+  if (minuto <= 75) return 'goles_61_75';
+  return 'goles_76_90';
+}
 
 // Contadores de cada jugador; cada uno se guarda en total (campo) y según el
 // PALMA jugara en casa o fuera (campo_local / campo_visitante).
@@ -30,7 +41,7 @@ const CONTADORES = [
   'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
   'sustituciones', 'sustituciones_primera', 'sustituciones_segunda',
   'minutos', 'minutos_titular', 'minutos_banquillo',
-  'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda',
+  'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda', ...CAMPOS_GOLES_TRAMO,
   'tarjetas_amarillas', 'tarjetas_rojas', ...CAMPOS_TARJETAS
 ];
 const LADOS = ['local', 'visitante'];
@@ -171,6 +182,7 @@ async function listar(req, res, next) {
       const lado = ladoEnPartido.get(`${g.id_partido}-${g.id_jugador}`);
       if (!fila || !lado || g.minuto == null) continue;
       sumar(fila, g.minuto <= FIN_PRIMERA_PARTE ? 'goles_primera' : 'goles_segunda', 1, lado);
+      sumar(fila, tramoGol(g.minuto), 1, lado);
     }
 
     // Partidos del equipo con acta (los que tienen jugadores), en total y por

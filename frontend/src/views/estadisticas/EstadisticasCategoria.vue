@@ -38,7 +38,7 @@ const TABLAS = {
   },
   goles: {
     titulo: 'Goles',
-    descripcion: 'Goles de cada jugador por parte del partido (1ª parte hasta el minuto 45). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
+    descripcion: 'Goles de cada jugador por tramos de 15 minutos dentro de cada parte (1ª parte: 0-15, 16-30, 31-45; 2ª parte: 46-60, 61-75, 76-90; el tiempo añadido se suma al último tramo de su parte). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
     metricas: sinTitularSuplente(METRICAS_GOLES),
     sortField: 'goles',
     porLado: true
