@@ -193,6 +193,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
 
     expect(res._json[0]).toMatchObject({
       tarjetas_amarillas: 3, tarjetas_rojas: 1,
+      // Partido 1 (en casa): 2 amarillas al mismo jugador → una doble amarilla.
+      dobles_amarillas: 1, dobles_amarillas_local: 1, dobles_amarillas_visitante: 0,
       amarillas_primera: 2, amarillas_segunda: 1, amarillas_ganando: 1, amarillas_perdiendo: 1,
       rojas_primera: 0, rojas_segunda: 1, rojas_ganando: 0, rojas_perdiendo: 1,
       // Tres en casa (partido 1) y una fuera (partido 2).

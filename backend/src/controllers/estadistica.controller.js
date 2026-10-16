@@ -44,7 +44,7 @@ const CONTADORES = [
   'sustituciones', 'sustituciones_primera', 'sustituciones_segunda',
   'minutos', 'minutos_titular', 'minutos_banquillo',
   'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda', ...CAMPOS_GOLES_TRAMO,
-  'tarjetas_amarillas', 'tarjetas_rojas', ...CAMPOS_TARJETAS
+  'tarjetas_amarillas', 'tarjetas_rojas', 'dobles_amarillas', ...CAMPOS_TARJETAS
 ];
 const LADOS = ['local', 'visitante'];
 const PALMA_ID = 73;
@@ -156,6 +156,8 @@ async function listar(req, res, next) {
         else sumarSustitucion(fila, f.minuto_salida, lado);
       }
       sumar(fila, 'tarjetas_amarillas', Number(f.tarjeta_amarilla) || 0, lado);
+      // Partido con 2 o más amarillas al mismo jugador (doble amarilla).
+      if ((Number(f.tarjeta_amarilla) || 0) >= 2) sumar(fila, 'dobles_amarillas', 1, lado);
       sumar(fila, 'tarjetas_rojas', Number(f.tarjeta_roja) || 0, lado);
     }
 

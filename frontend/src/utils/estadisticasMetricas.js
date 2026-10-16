@@ -71,6 +71,7 @@ export const METRICAS_SANCIONES = [
   { campo: 'amarillas_segunda', titulo: '2ª Parte', subgrupo: 'Amarillas' },
   { campo: 'amarillas_ganando', titulo: 'Ganando', subgrupo: 'Amarillas' },
   { campo: 'amarillas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Amarillas' },
+  { campo: 'dobles_amarillas', titulo: 'Dobles', subgrupo: 'Amarillas', descripcion: 'Partidos en los que vio 2 o más amarillas (doble amarilla)' },
   { campo: 'tarjetas_rojas', titulo: 'Total', subgrupo: 'Rojas' },
   { campo: 'rojas_primera', titulo: '1ª Parte', subgrupo: 'Rojas' },
   { campo: 'rojas_segunda', titulo: '2ª Parte', subgrupo: 'Rojas' },
