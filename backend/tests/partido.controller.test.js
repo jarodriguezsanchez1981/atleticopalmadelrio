@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador, Delegado } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -744,7 +744,7 @@ describe('Sección Partidos · partido.controller', () => {
       expect(res._status).toBe(404);
     });
 
-    it('pone la foto del acta al entrenador sin foto y respeta al que ya la tiene', async () => {
+    it('cuerpo técnico: actualiza foto o crea entrenadores y delegados (con tipo ambos)', async () => {
       Partido.findByPk.mockResolvedValue(partidoPalma());
       PlantillaJugador.create.mockResolvedValue({});
       leerActa.mockResolvedValue({
@@ -752,27 +752,36 @@ describe('Sección Partidos · partido.controller', () => {
         local: {
           ...ACTA.local,
           cuerpo_tecnico: [
-            { nombre: 'RUIZ LARA, ANTONIO', foto: 'data:image/png;base64,FOTO' }, // entrenador sin foto → se actualiza
-            { nombre: 'MONTES, LUISA', foto: 'data:image/png;base64,OTRA' },       // ya tiene foto → no se toca
-            { nombre: 'QUIEN SEA, NADIE', foto: 'data:image/png;base64,X' }        // no está en Entrenadores → se ignora
+            { rol: 'Entrenador', nombre: 'RUIZ LARA, ANTONIO', foto: 'F_ENTR' },  // existe sin foto → update
+            { rol: 'Entrenador', nombre: 'MONTES, LUISA', foto: 'F_X' },          // existe con foto → no se toca
+            { rol: '2ºEntrenador', nombre: 'NUEVO COACH, PEPE', foto: 'F_NUEVO' },// no existe → create
+            { rol: 'DEL. Campo', nombre: 'MARTIN GOMEZ, LUIS', foto: 'F_DEL' },   // no existe, campo + equipo → create 'ambos'
+            { rol: 'DEL. Equipo', nombre: 'MARTIN GOMEZ, LUIS', foto: 'F_DEL' }
           ]
         }
       });
       Entrenador.findAll.mockReset();
       Entrenador.findAll.mockResolvedValue([
         { id: 11, nombre: 'Antonio', apellidos: 'Ruiz Lara', foto: null },
-        { id: 12, nombre: 'Luisa', apellidos: 'Montes', foto: 'data:image/png;base64,YA' }
+        { id: 12, nombre: 'Luisa', apellidos: 'Montes', foto: 'YA' }
       ]);
       Entrenador.update.mockReset();
+      Entrenador.create.mockReset();
+      Delegado.findAll.mockReset();
+      Delegado.findAll.mockResolvedValue([]); // ningún delegado existe aún
+      Delegado.create.mockReset();
 
       const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
       await promesa;
 
+      // Entrenador existente sin foto → update (solo ese).
       expect(Entrenador.update).toHaveBeenCalledTimes(1);
-      expect(Entrenador.update).toHaveBeenCalledWith(
-        { foto: 'data:image/png;base64,FOTO' },
-        expect.objectContaining({ where: expect.objectContaining({ id: 11 }) })
-      );
+      expect(Entrenador.update).toHaveBeenCalledWith({ foto: 'F_ENTR' }, expect.objectContaining({ where: expect.objectContaining({ id: 11 }) }));
+      // Entrenador que no existe → create con sus datos.
+      expect(Entrenador.create).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Pepe', apellidos: 'Nuevo Coach', foto: 'F_NUEVO' }));
+      // Delegado nuevo que figura de campo y de equipo → create con tipo 'ambos'.
+      expect(Delegado.create).toHaveBeenCalledTimes(1);
+      expect(Delegado.create).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'ambos', foto: 'F_DEL', nombre: 'Luis', apellidos: 'Martin Gomez' }));
     });
 
     it('exige codigo_acta y codigo_primaria sin llamar a RFAF', async () => {

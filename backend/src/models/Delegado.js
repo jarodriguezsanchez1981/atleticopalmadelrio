@@ -10,7 +10,7 @@ const Delegado = sequelize.define('Delegado', {
   email: { type: DataTypes.STRING(150), allowNull: true },
   foto: { type: DataTypes.TEXT('long'), allowNull: true },
   telefono: { type: DataTypes.STRING(20), allowNull: true },
-  tipo: { type: DataTypes.ENUM('campo', 'equipo'), allowNull: false, defaultValue: 'campo' }
+  tipo: { type: DataTypes.ENUM('campo', 'equipo', 'ambos'), allowNull: false, defaultValue: 'campo' }
 }, {
   tableName: 'delegados'
 });

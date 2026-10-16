@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const { filasPlanas } = require('../utils/filasPlanas');
 const { limiteConsulta } = require('../utils/limiteConsulta');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, Promocion, Entrenador } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, Promocion, Entrenador, Delegado } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -328,6 +328,66 @@ function minutosJugados(jugador, duracion) {
   return Math.max(0, Math.min(salida, duracion) - entrada);
 }
 
+/** Pone al día entrenadores y delegados del PALMA con el cuerpo técnico del
+ * acta: a quien ya existe (por nombre) y no tiene foto se le pone la del acta;
+ * a quien no existe se le crea con sus datos (los delegados, con su tipo:
+ * 'campo', 'equipo' o 'ambos' si aparece en los dos roles). */
+async function sincronizarCuerpoTecnico(cuerpoTecnico = []) {
+  const claveBD = (apellidos, nombre) => rfafActa.normalizarNombre(`${apellidos} ${nombre}`);
+  const rolDe = (t) => (t.rol || '').toUpperCase();
+
+  // Entrenadores (rol con "ENTRENADOR": entrenador, 2º entrenador…).
+  const entrenadoresActa = cuerpoTecnico.filter((t) => t.nombre && rolDe(t).includes('ENTRENADOR'));
+  if (entrenadoresActa.length) {
+    const existentes = await Entrenador.findAll({ attributes: ['id', 'nombre', 'apellidos', 'foto'] }) || [];
+    const porNombre = new Map();
+    for (const e of existentes) { const k = claveBD(e.apellidos, e.nombre); if (!porNombre.has(k)) porNombre.set(k, e); }
+    const vistos = new Set();
+    for (const t of entrenadoresActa) {
+      const k = rfafActa.normalizarNombre(t.nombre);
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      const e = porNombre.get(k);
+      if (e) {
+        if (t.foto && (e.foto == null || e.foto === '')) {
+          await Entrenador.update({ foto: t.foto }, { where: { id: e.id, [Op.or]: [{ foto: null }, { foto: '' }] } });
+        }
+      } else {
+        await Entrenador.create({ ...rfafActa.nombreDesdeActa(t.nombre), ...(t.foto ? { foto: t.foto } : {}) });
+      }
+    }
+  }
+
+  // Delegados (rol que empieza por "DEL"): una persona puede ser de campo y de
+  // equipo a la vez (tipo 'ambos').
+  const delegadosActa = cuerpoTecnico.filter((t) => t.nombre && rolDe(t).startsWith('DEL'));
+  if (delegadosActa.length) {
+    const porPersona = new Map();
+    for (const t of delegadosActa) {
+      const k = rfafActa.normalizarNombre(t.nombre);
+      if (!porPersona.has(k)) porPersona.set(k, { nombre: t.nombre, foto: null, campo: false, equipo: false });
+      const p = porPersona.get(k);
+      if (t.foto && !p.foto) p.foto = t.foto;
+      if (rolDe(t).includes('CAMPO')) p.campo = true;
+      if (rolDe(t).includes('EQUIPO')) p.equipo = true;
+    }
+    const existentes = await Delegado.findAll({ attributes: ['id', 'nombre', 'apellidos', 'foto'] }) || [];
+    const porNombre = new Map();
+    for (const d of existentes) { const k = claveBD(d.apellidos, d.nombre); if (!porNombre.has(k)) porNombre.set(k, d); }
+    for (const p of porPersona.values()) {
+      const tipo = p.campo && p.equipo ? 'ambos' : (p.equipo ? 'equipo' : 'campo');
+      const d = porNombre.get(rfafActa.normalizarNombre(p.nombre));
+      if (d) {
+        if (p.foto && (d.foto == null || d.foto === '')) {
+          await Delegado.update({ foto: p.foto }, { where: { id: d.id, [Op.or]: [{ foto: null }, { foto: '' }] } });
+        }
+      } else {
+        await Delegado.create({ ...rfafActa.nombreDesdeActa(p.nombre), tipo, ...(p.foto ? { foto: p.foto } : {}) });
+      }
+    }
+  }
+}
+
 async function finalizarActa(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
@@ -504,26 +564,10 @@ async function finalizarActa(req, res, next) {
     await PartidoGol.destroy({ where: { id_partido: partido.id } });
     if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
 
-    // Foto del cuerpo técnico: si el entrenador del acta está en la sección
-    // Entrenadores y no tiene foto, se le pone la del acta (la que ya tenga no
-    // se toca). Se busca por nombre, como a los jugadores.
-    const staff = (equipoActa.cuerpo_tecnico || []).filter((t) => t.foto && t.nombre);
-    if (staff.length) {
-      const entrenadores = await Entrenador.findAll({ attributes: ['id', 'nombre', 'apellidos', 'foto'] });
-      const entrenadorPorNombre = new Map();
-      for (const e of entrenadores) {
-        const k = rfafActa.normalizarNombre(`${e.apellidos} ${e.nombre}`);
-        if (!entrenadorPorNombre.has(k)) entrenadorPorNombre.set(k, e);
-      }
-      for (const t of staff) {
-        const e = entrenadorPorNombre.get(rfafActa.normalizarNombre(t.nombre));
-        if (e && (e.foto == null || e.foto === '')) {
-          await Entrenador.update({ foto: t.foto }, {
-            where: { id: e.id, [Op.or]: [{ foto: null }, { foto: '' }] }
-          });
-        }
-      }
-    }
+    // Cuerpo técnico del PALMA en el acta: entrenadores y delegados. A quien ya
+    // está en su sección y no tiene foto, se le pone la del acta; a quien no
+    // está, se le crea con sus datos (y, en delegados, con su tipo).
+    await sincronizarCuerpoTecnico(equipoActa.cuerpo_tecnico || []);
 
     // Se sustituyen solo los jugadores del PALMA; los del rival no se tocan.
     await PartidoJugador.destroy({
