@@ -189,6 +189,30 @@ def jugadores_de(bloque, titulo, titular):
     return jugadores
 
 
+def cuerpo_tecnico_de(bloque):
+    """Cuerpo técnico del equipo (entrenadores y delegados): las filas que van
+    tras la marca "Cuerpo Técnico" en la tabla, con su nombre y foto (misma
+    estructura que los jugadores: la foto en la 2ª celda y el nombre en la 3ª)."""
+    staff = []
+    for tabla in bloque.find_all("table"):
+        tras_marca = False
+        for tr in tabla.find_all("tr"):
+            if es_cuerpo_tecnico(tr.get_text()):
+                tras_marca = True
+                continue
+            if not tras_marca:
+                continue
+            tds = tr.find_all("td")
+            if len(tds) < 3:
+                continue
+            nombre = limpiar(tds[2].get_text())
+            if nombre:
+                staff.append({"nombre": nombre, "foto": foto_de(tds[1])})
+        if tras_marca:
+            break
+    return staff
+
+
 def sustituciones_de(bloque):
     """Cambios del equipo: bajo el h4 "Sustituciones" hay una tabla por cambio
     con el que entra (flecha izquierda) y el que sale (flecha derecha, con el
@@ -302,7 +326,7 @@ def parsear_acta(html):
                 if tipo == "roja" and minuto is not None and en_campo \
                         and (j["minuto_salida"] is None or minuto < j["minuto_salida"]):
                     j["minuto_salida"] = minuto
-        equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0, "tarjetas": tarjetas_equipo})
+        equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0, "tarjetas": tarjetas_equipo, "cuerpo_tecnico": cuerpo_tecnico_de(bloque)})
 
     if len(equipos) != 2:
         raise RuntimeError("El acta no tiene el formato esperado (no aparecen los dos equipos).")

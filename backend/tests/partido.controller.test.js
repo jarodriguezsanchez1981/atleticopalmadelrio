@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion, Promocion } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -742,6 +742,37 @@ describe('Sección Partidos · partido.controller', () => {
       const { promesa, res } = llamar(ctrl.finalizarActa, { params: { id: '99' } });
       await promesa;
       expect(res._status).toBe(404);
+    });
+
+    it('pone la foto del acta al entrenador sin foto y respeta al que ya la tiene', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma());
+      PlantillaJugador.create.mockResolvedValue({});
+      leerActa.mockResolvedValue({
+        ...ACTA,
+        local: {
+          ...ACTA.local,
+          cuerpo_tecnico: [
+            { nombre: 'RUIZ LARA, ANTONIO', foto: 'data:image/png;base64,FOTO' }, // entrenador sin foto → se actualiza
+            { nombre: 'MONTES, LUISA', foto: 'data:image/png;base64,OTRA' },       // ya tiene foto → no se toca
+            { nombre: 'QUIEN SEA, NADIE', foto: 'data:image/png;base64,X' }        // no está en Entrenadores → se ignora
+          ]
+        }
+      });
+      Entrenador.findAll.mockReset();
+      Entrenador.findAll.mockResolvedValue([
+        { id: 11, nombre: 'Antonio', apellidos: 'Ruiz Lara', foto: null },
+        { id: 12, nombre: 'Luisa', apellidos: 'Montes', foto: 'data:image/png;base64,YA' }
+      ]);
+      Entrenador.update.mockReset();
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(Entrenador.update).toHaveBeenCalledTimes(1);
+      expect(Entrenador.update).toHaveBeenCalledWith(
+        { foto: 'data:image/png;base64,FOTO' },
+        expect.objectContaining({ where: expect.objectContaining({ id: 11 }) })
+      );
     });
 
     it('exige codigo_acta y codigo_primaria sin llamar a RFAF', async () => {

@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const { filasPlanas } = require('../utils/filasPlanas');
 const { limiteConsulta } = require('../utils/limiteConsulta');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, Promocion } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, Promocion, Entrenador } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -503,6 +503,27 @@ async function finalizarActa(req, res, next) {
       .filter(Boolean);
     await PartidoGol.destroy({ where: { id_partido: partido.id } });
     if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
+
+    // Foto del cuerpo técnico: si el entrenador del acta está en la sección
+    // Entrenadores y no tiene foto, se le pone la del acta (la que ya tenga no
+    // se toca). Se busca por nombre, como a los jugadores.
+    const staff = (equipoActa.cuerpo_tecnico || []).filter((t) => t.foto && t.nombre);
+    if (staff.length) {
+      const entrenadores = await Entrenador.findAll({ attributes: ['id', 'nombre', 'apellidos', 'foto'] });
+      const entrenadorPorNombre = new Map();
+      for (const e of entrenadores) {
+        const k = rfafActa.normalizarNombre(`${e.apellidos} ${e.nombre}`);
+        if (!entrenadorPorNombre.has(k)) entrenadorPorNombre.set(k, e);
+      }
+      for (const t of staff) {
+        const e = entrenadorPorNombre.get(rfafActa.normalizarNombre(t.nombre));
+        if (e && (e.foto == null || e.foto === '')) {
+          await Entrenador.update({ foto: t.foto }, {
+            where: { id: e.id, [Op.or]: [{ foto: null }, { foto: '' }] }
+          });
+        }
+      }
+    }
 
     // Se sustituyen solo los jugadores del PALMA; los del rival no se tocan.
     await PartidoJugador.destroy({
