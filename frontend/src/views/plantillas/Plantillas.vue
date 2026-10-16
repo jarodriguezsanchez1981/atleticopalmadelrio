@@ -421,19 +421,41 @@ function comprobarDorsalDuplicado(form, idJugadorActual, dorsal) {
   }
 }
 
+/** Ids ya asignados en OTRAS plantillas de la misma temporada (una persona no
+ * puede estar en dos equipos esa temporada). En jugadores no cuentan las
+ * promociones: su plantilla base es otra. */
+function asignadosEnOtras(form, clave) {
+  const idTemp = form?.id_temporada;
+  const idActual = form?.id;
+  const usados = new Set();
+  if (!idTemp) return usados;
+  for (const pl of plantillasExistentes.value) {
+    if (pl.id_temporada !== idTemp || (idActual && pl.id === idActual)) continue;
+    if (clave === 'jugadores') {
+      for (const j of (pl.jugadores || [])) if (!(j.PlantillaJugador?.promocion)) usados.add(j.id);
+    } else {
+      for (const x of (pl[clave] || [])) usados.add(x.id);
+    }
+  }
+  return usados;
+}
+
 function opcionesEntrenadorDisponibles(form) {
   const usados = new Set(form?.ids_entrenadores || []);
-  return opcionesEntrenador.value.filter(o => !usados.has(o.value));
+  const otras = asignadosEnOtras(form, 'entrenadores');
+  return opcionesEntrenador.value.filter(o => !usados.has(o.value) && !otras.has(o.value));
 }
 
 function opcionesDelegadoDisponibles(form) {
   const usados = new Set(form?.ids_delegados || []);
-  return opcionesDelegado.value.filter(o => !usados.has(o.value));
+  const otras = asignadosEnOtras(form, 'delegados');
+  return opcionesDelegado.value.filter(o => !usados.has(o.value) && !otras.has(o.value));
 }
 
 function opcionesJugadorDisponibles(form) {
   const usados = new Set((form?.jugadores || []).map(j => j.id_jugador));
-  return opcionesJugador.value.filter(o => !usados.has(o.value));
+  const otras = asignadosEnOtras(form, 'jugadores');
+  return opcionesJugador.value.filter(o => !usados.has(o.value) && !otras.has(o.value));
 }
 
 function validarPlantilla(form) {
