@@ -23,16 +23,18 @@ const CAMPOS_TARJETAS = [
   'amarillas_primera', 'amarillas_segunda', 'amarillas_ganando', 'amarillas_perdiendo',
   'rojas_primera', 'rojas_segunda', 'rojas_ganando', 'rojas_perdiendo'
 ];
-// Goles por tramos de 15 min dentro de cada parte (de partido_goles, que lleva el minuto).
-const CAMPOS_GOLES_TRAMO = ['goles_0_15', 'goles_16_30', 'goles_31_45', 'goles_46_60', 'goles_61_75', 'goles_76_90'];
-/** Tramo de 15 min de un gol según su minuto (45+ cae en el último de 1ª; 90+ en el último de 2ª). */
-function tramoGol(minuto) {
-  if (minuto <= 15) return 'goles_0_15';
-  if (minuto <= 30) return 'goles_16_30';
-  if (minuto <= FIN_PRIMERA_PARTE) return 'goles_31_45';
-  if (minuto <= 60) return 'goles_46_60';
-  if (minuto <= 75) return 'goles_61_75';
-  return 'goles_76_90';
+// Goles por tramos dentro de cada parte (de partido_goles, que lleva el minuto):
+// 3 tramos por parte, repartidos sobre la duración de juego del tipo de fútbol.
+const TIPO_FUTBOL_7 = 1;
+// Fútbol 7 no juega 90' (su acta llega a ~60'); Fútbol 11 sí. Un valor por tipo.
+const duracionJuego = (idTipoFutbol) => (Number(idTipoFutbol) === TIPO_FUTBOL_7 ? 60 : 90);
+const CAMPOS_GOLES_TRAMO = ['goles_1t1', 'goles_1t2', 'goles_1t3', 'goles_2t1', 'goles_2t2', 'goles_2t3'];
+/** Tramo (1/6) de un gol: 3 por parte sobre la duración `dur`; el añadido de
+ * cada parte cae en su último tramo. */
+function tramoGol(minuto, dur) {
+  const sexto = dur / 6;
+  for (let i = 1; i <= 5; i++) if (minuto <= Math.round(i * sexto)) return CAMPOS_GOLES_TRAMO[i - 1];
+  return CAMPOS_GOLES_TRAMO[5];
 }
 
 // Contadores de cada jugador; cada uno se guarda en total (campo) y según el
@@ -73,9 +75,10 @@ async function listar(req, res, next) {
     // En las categorías sin minutos (todo lo que no es Senior A) aparecer en el
     // acta ya cuenta como partido jugado.
     const plantilla = await Plantilla.findByPk(idPlantilla, {
-      include: [{ model: Categoria, as: 'categoria', attributes: ['nombre'] }]
+      include: [{ model: Categoria, as: 'categoria', attributes: ['nombre', 'id_tipofutbol'] }]
     });
     const conMinutos = plantilla?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
+    const durGoles = duracionJuego(plantilla?.categoria?.id_tipofutbol);
 
     // Solo los partidos de liga (con jornada), ya finalizados y no suspendidos:
     // las estadísticas salen del acta, no de la convocatoria previa, y un partido
@@ -182,7 +185,7 @@ async function listar(req, res, next) {
       const lado = ladoEnPartido.get(`${g.id_partido}-${g.id_jugador}`);
       if (!fila || !lado || g.minuto == null) continue;
       sumar(fila, g.minuto <= FIN_PRIMERA_PARTE ? 'goles_primera' : 'goles_segunda', 1, lado);
-      sumar(fila, tramoGol(g.minuto), 1, lado);
+      sumar(fila, tramoGol(g.minuto, durGoles), 1, lado);
     }
 
     // Partidos del equipo con acta (los que tienen jugadores), en total y por
@@ -447,7 +450,7 @@ async function plantillasEstadisticas(req, res, next) {
       where,
       attributes: ['id', 'id_categoria', 'id_temporada'],
       include: [
-        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'orden'] },
+        { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'orden', 'id_tipofutbol'] },
         { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
         { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos'], through: { attributes: [] } }
       ],

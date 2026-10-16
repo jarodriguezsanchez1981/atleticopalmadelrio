@@ -38,13 +38,12 @@ const TABLAS = {
   },
   goles: {
     titulo: 'Goles',
-    descripcion: 'Goles de cada jugador por tramos de 15 minutos dentro de cada parte (1ª parte: 0-15, 16-30, 31-45; 2ª parte: 46-60, 61-75, 76-90; el tiempo añadido se suma al último tramo de su parte). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
+    descripcion: 'Goles de cada jugador por tramos: cada parte se divide en 3 según la duración de juego del tipo de fútbol (Fútbol 7 no juega 90\'); el tiempo añadido se suma al último tramo de su parte. En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
     metricas: sinTitularSuplente(METRICAS_GOLES),
     sortField: 'goles',
     porLado: true
   }
 };
-const config = computed(() => TABLAS[props.tabla]);
 
 const plantillas = ref([]);        // disponibles (temporada actual, categoría del usuario)
 const idPlantilla = ref(null);     // plantilla elegida
@@ -57,6 +56,27 @@ let unsubCambio = null;
 
 const plantillaActual = computed(() => plantillas.value.find((p) => p.id === idPlantilla.value) || null);
 const hayVariasPlantillas = computed(() => plantillas.value.length > 1);
+
+// Duración de juego por tipo de fútbol (Fútbol 7 no juega 90'); igual que en el
+// backend. Los 6 tramos de Goles se reparten en 3 por parte sobre esa duración.
+const TIPO_FUTBOL_7 = 1;
+const duracionJuego = (idTipo) => (Number(idTipo) === TIPO_FUTBOL_7 ? 60 : 90);
+const CAMPOS_TRAMO = ['goles_1t1', 'goles_1t2', 'goles_1t3', 'goles_2t1', 'goles_2t2', 'goles_2t3'];
+function etiquetasTramos(dur) {
+  const sexto = dur / 6;
+  const m = {};
+  CAMPOS_TRAMO.forEach((c, i) => {
+    m[c] = `${i === 0 ? 0 : Math.round(i * sexto) + 1}-${Math.round((i + 1) * sexto)}`;
+  });
+  return m;
+}
+// La tabla de Goles reetiqueta los tramos según la duración de la categoría elegida.
+const config = computed(() => {
+  const base = TABLAS[props.tabla];
+  if (props.tabla !== 'goles') return base;
+  const et = etiquetasTramos(duracionJuego(plantillaActual.value?.categoria?.id_tipofutbol));
+  return { ...base, metricas: base.metricas.map((m) => (et[m.campo] ? { ...m, titulo: et[m.campo] } : m)) };
+});
 const opcionesPlantillas = computed(() => plantillas.value
   .map((p) => ({ value: p.id, label: `${p.categoria?.nombre || 'Sin categoría'} / ${p.temporada?.nombre || ''}` })));
 

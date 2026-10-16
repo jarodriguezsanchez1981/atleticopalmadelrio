@@ -59,8 +59,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       convocatorias: 2, partidos: 2, titular: 1, suplente: 1, banquillo_no_jugados: 0,
       minutos: 124, minutos_titular: 90, minutos_banquillo: 34,
       goles: 3, goles_titular: 2, goles_banquillo: 1, goles_primera: 2, goles_segunda: 1,
-      // Por tramos de 15 min: 12' (0-15), 45' (31-45) y 70' (61-75).
-      goles_0_15: 1, goles_16_30: 0, goles_31_45: 1, goles_46_60: 0, goles_61_75: 1, goles_76_90: 0,
+      // Senior A (90'): tramos de 15 min. 12' → 1er tramo 1ª, 45' → 3er tramo 1ª, 70' → 2º tramo 2ª.
+      goles_1t1: 1, goles_1t2: 0, goles_1t3: 1, goles_2t1: 0, goles_2t2: 1, goles_2t3: 0,
       tarjetas_amarillas: 1, tarjetas_rojas: 1,
       porcentaje_goles_partido: 100, partidos_con_gol: 2, porcentaje_goles_titular: 66.7, porcentaje_goles_banquillo: 33.3,
       porcentaje_goles_titular_local: 100, porcentaje_goles_titular_visitante: 0,
@@ -72,12 +72,12 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       // En casa (partido 1): titular, 90', 2 goles en la 1ª parte, amarilla.
       convocatorias_local: 1, partidos_local: 1, titular_local: 1, suplente_local: 0, minutos_local: 90,
       minutos_titular_local: 90, goles_local: 2, goles_titular_local: 2, goles_primera_local: 2, goles_segunda_local: 0,
-      goles_0_15_local: 1, goles_31_45_local: 1, goles_61_75_local: 0,
+      goles_1t1_local: 1, goles_1t3_local: 1, goles_2t2_local: 0,
       tarjetas_amarillas_local: 1, tarjetas_rojas_local: 0, porcentaje_goles_partido_local: 100, partidos_con_gol_local: 1,
       // Fuera (partido 2): entra en el 56, 34', 1 gol en la 2ª parte, roja.
       convocatorias_visitante: 1, partidos_visitante: 1, titular_visitante: 0, suplente_visitante: 1, minutos_visitante: 34,
       minutos_banquillo_visitante: 34, goles_visitante: 1, goles_banquillo_visitante: 1, goles_primera_visitante: 0,
-      goles_segunda_visitante: 1, goles_61_75_visitante: 1, goles_0_15_visitante: 0,
+      goles_segunda_visitante: 1, goles_2t2_visitante: 1, goles_1t1_visitante: 0,
       tarjetas_amarillas_visitante: 0, tarjetas_rojas_visitante: 1,
       porcentaje_goles_partido_visitante: 100, porcentaje_goles_banquillo_visitante: 100
     });
@@ -225,6 +225,25 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       goles: 1,
       partidos_con_gol: 1,
       porcentaje_goles_partido: 50
+    });
+  });
+
+  it('en Fútbol 7 (60\') reparte los goles en tercios de 30\' por parte', async () => {
+    // Benjamín A (Fútbol 7, id_tipofutbol 1): duración 60', sextos de 10' (10/20/30/40/50).
+    Plantilla.findByPk.mockResolvedValue({ categoria: { nombre: 'Benjamin A', id_tipofutbol: 1 } });
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1, acta_finalizada_at: new Date(), suspendido: false }]);
+    const nora = { id: 7, nombre: 'Nora', apellidos: 'Gil' };
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: null, minuto_entrada: null, minutos: null, goles: 2, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: nora }
+    ]);
+    PartidoGol.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, minuto: 30 }, // 3er tramo de la 1ª parte (<=30)
+      { id_partido: 1, id_jugador: 7, minuto: 55 }  // pasa de 50: último tramo de la 2ª parte
+    ]);
+    const { promesa, res } = llamar({ query: { id_plantilla: '26' } });
+    await promesa;
+    expect(res._json.find((f) => f.id_jugador === 7)).toMatchObject({
+      goles: 2, goles_1t1: 0, goles_1t2: 0, goles_1t3: 1, goles_2t1: 0, goles_2t2: 0, goles_2t3: 1
     });
   });
 
