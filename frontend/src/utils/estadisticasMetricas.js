@@ -67,6 +67,9 @@ export const METRICAS_GOLES = [
 // Solo la parte de goles de Estadísticas Equipo (partidos + goles, sin
 // tarjetas): se muestra también como tabla del equipo en Estadísticas Goles.
 export const METRICAS_EQUIPO_GOLES = METRICAS_EQUIPO.filter((m) => m.campo === 'partidos' || m.subgrupo === 'Goles');
+// Solo la parte de tarjetas de Estadísticas Equipo (partidos + sanciones): se
+// muestra también como tabla del equipo en Estadísticas Sanciones.
+export const METRICAS_EQUIPO_TARJETAS = METRICAS_EQUIPO.filter((m) => m.campo === 'partidos' || m.subgrupo === 'Sanciones');
 // Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
 // Mismos tramos que METRICAS_GOLES; los títulos por defecto son para 90'.
 export const METRICAS_GOLES_CONTRA = [
