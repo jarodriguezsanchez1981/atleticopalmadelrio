@@ -203,19 +203,8 @@ onBeforeUnmount(() => {
                      :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
       </div>
 
-      <template v-if="config.porLado">
-        <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
-          <h2 class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
-          <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
-                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
-                            v-bind="tabla === 'equipo' ? { columnaNombre: { campo: 'equipo', titulo: 'Equipo' }, dataKey: 'id_plantilla' } : {}" />
-        </div>
-      </template>
-      <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
-                        :cargando="cargando" :textoVacio="textoVacioTabla" />
-
-      <!-- Estadísticas Goles: goles del equipo (parte de Estadísticas Equipo). -->
-      <div v-if="tabla === 'goles'" class="mt-4 flex flex-col gap-2">
+      <!-- Estadísticas Goles: primero los goles del equipo (parte de Estadísticas Equipo). -->
+      <div v-if="tabla === 'goles'" class="flex flex-col gap-2">
         <h2 class="font-display text-lg text-club-green">Equipo</h2>
         <p class="text-sm text-ink-tertiary">
           Goles del equipo por partido (los mismos de Estadísticas Equipo). GF / GC: goles a favor y en contra;
@@ -228,6 +217,19 @@ onBeforeUnmount(() => {
                             :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
         </div>
       </div>
+
+      <h2 v-if="tabla === 'goles'" class="mt-4 font-display text-lg text-club-green">Jugadores</h2>
+      <template v-if="config.porLado">
+        <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
+          <h3 v-if="tabla === 'goles'" class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+          <h2 v-else class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
+          <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
+                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
+                            v-bind="tabla === 'equipo' ? { columnaNombre: { campo: 'equipo', titulo: 'Equipo' }, dataKey: 'id_plantilla' } : {}" />
+        </div>
+      </template>
+      <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
+                        :cargando="cargando" :textoVacio="textoVacioTabla" />
 
       <!-- Estadísticas Goles: goles que nos marca el equipo contrario, por periodo. -->
       <div v-if="tabla === 'goles'" class="mt-4 flex flex-col gap-2">
