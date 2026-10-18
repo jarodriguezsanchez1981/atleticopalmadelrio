@@ -64,6 +64,9 @@ export const METRICAS_GOLES = [
   { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', porcentaje: true, subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente', calculo: 'Goles Supl. /\nGoles × 100' },
   { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true, calculo: 'Partidos con gol /\nPartidos × 100' }
 ];
+// Solo la parte de goles de Estadísticas Equipo (partidos + goles, sin
+// tarjetas): se muestra también como tabla del equipo en Estadísticas Goles.
+export const METRICAS_EQUIPO_GOLES = METRICAS_EQUIPO.filter((m) => m.campo === 'partidos' || m.subgrupo === 'Goles');
 // Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
 // Mismos tramos que METRICAS_GOLES; los títulos por defecto son para 90'.
 export const METRICAS_GOLES_CONTRA = [

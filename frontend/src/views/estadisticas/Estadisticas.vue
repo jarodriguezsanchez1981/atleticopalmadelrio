@@ -7,7 +7,7 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import {
-  METRICAS_EQUIPO, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
+  METRICAS_EQUIPO, METRICAS_EQUIPO_GOLES, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
 } from '../../utils/estadisticasMetricas';
 
 /** Estadísticas en los partidos de la plantilla Senior A de la temporada
@@ -46,8 +46,14 @@ async function cargar() {
     } else if (plantilla.value) {
       filas.value = (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
         .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
-      // En Goles, además, los goles que nos marca el equipo contrario por periodo.
-      if (props.tabla === 'goles') golesContra.value = await estadisticasService.golesContra({ id_plantilla: plantilla.value.id });
+      // En Goles, además, los goles del equipo (parte de Estadísticas Equipo) y
+      // los que nos marca el equipo contrario por periodo.
+      if (props.tabla === 'goles') {
+        [equipo.value, golesContra.value] = await Promise.all([
+          estadisticasService.equipo({ id_plantilla: plantilla.value.id }),
+          estadisticasService.golesContra({ id_plantilla: plantilla.value.id })
+        ]);
+      }
     }
   } catch (err) {
     filas.value = [];
@@ -207,6 +213,21 @@ onBeforeUnmount(() => {
       </template>
       <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
                         :cargando="cargando" :textoVacio="textoVacioTabla" />
+
+      <!-- Estadísticas Goles: goles del equipo (parte de Estadísticas Equipo). -->
+      <div v-if="tabla === 'goles'" class="mt-4 flex flex-col gap-2">
+        <h2 class="font-display text-lg text-club-green">Equipo</h2>
+        <p class="text-sm text-ink-tertiary">
+          Goles del equipo por partido (los mismos de Estadísticas Equipo). GF / GC: goles a favor y en contra;
+          GP / GEP: de penalti a favor y en contra. Las medias son por partido jugado.
+        </p>
+        <div v-for="lado in LADOS_TABLA" :key="`eqgoles-${lado.clave}`" class="flex flex-col gap-2">
+          <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+          <TablaEstadistica :filas="filasEquipo" :metricas="METRICAS_EQUIPO_GOLES" :soloGrupo="lado.clave"
+                            :cargando="cargando" textoVacio="Todavía no hay partidos con resultado."
+                            :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
+        </div>
+      </div>
 
       <!-- Estadísticas Goles: goles que nos marca el equipo contrario, por periodo. -->
       <div v-if="tabla === 'goles'" class="mt-4 flex flex-col gap-2">
