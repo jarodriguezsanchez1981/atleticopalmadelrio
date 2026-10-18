@@ -566,11 +566,12 @@ async function finalizarActa(req, res, next) {
     await PartidoGol.destroy({ where: { id_partido: partido.id } });
     if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
 
-    // Goles del rival con su minuto (para saber en qué periodo nos marcan):
-    // los del equipo contrario y los de propia puerta del PALMA (suman al
-    // rival); un gol en propia puerta del rival sería a favor del PALMA, no aquí.
+    // Goles del rival con su minuto (para saber en qué periodo nos marcan). El
+    // acta ya asigna cada gol al equipo al que suma (`equipo`), contando la
+    // propia puerta: un gol en contra es, sin más, el que no suma al PALMA
+    // (incluye las propias puertas del PALMA; las del rival suman a favor, no aquí).
     const golesContra = golesActa
-      .filter((g) => (g.equipo !== ladoPalma) !== (g.tipo === 'propia'))
+      .filter((g) => g.equipo !== ladoPalma)
       .map((g) => ({ id_partido: partido.id, minuto: g.minuto ?? null, tipo: g.tipo === 'penalti' ? 'penalti' : 'normal' }));
     await PartidoGolContra.destroy({ where: { id_partido: partido.id } });
     if (golesContra.length) await PartidoGolContra.bulkCreate(golesContra);

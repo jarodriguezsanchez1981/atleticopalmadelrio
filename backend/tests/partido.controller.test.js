@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador, Delegado } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador, Delegado } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -937,6 +937,32 @@ describe('Sección Partidos · partido.controller', () => {
       // Al minuto 50 iba 2-1 (el gol del mismo minuto no cuenta); la del cuerpo técnico no se guarda.
       expect(PartidoTarjeta.bulkCreate).toHaveBeenCalledWith([
         { id_partido: 1, id_jugador: 900, tipo: 'amarilla', minuto: 50, goles_favor: 2, goles_contra: 1 }
+      ]);
+    });
+
+    it('guarda los goles del equipo contrario (los que no suman al PALMA) con su minuto', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma()); // PALMA local
+      PartidoGolContra.destroy.mockReset();
+      PartidoGolContra.bulkCreate.mockReset();
+      leerActa.mockResolvedValue({
+        ...ACTA,
+        // El PALMA es local: en contra son los goles del visitante y las propias
+        // puertas del PALMA (que el acta ya asigna al visitante en `equipo`).
+        goles: [
+          { minuto: 10, equipo: 'local', tipo: 'normal' },
+          { minuto: 30, equipo: 'visitante', tipo: 'normal' },
+          { minuto: 48, equipo: 'visitante', tipo: 'propia' }, // propia puerta del PALMA: suma al rival
+          { minuto: 60, equipo: 'local', tipo: 'penalti' }
+        ]
+      });
+
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+
+      expect(PartidoGolContra.destroy).toHaveBeenCalledWith({ where: { id_partido: 1 } });
+      expect(PartidoGolContra.bulkCreate).toHaveBeenCalledWith([
+        { id_partido: 1, minuto: 30, tipo: 'normal' },
+        { id_partido: 1, minuto: 48, tipo: 'normal' }
       ]);
     });
 
