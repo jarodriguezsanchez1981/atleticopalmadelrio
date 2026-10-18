@@ -64,6 +64,17 @@ export const METRICAS_GOLES = [
   { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', porcentaje: true, subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente', calculo: 'Goles Supl. /\nGoles × 100' },
   { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true, calculo: 'Partidos con gol /\nPartidos × 100' }
 ];
+// Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
+// Mismos tramos que METRICAS_GOLES; los títulos por defecto son para 90'.
+export const METRICAS_GOLES_CONTRA = [
+  { campo: 'goles_contra', titulo: 'Goles', descripcion: 'Goles en contra (del resultado del partido)' },
+  { campo: 'contra_1t1', titulo: '0-15', subgrupo: '1ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 1ª parte', descripcion: 'Goles en contra en el 1er tramo de la 1ª parte' },
+  { campo: 'contra_1t2', titulo: '16-30', subgrupo: '1ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 1ª parte', descripcion: 'Goles en contra en el 2º tramo de la 1ª parte' },
+  { campo: 'contra_1t3', titulo: '31-45', subgrupo: '1ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 1ª parte', descripcion: 'Goles en contra en el 3er tramo de la 1ª parte (incluye el añadido)' },
+  { campo: 'contra_2t1', titulo: '46-60', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 2ª parte', descripcion: 'Goles en contra en el 1er tramo de la 2ª parte' },
+  { campo: 'contra_2t2', titulo: '61-75', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 2ª parte', descripcion: 'Goles en contra en el 2º tramo de la 2ª parte' },
+  { campo: 'contra_2t3', titulo: '76-90', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 2ª parte', descripcion: 'Goles en contra en el 3er tramo de la 2ª parte (incluye el añadido)' }
+];
 export const METRICAS_SANCIONES = [
   { campo: 'partidos', titulo: 'Partidos' },
   { campo: 'tarjetas_amarillas', titulo: 'Total', subgrupo: 'Amarillas' },

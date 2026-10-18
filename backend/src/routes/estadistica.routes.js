@@ -22,6 +22,8 @@ router.get('/', authorize(...SECCIONES_LISTADO), ctrl.listar);
 // Plantillas (con jugadores) para el selector de las Estadísticas por categoría.
 router.get('/plantillas', authorize(...SECCIONES_LISTADO), ctrl.plantillasEstadisticas);
 router.get('/equipo', authorize('estadisticas_equipo'), ctrl.equipo);
+// Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
+router.get('/goles-contra', authorize('estadisticas_goles', 'estadisticas_cat_goles'), ctrl.golesContra);
 // Clasificación de la liga por jornada (se copia sola de RFAF: utils/clasificacionAutomatica.js).
 router.get('/clasificacion', authorize('estadisticas_clasificacion', 'estadisticas_cat_clasificacion'), clasificacion.listar);
 // Gráficas de balance por plantilla del Dashboard.

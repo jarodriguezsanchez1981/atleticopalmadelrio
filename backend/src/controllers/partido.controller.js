@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const { filasPlanas } = require('../utils/filasPlanas');
 const { limiteConsulta } = require('../utils/limiteConsulta');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, Promocion, Entrenador, Delegado } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, PartidoGolContra, Promocion, Entrenador, Delegado } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -565,6 +565,15 @@ async function finalizarActa(req, res, next) {
       .filter(Boolean);
     await PartidoGol.destroy({ where: { id_partido: partido.id } });
     if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
+
+    // Goles del rival con su minuto (para saber en qué periodo nos marcan):
+    // los del equipo contrario y los de propia puerta del PALMA (suman al
+    // rival); un gol en propia puerta del rival sería a favor del PALMA, no aquí.
+    const golesContra = golesActa
+      .filter((g) => (g.equipo !== ladoPalma) !== (g.tipo === 'propia'))
+      .map((g) => ({ id_partido: partido.id, minuto: g.minuto ?? null, tipo: g.tipo === 'penalti' ? 'penalti' : 'normal' }));
+    await PartidoGolContra.destroy({ where: { id_partido: partido.id } });
+    if (golesContra.length) await PartidoGolContra.bulkCreate(golesContra);
 
     // Cuerpo técnico del PALMA en el acta: entrenadores y delegados. A quien ya
     // está en su sección y no tiene foto, se le pone la del acta; a quien no

@@ -90,6 +90,8 @@ export const torneosService = crudService('torneos');
 export const estadisticasService = {
   listar: (params = {}) => api.get('/estadisticas', { params }).then(r => r.data),
   equipo: (params = {}) => api.get('/estadisticas/equipo', { params }).then(r => r.data),
+  // Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
+  golesContra: (params = {}) => api.get('/estadisticas/goles-contra', { params }).then(r => r.data),
   // Clasificación de la liga por jornada; guardar copia de RFAF la siguiente jornada.
   clasificacion: (params = {}) => api.get('/estadisticas/clasificacion', { params }).then(r => r.data),
   // Victorias/empates/derrotas por plantilla de la temporada actual (Dashboard).

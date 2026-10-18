@@ -7,7 +7,7 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import {
-  METRICAS_EQUIPO, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_SANCIONES
+  METRICAS_EQUIPO, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
 } from '../../utils/estadisticasMetricas';
 
 /** Estadísticas en los partidos de la plantilla Senior A de la temporada
@@ -23,6 +23,8 @@ const plantilla = ref(null);
 const filas = ref([]);
 // Estadísticas Equipo: una sola fila, la del equipo.
 const equipo = ref(null);
+// Estadísticas Goles: goles del equipo contrario por periodo (tabla aparte).
+const golesContra = ref(null);
 const cargando = ref(false);
 const error = ref('');
 // Jugadores elegidos en el filtro (ids); vacío = todos.
@@ -38,11 +40,14 @@ async function cargar() {
       .find((p) => p.categoria?.nombre === CATEGORIA) || null;
     filas.value = [];
     equipo.value = null;
+    golesContra.value = null;
     if (plantilla.value && props.tabla === 'equipo') {
       equipo.value = await estadisticasService.equipo({ id_plantilla: plantilla.value.id });
     } else if (plantilla.value) {
       filas.value = (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
         .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
+      // En Goles, además, los goles que nos marca el equipo contrario por periodo.
+      if (props.tabla === 'goles') golesContra.value = await estadisticasService.golesContra({ id_plantilla: plantilla.value.id });
     }
   } catch (err) {
     filas.value = [];
@@ -74,6 +79,10 @@ const filasGoles = computed(() => filasFiltradas.value.filter((f) => f.goles > 0
 const filasEquipo = computed(() => (equipo.value?.partidos
   ? [{ ...equipo.value, equipo: plantilla.value?.categoria?.nombre || CATEGORIA }]
   : []));
+
+// Estadísticas Goles: una fila "Equipo Contrario" con los goles en contra.
+const METRICAS_CONTRA = METRICAS_GOLES_CONTRA;
+const filasContra = computed(() => (golesContra.value ? [golesContra.value] : []));
 
 // Cada tabla: título, explicación, métricas, filas y columna por la que se ordena.
 const TABLAS = {
@@ -198,6 +207,22 @@ onBeforeUnmount(() => {
       </template>
       <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
                         :cargando="cargando" :textoVacio="textoVacioTabla" />
+
+      <!-- Estadísticas Goles: goles que nos marca el equipo contrario, por periodo. -->
+      <div v-if="tabla === 'goles'" class="mt-4 flex flex-col gap-2">
+        <h2 class="font-display text-lg text-club-green">Equipo Contrario</h2>
+        <p class="text-sm text-ink-tertiary">
+          Goles que nos marca el rival y en qué periodo (mismos tramos de 15 minutos). El reparto por tramo sale de las
+          actas finalizadas; si un partido no se ha vuelto a finalizar desde que se guardan los goles del rival, suma al
+          total pero no a los tramos.
+        </p>
+        <div v-for="lado in LADOS_TABLA" :key="`contra-${lado.clave}`" class="flex flex-col gap-2">
+          <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+          <TablaEstadistica :filas="filasContra" :metricas="METRICAS_CONTRA" :soloGrupo="lado.clave"
+                            :cargando="cargando" textoVacio="Todavía no hay goles en contra."
+                            :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
+        </div>
+      </div>
     </template>
   </div>
 </SectionGuard>

@@ -1,4 +1,4 @@
-const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
+const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
 const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 const { diaEspana } = require('../utils/horaEspana');
 
@@ -29,6 +29,8 @@ const TIPO_FUTBOL_7 = 1;
 // Fútbol 7 no juega 90' (su acta llega a ~60'); Fútbol 11 sí. Un valor por tipo.
 const duracionJuego = (idTipoFutbol) => (Number(idTipoFutbol) === TIPO_FUTBOL_7 ? 60 : 90);
 const CAMPOS_GOLES_TRAMO = ['goles_1t1', 'goles_1t2', 'goles_1t3', 'goles_2t1', 'goles_2t2', 'goles_2t3'];
+// Mismos tramos para los goles del equipo contrario (Estadísticas Goles).
+const CAMPOS_CONTRA_TRAMO = ['contra_1t1', 'contra_1t2', 'contra_1t3', 'contra_2t1', 'contra_2t2', 'contra_2t3'];
 /** Tramo (1/6) de un gol: 3 por parte sobre la duración `dur`; el añadido de
  * cada parte cae en su último tramo. */
 function tramoGol(minuto, dur) {
@@ -323,6 +325,60 @@ async function equipo(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/** Goles del equipo contrario por periodo (tramos de 15') en los partidos de
+ * una plantilla: total de goles en contra (del resultado) y su reparto por
+ * tramo (de partido_goles_contra, que rellena Finalizar Acta). En total y como
+ * local / visitante del PALMA. Una sola fila ("Equipo Contrario") para la tabla
+ * de Estadísticas Goles. Los partidos cuya acta no se ha vuelto a finalizar
+ * desde que se guardan los goles del rival no tienen el reparto por tramo (el
+ * total sí sale del resultado). */
+async function golesContra(req, res, next) {
+  try {
+    const idPlantilla = Number(req.query.id_plantilla);
+    if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+
+    const plantilla = await Plantilla.findByPk(idPlantilla, {
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id_tipofutbol'] }]
+    });
+    const durGoles = duracionJuego(plantilla?.categoria?.id_tipofutbol);
+
+    const fila = { id_plantilla: idPlantilla, equipo: 'Equipo Contrario' };
+    for (const c of ['goles_contra', ...CAMPOS_CONTRA_TRAMO]) {
+      fila[c] = 0;
+      for (const l of LADOS) fila[`${c}_${l}`] = 0;
+    }
+    const sumar = (campo, valor, lado) => {
+      fila[campo] += valor;
+      fila[`${campo}_${lado}`] += valor;
+    };
+
+    const partidos = (await Partido.findAll({
+      where: { id_plantilla: idPlantilla },
+      attributes: ['id', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido']
+    }) || []).filter((p) => Number(p.jornada) > 0 && !p.suspendido && golesResultado(p.resultado)
+      && (Number(p.id_equipo_local) === PALMA_ID || Number(p.id_equipo_visitante) === PALMA_ID));
+    const ladoPartido = new Map();
+    for (const p of partidos) {
+      const lado = Number(p.id_equipo_local) === PALMA_ID ? 'local' : 'visitante';
+      ladoPartido.set(p.id, lado);
+      const goles = golesResultado(p.resultado);
+      sumar('goles_contra', lado === 'local' ? goles.visitante : goles.local, lado);
+    }
+
+    const idsPartidos = [...ladoPartido.keys()];
+    if (idsPartidos.length) {
+      const golesRival = await PartidoGolContra.findAll({ where: { id_partido: idsPartidos } }) || [];
+      for (const g of golesRival) {
+        const lado = ladoPartido.get(g.id_partido);
+        if (!lado || g.minuto == null) continue;
+        const idx = CAMPOS_GOLES_TRAMO.indexOf(tramoGol(g.minuto, durGoles));
+        sumar(CAMPOS_CONTRA_TRAMO[idx], 1, lado);
+      }
+    }
+    res.json(fila);
+  } catch (err) { next(err); }
+}
+
 // Plantilla que en el Dashboard tiene su propia gráfica (partido a partido)
 // en vez de ir en la de su tipo de fútbol.
 const CATEGORIA_GRAFICA_PROPIA = 'Senior A';
@@ -462,4 +518,4 @@ async function plantillasEstadisticas(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, equipo, balance, plantillasEstadisticas };
+module.exports = { listar, equipo, golesContra, balance, plantillasEstadisticas };

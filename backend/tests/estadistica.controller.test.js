@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, Plantilla, Temporada } from './helpers/models.js';
+import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, Plantilla, Temporada } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/estadistica.controller.js';
@@ -428,6 +428,54 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       const { promesa } = llamarPlantillas();
       await promesa;
       expect(Plantilla.findAll.mock.calls[0][0].where).toEqual({});
+    });
+  });
+
+  describe('golesContra (goles del equipo contrario por periodo)', () => {
+    beforeEach(() => {
+      Partido.findAll.mockReset();
+      PartidoGolContra.findAll.mockReset();
+      PartidoGolContra.findAll.mockResolvedValue([]);
+      Plantilla.findByPk.mockReset();
+      Plantilla.findByPk.mockResolvedValue({ categoria: { id_tipofutbol: 2 } }); // Fútbol 11 -> 90'
+    });
+
+    function llamarContra(overrides = {}) {
+      const { req, res, next } = mockReqRes(overrides);
+      return { promesa: ctrl.golesContra(req, res, next), res };
+    }
+
+    it('exige la plantilla', async () => {
+      const { promesa, res } = llamarContra({ query: {} });
+      await promesa;
+      expect(res._status).toBe(400);
+    });
+
+    it('suma los goles en contra del resultado y los reparte por tramo según el lado', async () => {
+      // Partido 1: PALMA local, pierde 1-2 (2 en contra). Partido 2: PALMA visitante, 0-1 (1 en contra).
+      Partido.findAll.mockResolvedValue([
+        { id: 1, jornada: 1, id_equipo_local: 73, id_equipo_visitante: 40, resultado: '1-2', suspendido: false },
+        { id: 2, jornada: 2, id_equipo_local: 55, id_equipo_visitante: 73, resultado: '1-0', suspendido: false }
+      ]);
+      PartidoGolContra.findAll.mockResolvedValue([
+        { id_partido: 1, minuto: 10 },  // 1er tramo 1ª parte (local)
+        { id_partido: 1, minuto: 80 },  // 3er tramo 2ª parte (local)
+        { id_partido: 2, minuto: 50 },  // 1er tramo 2ª parte (visitante)
+        { id_partido: 1, minuto: null } // sin minuto: no cuenta por tramo
+      ]);
+
+      const { promesa, res } = llamarContra({ query: { id_plantilla: '5' } });
+      await promesa;
+
+      const f = res._json;
+      expect(f).toMatchObject({ equipo: 'Equipo Contrario', goles_contra: 3, goles_contra_local: 2, goles_contra_visitante: 1 });
+      expect(f.contra_1t1_local).toBe(1);
+      expect(f.contra_2t3_local).toBe(1);
+      expect(f.contra_2t1_visitante).toBe(1);
+      // El total por tramos refleja los goles con minuto.
+      expect(f.contra_1t1).toBe(1);
+      expect(f.contra_2t3).toBe(1);
+      expect(f.contra_2t1).toBe(1);
     });
   });
 });

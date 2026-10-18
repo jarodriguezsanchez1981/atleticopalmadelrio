@@ -20,6 +20,7 @@ const Jornada = require('./Jornada');
 const PartidoJugador = require('./PartidoJugador');
 const PartidoTarjeta = require('./PartidoTarjeta');
 const PartidoGol = require('./PartidoGol');
+const PartidoGolContra = require('./PartidoGolContra');
 const Torneo = require('./Torneo');
 const Sancion = require('./Sancion');
 const Plantilla = require('./Plantilla');
@@ -148,6 +149,7 @@ Partido.hasMany(PartidoJugador, { foreignKey: 'id_partido', sourceKey: 'id', as:
 PartidoJugador.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
 PartidoTarjeta.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
 PartidoGol.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
+PartidoGolContra.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
 PartidoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
 Jugador.hasMany(PartidoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'partidosJugador' });
 PartidoJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
@@ -324,6 +326,7 @@ module.exports = {
   PartidoJugador,
   PartidoTarjeta,
   PartidoGol,
+  PartidoGolContra,
   Torneo,
   Sancion,
   Plantilla,
