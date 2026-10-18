@@ -119,6 +119,9 @@ const opciones = computed(() => ({
 }));
 
 const ultima = computed(() => datos.value.ultima);
+// Filas de la tabla con la diferencia de goles ya calculada (para ordenar por ella).
+const equiposTabla = computed(() => (ultima.value?.equipos || [])
+  .map((e) => ({ ...e, diferencia: e.goles_favor - e.goles_contra })));
 
 onMounted(async () => {
   await cargar();
@@ -167,20 +170,18 @@ onBeforeUnmount(() => {
         <h2 class="font-display text-lg text-club-green">
           Clasificación tras la jornada {{ ultima.jornada }}<template v-if="ultima.fecha"> ({{ formatoDia(ultima.fecha) }})</template>
         </h2>
-        <DataTable v-bind="estiloTabla" :value="ultima.equipos" dataKey="equipo"
+        <DataTable v-bind="estiloTabla" :value="equiposTabla" dataKey="equipo" removableSort
                    :rowClass="(e) => (e.es_palma ? '!bg-club-green/10 font-semibold' : '')">
-          <Column field="posicion" header="Pos." style="width: 4rem" />
-          <Column field="equipo" header="Equipo" style="min-width: 14rem" />
-          <Column field="puntos" header="Pts" />
-          <Column field="jugados" header="J" />
-          <Column field="ganados" header="G" />
-          <Column field="empatados" header="E" />
-          <Column field="perdidos" header="P" />
-          <Column field="goles_favor" header="GF" />
-          <Column field="goles_contra" header="GC" />
-          <Column header="Dif.">
-            <template #body="{ data }">{{ data.goles_favor - data.goles_contra }}</template>
-          </Column>
+          <Column field="posicion" header="Pos." style="width: 4rem" sortable />
+          <Column field="equipo" header="Equipo" style="min-width: 14rem" sortable />
+          <Column field="puntos" header="Pts" sortable />
+          <Column field="jugados" header="J" sortable />
+          <Column field="ganados" header="G" sortable />
+          <Column field="empatados" header="E" sortable />
+          <Column field="perdidos" header="P" sortable />
+          <Column field="goles_favor" header="GF" sortable />
+          <Column field="goles_contra" header="GC" sortable />
+          <Column field="diferencia" header="Dif." sortable />
         </DataTable>
       </div>
     </template>
