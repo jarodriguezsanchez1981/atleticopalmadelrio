@@ -30,7 +30,6 @@ const SECCIONES_SOLO_COORDINADORES = ['firma_email'];
  * únicamente el de esa categoría las ve (los coordinadores, todas). */
 const CATEGORIA_ESTADISTICAS = 'Senior A';
 const SECCIONES_SOLO_CATEGORIA_ESTADISTICAS = [
-  'estadisticas_equipo',
   'estadisticas_convocatorias',
   'estadisticas_tiempo',
   'estadisticas_goles',

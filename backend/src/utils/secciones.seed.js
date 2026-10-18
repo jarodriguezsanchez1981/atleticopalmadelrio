@@ -31,7 +31,6 @@ const SECCIONES = [
   { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98, grupo: 'competicion' },
   // Estadísticas (solo de la plantilla Senior A): una sección por tabla, en su
   // propio apartado del menú.
-  { clave: 'estadisticas_equipo', nombre: 'Estadísticas Senior A Equipo', icono: 'pi pi-shield', orden: 95, grupo: 'estadisticas' },
   { clave: 'estadisticas_convocatorias', nombre: 'Estadísticas Senior A Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas' },
   { clave: 'estadisticas_tiempo', nombre: 'Estadísticas Senior A Tiempo', icono: 'pi pi-stopwatch', orden: 97, grupo: 'estadisticas' },
   { clave: 'estadisticas_goles', nombre: 'Estadísticas Senior A Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas' },

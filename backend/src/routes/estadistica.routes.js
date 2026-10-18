@@ -21,9 +21,9 @@ const SECCIONES_LISTADO = [
 router.get('/', authorize(...SECCIONES_LISTADO), ctrl.listar);
 // Plantillas (con jugadores) para el selector de las Estadísticas por categoría.
 router.get('/plantillas', authorize(...SECCIONES_LISTADO), ctrl.plantillasEstadisticas);
-// Estadísticas Equipo; también lo leen Estadísticas Goles (la parte de goles) y
+// Datos del equipo: los leen Estadísticas Goles (la parte de goles) y
 // Estadísticas Sanciones (la parte de tarjetas).
-router.get('/equipo', authorize('estadisticas_equipo', 'estadisticas_goles', 'estadisticas_cat_goles', 'estadisticas_sanciones'), ctrl.equipo);
+router.get('/equipo', authorize('estadisticas_goles', 'estadisticas_cat_goles', 'estadisticas_sanciones'), ctrl.equipo);
 // Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
 router.get('/goles-contra', authorize('estadisticas_goles', 'estadisticas_cat_goles'), ctrl.golesContra);
 // Clasificación de la liga por jornada (se copia sola de RFAF: utils/clasificacionAutomatica.js).

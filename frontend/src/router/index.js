@@ -173,14 +173,7 @@ const routes = [
         meta: { seccion: 'sanciones' }
       },
       // Estadísticas: una sección (y una ruta) por tabla.
-      { path: 'estadisticas', redirect: '/estadisticas/equipo' },
-      {
-        path: 'estadisticas/equipo',
-        name: 'estadisticas_equipo',
-        component: () => import('../views/estadisticas/Estadisticas.vue'),
-        props: { tabla: 'equipo' },
-        meta: { seccion: 'estadisticas_equipo' }
-      },
+      { path: 'estadisticas', redirect: '/estadisticas/convocatorias' },
       {
         path: 'estadisticas/convocatorias',
         name: 'estadisticas_convocatorias',

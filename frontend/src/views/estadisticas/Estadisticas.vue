@@ -7,7 +7,7 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import {
-  METRICAS_EQUIPO, METRICAS_EQUIPO_GOLES, METRICAS_EQUIPO_TARJETAS, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
+  METRICAS_EQUIPO_GOLES, METRICAS_EQUIPO_TARJETAS, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
 } from '../../utils/estadisticasMetricas';
 
 /** Estadísticas en los partidos de la plantilla Senior A de la temporada
@@ -41,9 +41,7 @@ async function cargar() {
     filas.value = [];
     equipo.value = null;
     golesContra.value = null;
-    if (plantilla.value && props.tabla === 'equipo') {
-      equipo.value = await estadisticasService.equipo({ id_plantilla: plantilla.value.id });
-    } else if (plantilla.value) {
+    if (plantilla.value) {
       filas.value = (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
         .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
       // En Goles, además, los goles del equipo (parte de Estadísticas Equipo) y
@@ -104,13 +102,6 @@ const descripcionEquipoResumen = computed(() => (props.tabla === 'sanciones'
 
 // Cada tabla: título, explicación, métricas, filas y columna por la que se ordena.
 const TABLAS = {
-  equipo: {
-    seccion: 'estadisticas_equipo',
-    titulo: 'Estadísticas Equipo',
-    descripcion: 'Resultados del equipo en los partidos con resultado (no cuentan los suspendidos). GP / GEP: goles de penalti a favor / en contra. Las medias son goles o tarjetas por partido jugado (p.ej. 6 goles en 4 partidos = 1,50). Media Goles Titulares / Suplentes: goles por partido marcados por jugadores que salieron de titulares / que entraron desde el banquillo (los de propia puerta del rival no son de nadie). Media TA / TR Titulares y Suplentes: tarjetas por partido de los titulares / de los suplentes (también las que ve un suplente en el banquillo sin llegar a jugar). Las tarjetas son las de los jugadores del PALMA.',
-    metricas: METRICAS_EQUIPO,
-    porLado: true
-  },
   convocatorias: {
     seccion: 'estadisticas_convocatorias',
     titulo: 'Estadísticas Convocatorias',
@@ -144,15 +135,13 @@ const TABLAS = {
 };
 const config = computed(() => TABLAS[props.tabla]);
 const filasTabla = computed(() => ({
-  equipo: filasEquipo.value,
   convocatorias: filasFiltradas.value,
   tiempo: filasFiltradas.value,
   goles: filasGoles.value,
   sanciones: filasSanciones.value
 })[props.tabla]);
-// Equipo, Goles y Sanciones: una tabla para Total, otra para Local y otra para
-// Visitante; en Goles y Sanciones, cada una solo con quien tiene goles /
-// tarjetas en ella.
+// Goles y Sanciones: una tabla para Total, otra para Local y otra para
+// Visitante, cada una solo con quien tiene goles / tarjetas en ella.
 const LADOS_TABLA = [
   { clave: 'total', titulo: 'Total', sufijo: '' },
   { clave: 'local', titulo: 'Local', sufijo: '_local' },
@@ -166,7 +155,7 @@ function filasDelLado(sufijo) {
   return filasTabla.value;
 }
 
-const textoVacioTabla = computed(() => (props.tabla === 'equipo' ? 'Todavía no hay partidos con resultado.' : textoVacio.value));
+const textoVacioTabla = computed(() => textoVacio.value);
 
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
@@ -195,10 +184,6 @@ onBeforeUnmount(() => {
         una columna arrastrando su título.
       </p>
       <p class="text-sm text-ink-tertiary mt-1">{{ config.descripcion }}</p>
-      <p v-if="tabla === 'equipo' && equipo?.sin_penaltis" class="text-xs text-amber-700 mt-1">
-        {{ equipo.sin_penaltis }} {{ equipo.sin_penaltis === 1 ? 'partido no tiene' : 'partidos no tienen' }} los
-        penaltis en contra: vuelve a pulsar "Finalizar Acta" en {{ equipo.sin_penaltis === 1 ? 'él' : 'ellos' }}.
-      </p>
     </div>
     <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
       {{ error }} Recarga la página; si sigue pasando, revisa tus permisos de Estadísticas.
@@ -208,7 +193,7 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="plantilla && !error">
-      <div v-if="tabla !== 'equipo'" class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <label for="filtro-jugadores" class="text-sm font-medium text-ink-secondary">Jugadores</label>
         <MultiSelect inputId="filtro-jugadores" v-model="jugadoresFiltro" :options="opcionesJugadores" optionLabel="label"
                      optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear
@@ -233,8 +218,7 @@ onBeforeUnmount(() => {
           <h3 v-if="conResumenEquipo" class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
           <h2 v-else class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
-                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
-                            v-bind="tabla === 'equipo' ? { columnaNombre: { campo: 'equipo', titulo: 'Equipo' }, dataKey: 'id_plantilla' } : {}" />
+                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla" />
         </div>
       </template>
       <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
