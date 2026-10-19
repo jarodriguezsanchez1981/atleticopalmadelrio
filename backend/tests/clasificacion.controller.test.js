@@ -84,8 +84,8 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     expect(res._json.siguiente).toEqual({ jornada: 2, desde: '2026-09-21', disponible: true });
   });
 
-  it('siguienteJornada: el día siguiente al partido, solo desde las 12:00', async () => {
-    vi.setSystemTime(new Date('2026-09-21T09:59:00Z')); // 11:59 en España
+  it('siguienteJornada: el día siguiente al partido, solo desde las 10:00', async () => {
+    vi.setSystemTime(new Date('2026-09-21T07:59:00Z')); // 09:59 en España
     expect(await ctrl.siguienteJornada(36, new Set([1]))).toEqual({ jornada: 2, desde: '2026-09-21', disponible: false });
   });
 

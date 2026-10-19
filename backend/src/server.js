@@ -113,7 +113,7 @@ async function start() {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 API de la intranet escuchando en el puerto ${PORT}`);
     });
-    // Clasificación de RFAF: cada día a las 12:00 (y al arrancar, lo pendiente).
+    // Clasificación de RFAF: cada día a las 10:00 (y al arrancar, lo pendiente).
     clasificacionAutomatica.iniciar();
   } catch (err) {
     console.error('❌ No se pudo iniciar el servidor:', err);

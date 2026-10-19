@@ -2,7 +2,7 @@ const { desdeHoraEspana, partesEspana } = require('./horaEspana');
 
 /**
  * Copia automática de la clasificación de RFAF (Estadísticas → Clasificación):
- * todos los días a las 12:00 (hora española) se guardan las jornadas cuyo
+ * todos los días a las 10:00 (hora española) se guardan las jornadas cuyo
  * partido fue el día anterior o antes, y al arrancar el backend se ponen al
  * día las que se hubieran quedado pendientes. Una petición a rfaf.es por
  * jornada; si falla, se vuelve a intentar en la siguiente actualización.
@@ -34,7 +34,7 @@ function actualizar() {
 function programar() {
   const { HORA_ACTUALIZACION } = require('../controllers/clasificacion.controller');
   const proxima = proximaEjecucion(HORA_ACTUALIZACION);
-  const espera = proxima - Date.now() + 1000; // un segundo de margen: ya son las 12:00
+  const espera = proxima - Date.now() + 1000; // un segundo de margen: ya son las 10:00
   temporizador = setTimeout(() => {
     if (espera <= MAX_ESPERA_MS) actualizar().finally(programar);
     else programar();

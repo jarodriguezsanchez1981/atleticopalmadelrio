@@ -12,7 +12,7 @@ import { colorPosicion } from '../../utils/colorPosicion';
 
 /** Estadísticas → Clasificación: posición del PALMA en la liga jornada a
  * jornada (plantilla Senior A de la temporada actual). El servidor copia cada
- * clasificación de RFAF él solo, el día siguiente al partido a las 12:00. */
+ * clasificación de RFAF él solo, el día siguiente al partido a las 10:00. */
 const SECCION = 'estadisticas_clasificacion';
 const CATEGORIA = CATEGORIA_CON_MINUTOS;
 
@@ -141,13 +141,13 @@ onBeforeUnmount(() => {
         <p class="text-sm text-ink-tertiary">
           Posición del PALMA en la liga jornada a jornada
           <template v-if="plantilla">(<strong>{{ plantilla.categoria?.nombre }} / {{ plantilla.temporada?.nombre }}</strong>)</template>,
-          según la clasificación de RFAF. Cada jornada se guarda automáticamente el día siguiente a su partido a las 12:00.
+          según la clasificación de RFAF. Cada jornada se guarda automáticamente el día siguiente a su partido a las 10:00.
         </p>
       </div>
       <div v-if="plantilla && siguiente" class="rounded-lg border border-line bg-white px-3 py-2 text-xs text-ink-tertiary">
         <i class="pi pi-clock mr-1" />
-        <template v-if="siguiente.disponible">Jornada {{ siguiente.jornada }} pendiente: se guardará en la próxima actualización (12:00).</template>
-        <template v-else-if="siguiente.desde">Jornada {{ siguiente.jornada }}: se guardará el {{ formatoDia(siguiente.desde) }} a las 12:00.</template>
+        <template v-if="siguiente.disponible">Jornada {{ siguiente.jornada }} pendiente: se guardará en la próxima actualización (10:00).</template>
+        <template v-else-if="siguiente.desde">Jornada {{ siguiente.jornada }}: se guardará el {{ formatoDia(siguiente.desde) }} a las 10:00.</template>
       </div>
     </div>
 

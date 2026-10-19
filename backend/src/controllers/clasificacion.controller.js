@@ -6,12 +6,12 @@ const { diaEspana, partesEspana } = require('../utils/horaEspana');
 /**
  * Estadísticas → Clasificación: la clasificación de la liga jornada a jornada.
  * Se copia sola de RFAF (NFG_VisClasificacion) el día siguiente al partido de
- * cada jornada a las 12:00 (utils/clasificacionAutomatica.js) y se guarda en
+ * cada jornada a las 10:00 (utils/clasificacionAutomatica.js) y se guarda en
  * `clasificaciones` para no volver a pedirla a rfaf.es.
  */
 
 // Hora española a partir de la cual se copia la clasificación el día siguiente al partido.
-const HORA_ACTUALIZACION = 12;
+const HORA_ACTUALIZACION = 10;
 
 /** Códigos de la competición de RFAF de una plantilla (en sus columnas
  * codigo_primaria/codigo_grupo/codigo_competicion, que se rellenan al crear o
@@ -47,7 +47,7 @@ const diaPartido = (fecha) => new Date(fecha).toISOString().slice(0, 10);
 
 const formatoDia = (dia) => dia.split('-').reverse().join('/');
 
-/** true si ya ha llegado el día `desde` a las 12:00 (hora española). */
+/** true si ya ha llegado el día `desde` a las 10:00 (hora española). */
 function haLlegado(desde) {
   if (!desde) return false;
   const ahora = new Date();
@@ -58,7 +58,7 @@ function haLlegado(desde) {
 /**
  * Siguiente jornada por guardar: la primera de la liga (1, 2, …) que todavía no
  * está en la tabla. Se puede guardar desde el día siguiente a su partido a las
- * 12:00; una jornada sin partido del PALMA (descansa), una semana después que
+ * 10:00; una jornada sin partido del PALMA (descansa), una semana después que
  * la anterior. null si ya están todas.
  */
 async function siguienteJornada(idPlantilla, guardadas) {
