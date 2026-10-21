@@ -31,7 +31,7 @@ import { grupoDeEvento, ORDEN_GRUPOS } from '../utils/gruposCalendario';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { tituloCalendario } from '../utils/tituloCalendario';
 import { generarPdfCalendario } from '../utils/pdfCalendario';
-import { escudoEquipo, cargarEscudos } from '../utils/escudosEquipos';
+import { escudoEquipo, cargarEscudos, adjuntarEscudos } from '../utils/escudosEquipos';
 import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
@@ -559,6 +559,9 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
         lugar: p.lugar || null,
         categoria: p.plantilla?.categoria || p.categoria || null
       }));
+    // Los escudos no vienen en el listado de partidos: se piden aparte (base64) y
+    // se adjuntan a cada equipo antes de dibujar el PDF.
+    await adjuntarEscudos(mapeados);
     // Mismo renderizador que el PDF de Calendario, con su propio encabezado y nombre de fichero.
     await generarPdfCalendario(mapeados, fechaTitulo, tipoFutbol, { encabezado: 'Listado de Partidos', nombreFichero: 'partidos' });
   } catch (err) {
