@@ -1,9 +1,52 @@
 const { Usuario, Seccion, UsuarioSeccion, UsuarioCodigoRecuperacion, sequelize } = require('../models');
 const { isPasswordValid, hashPassword } = require('../utils/password.utils');
+const aes = require('../utils/aesCrypto');
 
 const includeUsuario = [
   { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre', 'icono', 'orden'], through: { attributes: ['puede_ver', 'puede_editar'] } }
 ];
+
+// Campos de la configuración de correo del usuario (buzón propio).
+const CAMPOS_EMAIL_TEXTO = ['email', 'email_imap', 'email_pop3', 'email_smtp', 'email_usuario'];
+const CAMPOS_EMAIL_PUERTO = ['email_imap_puerto', 'email_pop3_puerto', 'email_smtp_puerto'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** ¿Trae el cuerpo un email con formato no válido? (vacío o ausente = válido). */
+function emailInvalido(body) {
+  if (body.email === undefined) return false;
+  const v = String(body.email ?? '').trim();
+  return v !== '' && !EMAIL_RE.test(v);
+}
+
+/**
+ * Extrae del cuerpo solo los campos de correo que llegan, normalizados:
+ * los de texto se recortan (vacío -> null), los puertos se pasan a entero
+ * positivo (vacío/no válido -> null) y la contraseña del buzón se CIFRA con AES.
+ * Una contraseña vacía o ausente no se toca (igual que la de acceso): deja la
+ * que hubiera. Así se puede reutilizar tanto en crear como en actualizar.
+ */
+function camposEmailDesdeBody(body) {
+  const campos = {};
+  for (const c of CAMPOS_EMAIL_TEXTO) {
+    if (body[c] !== undefined) {
+      const v = String(body[c] ?? '').trim();
+      campos[c] = v === '' ? null : v;
+    }
+  }
+  for (const c of CAMPOS_EMAIL_PUERTO) {
+    if (body[c] !== undefined) {
+      if (body[c] === '' || body[c] === null) campos[c] = null;
+      else {
+        const n = Number(body[c]);
+        campos[c] = Number.isInteger(n) && n > 0 ? n : null;
+      }
+    }
+  }
+  if (body.email_password !== undefined && String(body.email_password).trim() !== '') {
+    campos.email_password = aes.encrypt(String(body.email_password));
+  }
+  return campos;
+}
 
 /**
  * Normaliza los permisos recibidos del formulario a un objeto { id_seccion: {ver, editar} }.
@@ -70,7 +113,8 @@ async function listar(req, res, next) {
 
 function serializeUsuario(usuario) {
   const json = usuario.toJSON ? usuario.toJSON() : usuario;
-  const { password, ...safe } = json;
+  // Ni el hash de acceso ni la contraseña (cifrada) del buzón salen nunca.
+  const { password, email_password, ...safe } = json;
   safe.permisos = {};
   (safe.secciones || []).forEach((s) => {
     safe.permisos[s.clave] = {
@@ -123,6 +167,9 @@ async function crear(req, res, next) {
         message: 'La contraseña debe tener mínimo 8 caracteres e incluir mayúsculas, minúsculas, números y caracteres especiales.'
       });
     }
+    if (emailInvalido(req.body)) {
+      return res.status(400).json({ message: 'El email no tiene un formato válido.' });
+    }
 
     const rolNormalizado = rolFinal(rol);
     const errorCategoria = validaRolCategoria(res, rolNormalizado, id_categoria);
@@ -135,7 +182,8 @@ async function crear(req, res, next) {
       nombre,
       apellidos,
       rol: rolNormalizado,
-      id_categoria: rolNormalizado === 'entrenador' ? id_categoria : null
+      id_categoria: rolNormalizado === 'entrenador' ? id_categoria : null,
+      ...camposEmailDesdeBody(req.body)
     });
 
     await guardarPermisosUsuario(nuevo.id, permisos);
@@ -152,6 +200,10 @@ async function actualizar(req, res, next) {
 
     const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol, id_categoria } = req.body;
     const permisos = await normalizePermisos(req.body);
+
+    if (emailInvalido(req.body)) {
+      return res.status(400).json({ message: 'El email no tiene un formato válido.' });
+    }
 
     if (password) {
       if (!isPasswordValid(password)) {
@@ -184,6 +236,9 @@ async function actualizar(req, res, next) {
         usuario.id_categoria = null;
       }
     }
+
+    // Configuración de correo: solo se tocan los campos que llegan.
+    Object.assign(usuario, camposEmailDesdeBody(req.body));
 
     await usuario.save();
 

@@ -68,7 +68,18 @@ const columns = computed(() => [
     format: (v) => categorias.value.find(c => c.id === Number(v))?.nombre || '—' },
   { field: 'permisos_secciones', header: 'Permisos', type: 'text', soloTabla: true },
   { field: 'totp_activado', header: '2FA', type: 'text', soloTabla: true, format: (v) => (v ? 'Sí' : 'No') },
-  { field: 'password', header: 'Contraseña', type: 'password', requiredOnCreate: true }
+  { field: 'password', header: 'Contraseña', type: 'password', requiredOnCreate: true },
+  // Correo del usuario: la dirección se ve en la tabla; la configuración del
+  // buzón (servidores, puertos, usuario y contraseña) solo en formulario/detalle.
+  { field: 'email', header: 'Email', type: 'text' },
+  { field: 'email_imap', header: 'IMAP', type: 'text', enTabla: false },
+  { field: 'email_imap_puerto', header: 'Puerto IMAP', type: 'number', enTabla: false },
+  { field: 'email_pop3', header: 'POP3', type: 'text', enTabla: false },
+  { field: 'email_pop3_puerto', header: 'Puerto POP3', type: 'number', enTabla: false },
+  { field: 'email_smtp', header: 'SMTP', type: 'text', enTabla: false },
+  { field: 'email_smtp_puerto', header: 'Puerto SMTP (SSL/TLS)', type: 'number', enTabla: false },
+  { field: 'email_usuario', header: 'Usuario de correo', type: 'text', enTabla: false },
+  { field: 'email_password', header: 'Contraseña de correo', type: 'password', enTabla: false }
 ]);
 
 const emptyItem = {
@@ -78,7 +89,16 @@ const emptyItem = {
   rol: 'coordinador',
   id_categoria: null,
   permisos: {},
-  password: ''
+  password: '',
+  email: '',
+  email_imap: '',
+  email_imap_puerto: null,
+  email_pop3: '',
+  email_pop3_puerto: null,
+  email_smtp: '',
+  email_smtp_puerto: null,
+  email_usuario: '',
+  email_password: ''
 };
 
 function toggleVer(form, seccionId) {
@@ -170,7 +190,7 @@ function prepararEdicion(data) {
 
     <Message severity="info" :closable="false" class="mb-4">
       La contraseña debe tener mínimo 8 caracteres y combinar mayúsculas, minúsculas, números y símbolos.
-      Al editar un usuario, deja el campo contraseña vacío si no quieres cambiarla.
+      Al editar un usuario, deja el campo contraseña vacío si no quieres cambiarla (lo mismo para la contraseña de correo).
       <strong>Rol</strong>: Coordinador = ve todas las categorías, Entrenador = ve solo su categoría.
     </Message>
 
