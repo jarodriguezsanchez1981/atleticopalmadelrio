@@ -16,6 +16,17 @@ on:
     branches: [develop, main]
 
 jobs:
+  secretos:
+    name: Escaneo de secretos (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Escanea el árbol de ficheros (--no-git) con el allowlist de .gitleaks.toml
+      # (plantillas .example y fixtures de test están excluidos). Falla si hay
+      # un secreto real. La imagen puede fijarse a una versión concreta si hace falta.
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source=/repo --no-git --config=/repo/.gitleaks.toml --redact --exit-code 1 -v
+
   backend:
     name: Backend (tests + auditoría)
     runs-on: ubuntu-latest

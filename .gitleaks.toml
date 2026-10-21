@@ -1,0 +1,19 @@
+# Configuración de gitleaks (escaneo de secretos en CI).
+# Usa las reglas por defecto y añade un allowlist para evitar falsos positivos
+# en sitios donde los "secretos" son de mentira a propósito:
+#   - ficheros de plantilla *.example (placeholders para rellenar)
+#   - fixtures de test con claves de prueba (p. ej. la clave AES 000…0)
+#   - cualquier fichero .env (van en .gitignore y no se commitean; si aparece
+#     en el árbol local no es un secreto del repositorio)
+# Si algún día hay un secreto real colado, saltará igual (reglas por defecto).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Plantillas .example, fixtures de test y ficheros .env locales"
+paths = [
+  '''.*\.example$''',
+  '''(^|/)\.env(\..+)?$''',
+  '''backend/tests/aesCrypto\.test\.js$''',
+]
