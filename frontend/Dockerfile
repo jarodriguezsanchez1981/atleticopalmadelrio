@@ -4,7 +4,9 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+# npm ci instala exactamente las versiones del package-lock.json (reproducible
+# y honra los parches de seguridad fijados); npm install podía resolver otras.
+RUN npm ci
 
 COPY . .
 
