@@ -14,8 +14,7 @@
 # Las imágenes son las bases del stack (docker-compose.yml y los Dockerfile):
 #   - mysql:8.0        → db, backup, binlog-backup
 #   - node:20-alpine   → backend, frontend (build), test
-#   - nginx:1.27-alpine→ frontend (runtime)
-#   - nginx:alpine     → reverse-proxy
+#   - nginx:alpine     → frontend (runtime) y reverse-proxy
 #   - certbot/certbot  → certbot
 # Si en el compose/Dockerfile se cambia un tag, actualizar esta lista.
 
@@ -25,7 +24,6 @@ umask 077
 IMAGENES=(
   "mysql:8.0"
   "node:20-alpine"
-  "nginx:1.27-alpine"
   "nginx:alpine"
   "certbot/certbot"
 )
