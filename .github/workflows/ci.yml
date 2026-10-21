@@ -1,0 +1,60 @@
+name: CI
+
+# Integración continua: en cada push/PR a develop o main se ejecutan los tests
+# del backend y del frontend, el build del frontend y una auditoría de
+# dependencias (npm audit). La auditoría bloquea si aparece una vulnerabilidad
+# CRITICAL; las HIGH no bloquean (ya las vigila el cron de seguridad y el aviso
+# de la intranet), pero se dejan visibles en el log del job.
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  backend:
+    name: Backend (tests + auditoría)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Tests
+        run: npm test
+      - name: Auditoría de dependencias (HIGH, informativa)
+        run: npm audit --omit=dev --audit-level=high || true
+      - name: Auditoría de dependencias (bloquea en CRITICAL)
+        run: npm audit --omit=dev --audit-level=critical
+
+  frontend:
+    name: Frontend (tests + build + auditoría)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Auditoría de dependencias (HIGH, informativa)
+        run: npm audit --audit-level=high || true
+      - name: Auditoría de dependencias (bloquea en CRITICAL)
+        run: npm audit --audit-level=critical
