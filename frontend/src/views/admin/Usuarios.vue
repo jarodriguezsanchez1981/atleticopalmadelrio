@@ -66,7 +66,6 @@ const columns = computed(() => [
   { field: 'rol', header: 'Rol', type: 'select', options: opcionesRol, required: true },
   { field: 'id_categoria', header: 'Categoría', type: 'text', enForm: false,
     format: (v) => categorias.value.find(c => c.id === Number(v))?.nombre || '—' },
-  { field: 'permisos_secciones', header: 'Permisos', type: 'text', soloTabla: true },
   { field: 'totp_activado', header: '2FA', type: 'text', soloTabla: true, format: (v) => (v ? 'Sí' : 'No') },
   { field: 'password', header: 'Contraseña', type: 'password', requiredOnCreate: true }
 ]);
@@ -130,15 +129,6 @@ function toggleTodas(form, tipo) {
   });
 }
 
-function nombresSecciones(data) {
-  if (!data.permisos) return '—';
-  const claves = Object.entries(data.permisos)
-    .filter(([, p]) => p.ver)
-    .map(([k]) => k);
-  if (!claves.length) return '—';
-  return claves.map(k => secciones.value.find(s => s.clave === k)?.nombre || k).join(', ');
-}
-
 function prepararEdicion(data) {
   const permisos = {};
   (data.secciones || []).forEach(s => {
@@ -191,9 +181,6 @@ function prepararEdicion(data) {
           {{ data.rol === 'entrenador' ? 'Entrenador' : 'Coordinador' }}
         </span>
       </template>
-      <template #cell-permisos_secciones="{ data }">
-        <span class="text-sm">{{ nombresSecciones(data) }}</span>
-      </template>
       <template #cell-totp_activado="{ data }">
         <span
           class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
@@ -209,19 +196,6 @@ function prepararEdicion(data) {
       <template #detail-rol="{ data }">
         {{ data.rol === 'entrenador' ? 'Entrenador (solo su categoría)' : 'Coordinador (ve todas las categorías)' }}
       </template>
-      <template #detail-permisos_secciones="{ data }">
-        <div class="space-y-1">
-          <div v-for="sec in secciones" :key="sec.id" class="flex items-center gap-2 text-sm">
-            <i v-if="data.permisos?.[sec.clave]?.editar" class="pi pi-pencil text-club-green text-xs"></i>
-            <i v-else-if="data.permisos?.[sec.clave]?.ver" class="pi pi-eye text-blue-600 text-xs"></i>
-            <i v-else class="pi pi-minus text-gray-300 text-xs"></i>
-            <span :class="data.permisos?.[sec.clave]?.ver ? 'text-ink-primary' : 'text-ink-tertiary'">
-              {{ sec.nombre }}
-            </span>
-          </div>
-        </div>
-      </template>
-
       <template #detail-extra="{ data }">
         <div class="flex items-center justify-between gap-3 border-t border-line pt-3 mt-1">
           <div class="text-sm">
