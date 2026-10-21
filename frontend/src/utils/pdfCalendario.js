@@ -249,7 +249,7 @@ export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = nu
 
 function dibujarFilaPartido(doc, p, imagenes, escudoClub, y) {
   const inicio = aDate(p.inicio);
-  const cat = p.categoria?.nombre || '—';
+  const cat = p.categoria?.alias || p.categoria?.nombre || '—';
   const esLocalPalma = p.equipoLocal?.nombre === NOMBRE_PALMA;
   const lugarNombre = typeof p.lugar === 'string' ? p.lugar : (p.lugar?.nombre || null);
   const lugar = esLocalPalma ? (lugarNombre || '—') : (p.equipoLocal?.localidad || '—');
@@ -276,7 +276,7 @@ function dibujarFilaPartido(doc, p, imagenes, escudoClub, y) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[1] - 2);
-  doc.text(lugarTexto, x + 1.5, mitadV);
+  doc.text(lugarTexto, x + ANCHO_COLUMNAS[1] / 2, mitadV, { align: 'center' });
   x += ANCHO_COLUMNAS[1];
 
   // Hora
@@ -293,13 +293,12 @@ function dibujarFilaPartido(doc, p, imagenes, escudoClub, y) {
   doc.text(catTexto, x + ANCHO_COLUMNAS[3] / 2, mitadV, { align: 'center' });
   x += ANCHO_COLUMNAS[3];
 
-  // Equipo rival (escudo + nombre, centrados)
+  // Equipo rival (escudo + nombre, alineados a la izquierda)
   const anchoNombreEquipo = ANCHO_COLUMNAS[4] - escudoTamanio - 8;
   const equipoAjustado = ajustarTexto(doc, equipoNombre, 8, anchoNombreEquipo);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  const anchoTotalEquipo = escudoRival ? (escudoTamanio + 2 + doc.getTextWidth(equipoAjustado)) : doc.getTextWidth(equipoAjustado);
-  const xEquipo = x + (ANCHO_COLUMNAS[4] - anchoTotalEquipo) / 2;
+  const xEquipo = x + 2;
   if (escudoRival) {
     dibujarEscudo(doc, escudoRival, xEquipo, mitadV - escudoTamanio / 2, escudoTamanio);
   }
@@ -311,7 +310,7 @@ function dibujarFilaPartido(doc, p, imagenes, escudoClub, y) {
 
 function dibujarFilaEntrenamiento(doc, e, y) {
   const inicio = aDate(e.inicio);
-  const cat = e.categoria?.nombre || '—';
+  const cat = e.categoria?.alias || e.categoria?.nombre || '—';
   const lugar = e.lugar || '—';
   const horaTexto = inicio ? formatearHora(inicio) : '—';
 
@@ -330,7 +329,7 @@ function dibujarFilaEntrenamiento(doc, e, y) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[1] - 2);
-  doc.text(lugarTexto, x + 1.5, mitadV);
+  doc.text(lugarTexto, x + ANCHO_COLUMNAS[1] / 2, mitadV, { align: 'center' });
   x += ANCHO_COLUMNAS[1];
 
   // Hora
@@ -352,7 +351,7 @@ function dibujarFilaEntrenamiento(doc, e, y) {
 
 function dibujarFilaTorneo(doc, t, imagenes, escudoClub, y) {
   const inicio = aDate(t.inicio);
-  const cat = t.categoria?.nombre || '—';
+  const cat = t.categoria?.alias || t.categoria?.nombre || '—';
   const lugar = t.equipo?.localidad || '—';
   const horaTexto = inicio ? formatearHora(inicio) : '—';
 
@@ -371,7 +370,7 @@ function dibujarFilaTorneo(doc, t, imagenes, escudoClub, y) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[1] - 2);
-  doc.text(lugarTexto, x + 1.5, mitadV);
+  doc.text(lugarTexto, x + ANCHO_COLUMNAS[1] / 2, mitadV, { align: 'center' });
   x += ANCHO_COLUMNAS[1];
 
   // Hora
