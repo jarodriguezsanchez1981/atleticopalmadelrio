@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 #
-# Comprueba parches de seguridad de las imágenes base del docker-compose:
-#   1) si hay una versión más reciente (parcheada) de cada tag fijado, y
-#   2) vulnerabilidades HIGH/CRITICAL con Trivy.
+# Comprueba parches de seguridad del stack:
+#   1) si hay una versión más reciente (parcheada) de cada imagen base fijada,
+#   2) vulnerabilidades HIGH/CRITICAL de las imágenes con Trivy, y
+#   3) vulnerabilidades HIGH/CRITICAL de las dependencias npm (package-lock.json
+#      de backend y frontend) con Trivy en modo filesystem.
 #
 # Escribe un informe con fecha en ~/seguridad-docker/ (umask 077) y conserva
 # los de los últimos 30 días. NO recrea ni reinicia contenedores: solo hace
@@ -110,10 +112,46 @@ for img in "${IMAGENES[@]}"; do
 done
 log ""
 
+# ---- 3) Vulnerabilidades en dependencias npm (Trivy fs sobre los lockfiles) ----
+# Trivy lee package-lock.json directamente (no hace falta node_modules), así que
+# detecta CVEs de las librerías de la app, no solo de las imágenes base. Se monta
+# el repo en solo lectura. Si no se encuentra el lockfile, se omite esa carpeta.
+log "-- 3) Vulnerabilidades HIGH/CRITICAL en dependencias npm (Trivy fs) --"
+resumen_deps=""
+for dep in "backend" "frontend"; do
+  if [ ! -f "$PROYECTO_DIR/$dep/package-lock.json" ]; then
+    log "  · $dep: sin package-lock.json, se omite."
+    continue
+  fi
+  log "  · $dep"
+  salida="$(docker run --rm \
+    -v "$PROYECTO_DIR:/repo:ro" \
+    -v "$TRIVY_CACHE:/root/.cache/" \
+    aquasec/trivy:latest fs --quiet --scanners vuln \
+    --severity HIGH,CRITICAL --no-progress "/repo/$dep/package-lock.json" 2>>"$LOG")"
+  if [ -z "$salida" ]; then
+    log "      (Trivy no devolvió datos; revisa el log más arriba)"
+    resumen_deps+="    npm:$dep: sin datos\n"
+    continue
+  fi
+  printf '%s\n' "$salida" >> "$LOG"
+  totales="$(printf '%s\n' "$salida" | grep -E 'Total: [0-9]+ \(' | head -1)"
+  [ -z "$totales" ] && totales="Total: 0 (HIGH: 0, CRITICAL: 0)"
+  log "      $totales"
+  resumen_deps+="    npm:$dep: $totales\n"
+  h="$(printf '%s' "$totales" | sed -nE 's/.*HIGH: ([0-9]+).*/\1/p')"
+  c="$(printf '%s' "$totales" | sed -nE 's/.*CRITICAL: ([0-9]+).*/\1/p')"
+  total_high=$((total_high + ${h:-0}))
+  total_critical=$((total_critical + ${c:-0}))
+done
+# Las dependencias se suman al mismo resumen que las imágenes.
+resumen_vulns+="$resumen_deps"
+log ""
+
 # ---- Resumen ----
 log "== Resumen =="
 log "Imágenes con versión nueva disponible: $([ "$hay_actualizaciones" -eq 1 ] && echo 'SÍ — conviene reconstruir/redeplegar' || echo 'no')"
-log "Vulnerabilidades HIGH/CRITICAL por imagen:"
+log "Vulnerabilidades HIGH/CRITICAL (imágenes y dependencias npm):"
 printf "%b" "$resumen_vulns" | tee -a "$LOG"
 log "Informe completo: $LOG"
 
