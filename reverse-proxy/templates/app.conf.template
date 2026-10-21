@@ -51,6 +51,12 @@ server {
     listen 443 ssl;
     server_name ${DOMAIN};
 
+    # Log a fichero (además de stdout) para que fail2ban en el host lea los
+    # intentos de login y banee IPs abusivas. El fichero va a un volumen del
+    # host (ver docker-compose) y se rota con logrotate (copytruncate).
+    access_log /var/log/apr/access.log;
+    access_log /dev/stdout;
+
     ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;

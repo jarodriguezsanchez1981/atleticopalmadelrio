@@ -36,3 +36,6 @@ reverse-proxy/certbot/
 # Python
 __pycache__/
 *.pyc
+
+# Logs del reverse-proxy (fail2ban), no se commitean
+reverse-proxy/logs/

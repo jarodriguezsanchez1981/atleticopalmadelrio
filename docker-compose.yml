@@ -216,6 +216,8 @@ services:
       - ./reverse-proxy/templates:/etc/nginx/templates:ro
       - ./reverse-proxy/certbot/conf:/etc/letsencrypt:ro
       - ./reverse-proxy/certbot/www:/var/www/certbot:ro
+      # Log de acceso en fichero para fail2ban (lee los intentos de login).
+      - ./reverse-proxy/logs:/var/log/apr
     networks:
       - apr_net
 
