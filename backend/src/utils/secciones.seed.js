@@ -42,6 +42,12 @@ const SECCIONES = [
   { clave: 'estadisticas_cat_goles', nombre: 'Estadísticas Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas_cat' },
   { clave: 'estadisticas_cat_clasificacion', nombre: 'Estadísticas Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas_cat' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
+  // Notificaciones: submenú dentro del apartado "Club" (grupo 'notificaciones',
+  // que MainLayout.vue dibuja anidado bajo Club). Generan documentos PDF del
+  // club; no tienen API propia.
+  { clave: 'invitacion_torneo', nombre: 'Invitación Torneo', icono: 'pi pi-envelope', orden: 10, grupo: 'notificaciones' },
+  { clave: 'nota_prensa', nombre: 'Nota Prensa', icono: 'pi pi-megaphone', orden: 20, grupo: 'notificaciones' },
+  { clave: 'nota_informativa', nombre: 'Nota Informativa', icono: 'pi pi-info-circle', orden: 30, grupo: 'notificaciones' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
   { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' },
   // Solo coordinadores (ver SECCIONES_SOLO_COORDINADORES en frontend/src/stores/auth.store.js).

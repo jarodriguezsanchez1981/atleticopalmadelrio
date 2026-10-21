@@ -44,6 +44,13 @@ const ITEMS_FIJOS = {
   admin: [{ label: 'Cambiar Contraseña', icon: 'pi pi-key', to: '/cambiar-password' }]
 };
 
+// Submenús anidados dentro de un apartado: sus secciones viven en la base de
+// datos con ese `grupo` (no es un apartado de primer nivel de GRUPOS_MENU) y se
+// dibujan plegables bajo el apartado padre. "Notificaciones" cuelga de "Club".
+const SUBGRUPOS = {
+  club: [{ clave: 'notificaciones', label: 'Notificaciones', icon: 'pi pi-bell' }]
+};
+
 const catalogoSecciones = ref([]);
 let unsubCambio = null;
 
@@ -79,10 +86,16 @@ function etiquetaEnGrupo(nombre, grupo) {
   return String(nombre || '').replace(/^Estad[íi]sticas(\s+Senior\s+A)?\s+/i, '') || nombre;
 }
 
+function subgruposDelGrupo(clave) {
+  return (SUBGRUPOS[clave] || [])
+    .map((sg) => ({ ...sg, items: itemsDelGrupo(sg.clave) }))
+    .filter((sg) => sg.items.length);
+}
+
 const gruposNav = computed(() =>
   GRUPOS_MENU
-    .map((g) => ({ ...g, items: itemsDelGrupo(g.clave) }))
-    .filter((g) => g.items.length)
+    .map((g) => ({ ...g, items: itemsDelGrupo(g.clave), subgrupos: subgruposDelGrupo(g.clave) }))
+    .filter((g) => g.items.length || g.subgrupos.length)
 );
 
 const navItems = computed(() => ALL_NAV.filter((item) => auth.puedeVer(item.seccion)));
@@ -103,7 +116,8 @@ const userMenuItems = [
 ];
 
 const tituloPagina = computed(() => {
-  const allItems = [...navItems.value, ...gruposNav.value.flatMap((g) => g.items)];
+  const itemsSubgrupos = gruposNav.value.flatMap((g) => g.subgrupos.flatMap((sg) => sg.items));
+  const allItems = [...navItems.value, ...gruposNav.value.flatMap((g) => g.items), ...itemsSubgrupos];
   const activo = allItems.find((i) => i.to === route.path);
   return activo?.label || 'Intranet';
 });
@@ -113,7 +127,11 @@ function toggleGrupo(clave) {
   gruposAbiertos.value = { ...gruposAbiertos.value, [clave]: !gruposAbiertos.value[clave] };
 }
 function grupoActivo(grupo) {
-  return grupo.items.some((i) => route.path === i.to);
+  return grupo.items.some((i) => route.path === i.to)
+    || (grupo.subgrupos || []).some((sg) => sg.items.some((i) => route.path === i.to));
+}
+function subgrupoActivo(subgrupo) {
+  return subgrupo.items.some((i) => route.path === i.to);
 }
 </script>
 
@@ -169,6 +187,31 @@ function grupoActivo(grupo) {
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
             </router-link>
+
+            <!-- Submenús anidados (p. ej. Notificaciones dentro de Club) -->
+            <div v-for="sub in grupo.subgrupos" :key="sub.clave">
+              <button
+                @click="toggleGrupo(sub.clave)"
+                class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+                :class="{ '!bg-white/10 !text-white !font-medium': subgrupoActivo(sub) }"
+              >
+                <i :class="sub.icon" class="text-[0.85rem]" />
+                <span class="flex-1 text-left">{{ sub.label }}</span>
+                <i :class="gruposAbiertos[sub.clave] ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
+              </button>
+              <div v-show="gruposAbiertos[sub.clave]" class="ml-4 mt-1 space-y-0.5">
+                <router-link
+                  v-for="item in sub.items"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                  active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+                >
+                  <i :class="item.icon" class="text-[0.85rem]" />
+                  <span>{{ item.label }}</span>
+                </router-link>
+              </div>
+            </div>
           </div>
         </div>
       </nav>
@@ -220,6 +263,32 @@ function grupoActivo(grupo) {
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
             </router-link>
+
+            <!-- Submenús anidados (p. ej. Notificaciones dentro de Club) -->
+            <div v-for="sub in grupo.subgrupos" :key="sub.clave">
+              <button
+                @click="toggleGrupo(sub.clave)"
+                class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
+                :class="{ '!bg-white/10 !text-white !font-medium': subgrupoActivo(sub) }"
+              >
+                <i :class="sub.icon" class="text-[0.85rem]" />
+                <span class="flex-1 text-left">{{ sub.label }}</span>
+                <i :class="gruposAbiertos[sub.clave] ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" class="text-[0.7rem]" />
+              </button>
+              <div v-show="gruposAbiertos[sub.clave]" class="ml-4 mt-1 space-y-0.5">
+                <router-link
+                  v-for="item in sub.items"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                  active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+                  @click="navegar"
+                >
+                  <i :class="item.icon" class="text-[0.85rem]" />
+                  <span>{{ item.label }}</span>
+                </router-link>
+              </div>
+            </div>
           </div>
         </div>
       </nav>

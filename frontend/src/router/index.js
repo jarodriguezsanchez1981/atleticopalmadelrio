@@ -236,6 +236,25 @@ const routes = [
         component: () => import('../views/informes/Informes.vue'),
         meta: { seccion: 'informes' }
       },
+      // Notificaciones (submenú dentro de Club): documentos PDF del club.
+      {
+        path: 'notificaciones/invitacion-torneo',
+        name: 'invitacion_torneo',
+        component: () => import('../views/notificaciones/InvitacionTorneo.vue'),
+        meta: { seccion: 'invitacion_torneo' }
+      },
+      {
+        path: 'notificaciones/nota-prensa',
+        name: 'nota_prensa',
+        component: () => import('../views/notificaciones/NotaPrensa.vue'),
+        meta: { seccion: 'nota_prensa' }
+      },
+      {
+        path: 'notificaciones/nota-informativa',
+        name: 'nota_informativa',
+        component: () => import('../views/notificaciones/NotaInformativa.vue'),
+        meta: { seccion: 'nota_informativa' }
+      },
       {
         path: 'cambios',
         name: 'cambios',
