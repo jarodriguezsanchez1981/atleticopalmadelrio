@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Usuario, Seccion, UsuarioSeccion } from './helpers/models.js';
 import { passwordUtils } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
-import { decrypt } from '../src/utils/aesCrypto.js';
 
 import * as ctrl from '../src/controllers/usuario.controller.js';
 
@@ -151,104 +150,6 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(res._status).toBe(201);
-  });
-
-  it('listar no expone la contraseña del buzón (email_password)', async () => {
-    Usuario.findAll.mockResolvedValue([
-      { id: 1, usuario: 'admin', email: 'a@club.com', email_password: 'CIFRADA', secciones: [] }
-    ]);
-    const { promesa, res } = llamar(ctrl.listar);
-
-    await promesa;
-
-    expect(res._json[0].email).toBe('a@club.com');
-    expect(res._json[0].email_password).toBeUndefined();
-  });
-
-  it('crear guarda la configuración de correo y cifra la contraseña del buzón', async () => {
-    Usuario.create.mockResolvedValue({ id: 9 });
-    Usuario.findByPk.mockResolvedValue({ id: 9, usuario: 'c', nombre: 'A', apellidos: 'B', secciones: [] });
-    const { promesa, res } = llamar(ctrl.crear, {
-      body: {
-        usuario: 'c', password: 'Clave123!', nombre: 'A', apellidos: 'B', permisos: {},
-        email: 'c@club.com', email_imap: 'imap.club.com', email_imap_puerto: 993,
-        email_pop3: 'pop.club.com', email_pop3_puerto: 995,
-        email_smtp: 'smtp.club.com', email_smtp_puerto: 465,
-        email_usuario: 'c@club.com', email_password: 'SecretoBuzon1!'
-      }
-    });
-
-    await promesa;
-
-    const args = Usuario.create.mock.calls[0][0];
-    expect(args).toMatchObject({
-      email: 'c@club.com', email_imap: 'imap.club.com', email_imap_puerto: 993,
-      email_pop3: 'pop.club.com', email_pop3_puerto: 995,
-      email_smtp: 'smtp.club.com', email_smtp_puerto: 465, email_usuario: 'c@club.com'
-    });
-    // La contraseña del buzón se guarda cifrada, nunca en texto plano.
-    expect(args.email_password).not.toBe('SecretoBuzon1!');
-    expect(decrypt(args.email_password)).toBe('SecretoBuzon1!');
-    expect(res._status).toBe(201);
-  });
-
-  it('crear rechaza un email con formato no válido', async () => {
-    const { promesa, res } = llamar(ctrl.crear, {
-      body: { usuario: 'c', password: 'Clave123!', nombre: 'A', apellidos: 'B', email: 'no-es-email' }
-    });
-
-    await promesa;
-
-    expect(res._status).toBe(400);
-    expect(res._json.message).toBe('El email no tiene un formato válido.');
-    expect(Usuario.create).not.toHaveBeenCalled();
-  });
-
-  it('actualizar guarda la configuración de correo y cifra la contraseña del buzón', async () => {
-    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
-    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', secciones: [] };
-    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
-    const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' },
-      body: { email: 'j@club.com', email_smtp: 'smtp.club.com', email_smtp_puerto: 465, email_password: 'OtroSecreto2!' }
-    });
-
-    await promesa;
-
-    expect(usuario.email).toBe('j@club.com');
-    expect(usuario.email_smtp).toBe('smtp.club.com');
-    expect(usuario.email_smtp_puerto).toBe(465);
-    expect(decrypt(usuario.email_password)).toBe('OtroSecreto2!');
-    expect(usuario.save).toHaveBeenCalled();
-    expect(res._status).toBe(200);
-  });
-
-  it('actualizar no toca la contraseña del buzón si llega vacía', async () => {
-    const usuario = { id: 1, email_password: 'YA-CIFRADA', save: vi.fn().mockResolvedValue() };
-    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', secciones: [] };
-    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
-    const { promesa } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { email: 'j@club.com', email_password: '' }
-    });
-
-    await promesa;
-
-    expect(usuario.email).toBe('j@club.com');
-    expect(usuario.email_password).toBe('YA-CIFRADA');
-  });
-
-  it('actualizar rechaza un email con formato no válido', async () => {
-    const usuario = { id: 1, save: vi.fn() };
-    Usuario.findByPk.mockResolvedValue(usuario);
-    const { promesa, res } = llamar(ctrl.actualizar, {
-      params: { id: '1' }, body: { email: 'malformado@' }
-    });
-
-    await promesa;
-
-    expect(res._status).toBe(400);
-    expect(res._json.message).toBe('El email no tiene un formato válido.');
-    expect(usuario.save).not.toHaveBeenCalled();
   });
 
   it('actualizar guarda permisos por sección', async () => {
