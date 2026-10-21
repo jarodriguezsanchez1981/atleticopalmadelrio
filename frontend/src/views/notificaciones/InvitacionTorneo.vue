@@ -1,7 +1,8 @@
 <script setup>
-import { reactive, ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { reactive, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import InputText from 'primevue/inputtext';
 import DatePicker from 'primevue/datepicker';
+import Select from 'primevue/select';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { crearDocInvitacionTorneo, generarPdfInvitacionTorneo } from '../../utils/pdfInvitacionTorneo';
@@ -14,12 +15,21 @@ const SECCION = 'invitacion_torneo';
 const CLAVE_BORRADOR = 'apr_invitacion_torneo';
 const toast = useToast();
 
+// Combos: franja horaria (desde/hasta), lugares y categorías del club.
+const OPCIONES_HORA = [];
+for (let h = 8; h <= 22; h++) {
+  for (const m of ['00', '30']) OPCIONES_HORA.push(`${String(h).padStart(2, '0')}:${m}`);
+}
+const OPCIONES_LUGAR = ['Estadio Anexo', 'Estadio Municipal Sergio León'];
+const OPCIONES_CATEGORIA = ['Bebé', 'Prebenjamín', 'Benjamín', 'Alevín'];
+
 const DATOS_POR_DEFECTO = {
   nombreTorneo: 'Torneo de Fútbol de Bebés',
   fecha: null,
-  hora: '10:00 a 14:00 h',
-  lugar: 'Palma del Río (Córdoba)',
-  categoria: 'Bebés'
+  horaDesde: '10:00',
+  horaHasta: '14:00',
+  lugar: 'Estadio Municipal Sergio León',
+  categoria: 'Bebé'
 };
 
 function leerBorrador() {
@@ -34,13 +44,24 @@ function leerBorrador() {
 
 const datos = reactive({ ...DATOS_POR_DEFECTO, ...(leerBorrador() || {}) });
 
+// La franja horaria se compone "10:00 a 14:00 h" para la carta.
+const valores = computed(() => ({
+  nombreTorneo: datos.nombreTorneo,
+  fecha: datos.fecha,
+  hora: datos.horaDesde && datos.horaHasta
+    ? `${datos.horaDesde} a ${datos.horaHasta} h`
+    : (datos.horaDesde || datos.horaHasta || ''),
+  lugar: datos.lugar,
+  categoria: datos.categoria
+}));
+
 const previaUrl = ref('');
 const generando = ref(false);
 let urlAnterior = '';
 
 async function refrescarPrevia() {
   try {
-    const { doc } = await crearDocInvitacionTorneo(datos);
+    const { doc } = await crearDocInvitacionTorneo(valores.value);
     const url = doc.output('bloburl');
     if (urlAnterior) URL.revokeObjectURL(urlAnterior);
     urlAnterior = url;
@@ -53,7 +74,7 @@ async function refrescarPrevia() {
 async function descargar() {
   generando.value = true;
   try {
-    await generarPdfInvitacionTorneo(datos);
+    await generarPdfInvitacionTorneo(valores.value);
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el PDF.', life: 4000 });
   } finally {
@@ -105,16 +126,20 @@ onBeforeUnmount(() => {
           <DatePicker inputId="it-fecha" v-model="datos.fecha" dateFormat="dd/mm/yy" showIcon iconDisplay="input" class="w-full" />
         </div>
         <div class="flex flex-col gap-1.5">
-          <label for="it-hora" class="text-sm font-medium text-ink-secondary">Hora / horario</label>
-          <InputText id="it-hora" v-model="datos.hora" class="w-full" placeholder="Ej.: 10:00 a 14:00 h" />
+          <label class="text-sm font-medium text-ink-secondary">Hora / horario</label>
+          <div class="flex items-center gap-2">
+            <Select inputId="it-hora-desde" v-model="datos.horaDesde" :options="OPCIONES_HORA" placeholder="Desde" class="w-full" />
+            <span class="text-sm text-ink-tertiary">a</span>
+            <Select inputId="it-hora-hasta" v-model="datos.horaHasta" :options="OPCIONES_HORA" placeholder="Hasta" class="w-full" />
+          </div>
         </div>
         <div class="flex flex-col gap-1.5">
           <label for="it-lugar" class="text-sm font-medium text-ink-secondary">Lugar</label>
-          <InputText id="it-lugar" v-model="datos.lugar" class="w-full" />
+          <Select inputId="it-lugar" v-model="datos.lugar" :options="OPCIONES_LUGAR" placeholder="Elige un lugar" class="w-full" />
         </div>
         <div class="flex flex-col gap-1.5">
           <label for="it-categoria" class="text-sm font-medium text-ink-secondary">Categoría</label>
-          <InputText id="it-categoria" v-model="datos.categoria" class="w-full" placeholder="Ej.: Bebés" />
+          <Select inputId="it-categoria" v-model="datos.categoria" :options="OPCIONES_CATEGORIA" placeholder="Elige una categoría" class="w-full" />
         </div>
 
         <div class="flex flex-wrap gap-2 pt-1">
