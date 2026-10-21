@@ -1,8 +1,10 @@
-const { Usuario, Seccion, Categoria } = require('../models');
+const { Usuario, Seccion, Categoria, UsuarioCodigoRecuperacion, sequelize } = require('../models');
 const { comprimirPermisos } = require('../utils/permisosToken');
 const { verifyPassword, hashPassword, isPasswordValid } = require('../utils/password.utils');
 const { signToken, DURACION_SESION_SEG } = require('../utils/jwt.utils');
-const { ponerCookieSesion, borrarCookieSesion } = require('../utils/sesionCookie');
+const { ponerCookieSesion, borrarCookieSesion, ponerCookie2fa, borrarCookie2fa } = require('../utils/sesionCookie');
+const aes = require('../utils/aesCrypto');
+const totp = require('../utils/totp');
 
 const includeAuth = [
   { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: ['puede_ver', 'puede_editar'] } },
@@ -51,6 +53,41 @@ function tokenPara(user, payload, inicio = ahoraSeg()) {
   });
 }
 
+// ---- Segundo factor (2FA) ----
+// El token temporal entre "contraseña correcta" y "segundo factor": NO da
+// acceso, solo permite completar el 2FA. Caduca pronto (10 min).
+const CADUCIDAD_2FA_SEG = 10 * 60;
+
+function tokenPendiente2fa(datos) {
+  const ini = ahoraSeg();
+  return signToken({ tipo: '2fa', ...datos, ini, exp: ini + CADUCIDAD_2FA_SEG });
+}
+
+/** Emite la cookie de sesión definitiva y devuelve el payload del usuario
+ * (recarga permisos y relaciones del momento). */
+async function emitirSesion(res, userId) {
+  const user = await Usuario.findByPk(userId, { include: includeAuth });
+  const payload = userPayload(user);
+  ponerCookieSesion(res, tokenPara(user, payload));
+  return payload;
+}
+
+/** Comprueba un código de recuperación (un solo uso) y lo marca como usado. */
+async function consumirCodigoRecuperacion(idUsuario, codigo) {
+  const norm = totp.normalizarCodigo(codigo);
+  if (norm.length < 8) return false;
+  const codigos = await UsuarioCodigoRecuperacion.findAll({
+    where: { id_usuario: idUsuario, usado: false }
+  });
+  for (const c of codigos) {
+    if (await verifyPassword(norm, c.codigo_hash)) {
+      await c.update({ usado: true });
+      return true;
+    }
+  }
+  return false;
+}
+
 async function login(req, res, next) {
   try {
     const { usuario, password } = req.body;
@@ -76,11 +113,99 @@ async function login(req, res, next) {
     const passwordOk = await verifyPassword(password, user.password);
     if (!passwordOk) return credencialesInvalidas();
 
-    const payload = userPayload(user);
-    // El token va solo en la cookie HttpOnly: el JavaScript de la página no lo ve.
-    ponerCookieSesion(res, tokenPara(user, payload));
+    // El 2FA es obligatorio: el login nunca da sesión directa. Si el usuario ya
+    // tiene el segundo factor, se le pide el código; si no, se le fuerza a
+    // configurarlo. La sesión solo se emite al superar el 2FA (ver más abajo).
+    borrarCookieSesion(res);
+    const yaTiene2fa = user.totp_activado && user.totp_secret;
+    const fase = yaTiene2fa ? 'verificar' : 'configurar';
+    ponerCookie2fa(res, tokenPendiente2fa({ fase, id: user.id, usuario: user.usuario }));
+    return res.json({ twofa: fase, nombre: user.nombre });
+  } catch (err) {
+    return next(err);
+  }
+}
 
+/** Paso 2 (ya tiene 2FA): verifica el código TOTP o un código de recuperación
+ * y, si es correcto, emite la sesión. Usa la cookie temporal `apr_2fa`. */
+async function verificar2fa(req, res, next) {
+  try {
+    const { id } = req.pendiente2fa;
+    const codigo = String((req.body && req.body.codigo) || '').trim();
+    if (!codigo) return res.status(400).json({ message: 'Escribe el código.' });
+
+    const user = await Usuario.scope('withPassword').findByPk(id);
+    if (!user || !user.activo || !user.totp_activado || !user.totp_secret) {
+      return res.status(401).json({ message: 'No se puede verificar. Vuelve a iniciar sesión.' });
+    }
+
+    let ok = false;
+    const soloDigitos = codigo.replace(/\s+/g, '');
+    if (/^\d{6}$/.test(soloDigitos)) {
+      ok = totp.verificarToken(soloDigitos, aes.decrypt(user.totp_secret));
+    }
+    if (!ok) ok = await consumirCodigoRecuperacion(user.id, codigo);
+    if (!ok) return res.status(401).json({ message: 'Código incorrecto.' });
+
+    borrarCookie2fa(res);
+    const payload = await emitirSesion(res, user.id);
     return res.json({ user: payload });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** Paso 2a (no tiene 2FA): genera un secreto nuevo y devuelve el QR para
+ * escanearlo. El secreto va en la cookie temporal (aún no se guarda en BD). */
+async function enrolar2faInicio(req, res, next) {
+  try {
+    const { id, usuario } = req.pendiente2fa;
+    const user = await Usuario.findByPk(id);
+    if (!user || !user.activo) {
+      return res.status(401).json({ message: 'No se puede continuar. Vuelve a iniciar sesión.' });
+    }
+    const secret = totp.generarSecreto();
+    const otpauth = totp.construirOtpauth(usuario, secret);
+    const qr = await totp.qrDataUrl(otpauth);
+    ponerCookie2fa(res, tokenPendiente2fa({ fase: 'configurar', id, usuario, secret }));
+    return res.json({ qr, secret, otpauth });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** Paso 2b (no tiene 2FA): confirma con un código el secreto recién generado,
+ * lo guarda cifrado, activa el 2FA, crea los códigos de recuperación (se
+ * devuelven una sola vez) y emite la sesión. */
+async function enrolar2faConfirmar(req, res, next) {
+  try {
+    const { id, secret } = req.pendiente2fa;
+    if (!secret) {
+      return res.status(400).json({ message: 'Primero escanea el código QR.' });
+    }
+    const codigo = String((req.body && req.body.codigo) || '').replace(/\s+/g, '');
+    if (!totp.verificarToken(codigo, secret)) {
+      return res.status(400).json({ message: 'El código no es correcto. Revisa la hora del móvil e inténtalo de nuevo.' });
+    }
+    const user = await Usuario.findByPk(id);
+    if (!user || !user.activo) {
+      return res.status(401).json({ message: 'No se puede continuar. Vuelve a iniciar sesión.' });
+    }
+
+    const codigos = totp.generarCodigosRecuperacion();
+    const filas = await Promise.all(codigos.map(async (c) => ({
+      id_usuario: id,
+      codigo_hash: await hashPassword(totp.normalizarCodigo(c))
+    })));
+    await sequelize.transaction(async (t) => {
+      await user.update({ totp_secret: aes.encrypt(secret), totp_activado: true }, { transaction: t });
+      await UsuarioCodigoRecuperacion.destroy({ where: { id_usuario: id }, transaction: t });
+      await UsuarioCodigoRecuperacion.bulkCreate(filas, { transaction: t });
+    });
+
+    borrarCookie2fa(res);
+    const payload = await emitirSesion(res, id);
+    return res.json({ user: payload, codigos_recuperacion: codigos });
   } catch (err) {
     return next(err);
   }
@@ -147,4 +272,12 @@ async function cambiarPassword(req, res, next) {
   }
 }
 
-module.exports = { login, me, logout, cambiarPassword };
+module.exports = {
+  login,
+  verificar2fa,
+  enrolar2faInicio,
+  enrolar2faConfirmar,
+  me,
+  logout,
+  cambiarPassword
+};

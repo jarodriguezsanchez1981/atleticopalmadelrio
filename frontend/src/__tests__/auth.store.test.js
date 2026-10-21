@@ -13,7 +13,10 @@ vi.mock('../services/index.js', () => ({
   authService: {
     login: vi.fn(),
     me: vi.fn(),
-    logout: vi.fn()
+    logout: vi.fn(),
+    verificar2fa: vi.fn(),
+    enrolar2faInicio: vi.fn(),
+    enrolar2faConfirmar: vi.fn()
   }
 }));
 
@@ -68,15 +71,37 @@ describe('Auth Store', () => {
     expect(store.puedeEliminar()).toBe(false);
   });
 
-  it('login guarda el usuario, no el token, y borra un token antiguo', async () => {
-    authService.login.mockResolvedValue({ user: { id: 1, usuario: 'admin', secciones: ['calendario'] } });
+  it('login no inicia sesión: devuelve el paso de 2FA', async () => {
+    authService.login.mockResolvedValue({ twofa: 'verificar', nombre: 'Admin' });
+    const store = useAuthStore();
+    const resp = await store.login('admin', 'Admin#2026');
+    expect(resp).toEqual({ twofa: 'verificar', nombre: 'Admin' });
+    // Todavía no hay sesión hasta superar el segundo factor.
+    expect(store.isAuthenticated).toBe(false);
+    expect(mockLocalStorage.store.apr_user).toBeUndefined();
+  });
+
+  it('verificar2fa guarda el usuario y borra un token antiguo', async () => {
+    authService.verificar2fa.mockResolvedValue({ user: { id: 1, usuario: 'admin', secciones: ['calendario'] } });
     mockLocalStorage.store.apr_token = 'viejo';
     const store = useAuthStore();
-    const user = await store.login('admin', 'Admin#2026');
+    const user = await store.verificar2fa('123456');
     expect(user.usuario).toBe('admin');
     expect(store.isAuthenticated).toBe(true);
     expect(JSON.parse(mockLocalStorage.store.apr_user).usuario).toBe('admin');
     expect(mockLocalStorage.store.apr_token).toBeUndefined();
+  });
+
+  it('enrolar2faConfirmar inicia sesión y devuelve los códigos de recuperación', async () => {
+    authService.enrolar2faConfirmar.mockResolvedValue({
+      user: { id: 2, usuario: 'nuevo', secciones: [] },
+      codigos_recuperacion: ['AAAAA-11111', 'BBBBB-22222']
+    });
+    const store = useAuthStore();
+    const codigos = await store.enrolar2faConfirmar('123456');
+    expect(codigos).toEqual(['AAAAA-11111', 'BBBBB-22222']);
+    expect(store.user.usuario).toBe('nuevo');
+    expect(store.isAuthenticated).toBe(true);
   });
 
   it('logout limpia el estado y cierra la sesión en el backend', async () => {

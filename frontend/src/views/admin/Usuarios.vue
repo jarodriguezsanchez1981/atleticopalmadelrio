@@ -5,7 +5,33 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import { usuariosService, seccionesService, categoriasService } from '../../services';
 import Message from 'primevue/message';
-import { suscribirseCambio } from '../../utils/cambioBus';
+import { suscribirseCambio, emitirCambio } from '../../utils/cambioBus';
+import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
+
+const toast = useToast();
+const confirm = useConfirm();
+
+/** Un administrador resetea el 2FA de un usuario (p. ej. si perdió el móvil):
+ * lo deja sin segundo factor y tendrá que configurarlo de nuevo al entrar. */
+function resetear2fa(data) {
+  confirm.require({
+    message: `¿Resetear la verificación en dos pasos de "${data.usuario}"? Tendrá que configurarla de nuevo en su próximo acceso.`,
+    header: 'Resetear 2FA',
+    icon: 'pi pi-shield',
+    acceptLabel: 'Resetear',
+    rejectLabel: 'Cancelar',
+    accept: async () => {
+      try {
+        await usuariosService.resetear2fa(data.id);
+        toast.add({ severity: 'success', summary: '2FA reseteado', detail: 'El usuario lo reconfigurará al iniciar sesión.', life: 4000 });
+        emitirCambio();
+      } catch (err) {
+        toast.add({ severity: 'error', summary: 'Error', detail: err.response?.data?.message || 'No se pudo resetear.', life: 4000 });
+      }
+    }
+  });
+}
 
 const secciones = ref([]);
 const categorias = ref([]);
@@ -41,6 +67,7 @@ const columns = computed(() => [
   { field: 'id_categoria', header: 'Categoría', type: 'text', enForm: false,
     format: (v) => categorias.value.find(c => c.id === Number(v))?.nombre || '—' },
   { field: 'permisos_secciones', header: 'Permisos', type: 'text', soloTabla: true },
+  { field: 'totp_activado', header: '2FA', type: 'text', soloTabla: true, format: (v) => (v ? 'Sí' : 'No') },
   { field: 'password', header: 'Contraseña', type: 'password', requiredOnCreate: true }
 ]);
 
@@ -167,6 +194,15 @@ function prepararEdicion(data) {
       <template #cell-permisos_secciones="{ data }">
         <span class="text-sm">{{ nombresSecciones(data) }}</span>
       </template>
+      <template #cell-totp_activado="{ data }">
+        <span
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+          :class="data.totp_activado ? 'bg-club-green/10 text-club-green' : 'bg-club-garnet/10 text-club-garnet'"
+        >
+          <i :class="data.totp_activado ? 'pi pi-shield' : 'pi pi-exclamation-triangle'" class="text-[0.7rem]" />
+          {{ data.totp_activado ? 'Activado' : 'Sin configurar' }}
+        </span>
+      </template>
       <template #cell-password>
         <span class="text-ink-tertiary">••••••••</span>
       </template>
@@ -183,6 +219,26 @@ function prepararEdicion(data) {
               {{ sec.nombre }}
             </span>
           </div>
+        </div>
+      </template>
+
+      <template #detail-extra="{ data }">
+        <div class="flex items-center justify-between gap-3 border-t border-line pt-3 mt-1">
+          <div class="text-sm">
+            <span class="font-medium text-ink-secondary">Verificación en dos pasos: </span>
+            <span :class="data.totp_activado ? 'text-club-green' : 'text-club-garnet'">
+              {{ data.totp_activado ? 'activada' : 'sin configurar' }}
+            </span>
+          </div>
+          <Button
+            v-if="data.totp_activado"
+            label="Resetear 2FA"
+            icon="pi pi-shield"
+            severity="secondary"
+            outlined
+            size="small"
+            @click="resetear2fa(data)"
+          />
         </div>
       </template>
 

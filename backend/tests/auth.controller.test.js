@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Usuario, Seccion } from './helpers/models.js';
+import { Usuario, Seccion, UsuarioCodigoRecuperacion } from './helpers/models.js';
 import { passwordUtils, jwtUtils } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
+import * as totp from '../src/utils/totp.js';
+import * as aes from '../src/utils/aesCrypto.js';
 
 import * as ctrl from '../src/controllers/auth.controller.js';
 
@@ -9,7 +11,13 @@ describe('Autenticación · auth.controller', () => {
   beforeEach(() => {
     Usuario.findByPk.mockReset();
     Usuario.findOne.mockReset();
+    Usuario.scope.mockReturnValue(Usuario);
+    UsuarioCodigoRecuperacion.findAll.mockReset();
+    UsuarioCodigoRecuperacion.destroy.mockReset();
+    UsuarioCodigoRecuperacion.bulkCreate.mockReset();
     passwordUtils.verifyPassword.mockReset();
+    passwordUtils.hashPassword.mockReset();
+    passwordUtils.hashPassword.mockResolvedValue('hash-codigo');
     jwtUtils.signToken.mockReset();
     jwtUtils.signToken.mockReturnValue('token-fake');
   });
@@ -70,21 +78,10 @@ describe('Autenticación · auth.controller', () => {
     expect(passwordUtils.verifyPassword).toHaveBeenCalledWith('Clave123!', 'hash');
   });
 
-  it('login guarda el token en la cookie HttpOnly y devuelve el usuario (sin token)', async () => {
-    Usuario.scope.mockReturnValue(Usuario);
+  it('login con contraseña correcta y 2FA ya activo pide el código (no da sesión)', async () => {
     Usuario.findOne.mockResolvedValue({
-      id: 1,
-      usuario: 'admin',
-      nombre: 'A',
-      apellidos: 'B',
-      activo: true,
-      rol: 'coordinador',
-      id_categoria: null,
-      password: 'hash',
-      secciones: [
-        { clave: 'administracion', usuario_secciones: { puede_ver: 1, puede_editar: 1 } },
-        { clave: 'temporadas', usuario_secciones: { puede_ver: 1, puede_editar: 0 } }
-      ]
+      id: 1, usuario: 'admin', nombre: 'A', activo: true,
+      totp_activado: true, totp_secret: 'cifrado', password: 'hash', secciones: []
     });
     passwordUtils.verifyPassword.mockResolvedValue(true);
     const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'admin', password: 'Clave123!' } });
@@ -92,24 +89,31 @@ describe('Autenticación · auth.controller', () => {
     await promesa;
 
     expect(res._status).toBe(200);
-    // Permisos compactos en el token (va en una cookie): claves y editables.
-    expect(jwtUtils.signToken).toHaveBeenCalledWith({
-      id: 1, usuario: 'admin', s: ['administracion', 'temporadas'], e: ['administracion'],
-      rol: 'coordinador', id_categoria: null, ini: expect.any(Number), exp: expect.any(Number)
+    expect(res._json).toEqual({ twofa: 'verificar', nombre: 'A' });
+    // No hay sesión todavía: la cookie de sesión se limpia y se pone la temporal.
+    expect(res._cookies.apr_sesion.valor).toBeNull();
+    expect(res._cookies.apr_2fa.valor).toBe('token-fake');
+    // El token temporal es de tipo 2fa/fase verificar, no una sesión.
+    expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({
+      tipo: '2fa', fase: 'verificar', id: 1, usuario: 'admin'
+    }));
+  });
+
+  it('login con contraseña correcta y sin 2FA fuerza a configurarlo', async () => {
+    Usuario.findOne.mockResolvedValue({
+      id: 2, usuario: 'nuevo', nombre: 'N', activo: true,
+      totp_activado: false, totp_secret: null, password: 'hash', secciones: []
     });
-    const { ini, exp } = jwtUtils.signToken.mock.calls[0][0];
-    expect(exp - ini).toBe(3600);
-    expect(res._json).not.toHaveProperty('token');
-    expect(res._cookies.apr_sesion).toEqual({
-      valor: 'token-fake',
-      opciones: expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/api' })
-    });
-    expect(res._json.user).toEqual({
-      id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B',
-      secciones: ['administracion', 'temporadas'],
-      permisos: { administracion: { ver: true, editar: true }, temporadas: { ver: true, editar: false } },
-      rol: 'coordinador', id_categoria: null, categoria_nombre: null
-    });
+    passwordUtils.verifyPassword.mockResolvedValue(true);
+    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'nuevo', password: 'Clave123!' } });
+
+    await promesa;
+
+    expect(res._json).toEqual({ twofa: 'configurar', nombre: 'N' });
+    expect(res._cookies.apr_sesion.valor).toBeNull();
+    expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({
+      tipo: '2fa', fase: 'configurar', id: 2
+    }));
   });
 
   it('me devuelve 404 si no existe', async () => {
@@ -145,54 +149,6 @@ describe('Autenticación · auth.controller', () => {
     expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({
       id: 1, s: ['temporadas'], e: '*'
     }));
-  });
-
-  it('login con usuario sin secciones devuelve permisos vacío', async () => {
-    Usuario.scope.mockReturnValue(Usuario);
-    Usuario.findOne.mockResolvedValue({
-      id: 2, usuario: 'basic', nombre: 'B', apellidos: 'S', activo: true,
-      rol: 'coordinador', id_categoria: null, password: 'hash', secciones: []
-    });
-    passwordUtils.verifyPassword.mockResolvedValue(true);
-    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'basic', password: 'Clave123!' } });
-
-    await promesa;
-
-    expect(res._status).toBe(200);
-    expect(res._json.user.permisos).toEqual({});
-    expect(res._json.user.secciones).toEqual([]);
-  });
-
-  it('login con usuario entrenador incluye id_categoria en token', async () => {
-    Usuario.scope.mockReturnValue(Usuario);
-    Usuario.findOne.mockResolvedValue({
-      id: 3, usuario: 'coach', nombre: 'C', apellidos: 'H', activo: true,
-      rol: 'entrenador', id_categoria: 7, password: 'hash', secciones: []
-    });
-    passwordUtils.verifyPassword.mockResolvedValue(true);
-    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'coach', password: 'Clave123!' } });
-
-    await promesa;
-
-    expect(jwtUtils.signToken).toHaveBeenCalledWith(
-      expect.objectContaining({ id_categoria: 7, rol: 'entrenador' })
-    );
-    expect(res._json.user.id_categoria).toBe(7);
-  });
-
-  it('el payload incluye el nombre de la categoría del usuario (para las Estadísticas de Senior A)', async () => {
-    Usuario.scope.mockReturnValue(Usuario);
-    Usuario.findOne.mockResolvedValue({
-      id: 8, usuario: 'coachsr', nombre: 'S', apellidos: 'R', activo: true,
-      rol: 'entrenador', id_categoria: 4, categoria: { id: 4, nombre: 'Senior A' },
-      password: 'hash', secciones: []
-    });
-    passwordUtils.verifyPassword.mockResolvedValue(true);
-    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'coachsr', password: 'Clave123!' } });
-
-    await promesa;
-
-    expect(res._json.user.categoria_nombre).toBe('Senior A');
   });
 
   it('me renueva el token sin alargar la sesión (1 hora desde el login)', async () => {
@@ -232,36 +188,141 @@ describe('Autenticación · auth.controller', () => {
     expect(res._json.secciones).toEqual(['calendario', 'jugadores', 'sanciones']);
   });
 
-  it('login solo envía al token las claves necesarias', async () => {
-    Usuario.scope.mockReturnValue(Usuario);
+  it('login no filtra en la respuesta el hash ni el secreto TOTP', async () => {
     Usuario.findOne.mockResolvedValue({
-      id: 5, usuario: 'tok', nombre: 'T', apellidos: 'K', activo: true,
-      rol: 'coordinador', id_categoria: null, password: 'hash', secciones: []
-    });
-    passwordUtils.verifyPassword.mockResolvedValue(true);
-    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'tok', password: 'Clave123!' } });
-
-    await promesa;
-
-    const tokenPayload = jwtUtils.signToken.mock.calls[0][0];
-    expect(Object.keys(tokenPayload).sort()).toEqual(['e', 'exp', 'id', 'id_categoria', 'ini', 'rol', 's', 'usuario']);
-    expect(tokenPayload).not.toHaveProperty('nombre');
-    expect(tokenPayload).not.toHaveProperty('password');
-  });
-
-  it('login omitir password del user response', async () => {
-    Usuario.scope.mockReturnValue(Usuario);
-    Usuario.findOne.mockResolvedValue({
-      id: 6, usuario: 'nopw', nombre: 'N', apellidos: 'P', activo: true,
-      rol: 'coordinador', id_categoria: null, password: 'supersecret', secciones: []
+      id: 6, usuario: 'nopw', nombre: 'N', activo: true,
+      totp_activado: true, totp_secret: 'cifrado', password: 'supersecret', secciones: []
     });
     passwordUtils.verifyPassword.mockResolvedValue(true);
     const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'nopw', password: 'Clave123!' } });
 
     await promesa;
 
-    expect(res._json.user.password).toBeUndefined();
-    expect(res._json.user).not.toHaveProperty('password');
+    expect(res._json).not.toHaveProperty('user');
+    expect(JSON.stringify(res._json)).not.toContain('supersecret');
+    expect(JSON.stringify(res._json)).not.toContain('cifrado');
+  });
+
+  describe('verificar2fa', () => {
+    const pendiente = { tipo: '2fa', fase: 'verificar', id: 1, usuario: 'admin' };
+
+    it('rechaza si no se envía código (400)', async () => {
+      const { promesa, res } = llamar(ctrl.verificar2fa, { pendiente2fa: pendiente, body: {} });
+      await promesa;
+      expect(res._status).toBe(400);
+    });
+
+    it('acepta un token TOTP válido, emite sesión y devuelve el payload', async () => {
+      const secret = totp.generarSecreto();
+      const token = (await import('otplib')).authenticator.generate(secret);
+      Usuario.findByPk.mockResolvedValue({
+        id: 1, usuario: 'admin', nombre: 'A', apellidos: 'B', activo: true,
+        rol: 'coordinador', id_categoria: null, totp_activado: true,
+        totp_secret: aes.encrypt(secret),
+        secciones: [{ clave: 'administracion', usuario_secciones: { puede_ver: 1, puede_editar: 1 } }]
+      });
+      const { promesa, res } = llamar(ctrl.verificar2fa, { pendiente2fa: pendiente, body: { codigo: token } });
+
+      await promesa;
+
+      expect(res._json.user).toEqual(expect.objectContaining({
+        id: 1, usuario: 'admin', secciones: ['administracion']
+      }));
+      expect(res._cookies.apr_sesion.valor).toBe('token-fake');
+      expect(res._cookies.apr_2fa.valor).toBeNull(); // cookie temporal borrada
+    });
+
+    it('rechaza un token incorrecto (401)', async () => {
+      const secret = totp.generarSecreto();
+      Usuario.findByPk.mockResolvedValue({
+        id: 1, activo: true, totp_activado: true, totp_secret: aes.encrypt(secret), secciones: []
+      });
+      UsuarioCodigoRecuperacion.findAll.mockResolvedValue([]);
+      const { promesa, res } = llamar(ctrl.verificar2fa, { pendiente2fa: pendiente, body: { codigo: '000000' } });
+
+      await promesa;
+
+      expect(res._status).toBe(401);
+      expect(res._cookies.apr_sesion).toBeUndefined();
+    });
+
+    it('acepta un código de recuperación válido y lo marca como usado', async () => {
+      const fila = { codigo_hash: 'hash', usado: false, update: vi.fn().mockResolvedValue() };
+      Usuario.findByPk.mockResolvedValue({
+        id: 1, usuario: 'admin', activo: true, totp_activado: true,
+        totp_secret: aes.encrypt(totp.generarSecreto()), secciones: []
+      });
+      UsuarioCodigoRecuperacion.findAll.mockResolvedValue([fila]);
+      passwordUtils.verifyPassword.mockResolvedValue(true);
+      const { promesa, res } = llamar(ctrl.verificar2fa, { pendiente2fa: pendiente, body: { codigo: 'ABCDE-12345' } });
+
+      await promesa;
+
+      expect(fila.update).toHaveBeenCalledWith({ usado: true });
+      expect(res._json.user).toBeDefined();
+    });
+  });
+
+  describe('enrolar2fa', () => {
+    it('inicio devuelve QR y secreto y re-emite la cookie temporal con el secreto', async () => {
+      Usuario.findByPk.mockResolvedValue({ id: 2, usuario: 'nuevo', activo: true });
+      const { promesa, res } = llamar(ctrl.enrolar2faInicio, {
+        pendiente2fa: { tipo: '2fa', fase: 'configurar', id: 2, usuario: 'nuevo' }
+      });
+
+      await promesa;
+
+      expect(res._json.qr).toMatch(/^data:image\/png;base64,/);
+      expect(typeof res._json.secret).toBe('string');
+      expect(res._cookies.apr_2fa.valor).toBe('token-fake');
+      expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({
+        fase: 'configurar', id: 2, secret: expect.any(String)
+      }));
+    });
+
+    it('confirmar rechaza un código incorrecto (400) y no activa el 2FA', async () => {
+      const secret = totp.generarSecreto();
+      const user = { id: 2, activo: true, update: vi.fn() };
+      Usuario.findByPk.mockResolvedValue(user);
+      const { promesa, res } = llamar(ctrl.enrolar2faConfirmar, {
+        pendiente2fa: { tipo: '2fa', fase: 'configurar', id: 2, usuario: 'nuevo', secret },
+        body: { codigo: '000000' }
+      });
+
+      await promesa;
+
+      expect(res._status).toBe(400);
+      expect(user.update).not.toHaveBeenCalled();
+    });
+
+    it('confirmar con código válido activa el 2FA, guarda el secreto cifrado y devuelve los códigos', async () => {
+      const secret = totp.generarSecreto();
+      const token = (await import('otplib')).authenticator.generate(secret);
+      const user = { id: 2, usuario: 'nuevo', activo: true, update: vi.fn().mockResolvedValue() };
+      // 1ª llamada: findByPk para confirmar; 2ª: emitirSesion (con secciones).
+      Usuario.findByPk
+        .mockResolvedValueOnce(user)
+        .mockResolvedValueOnce({ id: 2, usuario: 'nuevo', nombre: 'N', apellidos: 'U', rol: 'coordinador', secciones: [] });
+      const { promesa, res } = llamar(ctrl.enrolar2faConfirmar, {
+        pendiente2fa: { tipo: '2fa', fase: 'configurar', id: 2, usuario: 'nuevo', secret },
+        body: { codigo: token }
+      });
+
+      await promesa;
+
+      expect(user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ totp_activado: true, totp_secret: expect.any(String) }),
+        expect.any(Object)
+      );
+      // El secreto se guarda cifrado (no en claro).
+      const guardado = user.update.mock.calls[0][0].totp_secret;
+      expect(guardado).not.toBe(secret);
+      expect(aes.decrypt(guardado)).toBe(secret);
+      expect(UsuarioCodigoRecuperacion.bulkCreate).toHaveBeenCalled();
+      expect(Array.isArray(res._json.codigos_recuperacion)).toBe(true);
+      expect(res._json.codigos_recuperacion.length).toBe(10);
+      expect(res._cookies.apr_sesion.valor).toBe('token-fake');
+    });
   });
 
   it('logout borra la cookie de sesión', () => {

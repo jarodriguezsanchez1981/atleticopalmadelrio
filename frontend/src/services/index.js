@@ -16,7 +16,11 @@ export function crudService(resource) {
   };
 }
 
-export const usuariosService = crudService('usuarios');
+export const usuariosService = {
+  ...crudService('usuarios'),
+  // Un administrador resetea el 2FA de otro usuario (lo tendrá que reconfigurar).
+  resetear2fa: (id) => api.post(`/usuarios/${id}/2fa/reset`).then(r => r.data)
+};
 export const seccionesService = {
   ...crudService('secciones'),
   reordenar: (orden) => api.post('/secciones/reordenar', { orden }).then(r => r.data)
@@ -113,6 +117,10 @@ export const seguridadService = {
 
 export const authService = {
   login: (usuario, password) => api.post('/auth/login', { usuario, password }).then(r => r.data),
+  // Segundo factor (2FA). La cookie temporal `apr_2fa` identifica al usuario.
+  verificar2fa: (codigo) => api.post('/auth/2fa/verificar', { codigo }).then(r => r.data),
+  enrolar2faInicio: () => api.post('/auth/2fa/configurar/inicio').then(r => r.data),
+  enrolar2faConfirmar: (codigo) => api.post('/auth/2fa/configurar/confirmar', { codigo }).then(r => r.data),
   // `token`: solo para pasar a la cookie una sesión antigua guardada en el navegador.
   me: (token) => api.get('/auth/me', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined).then(r => r.data),
   logout: () => api.post('/auth/logout').then(r => r.data),

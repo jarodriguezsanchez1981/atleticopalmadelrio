@@ -33,6 +33,7 @@ const TipoPersonal = require('./TipoPersonal');
 const Clasificacion = require('./Clasificacion');
 const Cambio = require('./Cambio');
 const InformeSeguridad = require('./InformeSeguridad');
+const UsuarioCodigoRecuperacion = require('./UsuarioCodigoRecuperacion');
 const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
@@ -68,6 +69,10 @@ Seccion.belongsToMany(Usuario, {
 // su nombre, p. ej. para enseñar las Estadísticas solo al entrenador de Senior A.
 // Sin constraint: `usuarios.id_categoria` es opcional y solo se lee.
 Usuario.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria', constraints: false });
+
+// Códigos de recuperación del 2FA de cada usuario.
+Usuario.hasMany(UsuarioCodigoRecuperacion, { foreignKey: 'id_usuario', sourceKey: 'id', as: 'codigosRecuperacion', onDelete: 'CASCADE' });
+UsuarioCodigoRecuperacion.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
 Titulo.belongsToMany(Entrenador, { through: 'entrenador_titulos', foreignKey: 'id_titulo', otherKey: 'id_entrenador', as: 'entrenadores', timestamps: false });
 Entrenador.belongsToMany(Titulo, { through: 'entrenador_titulos', foreignKey: 'id_entrenador', otherKey: 'id_titulo', targetKey: 'id', as: 'titulos', timestamps: false });
@@ -340,6 +345,7 @@ module.exports = {
   Clasificacion,
   Cambio,
   InformeSeguridad,
+  UsuarioCodigoRecuperacion,
   EquipoJugador,
   Promocion,
   Material,

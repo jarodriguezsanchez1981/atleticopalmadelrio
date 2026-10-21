@@ -117,14 +117,39 @@ export const useAuthStore = defineStore('auth', {
     async login(usuario, password) {
       this.cargando = true;
       try {
-        const { user } = await authService.login(usuario, password);
-        this.user = user;
-        guardarUsuario(user);
-        localStorage.removeItem(TOKEN_ANTIGUO);
-        return user;
+        // Con 2FA obligatorio, el login no da sesión: devuelve { twofa, nombre }
+        // indicando el paso siguiente ('verificar' o 'configurar').
+        return await authService.login(usuario, password);
       } finally {
         this.cargando = false;
       }
+    },
+
+    /** Guarda el usuario devuelto al completar el 2FA (sesión iniciada). */
+    finalizarSesion(user) {
+      this.user = user;
+      guardarUsuario(user);
+      localStorage.removeItem(TOKEN_ANTIGUO);
+      return user;
+    },
+
+    /** Paso 2 (ya tiene 2FA): verifica el código y deja la sesión iniciada. */
+    async verificar2fa(codigo) {
+      const { user } = await authService.verificar2fa(codigo);
+      return this.finalizarSesion(user);
+    },
+
+    /** Paso 2a (sin 2FA): pide el QR para configurar el autenticador. */
+    enrolar2faInicio() {
+      return authService.enrolar2faInicio();
+    },
+
+    /** Paso 2b (sin 2FA): confirma el código, activa el 2FA e inicia sesión.
+     * Devuelve también los códigos de recuperación (se muestran una sola vez). */
+    async enrolar2faConfirmar(codigo) {
+      const { user, codigos_recuperacion } = await authService.enrolar2faConfirmar(codigo);
+      this.finalizarSesion(user);
+      return codigos_recuperacion;
     },
 
     async restoreSession() {

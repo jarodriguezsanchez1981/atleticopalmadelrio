@@ -14,5 +14,6 @@ router.get('/:id', ctrl.obtener);
 router.post('/', requireEditar('administracion'), ctrl.crear);
 router.put('/:id', requireEditar('administracion'), ctrl.actualizar);
 router.delete('/:id', requireEditar('administracion'), ctrl.eliminar);
+router.post('/:id/2fa/reset', requireEditar('administracion'), ctrl.resetear2fa);
 
 module.exports = router;

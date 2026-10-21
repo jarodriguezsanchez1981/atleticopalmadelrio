@@ -6,6 +6,10 @@ const Usuario = sequelize.define('Usuario', {
   usuario: { type: DataTypes.STRING(50), allowNull: false, unique: true },
   // Hash bcrypt, nunca texto plano
   password: { type: DataTypes.STRING(255), allowNull: false },
+  // Secreto TOTP (2FA) cifrado con AES (aesCrypto); NULL si no está configurado.
+  totp_secret: { type: DataTypes.STRING(255), allowNull: true },
+  // Si el usuario ya completó el enrolamiento del segundo factor.
+  totp_activado: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   nombre: { type: DataTypes.STRING(100), allowNull: false },
   apellidos: { type: DataTypes.STRING(150), allowNull: false },
   activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
@@ -14,9 +18,11 @@ const Usuario = sequelize.define('Usuario', {
 }, {
   tableName: 'usuarios',
   defaultScope: {
-    attributes: { exclude: ['password'] } // el hash nunca sale por defecto en las respuestas
+    // Ni el hash de la contraseña ni el secreto TOTP salen por defecto.
+    attributes: { exclude: ['password', 'totp_secret'] }
   },
   scopes: {
+    // Incluye todo (password y totp_secret): solo para login/verificación 2FA.
     withPassword: { attributes: {} }
   }
 });

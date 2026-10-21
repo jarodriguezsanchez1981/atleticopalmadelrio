@@ -5,6 +5,9 @@ const jwt = require('jsonwebtoken');
  * cabecera X-Requested-With en las peticiones que modifican datos (ver
  * auth.middleware) protegen contra CSRF. */
 const COOKIE_SESION = 'apr_sesion';
+// Cookie temporal del paso intermedio del 2FA (entre contraseña correcta y el
+// código del segundo factor / enrolamiento). No es una sesión: no da acceso.
+const COOKIE_2FA = 'apr_2fa';
 const RUTA = '/api';
 
 function opcionesCookie() {
@@ -28,6 +31,17 @@ function borrarCookieSesion(res) {
   res.clearCookie(COOKIE_SESION, opcionesCookie());
 }
 
+/** Guarda el token temporal del 2FA (misma caducidad que el token). */
+function ponerCookie2fa(res, token) {
+  const exp = jwt.decode(token)?.exp;
+  const maxAge = exp ? Math.max(0, exp * 1000 - Date.now()) : undefined;
+  res.cookie(COOKIE_2FA, token, { ...opcionesCookie(), ...(maxAge ? { maxAge } : {}) });
+}
+
+function borrarCookie2fa(res) {
+  res.clearCookie(COOKIE_2FA, opcionesCookie());
+}
+
 /** Valor de una cookie de la petición (sin cookie-parser). */
 function leerCookie(req, nombre) {
   const cabecera = req.headers?.cookie || '';
@@ -45,4 +59,12 @@ function leerCookie(req, nombre) {
   return null;
 }
 
-module.exports = { COOKIE_SESION, ponerCookieSesion, borrarCookieSesion, leerCookie };
+module.exports = {
+  COOKIE_SESION,
+  COOKIE_2FA,
+  ponerCookieSesion,
+  borrarCookieSesion,
+  ponerCookie2fa,
+  borrarCookie2fa,
+  leerCookie
+};

@@ -1,4 +1,4 @@
-const { Usuario, Seccion, UsuarioSeccion } = require('../models');
+const { Usuario, Seccion, UsuarioSeccion, UsuarioCodigoRecuperacion, sequelize } = require('../models');
 const { isPasswordValid, hashPassword } = require('../utils/password.utils');
 
 const includeUsuario = [
@@ -207,4 +207,21 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+/**
+ * Resetea el 2FA de un usuario (lo desactiva y borra sus códigos de
+ * recuperación): el usuario tendrá que volver a configurarlo en el siguiente
+ * acceso. Pensado para cuando alguien pierde el autenticador.
+ */
+async function resetear2fa(req, res, next) {
+  try {
+    const user = await Usuario.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado.' });
+    await sequelize.transaction(async (t) => {
+      await user.update({ totp_secret: null, totp_activado: false }, { transaction: t });
+      await UsuarioCodigoRecuperacion.destroy({ where: { id_usuario: user.id }, transaction: t });
+    });
+    return res.json({ message: 'Segundo factor reseteado. El usuario deberá configurarlo de nuevo al iniciar sesión.' });
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, resetear2fa };

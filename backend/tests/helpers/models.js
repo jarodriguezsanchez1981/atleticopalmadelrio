@@ -67,6 +67,7 @@ export function createModelsMock() {
     Torneo: createModelMock(),
     Cambio: createModelMock(),
     InformeSeguridad: createModelMock(),
+    UsuarioCodigoRecuperacion: createModelMock(),
     EquipoJugador: createModelMock(),
     Promocion: createModelMock(),
     Material: createModelMock(),
@@ -77,6 +78,9 @@ export function createModelsMock() {
     ConvocatoriaSinJugador: createModelMock(),
     ConvocatoriaPromocion: createModelMock()
   };
+  // La instancia Sequelize: en los tests, transaction() ejecuta el callback con
+  // un objeto de transacción falso (no hay BD real).
+  models.sequelize = { transaction: vi.fn(async (cb) => cb({})) };
   return models;
 }
 
@@ -120,6 +124,7 @@ export const Sancion = models.Sancion;
 export const Torneo = models.Torneo;
 export const Cambio = models.Cambio;
 export const InformeSeguridad = models.InformeSeguridad;
+export const UsuarioCodigoRecuperacion = models.UsuarioCodigoRecuperacion;
 export const EquipoJugador = models.EquipoJugador;
 export const Promocion = models.Promocion;
 export const Material = models.Material;
