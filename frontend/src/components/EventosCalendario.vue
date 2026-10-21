@@ -30,7 +30,7 @@ import { moverEvento, puedeMoverEvento } from '../utils/moverEvento';
 import { grupoDeEvento, ORDEN_GRUPOS } from '../utils/gruposCalendario';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { tituloCalendario } from '../utils/tituloCalendario';
-import { generarPdfPartidos } from '../utils/pdfPartidos';
+import { generarPdfCalendario } from '../utils/pdfCalendario';
 import { escudoEquipo, cargarEscudos } from '../utils/escudosEquipos';
 import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
@@ -551,13 +551,16 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
     const mapeados = partidos
       .filter((p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || p.plantilla?.categoria?.id_tipofutbol || 0) === tipoFutbol)
       .map((p) => ({
+        tipo: 'partido',
+        jornada: p.jornada || null,
         inicio: p.fecha,
         equipoLocal: p.equipoLocal || null,
         equipoVisitante: p.equipoVisitante || null,
         lugar: p.lugar || null,
         categoria: p.plantilla?.categoria || p.categoria || null
       }));
-    await generarPdfPartidos(mapeados, fechaTitulo, tipoFutbol);
+    // Mismo renderizador que el PDF de Calendario, con su propio encabezado y nombre de fichero.
+    await generarPdfCalendario(mapeados, fechaTitulo, tipoFutbol, { encabezado: 'Listado de Partidos', nombreFichero: 'partidos' });
   } catch (err) {
     toast.add({
       severity: 'error',

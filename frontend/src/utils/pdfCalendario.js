@@ -157,8 +157,12 @@ function etiquetaTipo(e) {
  * @param {Array} eventos  Eventos normalizados del calendario (con `tipo`).
  * @param {string} titulo  Texto del rango de fechas (ej: "22/09/2026 al 28/09/2026").
  * @param {number|null} tipoFutbol 1 = solo Futbol 7, 2 = solo Futbol 11, null/undefined = ambos.
+ * @param {{encabezado?: string, nombreFichero?: string}} opciones  Encabezado y nombre
+ *   del fichero (por defecto "Calendario"/"calendario"); Partidos reutiliza este mismo
+ *   renderizador con "Listado de Partidos"/"partidos".
  */
-export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = null) {
+export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = null, opciones = {}) {
+  const { encabezado = 'Calendario', nombreFichero = 'calendario' } = opciones;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const filtrar = (e) => tipoFutbol == null || (e.categoria?.id_tipofutbol || 0) === tipoFutbol;
@@ -188,7 +192,7 @@ export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = nu
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(VERDE);
-  doc.text('Calendario', anchoA4 / 2, y + escudoHeader / 2 + 2, { align: 'center' });
+  doc.text(encabezado, anchoA4 / 2, y + escudoHeader / 2 + 2, { align: 'center' });
   y += escudoHeader + 6;
 
   if (titulo) {
@@ -239,11 +243,11 @@ export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = nu
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(GRIS);
-    doc.text(`${NOMBRE_CLUB} · Calendario`, margen, altoA4 - 8);
+    doc.text(`${NOMBRE_CLUB} · ${encabezado}`, margen, altoA4 - 8);
     doc.text(`Página ${p} de ${totalPaginas}`, anchoA4 - margen, altoA4 - 8, { align: 'right' });
   }
 
-  doc.save(`calendario-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`${nombreFichero}-${new Date().toISOString().slice(0, 10)}.pdf`);
   return doc;
 }
 
