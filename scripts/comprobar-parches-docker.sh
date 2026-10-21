@@ -139,8 +139,20 @@ guardar_en_bd() {
     return 0
   fi
 
-  local hv=0
-  [ $((total_high + total_critical)) -gt 0 ] && hv=1
+  # ¿avisar por vulnerabilidades en la intranet? Para no molestar cada 2 días
+  # con los HIGH que no tienen parche disponible (p. ej. mysql:8.0), solo se
+  # avisa si hay algún CRITICAL, o si el nº de HIGH ha AUMENTADO respecto al
+  # último informe (vulnerabilidades nuevas). El primer informe también avisa.
+  local prev_high hv=0
+  prev_high="$(docker exec -i apr_mysql mysql -uroot -p"$dbpw" "$dbn" -N -s \
+    -e 'SELECT total_high FROM informes_seguridad ORDER BY id DESC LIMIT 1;' 2>>"$LOG")"
+  if [ "$total_critical" -gt 0 ]; then
+    hv=1
+  elif [ -z "$prev_high" ]; then
+    [ "$total_high" -gt 0 ] && hv=1          # primer informe
+  elif [ "$total_high" -gt "$prev_high" ]; then
+    hv=1                                      # han aparecido HIGH nuevos
+  fi
 
   # Resumen compacto en una línea para la BD; las comillas simples se duplican
   # para no romper el INSERT (los valores son cifras y texto controlado).
