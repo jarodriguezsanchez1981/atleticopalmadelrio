@@ -28,12 +28,20 @@ IMAGENES=(
   "certbot/certbot"
 )
 
+# Carpeta del proyecto (este script vive en <proyecto>/scripts/): desde ahí se
+# leen las credenciales de la BD para guardar el resumen del informe.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROYECTO_DIR="$(dirname "$SCRIPT_DIR")"
+
 DIR="${SEGURIDAD_DOCKER_DIR:-$HOME/seguridad-docker}"
 TRIVY_CACHE="${TRIVY_CACHE_DIR:-$DIR/trivy-cache}"
 mkdir -p "$DIR" "$TRIVY_CACHE"
 
 TS="$(date +%Y%m%d_%H%M%S)"
+FECHA_BD="$(date '+%Y-%m-%d %H:%M:%S')"
 LOG="$DIR/informe_${TS}.log"
+total_high=0
+total_critical=0
 
 log() { echo "$@" | tee -a "$LOG"; }
 
@@ -94,6 +102,11 @@ for img in "${IMAGENES[@]}"; do
   [ -z "$totales" ] && totales="Total: 0 (HIGH: 0, CRITICAL: 0)"
   log "      $totales"
   resumen_vulns+="    $img: $totales\n"
+  # Acumular HIGH y CRITICAL de todas las imágenes para el resumen de la BD.
+  h="$(printf '%s' "$totales" | sed -nE 's/.*HIGH: ([0-9]+).*/\1/p')"
+  c="$(printf '%s' "$totales" | sed -nE 's/.*CRITICAL: ([0-9]+).*/\1/p')"
+  total_high=$((total_high + ${h:-0}))
+  total_critical=$((total_critical + ${c:-0}))
 done
 log ""
 
@@ -103,6 +116,52 @@ log "Imágenes con versión nueva disponible: $([ "$hay_actualizaciones" -eq 1 ]
 log "Vulnerabilidades HIGH/CRITICAL por imagen:"
 printf "%b" "$resumen_vulns" | tee -a "$LOG"
 log "Informe completo: $LOG"
+
+# ---- Guardar el resumen en la BD (para el aviso dentro de la intranet) ----
+# Best-effort: si la BD no está disponible, no se aborta (el log ya está escrito).
+# Lee solo las variables necesarias del .env.development del proyecto; nunca
+# hace `source` del fichero entero (tiene secretos con caracteres especiales).
+guardar_en_bd() {
+  local env_file="$PROYECTO_DIR/.env.development"
+  if [ ! -f "$env_file" ]; then
+    log "  ℹ️  No se guarda en la BD: no se encuentra $env_file (¿fuera del EC2?)."
+    return 0
+  fi
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'apr_mysql'; then
+    log "  ℹ️  No se guarda en la BD: el contenedor apr_mysql no está en marcha."
+    return 0
+  fi
+  local dbpw dbn
+  dbpw="$(grep -m1 '^MYSQL_ROOT_PASSWORD=' "$env_file" | cut -d= -f2-)"
+  dbn="$(grep -m1 '^DB_NAME=' "$env_file" | cut -d= -f2-)"
+  if [ -z "$dbpw" ] || [ -z "$dbn" ]; then
+    log "  ⚠️  No se guarda en la BD: faltan MYSQL_ROOT_PASSWORD o DB_NAME."
+    return 0
+  fi
+
+  local hv=0
+  [ $((total_high + total_critical)) -gt 0 ] && hv=1
+
+  # Resumen compacto en una línea para la BD; las comillas simples se duplican
+  # para no romper el INSERT (los valores son cifras y texto controlado).
+  local resumen_bd resumen_sql
+  resumen_bd="Actualizaciones de imagen: $([ "$hay_actualizaciones" -eq 1 ] && echo 'SÍ' || echo 'no'). "
+  resumen_bd+="$(printf '%b' "$resumen_vulns" | sed 's/^ *//; /^$/d' | paste -sd '|' -)"
+  resumen_sql="${resumen_bd//\'/\'\'}"
+
+  if docker exec -i apr_mysql mysql -uroot -p"$dbpw" "$dbn" 2>>"$LOG" <<SQL
+INSERT INTO informes_seguridad
+  (fecha, hay_actualizaciones, hay_vulnerabilidades, total_high, total_critical, resumen)
+VALUES
+  ('$FECHA_BD', $hay_actualizaciones, $hv, $total_high, $total_critical, '$resumen_sql');
+SQL
+  then
+    log "  ✅ Resumen guardado en la BD (tabla informes_seguridad)."
+  else
+    log "  ⚠️  No se pudo guardar el resumen en la BD (revisa el log)."
+  fi
+}
+guardar_en_bd
 
 # Conservar solo los informes de los últimos 30 días.
 find "$DIR" -maxdepth 1 -name 'informe_*.log' -type f -mtime +30 -delete 2>/dev/null

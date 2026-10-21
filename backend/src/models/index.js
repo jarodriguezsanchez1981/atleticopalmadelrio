@@ -32,6 +32,7 @@ const PlantillaPersonal = require('./PlantillaPersonal');
 const TipoPersonal = require('./TipoPersonal');
 const Clasificacion = require('./Clasificacion');
 const Cambio = require('./Cambio');
+const InformeSeguridad = require('./InformeSeguridad');
 const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
@@ -338,6 +339,7 @@ module.exports = {
   TipoPersonal,
   Clasificacion,
   Cambio,
+  InformeSeguridad,
   EquipoJugador,
   Promocion,
   Material,

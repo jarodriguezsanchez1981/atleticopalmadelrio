@@ -106,6 +106,11 @@ export const cambiosService = {
   obtener: (id) => api.get(`/cambios/${id}`).then(r => r.data)
 };
 
+export const seguridadService = {
+  // Último informe de parches de seguridad de Docker (solo administradores).
+  estado: () => api.get('/seguridad/estado').then(r => r.data)
+};
+
 export const authService = {
   login: (usuario, password) => api.post('/auth/login', { usuario, password }).then(r => r.data),
   // `token`: solo para pasar a la cookie una sesión antigua guardada en el navegador.

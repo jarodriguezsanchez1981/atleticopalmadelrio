@@ -66,6 +66,7 @@ export function createModelsMock() {
     Sancion: createModelMock(),
     Torneo: createModelMock(),
     Cambio: createModelMock(),
+    InformeSeguridad: createModelMock(),
     EquipoJugador: createModelMock(),
     Promocion: createModelMock(),
     Material: createModelMock(),
@@ -118,6 +119,7 @@ export const PartidoGolContra = models.PartidoGolContra;
 export const Sancion = models.Sancion;
 export const Torneo = models.Torneo;
 export const Cambio = models.Cambio;
+export const InformeSeguridad = models.InformeSeguridad;
 export const EquipoJugador = models.EquipoJugador;
 export const Promocion = models.Promocion;
 export const Material = models.Material;

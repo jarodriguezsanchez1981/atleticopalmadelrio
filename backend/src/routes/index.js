@@ -34,6 +34,7 @@ const convocatoriaRoutes = require('./convocatoria.routes');
 const imagenRoutes = require('./imagen.routes');
 const personalRoutes = require('./personal.routes');
 const tipoPersonalRoutes = require('./tipoPersonal.routes');
+const seguridadRoutes = require('./seguridad.routes');
 
 const router = Router();
 
@@ -71,5 +72,6 @@ router.use('/tipos-personal', tipoPersonalRoutes);
 router.use('/materiales', materialRoutes);
 router.use('/coordinadores', coordinadorRoutes);
 router.use('/convocatorias', convocatoriaRoutes);
+router.use('/seguridad', seguridadRoutes);
 
 module.exports = router;
