@@ -211,9 +211,7 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
   const headers = ['Lugar', 'Hora', 'Categoría', 'Local', 'Visitante'];
   let x = margen;
   headers.forEach((h, i) => {
-    const align = i <= 1 ? 'left' : 'center';
-    const offset = i <= 1 ? 1.5 : ANCHO_COLUMNAS[i] / 2;
-    doc.text(h, x + offset, y + 4.2, { align });
+    doc.text(h, x + ANCHO_COLUMNAS[i] / 2, y + 4.2, { align: 'center' });
     x += ANCHO_COLUMNAS[i];
   });
   y += 7.5;
@@ -221,7 +219,7 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
   // --- Filas ---
   let fila = 0;
   for (const p of grupo.partidos) {
-    const cat = p.categoria?.nombre || '—';
+    const cat = p.categoria?.alias || p.categoria?.nombre || '—';
     const esLocalPalma = p.equipoLocal?.nombre === NOMBRE_PALMA;
     const lugar = esLocalPalma ? (p.lugar?.nombre || '—') : (p.equipoLocal?.localidad || '—');
 
@@ -252,7 +250,7 @@ function dibujarGrupo(doc, grupo, escudoClub, imagenes, yIni) {
     doc.setFontSize(8);
     doc.setTextColor(20, 26, 32);
     const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[0] - 2);
-    doc.text(lugarTexto, x + 1.5, mitadV);
+    doc.text(lugarTexto, x + ANCHO_COLUMNAS[0] / 2, mitadV, { align: 'center' });
     x += ANCHO_COLUMNAS[0];
 
     // --- Hora ---
