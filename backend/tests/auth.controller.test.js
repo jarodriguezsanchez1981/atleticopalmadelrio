@@ -66,9 +66,10 @@ describe('Autenticación · auth.controller', () => {
     expect(res._status).toBe(401);
   });
 
-  it('login devuelve 401 si la contraseña no coincide', async () => {
+  it('login devuelve 401 si la contraseña no coincide y cuenta el intento fallido', async () => {
     Usuario.scope.mockReturnValue(Usuario);
-    Usuario.findOne.mockResolvedValue({ id: 1, activo: true, password: 'hash' });
+    const update = vi.fn().mockResolvedValue();
+    Usuario.findOne.mockResolvedValue({ id: 1, activo: true, password: 'hash', intentos_fallidos: 0, update });
     passwordUtils.verifyPassword.mockResolvedValue(false);
     const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'x', password: 'Clave123!' } });
 
@@ -76,6 +77,55 @@ describe('Autenticación · auth.controller', () => {
 
     expect(res._status).toBe(401);
     expect(passwordUtils.verifyPassword).toHaveBeenCalledWith('Clave123!', 'hash');
+    expect(update).toHaveBeenCalledWith({ intentos_fallidos: 1 });
+  });
+
+  it('login bloquea la cuenta al 5º intento fallido', async () => {
+    Usuario.scope.mockReturnValue(Usuario);
+    const update = vi.fn().mockResolvedValue();
+    Usuario.findOne.mockResolvedValue({ id: 1, activo: true, password: 'hash', intentos_fallidos: 4, update });
+    passwordUtils.verifyPassword.mockResolvedValue(false);
+    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'x', password: 'mal' } });
+
+    await promesa;
+
+    expect(res._status).toBe(401);
+    const arg = update.mock.calls[0][0];
+    expect(arg.intentos_fallidos).toBe(0);
+    expect(arg.bloqueado_hasta).toBeInstanceOf(Date);
+  });
+
+  it('login rechaza con 429 si la cuenta está bloqueada', async () => {
+    Usuario.scope.mockReturnValue(Usuario);
+    const update = vi.fn();
+    Usuario.findOne.mockResolvedValue({
+      id: 1, activo: true, password: 'hash',
+      bloqueado_hasta: new Date(Date.now() + 10 * 60 * 1000), update
+    });
+    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'x', password: 'Clave123!' } });
+
+    await promesa;
+
+    expect(res._status).toBe(429);
+    expect(passwordUtils.verifyPassword).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('login con contraseña correcta reinicia el contador de fallos', async () => {
+    Usuario.scope.mockReturnValue(Usuario);
+    const update = vi.fn().mockResolvedValue();
+    Usuario.findOne.mockResolvedValue({
+      id: 1, usuario: 'admin', nombre: 'A', activo: true,
+      totp_activado: true, totp_secret: 'cifrado', password: 'hash',
+      intentos_fallidos: 3, update
+    });
+    passwordUtils.verifyPassword.mockResolvedValue(true);
+    const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'admin', password: 'Clave123!' } });
+
+    await promesa;
+
+    expect(update).toHaveBeenCalledWith({ intentos_fallidos: 0, bloqueado_hasta: null });
+    expect(res._json.twofa).toBe('verificar');
   });
 
   it('login con contraseña correcta y 2FA ya activo pide el código (no da sesión)', async () => {

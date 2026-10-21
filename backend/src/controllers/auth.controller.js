@@ -37,6 +37,11 @@ function userPayload(user) {
 
 const ahoraSeg = () => Math.floor(Date.now() / 1000);
 
+// Bloqueo de cuenta por fuerza bruta: tras MAX_INTENTOS fallos de contraseña
+// consecutivos, la cuenta queda bloqueada BLOQUEO_MIN minutos (se levanta sola).
+const MAX_INTENTOS = 5;
+const BLOQUEO_MIN = 15;
+
 /** Token de sesión con los permisos del usuario en este momento. `inicio` es
  * cuándo se inició sesión (segundos): renovar el token en /auth/me no alarga
  * la sesión, que caduca como máximo 1 hora después de entrar. */
@@ -110,8 +115,32 @@ async function login(req, res, next) {
 
     if (!user || !user.activo) return credencialesInvalidas();
 
+    // Cuenta bloqueada temporalmente por intentos fallidos.
+    if (user.bloqueado_hasta && new Date(user.bloqueado_hasta) > new Date()) {
+      return res.status(429).json({
+        message: 'Cuenta bloqueada temporalmente por varios intentos fallidos. Inténtalo de nuevo en unos minutos.'
+      });
+    }
+
     const passwordOk = await verifyPassword(password, user.password);
-    if (!passwordOk) return credencialesInvalidas();
+    if (!passwordOk) {
+      // Cuenta el fallo y, al llegar al límite, bloquea la cuenta un rato.
+      const intentos = (user.intentos_fallidos || 0) + 1;
+      if (intentos >= MAX_INTENTOS) {
+        await user.update({
+          intentos_fallidos: 0,
+          bloqueado_hasta: new Date(Date.now() + BLOQUEO_MIN * 60 * 1000)
+        });
+      } else {
+        await user.update({ intentos_fallidos: intentos });
+      }
+      return credencialesInvalidas();
+    }
+
+    // Contraseña correcta: reinicia el contador y el bloqueo si los había.
+    if (user.intentos_fallidos || user.bloqueado_hasta) {
+      await user.update({ intentos_fallidos: 0, bloqueado_hasta: null });
+    }
 
     // El 2FA es obligatorio: el login nunca da sesión directa. Si el usuario ya
     // tiene el segundo factor, se le pide el código; si no, se le fuerza a
