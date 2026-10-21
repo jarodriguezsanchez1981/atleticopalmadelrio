@@ -14,6 +14,10 @@ genera el contenedor (ver `docker-compose.yml`) y está en `.gitignore`.
 ```bash
 cd /home/ubuntu/atleticopalmadelrio
 mkdir -p reverse-proxy/logs
+# IMPORTANTE: el reverse-proxy corre con cap_drop: ALL, así que su root NO tiene
+# DAC_OVERRIDE y solo puede escribir el log si es dueño del directorio. El dir
+# debe ser root:root (si no, nginx no arranca: "open() ... 13: Permission denied").
+sudo chown root:root reverse-proxy/logs
 docker compose --env-file .env.development up -d reverse-proxy   # genera el access.log
 
 sudo cp reverse-proxy/fail2ban/filter.d/apr-login.conf /etc/fail2ban/filter.d/
