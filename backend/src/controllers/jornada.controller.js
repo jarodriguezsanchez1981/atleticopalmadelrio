@@ -4,26 +4,38 @@ const { Partido, PartidoJugador, Equipo, Plantilla, Categoria, Temporada, Jugado
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
+const { partesEspana, desdeHoraEspana } = require('../utils/horaEspana');
 
 const PALMA_ID = 73;
 
-/** Combina la fecha (YYYY-MM-DD) y hora (HH:mm[:ss], opcional) en el único
- * campo DATETIME que usa partidos.fecha. */
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** Combina la fecha (YYYY-MM-DD) y hora española (HH:mm[:ss], opcional) en el
+ * instante UTC que guarda partidos.fecha. La hora que teclea el usuario es hora
+ * española, así que se convierte a UTC (como hace el formulario de Partidos con
+ * `toISOString`); así la hora coincide con el Calendario y el PDF. Sin hora, se
+ * guarda medianoche UTC (el valor centinela de "no se indicó hora"). */
 function fechaHoraPartido(fecha, hora) {
   const dia = String(fecha).slice(0, 10);
-  const horaSql = hora ? String(hora).slice(0, 8) : '00:00:00';
-  return `${dia}T${horaSql}`;
+  if (!hora) return `${dia}T00:00:00Z`;
+  const [anio, mes, d] = dia.split('-').map(Number);
+  const [h, mi, s = 0] = String(hora).slice(0, 8).split(':').map(Number);
+  return desdeHoraEspana(anio, mes, d, h, mi, s).toISOString();
 }
 
-/** Descompone partidos.fecha (DATETIME) en fecha (YYYY-MM-DD) y hora
- * (HH:mm:ss, o null si es medianoche exacta = no se indicó hora). */
+/** Descompone partidos.fecha (instante UTC) en fecha (YYYY-MM-DD) y hora, ambas
+ * en hora española (igual que el Calendario). Hora null si se guardó medianoche
+ * UTC exacta (= no se indicó hora). */
 function splitFechaHora(fechaCompleta) {
   const d = new Date(fechaCompleta);
   if (Number.isNaN(d.getTime())) return { fecha: null, hora: null };
-  const pad = (n) => String(n).padStart(2, '0');
-  const fecha = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
-  const horaStr = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
-  return { fecha, hora: horaStr === '00:00:00' ? null : horaStr };
+  // "Sin hora" se guarda como medianoche UTC exacta; el resto son instantes
+  // reales que se muestran en hora española.
+  const sinHora = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  const p = partesEspana(d);
+  const fecha = `${p.y}-${pad2(p.m)}-${pad2(p.d)}`;
+  const hora = sinHora ? null : `${pad2(p.h)}:${pad2(p.mi)}:${pad2(p.s)}`;
+  return { fecha, hora };
 }
 
 const includes = [

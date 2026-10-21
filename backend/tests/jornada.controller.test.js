@@ -50,6 +50,23 @@ describe('Sección Jornadas · jornada.controller (leyendo de partidos)', () => 
     expect(res._json.partidoJugadores).toEqual(convocados);
   });
 
+  it('obtener muestra la hora en hora española (como el Calendario), no en UTC', async () => {
+    // Guardado 10:55 UTC = 12:55 en España (septiembre, UTC+2).
+    Partido.findOne.mockResolvedValue({ id: 1, jornada: 1, fecha: '2026-09-12T10:55:00.000Z', partidoJugadores: [] });
+    const { promesa, res } = llamar(ctrl.obtener, { params: { id: '1' } });
+    await promesa;
+    expect(res._json.fecha).toBe('2026-09-12');
+    expect(res._json.hora).toBe('12:55:00');
+  });
+
+  it('obtener devuelve hora null cuando se guardó medianoche UTC (sin hora)', async () => {
+    Partido.findOne.mockResolvedValue({ id: 1, jornada: 1, fecha: '2026-09-12T00:00:00.000Z', partidoJugadores: [] });
+    const { promesa, res } = llamar(ctrl.obtener, { params: { id: '1' } });
+    await promesa;
+    expect(res._json.fecha).toBe('2026-09-12');
+    expect(res._json.hora).toBeNull();
+  });
+
   it('crear valida campos obligatorios', async () => {
     const { promesa, res } = llamar(ctrl.crear, { body: { id_plantilla: 1 } });
     await promesa;
@@ -98,7 +115,7 @@ describe('Sección Jornadas · jornada.controller (leyendo de partidos)', () => 
     await promesa;
 
     expect(Partido.create).toHaveBeenCalledWith(expect.objectContaining({
-      id_plantilla: 1, jornada: 1, id_equipo_local: 2, id_equipo_visitante: 3, fecha: '2026-01-01T00:00:00'
+      id_plantilla: 1, jornada: 1, id_equipo_local: 2, id_equipo_visitante: 3, fecha: '2026-01-01T00:00:00Z'
     }));
     expect(res._status).toBe(201);
   });
@@ -187,7 +204,8 @@ describe('Sección Jornadas · jornada.controller (leyendo de partidos)', () => 
     });
     await promesa;
 
-    expect(item.fecha).toBe('2026-02-15T18:30');
+    // La hora es española: 18:30 del 15/02 (invierno, UTC+1) se guarda como 17:30 UTC.
+    expect(item.fecha).toBe('2026-02-15T17:30:00.000Z');
     expect(item.save).toHaveBeenCalled();
     expect(res._status).toBe(200);
   });
@@ -204,7 +222,8 @@ describe('Sección Jornadas · jornada.controller (leyendo de partidos)', () => 
     });
     await promesa;
 
-    expect(item.fecha).toBe('2026-01-01T21:00');
+    // 21:00 españolas del 01/01 (invierno, UTC+1) se guardan como 20:00 UTC.
+    expect(item.fecha).toBe('2026-01-01T20:00:00.000Z');
   });
 
   it('eliminar borra el partido con jornada asignada', async () => {
