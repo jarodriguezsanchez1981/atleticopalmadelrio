@@ -2,9 +2,12 @@ name: CI
 
 # Integración continua: en cada push/PR a develop o main se ejecutan los tests
 # del backend y del frontend, el build del frontend y una auditoría de
-# dependencias (npm audit). La auditoría bloquea si aparece una vulnerabilidad
-# CRITICAL; las HIGH no bloquean (ya las vigila el cron de seguridad y el aviso
-# de la intranet), pero se dejan visibles en el log del job.
+# dependencias (npm audit). El paso bloqueante audita solo las dependencias de
+# producción (--omit=dev) y falla si hay una vulnerabilidad CRITICAL en lo que
+# realmente se despliega. El paso informativo audita el árbol completo (incluye
+# las de desarrollo, p. ej. el runner de tests) a nivel HIGH: queda visible en
+# el log pero no bloquea (las HIGH ya las vigila el cron de seguridad y el aviso
+# de la intranet).
 
 on:
   push:
@@ -30,9 +33,9 @@ jobs:
         run: npm ci
       - name: Tests
         run: npm test
-      - name: Auditoría de dependencias (HIGH, informativa)
-        run: npm audit --omit=dev --audit-level=high || true
-      - name: Auditoría de dependencias (bloquea en CRITICAL)
+      - name: Auditoría de dependencias (árbol completo, HIGH, informativa)
+        run: npm audit --audit-level=high || true
+      - name: Auditoría de dependencias de producción (bloquea en CRITICAL)
         run: npm audit --omit=dev --audit-level=critical
 
   frontend:
@@ -54,7 +57,7 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - name: Auditoría de dependencias (HIGH, informativa)
+      - name: Auditoría de dependencias (árbol completo, HIGH, informativa)
         run: npm audit --audit-level=high || true
-      - name: Auditoría de dependencias (bloquea en CRITICAL)
-        run: npm audit --audit-level=critical
+      - name: Auditoría de dependencias de producción (bloquea en CRITICAL)
+        run: npm audit --omit=dev --audit-level=critical
