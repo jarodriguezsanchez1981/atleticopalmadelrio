@@ -54,6 +54,13 @@ const opcionesCategoria = computed(() =>
   categorias.value.map(c => ({ label: c.nombre, value: c.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
+// Ancho de la columna "Sección" de la matriz de permisos: el del nombre de
+// sección más largo (en caracteres), para que ninguno se corte.
+const anchoColumnaSeccion = computed(() => {
+  const maxLen = secciones.value.reduce((m, s) => Math.max(m, (s.nombre || '').length), 0);
+  return maxLen ? `${maxLen + 1}ch` : '6rem';
+});
+
 const opcionesRol = [
   { label: 'Coordinador (ve todas las categorías)', value: 'coordinador' },
   { label: 'Entrenador (solo su categoría)', value: 'entrenador' }
@@ -235,20 +242,20 @@ function prepararEdicion(data) {
 
         <div>
           <label class="text-sm font-medium text-ink-secondary block mb-2">Permisos por sección</label>
-          <div class="border border-line rounded-lg overflow-hidden">
+          <div class="border border-line rounded-lg overflow-x-auto">
             <div class="bg-club-green/5 px-3 py-1.5 flex items-center gap-2 text-xs font-semibold text-ink-tertiary">
-              <span class="w-24">Sección</span>
-              <span class="w-16 text-center">Ver</span>
-              <span class="w-16 text-center">Editar</span>
+              <span class="shrink-0 whitespace-nowrap" :style="{ width: anchoColumnaSeccion }">Sección</span>
+              <span class="w-16 shrink-0 text-center">Ver</span>
+              <span class="w-16 shrink-0 text-center">Editar</span>
             </div>
             <div class="flex items-center gap-2 px-3 py-1.5 border-t border-line bg-club-green/[0.03]">
-              <span class="w-24 text-sm font-semibold text-club-green truncate">Todas</span>
-              <button type="button" class="w-16 flex justify-center" title="Marcar o desmarcar Ver en todas las secciones"
+              <span class="shrink-0 whitespace-nowrap text-sm font-semibold text-club-green" :style="{ width: anchoColumnaSeccion }">Todas</span>
+              <button type="button" class="w-16 shrink-0 flex justify-center" title="Marcar o desmarcar Ver en todas las secciones"
                       @click="toggleTodas(form, 'ver')">
                 <i class="pi transition-colors"
                    :class="todasVer(form) ? 'pi-eye text-blue-600' : 'pi-eye-slash text-gray-300'"></i>
               </button>
-              <button type="button" class="w-16 flex justify-center" title="Marcar o desmarcar Editar en todas las secciones"
+              <button type="button" class="w-16 shrink-0 flex justify-center" title="Marcar o desmarcar Editar en todas las secciones"
                       @click="toggleTodas(form, 'editar')">
                 <i class="pi pi-pencil transition-colors"
                    :class="todasEditar(form) ? 'text-club-green' : 'text-gray-300'"></i>
@@ -256,13 +263,13 @@ function prepararEdicion(data) {
             </div>
             <div v-for="sec in secciones" :key="sec.id"
                  class="flex items-center gap-2 px-3 py-1.5 border-t border-line hover:bg-gray-50">
-              <span class="w-24 text-sm text-ink-primary truncate">{{ sec.nombre }}</span>
-              <button type="button" class="w-16 flex justify-center"
+              <span class="shrink-0 whitespace-nowrap text-sm text-ink-primary" :style="{ width: anchoColumnaSeccion }">{{ sec.nombre }}</span>
+              <button type="button" class="w-16 shrink-0 flex justify-center"
                       @click="toggleVer(form, sec.clave)">
                 <i class="pi transition-colors"
                    :class="tienePermiso(form, sec.clave) ? 'pi-eye text-blue-600' : 'pi-eye-slash text-gray-300'"></i>
               </button>
-              <button type="button" class="w-16 flex justify-center"
+              <button type="button" class="w-16 shrink-0 flex justify-center"
                       :disabled="!tienePermiso(form, sec.clave)"
                       @click="toggleEditar(form, sec.clave)">
                 <i class="pi transition-colors"
