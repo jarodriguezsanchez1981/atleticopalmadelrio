@@ -1,16 +1,16 @@
 services:
 
   db:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: apr_mysql
     restart: unless-stopped
     # Binary log activo: cada cambio (no solo el volcado diario) queda
     # registrado, para poder restaurar point-in-time junto con el servicio
     # binlog-backup. Purga sola a los 30 días (mismo plazo que DB_DUMP_RETENTION).
+    # (En 8.4 el formato de binlog ya es ROW de forma fija, no hace falta fijarlo.)
     command:
       - --server-id=1
       - --log-bin=mysql-bin
-      - --binlog-format=ROW
       - --binlog-expire-logs-seconds=2592000
       - --sync-binlog=1
     environment:
