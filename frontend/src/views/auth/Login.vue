@@ -97,56 +97,22 @@ async function copiarCodigos() {
 </script>
 
 <template>
-  <div class="h-screen w-full grid md:grid-cols-2 overflow-hidden">
-    <!-- Panel de marca -->
-    <div class="hidden md:flex flex-col p-12 bg-club-green relative overflow-hidden">
-      <div class="absolute inset-0 opacity-40 pointer-events-none login-bg"></div>
-
-      <div class="relative flex-1 flex flex-col justify-center">
-        <span class="w-10 h-[3px] bg-white/70 rounded-full mb-5"></span>
-        <h1 class="font-display text-xl lg:text-2xl xl:text-3xl text-white leading-tight !font-normal whitespace-nowrap">
-          Intranet Atlético Palma del Río
-        </h1>
+  <div class="min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 login-fondo">
+    <div class="w-full max-w-sm">
+      <!-- Cabecera de marca -->
+      <div class="flex flex-col items-center text-center mb-8">
+        <img
+          src="/escudo.png"
+          alt="Escudo Atlético Palma del Río"
+          class="h-36 w-auto object-contain select-none"
+        />
+        <h1 class="mt-5 font-display text-2xl text-ink-primary tracking-tight">Atlético Palma del Río</h1>
+        <p class="text-sm text-ink-tertiary mt-1.5">Intranet de gestión del club</p>
       </div>
 
-      <p class="relative text-white/50 text-xs">
-        Atlético Palma del Río © {{ new Date().getFullYear() }} Todos los derechos reservados
-      </p>
-    </div>
-
-    <!-- Formulario -->
-    <div class="flex-1 flex items-center justify-center px-4 py-10 overflow-y-auto login-form-panel">
-      <div class="w-full max-w-sm">
-        <!-- Escudo compacto solo en móvil -->
-        <div class="flex md:hidden flex-col items-center mb-8">
-          <img
-            src="/escudo.png"
-            alt="Escudo Atlético Palma del Río"
-            class="w-20 h-auto object-contain select-none"
-          />
-          <h1 class="mt-4 font-display text-lg text-white tracking-wide text-center">
-            Atlético Palma del Río
-          </h1>
-          <p class="text-white/70 text-sm mt-1">Intranet de gestión del club</p>
-        </div>
-
-        <div class="-mt-16 mb-6 hidden md:flex justify-center">
-          <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="h-[9.6rem] w-auto object-contain select-none" />
-        </div>
-
-        <div class="mb-6 hidden md:flex items-center gap-3">
-          <svg width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-              <polygon points="0 0 24 0 24 24 0 24"></polygon>
-              <path d="M12,11 C9.790861,11 8,9.209139 8,7 C8,4.790861 9.790861,3 12,3 C14.209139,3 16,4.790861 16,7 C16,9.209139 14.209139,11 12,11 Z" fill="#afafaf" fill-rule="nonzero" opacity="0.3"></path>
-              <path d="M3.00065168,20.1992055 C3.38825852,15.4265159 7.26191235,13 11.9833413,13 C16.7712164,13 20.7048837,15.2931929 20.9979143,20.2 C21.0095879,20.3954741 20.9979143,21 20.2466999,21 C16.541124,21 11.0347247,21 3.72750223,21 C3.47671215,21 2.97953825,20.45918 3.00065168,20.1992055 Z" fill="#afafaf" fill-rule="nonzero"></path>
-            </g>
-          </svg>
-          <h2 class="font-display text-xl text-ink-primary">Datos de Acceso</h2>
-        </div>
-
-        <!-- Paso 1: usuario y contraseña -->
-        <form v-if="paso === 'credenciales'" @submit.prevent="onSubmit" class="bg-white rounded-xl shadow-[0_1px_2px_rgb(16_24_40_/_0.04),0_4px_16px_rgb(16_24_40_/_0.06)] border border-line p-8 space-y-5">
+      <!-- Paso 1: usuario y contraseña -->
+      <form v-if="paso === 'credenciales'" @submit.prevent="onSubmit" class="bg-white rounded-2xl shadow-[0_1px_2px_rgb(16_24_40_/_0.04),0_8px_24px_rgb(16_24_40_/_0.06)] border border-line p-8 space-y-5">
+        <h2 class="font-display text-lg text-ink-primary mb-1">Iniciar sesión</h2>
           <div class="flex flex-col gap-2">
             <label for="usuario" class="text-sm font-medium text-ink-secondary">Usuario</label>
             <IconField>
@@ -244,29 +210,22 @@ async function copiarCodigos() {
           </div>
         </div>
 
-        <p class="md:hidden text-center text-xs text-white/60 mt-6">
-          Atlético Palma del Río © 2026 Todos los derechos reservados
-        </p>
-      </div>
+      <p class="text-center text-xs text-ink-tertiary mt-8">
+        Atlético Palma del Río © {{ new Date().getFullYear() }} · Todos los derechos reservados
+      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.login-bg {
-  background-image: url('/login-bg.png');
-  background-size: cover;
-  background-position: center;
-}
-.login-form-panel {
-  background-color: #F7F8FA;
-}
-@media (max-width: 767px) {
-  .login-form-panel {
-    background-color: #0F3D22;
-    background-image: url('/login-bg.png');
-    background-size: cover;
-    background-position: center;
-  }
+/* Fondo suave teñido del verde del club: dos "glows" difusos en las esquinas
+   sobre una base clara; hace que la tarjeta blanca destaque sin distraer. */
+.login-fondo {
+  background-color: #EEF3F0;
+  background-image:
+    radial-gradient(42rem 42rem at 12% -8%, rgba(11, 61, 46, 0.14), transparent 60%),
+    radial-gradient(46rem 46rem at 112% 114%, rgba(11, 61, 46, 0.12), transparent 58%),
+    linear-gradient(180deg, #F3F7F4 0%, #E9F0EB 100%);
+  background-attachment: fixed;
 }
 </style>
