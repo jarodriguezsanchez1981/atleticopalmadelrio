@@ -14,7 +14,7 @@
 # Uso manual:  scripts/comprobar-parches-docker.sh
 #
 # Las imágenes son las bases del stack (docker-compose.yml y los Dockerfile):
-#   - mysql:8.0        → db, backup, binlog-backup
+#   - mysql:8.4        → db, backup, binlog-backup
 #   - node:20-alpine   → backend, frontend (build), test
 #   - nginx:alpine     → frontend (runtime) y reverse-proxy
 #   - certbot/certbot  → certbot
@@ -24,7 +24,7 @@ set -uo pipefail
 umask 077
 
 IMAGENES=(
-  "mysql:8.0"
+  "mysql:8.4"
   "node:20-alpine"
   "nginx:alpine"
   "certbot/certbot"
