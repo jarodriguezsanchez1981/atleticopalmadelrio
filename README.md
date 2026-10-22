@@ -2,7 +2,7 @@
 
 Intranet de gestión del club con Docker Compose.
 
-**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8 · Nginx
+**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8.4 LTS · Nginx
 
 ## Arranque rápido (Docker)
 
@@ -41,7 +41,7 @@ El script arranca nginx con un certificado temporal, pide el real a Let's Encryp
 
 > `TRUST_PROXY_HOPS` debe coincidir con el número de nginx delante del backend (1 en local, 2 con el reverse proxy). Si se queda corto, el backend ve a todos los clientes con la IP del proxy y el límite de intentos de login se comparte entre todos los usuarios.
 
-**Login inicial:** `admin` / cámbiala en Administración.
+**Login inicial:** `admin` / cámbiala en Administración. En el primer acceso, el 2FA obligatorio pedirá configurar el segundo factor (escanear el QR con una app TOTP y guardar los códigos de recuperación).
 
 ```bash
 docker compose logs -f          # logs
@@ -246,17 +246,23 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **Rate limiting**: 10 000 req/15min globales y 10 intentos de login/15min por IP (backend). Además, el reverse-proxy limita por IP real 20 req/s (ráfaga 40) y 30 conexiones simultáneas, con cuerpo máximo y timeouts en ambos nginx contra slowloris; `/health` va limitado a 5 req/s
 - **Body limit**: 2MB máximo por petición
 - **JWT**: sesión de 1 hora como máximo desde el login (renovar el token no la alarga), con secrets generados por entorno
+- **2FA obligatorio (TOTP)**: segundo factor obligatorio para todos los usuarios (Google Authenticator, Authy…). El login nunca da sesión por sí solo: siempre pide el código de 6 dígitos y, si el usuario aún no lo ha configurado, le obliga a enrolarse. El secreto TOTP se guarda cifrado con AES-256-GCM. Recuperación con **códigos de un solo uso** y **reset por un administrador** desde Administración
+- **Bloqueo temporal de cuenta**: tras 5 contraseñas fallidas seguidas, la cuenta se bloquea 15 min (freno a la fuerza bruta dirigida, además del límite por IP). El login correcto lo reinicia
 - **bcrypt**: hashing de contraseñas con 12 rondas
 - **Política de contraseñas**: mín. 8 caracteres + mayúscula + minúscula + número + símbolo
+- **Cifrado en reposo (AES-256-GCM)**: datos sensibles cifrados en la BD (DNI de jugadores/entrenadores/delegados, secreto TOTP)
 - **Autorización**: `requireNivel()` en rutas de escritura, `authorize()` por sección
 - **Error handling**: mensajes específicos en creación de usuarios, genéricos en producción
 
 ### Protección de la infraestructura
-- **Nginx**: security headers en HTML y assets (HSTS, X-Frame-Options SAMEORIGIN, nosniff, Referrer-Policy, CSP mínima); la API lleva los de helmet
+- **Nginx**: security headers en HTML y assets (HSTS a 1 año con `includeSubDomains`, X-Frame-Options SAMEORIGIN, nosniff, Referrer-Policy y una CSP estricta —`default-src 'self'`, sin `unsafe-eval`—); la API lleva los de helmet
+- **fail2ban**: banea por iptables las IPs con abuso sostenido de login/2FA leyendo el log del reverse-proxy (umbral alto, complementa al límite por IP y al bloqueo por cuenta); el jail `sshd` ya viene activo. Ver `reverse-proxy/fail2ban/README.md`
 - **TLS**: HTTPS propio con Let's Encrypt (servicios `reverse-proxy` + `certbot`), solo TLS 1.2/1.3
-- **Docker**: containers non-root, `cap_drop: ALL`, límites de recursos
+- **Docker**: containers non-root, `cap_drop: ALL`, `no-new-privileges`, límites de recursos
 - **MySQL**: puerto solo expuesto a `127.0.0.1`
 - **Secrets**: backend se niega a arrancar con valores por defecto en producción
+- **CI (GitHub Actions)**: en cada push/PR corre `gitleaks` (fuga de secretos), los tests y `npm audit` (bloquea en CRITICAL de dependencias de producción). Ver `.github/workflows/ci.yml`
+- **Aviso de seguridad en la intranet**: una tarea cada 2 días (`scripts/comprobar-parches-docker.sh`) revisa parches de las imágenes Docker y CVEs HIGH/CRITICAL (Trivy) y dependencias npm, y deja un resumen en `informes_seguridad`; si hay algo pendiente, se muestra un aviso a los administradores dentro de la app
 
 ## Diseño visual
 
@@ -314,12 +320,12 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (409 tests, 36 archivos)
+# Backend (648 tests, 52 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (23 tests, 4 archivos)
+# Frontend (56 tests, 11 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```
