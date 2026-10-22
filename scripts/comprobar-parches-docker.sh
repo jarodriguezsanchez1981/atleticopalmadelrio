@@ -178,7 +178,7 @@ guardar_en_bd() {
   fi
 
   # ¿avisar por vulnerabilidades en la intranet? Para no molestar cada 2 días
-  # con los HIGH que no tienen parche disponible (p. ej. mysql:8.0), solo se
+  # con los HIGH que no tienen parche disponible (p. ej. mysql:8.4), solo se
   # avisa si hay algún CRITICAL, o si el nº de HIGH ha AUMENTADO respecto al
   # último informe (vulnerabilidades nuevas). El primer informe también avisa.
   local prev_high hv=0
