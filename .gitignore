@@ -39,3 +39,11 @@ __pycache__/
 
 # Logs del reverse-proxy (fail2ban), no se commitean
 reverse-proxy/logs/
+
+# Datos en caliente de fail2ban (base de datos de baneos y config autogenerada
+# por la imagen). La config versionada vive en data/jail.d y data/filter.d.
+reverse-proxy/fail2ban/data/fail2ban.sqlite3
+reverse-proxy/fail2ban/data/*.sqlite3
+reverse-proxy/fail2ban/data/action.d/
+reverse-proxy/fail2ban/data/fail2ban.d/
+reverse-proxy/fail2ban/data/jail.local

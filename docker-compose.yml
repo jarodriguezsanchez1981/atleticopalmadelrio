@@ -234,6 +234,38 @@ services:
     networks:
       - apr_net
 
+  # fail2ban: banea por el cortafuegos del host (iptables) las IPs con abuso
+  # sostenido de login/2FA (leyendo el access.log del reverse-proxy) y de SSH.
+  # Como el reverse-proxy es un contenedor, el baneo del login se inserta en la
+  # cadena DOCKER-USER (por donde pasa el tráfico 80/443 hacia el contenedor);
+  # el de SSH va a INPUT. Necesita la red del host y NET_ADMIN para tocar el
+  # cortafuegos del host, así que solo tiene sentido en el EC2 (Linux): va en el
+  # profile "seguridad" para no arrancar en el `docker compose up` de desarrollo.
+  # Arrancar en el EC2 con:  docker compose --env-file .env.development --profile seguridad up -d fail2ban
+  fail2ban:
+    image: crazymax/fail2ban:1.1.0
+    container_name: apr_fail2ban
+    restart: unless-stopped
+    profiles:
+      - seguridad
+    # Red del host: para que su iptables actúe sobre el cortafuegos del host.
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: Europe/Madrid
+      F2B_DB_PURGE_AGE: 7d
+    volumes:
+      # Config (jail.d/filter.d) y base de datos de baneos de fail2ban.
+      - ./reverse-proxy/fail2ban/data:/data
+      # Log de acceso del reverse-proxy (login/2FA) en solo lectura.
+      - ./reverse-proxy/logs:/var/log/apr:ro
+      # Log de autenticación del host para el jail sshd (solo lectura).
+      - /var/log/auth.log:/var/log/auth.log:ro
+
 volumes:
   apr_mysql_data:
 
