@@ -6,6 +6,8 @@
 
 export const NOMBRE_CLUB = 'Atlético Palma del Río';
 export const URL_ESCUDO = 'https://intranet.atleticopalmadelrio.com/escudo-firma.png';
+/** Carpeta pública con los iconos de las redes sociales (facebook.png, etc.). */
+export const URL_REDES_BASE = 'https://intranet.atleticopalmadelrio.com/redes/';
 
 export const AVISO_LEGAL_POR_DEFECTO =
   'Este mensaje y sus archivos adjuntos son confidenciales y se dirigen exclusivamente a su destinatario. ' +
@@ -89,13 +91,17 @@ export function generarFirmaHtml(datos = {}) {
   }
   if (d.direccion) lineas.push(`<div style="margin:0;padding:0;color:#777777;">${escaparHtml(d.direccion)}</div>`);
 
-  // Redes sociales: una línea con los enlaces de las redes que se hayan
-  // rellenado, separados por un punto medio.
-  const enlacesRedes = REDES
+  // Redes sociales: una línea con los iconos (imágenes alojadas, que es lo que
+  // muestran de forma fiable los clientes de correo) de las redes rellenadas.
+  const iconosRedes = REDES
     .filter((r) => String(d[r.clave] || '').trim())
-    .map((r) => `<a href="${escaparHtml(urlRed(r, d[r.clave]))}" style="color:${c1};text-decoration:none;">${r.etiqueta}</a>`);
-  if (enlacesRedes.length) {
-    lineas.push(`<div style="margin:6px 0 0 0;padding:0;font-size:12px;">${enlacesRedes.join(' <span style="color:#bbbbbb;">·</span> ')}</div>`);
+    .map((r) =>
+      `<a href="${escaparHtml(urlRed(r, d[r.clave]))}" style="text-decoration:none;display:inline-block;margin:0 6px 0 0;">` +
+      `<img src="${URL_REDES_BASE}${r.clave}.png" width="22" height="22" alt="${r.etiqueta}" ` +
+      `style="display:inline-block;border:0;width:22px;height:22px;vertical-align:middle;"></a>`
+    );
+  if (iconosRedes.length) {
+    lineas.push(`<div style="margin:8px 0 0 0;padding:0;line-height:1;">${iconosRedes.join('')}</div>`);
   }
 
   // Escudo centrado (en horizontal y vertical) en una celda de su mismo ancho,
