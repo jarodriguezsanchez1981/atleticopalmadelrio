@@ -13,6 +13,15 @@ export const AVISO_LEGAL_POR_DEFECTO =
   `${NOMBRE_CLUB} para gestionar esta comunicación; puede ejercer sus derechos de acceso, rectificación, ` +
   'supresión y demás reconocidos por el RGPD respondiendo a este correo.';
 
+/** Redes sociales que puede mostrar la firma. `base` se antepone cuando el
+ * usuario escribe solo el nombre de usuario en vez del enlace completo. */
+export const REDES = [
+  { clave: 'facebook', etiqueta: 'Facebook', base: 'https://facebook.com/' },
+  { clave: 'instagram', etiqueta: 'Instagram', base: 'https://instagram.com/' },
+  { clave: 'twitter', etiqueta: 'Twitter', base: 'https://twitter.com/' },
+  { clave: 'youtube', etiqueta: 'YouTube', base: 'https://youtube.com/' }
+];
+
 export const DATOS_POR_DEFECTO = {
   nombre: '',
   cargo: '',
@@ -20,6 +29,10 @@ export const DATOS_POR_DEFECTO = {
   email: '',
   web: '',
   direccion: 'Palma del Río (Córdoba)',
+  facebook: '',
+  instagram: '',
+  twitter: '',
+  youtube: '',
   colorPrincipal: '#0F3D22',
   colorSecundario: '#7A1E2B',
   mostrarEscudo: true,
@@ -45,6 +58,14 @@ function urlWeb(web) {
   return /^https?:\/\//i.test(limpio) ? limpio : `https://${limpio}`;
 }
 
+/** URL del perfil de una red social a partir de un enlace completo o de un
+ * nombre de usuario (acepta "@usuario" o "usuario"). */
+function urlRed(red, valor) {
+  const limpio = String(valor || '').trim();
+  if (!limpio) return '';
+  return /^https?:\/\//i.test(limpio) ? limpio : red.base + limpio.replace(/^@/, '');
+}
+
 /** HTML de la firma a partir de los datos del formulario. */
 export function generarFirmaHtml(datos = {}) {
   const d = { ...DATOS_POR_DEFECTO, ...datos };
@@ -67,6 +88,15 @@ export function generarFirmaHtml(datos = {}) {
     lineas.push(linea(`<a href="${escaparHtml(urlWeb(d.web))}" style="color:${c1};text-decoration:none;">${escaparHtml(String(d.web).replace(/^https?:\/\//i, ''))}</a>`));
   }
   if (d.direccion) lineas.push(`<div style="margin:0;padding:0;color:#777777;">${escaparHtml(d.direccion)}</div>`);
+
+  // Redes sociales: una línea con los enlaces de las redes que se hayan
+  // rellenado, separados por un punto medio.
+  const enlacesRedes = REDES
+    .filter((r) => String(d[r.clave] || '').trim())
+    .map((r) => `<a href="${escaparHtml(urlRed(r, d[r.clave]))}" style="color:${c1};text-decoration:none;">${r.etiqueta}</a>`);
+  if (enlacesRedes.length) {
+    lineas.push(`<div style="margin:6px 0 0 0;padding:0;font-size:12px;">${enlacesRedes.join(' <span style="color:#bbbbbb;">·</span> ')}</div>`);
+  }
 
   // Escudo centrado (en horizontal y vertical) en una celda de su mismo ancho,
   // en una tabla propia para que el aviso legal, más ancho, no la estire.

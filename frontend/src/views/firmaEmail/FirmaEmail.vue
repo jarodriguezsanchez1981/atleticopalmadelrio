@@ -58,7 +58,7 @@ function restablecer() {
 
 // Campos de texto de los datos personales; "Limpiar" los vacía sin tocar los
 // colores, las casillas ni el texto del aviso legal.
-const CAMPOS_DATOS = ['nombre', 'cargo', 'telefono', 'email', 'web', 'direccion'];
+const CAMPOS_DATOS = ['nombre', 'cargo', 'telefono', 'email', 'web', 'direccion', 'facebook', 'instagram', 'twitter', 'youtube'];
 
 function limpiar() {
   for (const campo of CAMPOS_DATOS) datos[campo] = '';
@@ -142,6 +142,22 @@ function descargarHtml() {
           <div class="flex flex-col gap-1">
             <label class="text-xs font-medium text-ink-secondary" for="firma-direccion">Dirección</label>
             <InputText id="firma-direccion" v-model="datos.direccion" />
+          </div>
+          <div class="flex flex-col gap-1 sm:col-span-2">
+            <label class="text-xs font-medium text-ink-secondary" for="firma-facebook">Facebook</label>
+            <InputText id="firma-facebook" v-model="datos.facebook" placeholder="atleticopalmadelrio o enlace completo" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-ink-secondary" for="firma-instagram">Instagram</label>
+            <InputText id="firma-instagram" v-model="datos.instagram" placeholder="@atleticopalmadelrio" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-medium text-ink-secondary" for="firma-twitter">Twitter / X</label>
+            <InputText id="firma-twitter" v-model="datos.twitter" placeholder="@atleticopalmario" />
+          </div>
+          <div class="flex flex-col gap-1 sm:col-span-2">
+            <label class="text-xs font-medium text-ink-secondary" for="firma-youtube">YouTube</label>
+            <InputText id="firma-youtube" v-model="datos.youtube" placeholder="@canal o enlace completo" />
           </div>
           <div class="flex flex-col gap-1">
             <label class="text-xs font-medium text-ink-secondary" for="firma-color1">Color principal</label>

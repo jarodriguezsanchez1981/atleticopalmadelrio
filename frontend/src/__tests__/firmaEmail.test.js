@@ -31,4 +31,22 @@ describe('firmaEmail · generarFirmaHtml', () => {
     expect(html).not.toContain('<img');
     expect(html).not.toContain('RGPD');
   });
+
+  it('muestra solo las redes sociales rellenadas, con la URL construida', () => {
+    const html = generarFirmaHtml({ nombre: 'A', instagram: '@palma', twitter: 'https://x.com/palma' });
+    // Instagram por nombre de usuario (sin la @) y Twitter por enlace completo.
+    expect(html).toContain('href="https://instagram.com/palma"');
+    expect(html).toContain('>Instagram</a>');
+    expect(html).toContain('href="https://x.com/palma"');
+    expect(html).toContain('>Twitter</a>');
+    // Las no rellenadas no aparecen.
+    expect(html).not.toContain('>Facebook</a>');
+    expect(html).not.toContain('>YouTube</a>');
+  });
+
+  it('sin ninguna red social no añade la línea de enlaces', () => {
+    const html = generarFirmaHtml({ nombre: 'A' });
+    expect(html).not.toContain('>Facebook</a>');
+    expect(html).not.toContain('>Instagram</a>');
+  });
 });
