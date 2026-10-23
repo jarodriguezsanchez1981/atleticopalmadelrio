@@ -264,6 +264,23 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **CI (GitHub Actions)**: en cada push/PR corre `gitleaks` (fuga de secretos), los tests y `npm audit` (bloquea en CRITICAL de dependencias de producción). Ver `.github/workflows/ci.yml`
 - **Aviso de seguridad en la intranet**: una tarea cada 2 días (`scripts/comprobar-parches-docker.sh`) revisa parches de las imágenes Docker y CVEs HIGH/CRITICAL (Trivy) y dependencias npm, y deja un resumen en `informes_seguridad`; si hay algo pendiente, se muestra un aviso a los administradores dentro de la app
 
+### Pruebas de seguridad (pentesting autorizado)
+
+Para auditorías de seguridad se usa [**Strix Claude Code**](https://github.com/tghastings/strix-claude-code), una herramienta de pentesting con IA (Claude CLI + sandbox Kali en Docker + servidor MCP). **No es una dependencia del proyecto**: se instala aparte, en un entorno aislado fuera del repo.
+
+```bash
+# Instalación (una vez), aislada con uv y Python 3.12:
+mkdir -p ~/tools && cd ~/tools
+git clone https://github.com/tghastings/strix-claude-code.git
+cd strix-claude-code && uv venv --python 3.12 && uv pip install -e .
+
+# Escaneo (desde ese directorio); la imagen de Kali se descarga en el primer uso:
+uv run strix-claude-cli -t https://intranet.atleticopalmadelrio.com -m standard -o informe.md
+uv run strix-claude-tui    # panel interactivo
+```
+
+> ⚠️ Herramienta **ofensiva (dual-use)**: úsala solo contra objetivos propios o con permiso explícito (p. ej. un entorno de pruebas de la intranet), nunca contra sistemas de terceros. Requiere Docker y el Claude CLI autenticado.
+
 ## Diseño visual
 
 Sistema de diseño escandinavo aplicado:
