@@ -4,7 +4,7 @@
  * clases: la firma se maqueta con tablas y estilos en línea, y el escudo se
  * enlaza por URL pública (una versión pequeña, escudo-firma.png). */
 
-export const NOMBRE_CLUB = 'Palma del Río Atlético C.F.';
+export const NOMBRE_CLUB = 'Atlético Palma del Río';
 export const URL_ESCUDO = 'https://intranet.atleticopalmadelrio.com/escudo-firma.png';
 
 export const AVISO_LEGAL_POR_DEFECTO =
