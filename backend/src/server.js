@@ -29,6 +29,14 @@ function validateSecrets() {
       console.error('❌ DB_PASSWORD usa el valor por defecto. Define una contraseña segura en producción.');
       process.exit(1);
     }
+    // AES_SECRET_KEY cifra el DNI y el secreto TOTP. Si falta o tiene mal
+    // formato, el backend arrancaría igual y fallaría en la primera operación
+    // de cifrado (2FA/DNI); mejor abortar al inicio con un mensaje claro.
+    const aesKey = process.env.AES_SECRET_KEY || '';
+    if (!/^[0-9a-fA-F]{64}$/.test(aesKey)) {
+      console.error('❌ AES_SECRET_KEY debe ser una cadena hexadecimal de 64 caracteres (32 bytes / AES-256).');
+      process.exit(1);
+    }
   }
 }
 

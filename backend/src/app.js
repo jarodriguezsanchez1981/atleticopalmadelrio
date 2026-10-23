@@ -24,7 +24,10 @@ const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).fil
 if (process.env.NODE_ENV === 'production' && (!corsOrigins || !corsOrigins.length)) {
   throw new Error('CORS_ORIGIN debe estar configurado en producción.');
 }
-app.use(cors({ origin: corsOrigins || '*', credentials: true }));
+// Con `credentials: true` el comodín '*' es inválido (el navegador lo rechaza):
+// si no hay CORS_ORIGIN (solo puede pasar en desarrollo), se refleja el origen
+// de la petición con `origin: true` en vez de usar '*'.
+app.use(cors({ origin: corsOrigins || true, credentials: true }));
 
 // Rate limiting global: 10000 peticiones por 15 minutos por IP (prácticamente ilimitado)
 const globalLimiter = rateLimit({
