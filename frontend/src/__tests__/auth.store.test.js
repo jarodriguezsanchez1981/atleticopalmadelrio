@@ -81,15 +81,13 @@ describe('Auth Store', () => {
     expect(mockLocalStorage.store.apr_user).toBeUndefined();
   });
 
-  it('verificar2fa guarda el usuario y borra un token antiguo', async () => {
+  it('verificar2fa guarda el usuario e inicia sesión', async () => {
     authService.verificar2fa.mockResolvedValue({ user: { id: 1, usuario: 'admin', secciones: ['calendario'] } });
-    mockLocalStorage.store.apr_token = 'viejo';
     const store = useAuthStore();
     const user = await store.verificar2fa('123456');
     expect(user.usuario).toBe('admin');
     expect(store.isAuthenticated).toBe(true);
     expect(JSON.parse(mockLocalStorage.store.apr_user).usuario).toBe('admin');
-    expect(mockLocalStorage.store.apr_token).toBeUndefined();
   });
 
   it('enrolar2faConfirmar inicia sesión y devuelve los códigos de recuperación', async () => {
@@ -126,18 +124,8 @@ describe('Auth Store', () => {
     mockLocalStorage.store.apr_user = JSON.stringify({ id: 2, usuario: 'antes' });
     const store = useAuthStore();
     await store.restoreSession();
-    expect(authService.me).toHaveBeenCalledWith(undefined);
+    expect(authService.me).toHaveBeenCalled();
     expect(store.user.usuario).toBe('x');
-  });
-
-  it('restoreSession pasa a la cookie una sesión antigua y borra el token del navegador', async () => {
-    authService.me.mockResolvedValue({ id: 2, usuario: 'x' });
-    mockLocalStorage.store.apr_token = 'tok-antiguo';
-    const store = useAuthStore();
-    await store.restoreSession();
-    expect(authService.me).toHaveBeenCalledWith('tok-antiguo');
-    expect(store.user.usuario).toBe('x');
-    expect(mockLocalStorage.store.apr_token).toBeUndefined();
   });
 
   it('restoreSession cierra la sesión si falla', async () => {

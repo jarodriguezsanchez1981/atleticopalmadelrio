@@ -121,8 +121,7 @@ export const authService = {
   verificar2fa: (codigo) => api.post('/auth/2fa/verificar', { codigo }).then(r => r.data),
   enrolar2faInicio: () => api.post('/auth/2fa/configurar/inicio').then(r => r.data),
   enrolar2faConfirmar: (codigo) => api.post('/auth/2fa/configurar/confirmar', { codigo }).then(r => r.data),
-  // `token`: solo para pasar a la cookie una sesión antigua guardada en el navegador.
-  me: (token) => api.get('/auth/me', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined).then(r => r.data),
+  me: () => api.get('/auth/me').then(r => r.data),
   logout: () => api.post('/auth/logout').then(r => r.data),
   cambiarPassword: (passwordActual, password, confirmacion) => api.post('/auth/cambiar-password', { password_actual: passwordActual, password, confirmacion }).then(r => r.data)
 };

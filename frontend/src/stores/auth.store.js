@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { authService } from '../services';
-import { TOKEN_ANTIGUO } from '../services/api';
 
 const SECCION_ORDER = [
   'dashboard',
@@ -129,7 +128,6 @@ export const useAuthStore = defineStore('auth', {
     finalizarSesion(user) {
       this.user = user;
       guardarUsuario(user);
-      localStorage.removeItem(TOKEN_ANTIGUO);
       return user;
     },
 
@@ -153,20 +151,16 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async restoreSession() {
-      // Sesión de antes de la cookie: se envía una vez para que el backend la
-      // pase a la cookie y se borra del navegador.
-      const tokenAntiguo = localStorage.getItem(TOKEN_ANTIGUO);
-      if (!this.user && !tokenAntiguo) return;
+      if (!this.user) return;
       try {
         // /auth/me renueva la cookie con los permisos actuales (si cambian, se
-        // aplican con solo recargar la página).
-        const user = await authService.me(tokenAntiguo || undefined);
+        // aplican con solo recargar la página). La sesión viaja en la cookie
+        // HttpOnly, así que no hace falta pasar ningún token.
+        const user = await authService.me();
         this.user = user;
         guardarUsuario(user);
       } catch {
         this.limpiarSesion();
-      } finally {
-        localStorage.removeItem(TOKEN_ANTIGUO);
       }
     },
 
@@ -180,7 +174,6 @@ export const useAuthStore = defineStore('auth', {
 
     limpiarSesion() {
       this.user = null;
-      localStorage.removeItem(TOKEN_ANTIGUO);
       localStorage.removeItem('apr_user');
     }
   }
