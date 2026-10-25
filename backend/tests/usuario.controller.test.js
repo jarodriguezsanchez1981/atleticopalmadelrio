@@ -76,7 +76,7 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(Usuario.create).toHaveBeenCalledWith({
-      usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null
+      usuario: 'sinesc', password: 'hash', nombre: 'A', apellidos: 'B', email: null, rol: 'coordinador', id_categoria: null
     });
     expect(res._status).toBe(201);
   });
@@ -105,10 +105,35 @@ describe('Sección Usuarios · usuario.controller', () => {
     await promesa;
 
     expect(Usuario.create).toHaveBeenCalledWith({
-      usuario: 'juan', password: 'hash', nombre: 'A', apellidos: 'B', rol: 'coordinador', id_categoria: null
+      usuario: 'juan', password: 'hash', nombre: 'A', apellidos: 'B', email: null, rol: 'coordinador', id_categoria: null
     });
     expect(res._status).toBe(201);
     expect(res._json.password).toBeUndefined();
+  });
+
+  it('crear guarda el email cuando es válido', async () => {
+    Usuario.create.mockResolvedValue({ id: 8 });
+    Usuario.findByPk.mockResolvedValue({ id: 8, usuario: 'ana', nombre: 'A', apellidos: 'B', email: 'ana@club.es', secciones: [] });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { usuario: 'ana', password: 'Clave123!', nombre: 'A', apellidos: 'B', email: '  ana@club.es  ', permisos: {} }
+    });
+
+    await promesa;
+
+    expect(Usuario.create).toHaveBeenCalledWith(expect.objectContaining({ email: 'ana@club.es' }));
+    expect(res._status).toBe(201);
+  });
+
+  it('crear rechaza un email con formato inválido', async () => {
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { usuario: 'ana', password: 'Clave123!', nombre: 'A', apellidos: 'B', email: 'esto-no-es-email', permisos: {} }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toContain('email');
+    expect(Usuario.create).not.toHaveBeenCalled();
   });
 
   it('crear usa el rol proporcionado y guarda la categoría del entrenador', async () => {
@@ -194,6 +219,43 @@ describe('Sección Usuarios · usuario.controller', () => {
     expect(usuario.id_categoria).toBeNull();
     expect(usuario.save).toHaveBeenCalled();
     expect(res._status).toBe(200);
+  });
+
+  it('actualizar cambia el email del usuario', async () => {
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', email: 'nuevo@club.es', secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { email: 'nuevo@club.es' } });
+
+    await promesa;
+
+    expect(usuario.email).toBe('nuevo@club.es');
+    expect(usuario.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
+  });
+
+  it('actualizar con email vacío lo deja a null', async () => {
+    const usuario = { id: 1, email: 'viejo@club.es', save: vi.fn().mockResolvedValue() };
+    const completo = { id: 1, usuario: 'juan', nombre: 'A', apellidos: 'B', email: null, secciones: [] };
+    Usuario.findByPk.mockResolvedValueOnce(usuario).mockResolvedValueOnce(completo);
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { email: '' } });
+
+    await promesa;
+
+    expect(usuario.email).toBeNull();
+    expect(res._status).toBe(200);
+  });
+
+  it('actualizar rechaza un email inválido', async () => {
+    const usuario = { id: 1, save: vi.fn().mockResolvedValue() };
+    Usuario.findByPk.mockResolvedValueOnce(usuario);
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { email: 'malformado@' } });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toContain('email');
+    expect(usuario.save).not.toHaveBeenCalled();
   });
 
   it('actualizar usa scope withPassword', async () => {

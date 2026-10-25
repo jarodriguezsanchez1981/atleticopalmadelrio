@@ -93,6 +93,18 @@ function rolFinal(rol) {
   return rol === 'entrenador' ? 'entrenador' : 'coordinador';
 }
 
+/** Formato básico de email (opcional); cadena vacía se trata como "sin email". */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function emailValido(email) {
+  return EMAIL_RE.test(String(email).trim());
+}
+
+/** Normaliza el email del body: '' o null -> null; en otro caso, recortado. */
+function normalizaEmail(email) {
+  const limpio = String(email ?? '').trim();
+  return limpio === '' ? null : limpio;
+}
+
 function validaRolCategoria(res, rol, id_categoria) {
   const rolNormalizado = rolFinal(rol);
   if (rolNormalizado === 'entrenador' && !id_categoria) {
@@ -105,7 +117,7 @@ function validaRolCategoria(res, rol, id_categoria) {
 
 async function crear(req, res, next) {
   try {
-    const { usuario, password, nombre, apellidos, rol, id_categoria } = req.body;
+    const { usuario, password, nombre, apellidos, rol, id_categoria, email } = req.body;
     const permisos = (await normalizePermisos(req.body)) || {};
 
     const faltan = [];
@@ -123,6 +135,10 @@ async function crear(req, res, next) {
         message: 'La contraseña debe tener mínimo 8 caracteres e incluir mayúsculas, minúsculas, números y caracteres especiales.'
       });
     }
+    const emailFinal = normalizaEmail(email);
+    if (emailFinal && !emailValido(emailFinal)) {
+      return res.status(400).json({ message: 'El email no tiene un formato válido.' });
+    }
 
     const rolNormalizado = rolFinal(rol);
     const errorCategoria = validaRolCategoria(res, rolNormalizado, id_categoria);
@@ -134,6 +150,7 @@ async function crear(req, res, next) {
       password: hash,
       nombre,
       apellidos,
+      email: emailFinal,
       rol: rolNormalizado,
       id_categoria: rolNormalizado === 'entrenador' ? id_categoria : null
     });
@@ -150,7 +167,7 @@ async function actualizar(req, res, next) {
     const usuario = await Usuario.scope('withPassword').findByPk(req.params.id);
     if (!usuario) return res.status(404).json({ message: 'Usuario no encontrado.' });
 
-    const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol, id_categoria } = req.body;
+    const { usuario: nuevoUsuario, nombre, apellidos, activo, password, rol, id_categoria, email } = req.body;
     const permisos = await normalizePermisos(req.body);
 
     if (password) {
@@ -160,6 +177,14 @@ async function actualizar(req, res, next) {
         });
       }
       usuario.password = await hashPassword(password);
+    }
+
+    if (email !== undefined) {
+      const emailFinal = normalizaEmail(email);
+      if (emailFinal && !emailValido(emailFinal)) {
+        return res.status(400).json({ message: 'El email no tiene un formato válido.' });
+      }
+      usuario.email = emailFinal;
     }
 
     if (nuevoUsuario !== undefined) usuario.usuario = nuevoUsuario;
