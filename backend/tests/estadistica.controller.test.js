@@ -51,7 +51,9 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
     await promesa;
 
-    expect(Partido.findAll).toHaveBeenCalledWith({ where: { id_plantilla: 5 }, attributes: ['id', 'jornada', 'acta_finalizada_at', 'suspendido'] });
+    expect(Partido.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id_plantilla: 5 }, attributes: ['id', 'jornada', 'fecha', 'acta_finalizada_at', 'suspendido']
+    }));
     expect(res._json.map((f) => f.id_jugador)).toEqual([7, 8]);
     const [anaFila, luisFila] = res._json;
     expect(anaFila).toMatchObject({
@@ -201,6 +203,35 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       amarillas_primera_local: 2, amarillas_ganando_local: 1, rojas_segunda_local: 1, rojas_perdiendo_local: 1,
       amarillas_segunda_visitante: 1, amarillas_perdiendo_visitante: 1, amarillas_primera_visitante: 0
     });
+  });
+
+  it('lista por jugador los partidos en que vio tarjeta, con el rival y los minutos', async () => {
+    const fecha1 = new Date('2026-09-07T16:00:00Z');
+    const fecha2 = new Date('2026-09-14T16:00:00Z');
+    Partido.findAll.mockResolvedValue([
+      { id: 2, jornada: 2, fecha: fecha2, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'RIVAL B' }, equipoVisitante: { nombre: 'PALMA' } },
+      { id: 1, jornada: 1, fecha: fecha1, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'PALMA' }, equipoVisitante: { nombre: 'RIVAL A' } },
+      { id: 3, jornada: 3, fecha: fecha2, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'PALMA' }, equipoVisitante: { nombre: 'RIVAL C' } }
+    ]);
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: true, minutos: 90, tarjeta_amarilla: 0, tarjeta_roja: 1, jugador: { nombre: 'Ana', apellidos: 'López' } },
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, tarjeta_amarilla: 2, tarjeta_roja: 0, jugador: { nombre: 'Ana', apellidos: 'López' } },
+      { id_partido: 3, id_jugador: 7, es_local: true, titular: true, minutos: 90, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: { nombre: 'Ana', apellidos: 'López' } }
+    ]);
+    PartidoTarjeta.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, tipo: 'amarilla', minuto: 70, goles_favor: 0, goles_contra: 0 },
+      { id_partido: 1, id_jugador: 7, tipo: 'amarilla', minuto: 12, goles_favor: 0, goles_contra: 0 },
+      { id_partido: 2, id_jugador: 7, tipo: 'roja', minuto: 88, goles_favor: 0, goles_contra: 0 }
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    // Solo los partidos con tarjeta (no el 3), por jornada, con el rival del PALMA.
+    expect(res._json[0].partidos_tarjetas).toEqual([
+      { id_partido: 1, jornada: 1, fecha: fecha1, es_local: true, rival: 'RIVAL A', amarillas: 2, rojas: 0, minutos_amarillas: [12, 70], minutos_rojas: [] },
+      { id_partido: 2, jornada: 2, fecha: fecha2, es_local: false, rival: 'RIVAL B', amarillas: 0, rojas: 1, minutos_amarillas: [], minutos_rojas: [88] }
+    ]);
   });
 
   it('en una categoría sin minutos, aparecer en el acta cuenta como partido jugado', async () => {

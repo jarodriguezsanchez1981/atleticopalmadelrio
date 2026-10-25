@@ -6,6 +6,7 @@ import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
+import { formatFechaCorta } from '../../utils/formatFecha';
 import {
   METRICAS_EQUIPO_GOLES, METRICAS_EQUIPO_TARJETAS, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
 } from '../../utils/estadisticasMetricas';
@@ -127,7 +128,7 @@ const TABLAS = {
   sanciones: {
     seccion: 'estadisticas_sanciones',
     titulo: 'Estadísticas Sanciones',
-    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo.',
+    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo. Pulsa en un jugador para ver en qué partidos vio cada tarjeta (y en qué minuto).',
     metricas: METRICAS_SANCIONES,
     sortField: 'tarjetas_amarillas',
     porLado: true
@@ -156,6 +157,20 @@ function filasDelLado(sufijo) {
 }
 
 const textoVacioTabla = computed(() => textoVacio.value);
+
+// Estadísticas Sanciones: desplegable por jugador con los partidos en que vio
+// tarjeta (en Local / Visitante, solo los de ese lado).
+function partidosConTarjeta(fila, clave) {
+  return (fila.partidos_tarjetas || [])
+    .filter((p) => clave === 'total' || p.es_local === (clave === 'local'));
+}
+function expandibleSanciones(clave) {
+  return props.tabla === 'sanciones' ? (fila) => partidosConTarjeta(fila, clave).length > 0 : null;
+}
+/** [12, 70] -> "12', 70'" */
+function textoMinutos(minutos) {
+  return minutos?.length ? minutos.map((m) => `${m}'`).join(', ') : '';
+}
 
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
@@ -218,7 +233,39 @@ onBeforeUnmount(() => {
           <h3 v-if="conResumenEquipo" class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
           <h2 v-else class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
-                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla" />
+                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
+                            :expandible="expandibleSanciones(lado.clave)">
+            <template #detalle="{ data }">
+              <div class="overflow-x-auto py-1">
+                <table class="text-sm border-collapse">
+                  <thead>
+                    <tr class="text-xs text-ink-tertiary">
+                      <th class="text-left font-medium px-2 py-1">Jornada</th>
+                      <th class="text-left font-medium px-2 py-1">Fecha</th>
+                      <th class="text-left font-medium px-2 py-1">Rival</th>
+                      <th class="text-center font-medium px-2 py-1">TA</th>
+                      <th class="text-center font-medium px-2 py-1">TR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="p in partidosConTarjeta(data, lado.clave)" :key="p.id_partido" class="border-t border-line">
+                      <td class="px-2 py-1">{{ p.jornada ?? '—' }}</td>
+                      <td class="px-2 py-1 whitespace-nowrap">{{ formatFechaCorta(p.fecha) }}</td>
+                      <td class="px-2 py-1 whitespace-nowrap">{{ p.rival || '—' }} <span class="text-ink-tertiary">({{ p.es_local ? 'casa' : 'fuera' }})</span></td>
+                      <td class="px-2 py-1 text-center whitespace-nowrap">
+                        <template v-if="p.amarillas">{{ p.amarillas }}<span v-if="textoMinutos(p.minutos_amarillas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_amarillas) }}</span></template>
+                        <template v-else>—</template>
+                      </td>
+                      <td class="px-2 py-1 text-center whitespace-nowrap">
+                        <template v-if="p.rojas">{{ p.rojas }}<span v-if="textoMinutos(p.minutos_rojas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_rojas) }}</span></template>
+                        <template v-else>—</template>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </TablaEstadistica>
         </div>
       </template>
       <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"

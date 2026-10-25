@@ -85,10 +85,18 @@ async function listar(req, res, next) {
     // Solo los partidos de liga (con jornada), ya finalizados y no suspendidos:
     // las estadísticas salen del acta, no de la convocatoria previa, y un partido
     // suspendido no cuenta (igual que en Estadísticas Equipo).
-    const partidos = (await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['id', 'jornada', 'acta_finalizada_at', 'suspendido'] }) || [])
+    const partidos = (await Partido.findAll({
+      where: { id_plantilla: idPlantilla },
+      attributes: ['id', 'jornada', 'fecha', 'acta_finalizada_at', 'suspendido'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['nombre'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['nombre'] }
+      ]
+    }) || [])
       .filter((p) => Number(p.jornada) > 0 && p.acta_finalizada_at != null && !p.suspendido);
     if (!partidos.length) return res.json([]);
     const idsPartidos = partidos.map((p) => p.id);
+    const partidoPorId = new Map(partidos.map((p) => [p.id, p]));
 
     const filas = await PartidoJugador.findAll({
       where: { id_partido: idsPartidos },
@@ -116,7 +124,8 @@ async function listar(req, res, next) {
       if (!f.id_jugador) continue;
       let fila = porJugador.get(f.id_jugador);
       if (!fila) {
-        fila = { id_jugador: f.id_jugador, nombre: f.jugador?.nombre || '', apellidos: f.jugador?.apellidos || '' };
+        // partidos_tarjetas: partidos en los que vio alguna tarjeta (desplegable de Estadísticas Sanciones).
+        fila = { id_jugador: f.id_jugador, nombre: f.jugador?.nombre || '', apellidos: f.jugador?.apellidos || '', partidos_tarjetas: [] };
         for (const c of CONTADORES) {
           fila[c] = 0;
           for (const l of LADOS) fila[`${c}_${l}`] = 0;
@@ -161,6 +170,23 @@ async function listar(req, res, next) {
       // Partido con 2 o más amarillas al mismo jugador (doble amarilla).
       if ((Number(f.tarjeta_amarilla) || 0) >= 2) sumar(fila, 'dobles_amarillas', 1, lado);
       sumar(fila, 'tarjetas_rojas', Number(f.tarjeta_roja) || 0, lado);
+      const amarillas = Number(f.tarjeta_amarilla) || 0;
+      const rojas = Number(f.tarjeta_roja) || 0;
+      if (amarillas > 0 || rojas > 0) {
+        const p = partidoPorId.get(f.id_partido);
+        fila.partidos_tarjetas.push({
+          id_partido: f.id_partido,
+          jornada: p?.jornada ?? null,
+          fecha: p?.fecha ?? null,
+          es_local: lado === 'local',
+          rival: (lado === 'local' ? p?.equipoVisitante?.nombre : p?.equipoLocal?.nombre) || '',
+          amarillas,
+          rojas,
+          // Minutos de cada tarjeta (partido_tarjetas), si el acta los trae.
+          minutos_amarillas: [],
+          minutos_rojas: []
+        });
+      }
     }
 
     // Tarjetas por parte del partido y según el marcador en ese momento
@@ -171,6 +197,8 @@ async function listar(req, res, next) {
       const lado = ladoEnPartido.get(`${t.id_partido}-${t.id_jugador}`);
       if (!fila || !lado) continue;
       const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
+      const enPartido = fila.partidos_tarjetas.find((x) => x.id_partido === t.id_partido);
+      if (enPartido && t.minuto != null) enPartido[`minutos_${tipo}`].push(t.minuto);
       if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, lado);
       if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, lado);
       else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, lado);
@@ -201,6 +229,11 @@ async function listar(req, res, next) {
     for (const lado of ladoPartido.values()) partidosEquipo[`_${lado}`] += 1;
 
     for (const f of porJugador.values()) {
+      f.partidos_tarjetas.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
+      for (const x of f.partidos_tarjetas) {
+        x.minutos_amarillas.sort((a, b) => a - b);
+        x.minutos_rojas.sort((a, b) => a - b);
+      }
       for (const sufijo of ['', '_local', '_visitante']) {
         // Partidos jugados en los que marca (como mucho 100 %, aunque meta varios en uno).
         f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`partidos_con_gol${sufijo}`], f[`partidos${sufijo}`]);

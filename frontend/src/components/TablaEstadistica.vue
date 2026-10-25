@@ -26,8 +26,21 @@ const props = defineProps({
   dataKey: { type: String, default: 'id_jugador' },
   // Solo uno de los grupos ('total' | 'local' | 'visitante'): la tabla es la de
   // ese grupo, sin la fila de títulos de grupo (y sortField se refiere a él).
-  soloGrupo: { type: String, default: null }
+  soloGrupo: { type: String, default: null },
+  // Filas desplegables: función (fila) => true si la fila tiene detalle; el
+  // detalle se pinta con el slot #detalle="{ data }".
+  expandible: { type: Function, default: null }
 });
+
+// Filas desplegadas, por su dataKey.
+const filasAbiertas = ref({});
+function alternarFila(data) {
+  const clave = data[props.dataKey];
+  const abiertas = { ...filasAbiertas.value };
+  if (abiertas[clave]) delete abiertas[clave];
+  else abiertas[clave] = true;
+  filasAbiertas.value = abiertas;
+}
 
 const GRUPOS = {
   total: { titulo: 'Total', sufijo: '' },
@@ -151,7 +164,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
 
 <template>
   <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea ar-dt-agrupada" :value="filas" :loading="cargando"
-             :dataKey="dataKey" :sortField="campoOrden" :sortOrder="-1">
+             :dataKey="dataKey" :sortField="campoOrden" :sortOrder="-1" v-model:expandedRows="filasAbiertas">
     <ColumnGroup type="header">
       <Row v-if="!soloGrupo">
         <Column :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
@@ -183,12 +196,25 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
     </ColumnGroup>
 
     <!-- El nombre en una sola línea: la columna no se estrecha al ensanchar la tabla. -->
-    <Column :field="columnaNombre.campo" bodyClass="whitespace-nowrap" />
+    <Column :field="columnaNombre.campo" bodyClass="whitespace-nowrap">
+      <template v-if="expandible" #body="{ data }">
+        <button v-if="expandible(data)" type="button" class="inline-flex items-center gap-1.5 text-left hover:text-club-green"
+                :aria-expanded="!!filasAbiertas[data[dataKey]]" @click="alternarFila(data)">
+          <i :class="['pi text-xs', filasAbiertas[data[dataKey]] ? 'pi-chevron-down' : 'pi-chevron-right']" aria-hidden="true" />
+          {{ data[columnaNombre.campo] }}
+        </button>
+        <span v-else class="pl-[1.125rem]">{{ data[columnaNombre.campo] }}</span>
+      </template>
+    </Column>
     <template v-for="g in grupos" :key="g.clave">
       <Column v-for="c in g.columnas" :key="c.field" :field="c.field" :bodyClass="`text-center${claseSeparador(c)}`">
         <template v-if="c.porcentaje" #body="{ data }">{{ formatoPorcentaje(data[c.field]) }}</template>
         <template v-else-if="c.decimal" #body="{ data }">{{ formatoDecimal(data[c.field]) }}</template>
       </Column>
+    </template>
+
+    <template v-if="expandible" #expansion="{ data }">
+      <slot name="detalle" :data="data" />
     </template>
 
     <template #empty>
