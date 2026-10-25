@@ -130,6 +130,12 @@ export const authService = {
   restablecerPassword: (token, password, confirmacion) => api.post('/auth/restablecer-password', { token, password, confirmacion }).then(r => r.data)
 };
 
+// Cuentas de correo internas (solo admin). CRUD + envío de prueba.
+export const cuentasCorreoService = {
+  ...crudService('cuentas-correo'),
+  probar: (id, destino) => api.post(`/cuentas-correo/${id}/probar`, { destino }).then(r => r.data)
+};
+
 export const calendarioService = {
   eventos: (params = {}) => api.get('/calendario', { params }).then(r => r.data),
   escudos: (ids = []) => api.get('/calendario/escudos', { params: { ids: ids.join(',') } }).then(r => r.data)

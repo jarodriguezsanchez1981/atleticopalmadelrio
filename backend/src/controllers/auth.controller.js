@@ -366,26 +366,28 @@ async function recuperarPassword(req, res, next) {
       where: { [Op.or]: [{ usuario: identificador }, { email: identificador }] }
     });
 
-    if (user && user.activo && user.email && mailConfigurado()) {
-      const token = crypto.randomBytes(32).toString('hex');
-      await user.update({
-        reset_token: hashToken(token),
-        reset_expira: new Date(Date.now() + RESET_CADUCIDAD_MIN * 60 * 1000)
-      });
-      const enlace = `${baseUrlApp()}${RESET_URL_RUTA}?token=${token}`;
-      try {
-        await enviarEmail({
-          to: user.email,
-          subject: 'Restablecer tu contraseña — Atlético Palma del Río',
-          html: emailRecuperacionHtml(user.nombre, enlace),
-          text: emailRecuperacionTexto(user.nombre, enlace)
+    if (user && user.activo && user.email) {
+      if (await mailConfigurado()) {
+        const token = crypto.randomBytes(32).toString('hex');
+        await user.update({
+          reset_token: hashToken(token),
+          reset_expira: new Date(Date.now() + RESET_CADUCIDAD_MIN * 60 * 1000)
         });
-      } catch (err) {
-        // No se revela el fallo al cliente (misma respuesta genérica); se registra.
-        console.error('Recuperar contraseña: error enviando el email:', err.message);
+        const enlace = `${baseUrlApp()}${RESET_URL_RUTA}?token=${token}`;
+        try {
+          await enviarEmail({
+            to: user.email,
+            subject: 'Restablecer tu contraseña — Atlético Palma del Río',
+            html: emailRecuperacionHtml(user.nombre, enlace),
+            text: emailRecuperacionTexto(user.nombre, enlace)
+          });
+        } catch (err) {
+          // No se revela el fallo al cliente (misma respuesta genérica); se registra.
+          console.error('Recuperar contraseña: error enviando el email:', err.message);
+        }
+      } else {
+        console.warn('Recuperar contraseña: no hay correo configurado; no se envía el email.');
       }
-    } else if (user && user.activo && user.email && !mailConfigurado()) {
-      console.warn('Recuperar contraseña: SMTP no configurado; no se envía el email.');
     }
 
     return res.json(RESPUESTA_RECUPERAR);

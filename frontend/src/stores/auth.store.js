@@ -70,6 +70,9 @@ export const useAuthStore = defineStore('auth', {
     secciones: (state) => state.user?.secciones || [],
     permisos: (state) => state.user?.permisos || {},
     nombreCompleto: (state) => (state.user ? `${state.user.nombre} ${state.user.apellidos}` : ''),
+    // Administrador principal: el usuario cuyo login es exactamente "admin".
+    // Acceso a recursos muy sensibles (p. ej. las cuentas de correo internas).
+    esAdmin: (state) => state.user?.usuario === 'admin',
     primeraSeccion: (state) => {
       const set = new Set(state.user?.secciones || []);
       return SECCION_ORDER.find((s) => set.has(s)) || 'calendario';

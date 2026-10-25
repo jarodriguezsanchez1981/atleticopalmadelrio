@@ -363,7 +363,12 @@ Mocks en `backend/tests/helpers/` — `Module._load` interceptor para Sequelize 
 
 ### Correo saliente (SMTP)
 
-El envío de correo (hoy: recuperación de contraseña) se configura con variables de entorno en el env file del servidor; **no se versionan** (son secretos). Si no están, la función de recuperar contraseña responde igual al usuario pero no envía nada (queda un aviso en el log del backend).
+El envío de correo (hoy: recuperación de contraseña) se configura de dos formas, por este orden de prioridad:
+
+1. **Sección "Correos"** (Administración, solo visible para el usuario `admin`): cuentas de correo internas guardadas en la BD (p. ej. `no-reply`), con su configuración SMTP. La contraseña se guarda **cifrada con AES-256-GCM** y nunca se muestra. La cuenta marcada como **Activa** (solo una) es la que usa la web para enviar; hay un botón para enviar un correo de prueba y comprobar las credenciales.
+2. **Variables de entorno** (respaldo): si no hay ninguna cuenta activa en la BD, se usan las variables `SMTP_*` del env file del servidor (**no se versionan**, son secretos).
+
+Si no hay ninguna de las dos, la función de recuperar contraseña responde igual al usuario pero no envía nada (queda un aviso en el log del backend).
 
 | Variable | Descripción |
 |----------|-------------|

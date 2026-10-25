@@ -8,9 +8,11 @@ import Message from 'primevue/message';
 import { suscribirseCambio, emitirCambio } from '../../utils/cambioBus';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
+import { useAuthStore } from '../../stores/auth.store';
 
 const toast = useToast();
 const confirm = useConfirm();
+const auth = useAuthStore();
 
 /** Un administrador resetea el 2FA de un usuario (p. ej. si perdió el móvil):
  * lo deja sin segundo factor y tendrá que configurarlo de nuevo al entrar. */
@@ -158,10 +160,16 @@ function prepararEdicion(data) {
         <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
         Administración
       </h1>
-      <router-link to="/secciones">
-        <Button label="Ordenar secciones del menú" icon="pi pi-sort-alt" text
-                class="!text-club-green !border-club-green/50" outlined />
-      </router-link>
+      <div class="flex items-center gap-2 flex-wrap">
+        <router-link v-if="auth.esAdmin" to="/correos">
+          <Button label="Correos" icon="pi pi-envelope" text
+                  class="!text-club-green !border-club-green/50" outlined />
+        </router-link>
+        <router-link to="/secciones">
+          <Button label="Ordenar secciones del menú" icon="pi pi-sort-alt" text
+                  class="!text-club-green !border-club-green/50" outlined />
+        </router-link>
+      </div>
     </div>
     <p class="text-sm text-ink-tertiary mb-4">
       Gestión de usuarios de la intranet. Al crear o editar, indica las secciones que podrá ver y editar.

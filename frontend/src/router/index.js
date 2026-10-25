@@ -167,6 +167,13 @@ const routes = [
         meta: { seccion: 'administracion' }
       },
       {
+        path: 'correos',
+        name: 'correos',
+        component: () => import('../views/admin/Correos.vue'),
+        // Solo el usuario admin (no va por permisos de sección).
+        meta: { soloAdmin: true }
+      },
+      {
         path: 'categoria-calendario',
         name: 'categoria-calendario',
         component: () => import('../views/categoriaCalendario/CategoriaCalendario.vue'),
@@ -313,6 +320,11 @@ router.beforeEach((to) => {
 
   if (!auth.isAuthenticated) {
     return { name: 'login' };
+  }
+
+  // Rutas solo para el administrador principal (usuario "admin").
+  if (to.meta.soloAdmin && !auth.esAdmin) {
+    return { name: auth.primeraSeccion };
   }
 
   if (to.meta.seccion && !auth.puedeVer(to.meta.seccion)) {

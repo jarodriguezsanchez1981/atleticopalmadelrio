@@ -26,7 +26,7 @@ const ENTITY_MAP = {
 // Credenciales y datos personales que no se guardan en el historial de
 // cambios (RGPD: minimización); el historial solo necesita saber qué cambió.
 const SENSITIVE_KEYS = [
-  'password', 'token', 'jwt', 'secret', 'AES_SECRET_KEY',
+  'password', 'smtp_password', 'token', 'jwt', 'secret', 'AES_SECRET_KEY',
   'dni', 'dni_encrypted', 'dni_hash', 'fecha_nacimiento', 'telefono', 'email', 'foto',
   // El base64 del adjunto de un entrenamiento no se guarda en el historial (pesa mucho).
   'adjunto'

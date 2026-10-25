@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { crudService, authService, calendarioService, utilService } from '../services/index.js';
+import { crudService, authService, calendarioService, utilService, cuentasCorreoService } from '../services/index.js';
 
 vi.mock('../services/api.js', () => ({
   default: {
@@ -72,6 +72,12 @@ describe('Servicios CRUD', () => {
     api.post.mockResolvedValue({ data: { message: 'ok' } });
     await authService.restablecerPassword('tok123', 'Nueva#2026', 'Nueva#2026');
     expect(api.post).toHaveBeenCalledWith('/auth/restablecer-password', { token: 'tok123', password: 'Nueva#2026', confirmacion: 'Nueva#2026' });
+  });
+
+  it('cuentasCorreoService.probar envía el destino', async () => {
+    api.post.mockResolvedValue({ data: { message: 'ok' } });
+    await cuentasCorreoService.probar(7, 'test@club.es');
+    expect(api.post).toHaveBeenCalledWith('/cuentas-correo/7/probar', { destino: 'test@club.es' });
   });
 
   it('calendarioService.eventos pasa parámetros', async () => {

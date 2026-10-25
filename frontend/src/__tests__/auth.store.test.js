@@ -147,6 +147,16 @@ describe('Auth Store', () => {
     expect(store.puedeVer('calendario')).toBe(true);
   });
 
+  it('esAdmin solo es true para el usuario "admin"', () => {
+    const store = useAuthStore();
+    store.user = { id: 1, usuario: 'admin', rol: 'coordinador' };
+    expect(store.esAdmin).toBe(true);
+    store.user = { id: 2, usuario: 'pepe', rol: 'coordinador' };
+    expect(store.esAdmin).toBe(false);
+    store.user = null;
+    expect(store.esAdmin).toBe(false);
+  });
+
   it('las Estadísticas (Senior A) solo las ve el entrenador de esa categoría; los coordinadores, todas', () => {
     const store = useAuthStore();
     const permisos = { estadisticas_goles: { ver: true, editar: false }, calendario: { ver: true, editar: false } };

@@ -72,6 +72,7 @@ export function createModelsMock() {
     Promocion: createModelMock(),
     Material: createModelMock(),
     Coordinador: createModelMock(),
+    CuentaCorreo: createModelMock(),
     UsuarioSeccion: createModelMock(),
     Convocatoria: createModelMock(),
     ConvocatoriaJugador: createModelMock(),
@@ -129,6 +130,7 @@ export const EquipoJugador = models.EquipoJugador;
 export const Promocion = models.Promocion;
 export const Material = models.Material;
 export const Coordinador = models.Coordinador;
+export const CuentaCorreo = models.CuentaCorreo;
 export const UsuarioSeccion = models.UsuarioSeccion;
 export const Convocatoria = models.Convocatoria;
 export const ConvocatoriaJugador = models.ConvocatoriaJugador;
@@ -158,8 +160,9 @@ export function createJwtUtilsMock() {
 export function createMailerMock() {
   return {
     enviarEmail: vi.fn(),
+    enviarConConfig: vi.fn(),
     mailConfigurado: vi.fn(),
-    remitente: vi.fn(() => 'no-reply@test')
+    resolverConfig: vi.fn()
   };
 }
 

@@ -39,6 +39,7 @@ const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
 const Material = require('./Material');
 const Coordinador = require('./Coordinador');
+const CuentaCorreo = require('./CuentaCorreo');
 const Convocatoria = require('./Convocatoria');
 const ConvocatoriaJugador = require('./ConvocatoriaJugador');
 const ConvocatoriaSinJugador = require('./ConvocatoriaSinJugador');
@@ -350,6 +351,7 @@ module.exports = {
   Promocion,
   Material,
   Coordinador,
+  CuentaCorreo,
   Convocatoria,
   ConvocatoriaJugador,
   ConvocatoriaSinJugador,
