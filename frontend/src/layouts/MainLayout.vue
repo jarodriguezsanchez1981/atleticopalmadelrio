@@ -6,7 +6,7 @@ import Menu from 'primevue/menu';
 import Drawer from 'primevue/drawer';
 import { useAuthStore } from '../stores/auth.store';
 import { useMediaQuery } from '../composables/useMediaQuery';
-import { seccionesService, seguridadService } from '../services';
+import { seccionesService } from '../services';
 import { RUTA_POR_SECCION } from '../utils/seccionRoutes';
 import { suscribirseCambio } from '../utils/cambioBus';
 
@@ -62,76 +62,12 @@ async function cargarSecciones() {
   }
 }
 
-// ---- Aviso de seguridad (parches de Docker) para administradores ----
-// El cron del EC2 guarda el último informe en la BD; aquí se lee y, si hay algo
-// que revisar, se muestra un banner. El administrador puede descartarlo: se
-// recuerda el id descartado en sessionStorage para no reaparecer navegando,
-// pero sí volverá a salir con un informe nuevo.
-const AVISO_OCULTO_KEY = 'apr_aviso_seguridad_oculto';
-const informeSeguridad = ref(null);
-const detalleSeguridadAbierto = ref(false);
-const idInformeOculto = ref(leerAvisoOculto());
-
-function leerAvisoOculto() {
-  try {
-    const v = sessionStorage.getItem(AVISO_OCULTO_KEY);
-    return v ? Number(v) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function cargarEstadoSeguridad() {
-  if (!auth.puedeVer('administracion')) return;
-  try {
-    const { informe } = await seguridadService.estado();
-    informeSeguridad.value = informe || null;
-  } catch {
-    informeSeguridad.value = null;
-  }
-}
-
-const hayAvisoSeguridad = computed(() => {
-  const inf = informeSeguridad.value;
-  if (!inf || !auth.puedeVer('administracion')) return false;
-  if (!inf.hay_actualizaciones && !inf.hay_vulnerabilidades) return false;
-  return inf.id !== idInformeOculto.value;
-});
-
-const textoAvisoSeguridad = computed(() => {
-  const inf = informeSeguridad.value;
-  if (!inf) return '';
-  const partes = [];
-  if (inf.hay_actualizaciones) partes.push('hay imágenes de Docker con una versión parcheada disponible');
-  const vulns = (inf.total_critical || 0) + (inf.total_high || 0);
-  if (inf.hay_vulnerabilidades && vulns > 0) {
-    partes.push(`${vulns} vulnerabilidad(es) (CRITICAL: ${inf.total_critical || 0}, HIGH: ${inf.total_high || 0})`);
-  }
-  return partes.join(' y ') + '.';
-});
-
-const fechaAvisoSeguridad = computed(() => {
-  const inf = informeSeguridad.value;
-  if (!inf?.fecha) return '';
-  try {
-    return new Date(inf.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
-  } catch {
-    return String(inf.fecha);
-  }
-});
-
-function descartarAvisoSeguridad() {
-  const inf = informeSeguridad.value;
-  if (!inf) return;
-  idInformeOculto.value = inf.id;
-  try {
-    sessionStorage.setItem(AVISO_OCULTO_KEY, String(inf.id));
-  } catch { /* sin almacenamiento: se oculta solo durante esta carga */ }
-}
+// El aviso de seguridad (parches de Docker) ya no se muestra dentro de la web:
+// el cron del EC2 avisa por correo al administrador cuando hay algo que revisar
+// (ver scripts/comprobar-parches-docker.sh + backend/src/scripts/avisar-seguridad.js).
 
 onMounted(() => {
   cargarSecciones();
-  cargarEstadoSeguridad();
   unsubCambio = suscribirseCambio(cargarSecciones);
 });
 onBeforeUnmount(() => {
@@ -383,48 +319,6 @@ function subgrupoActivo(subgrupo) {
       </header>
 
       <main class="flex-1 overflow-y-auto p-5 sm:p-8">
-        <!-- Aviso de seguridad (solo administradores): parches de Docker pendientes -->
-        <div
-          v-if="hayAvisoSeguridad"
-          class="mb-5 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 px-4 py-3 shadow-sm"
-        >
-          <div class="flex items-start gap-3">
-            <i class="pi pi-shield text-lg mt-0.5 shrink-0" />
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium">
-                Seguridad: {{ textoAvisoSeguridad }}
-              </p>
-              <p class="text-xs text-amber-800/80 mt-0.5">
-                Última comprobación: {{ fechaAvisoSeguridad }}.
-                <button
-                  type="button"
-                  class="underline hover:no-underline"
-                  @click="detalleSeguridadAbierto = !detalleSeguridadAbierto"
-                >
-                  {{ detalleSeguridadAbierto ? 'Ocultar detalle' : 'Ver detalle' }}
-                </button>
-              </p>
-              <ul
-                v-if="detalleSeguridadAbierto && informeSeguridad?.resumen"
-                class="mt-2 text-xs text-amber-900/90 space-y-0.5"
-              >
-                <li
-                  v-for="(linea, i) in informeSeguridad.resumen.split('|')"
-                  :key="i"
-                  class="break-words"
-                >
-                  {{ linea.trim() }}
-                </li>
-              </ul>
-            </div>
-            <button
-              type="button"
-              class="pi pi-times text-amber-700 hover:text-amber-900 transition-colors shrink-0"
-              title="Descartar aviso"
-              @click="descartarAvisoSeguridad"
-            />
-          </div>
-        </div>
         <router-view />
       </main>
     </div>

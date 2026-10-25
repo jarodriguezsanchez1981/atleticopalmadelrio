@@ -213,6 +213,22 @@ SQL
 }
 guardar_en_bd
 
+# Aviso por correo al administrador (sustituye al banner que antes se mostraba
+# en la web). El script del backend decide si enviar: solo cuando hay algo
+# pendiente y ha cambiado respecto al informe anterior. Best-effort.
+avisar_por_email() {
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'apr_backend'; then
+    log "  ℹ️  No se envía aviso por correo: el contenedor apr_backend no está en marcha."
+    return
+  fi
+  if salida="$(docker exec apr_backend node src/scripts/avisar-seguridad.js 2>&1)"; then
+    log "  📧 Aviso de seguridad: ${salida}"
+  else
+    log "  ⚠️  Aviso de seguridad por correo falló: ${salida}"
+  fi
+}
+avisar_por_email
+
 # Conservar solo los informes de los últimos 30 días.
 find "$DIR" -maxdepth 1 -name 'informe_*.log' -type f -mtime +30 -delete 2>/dev/null
 

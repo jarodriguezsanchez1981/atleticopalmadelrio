@@ -263,7 +263,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **MySQL**: puerto solo expuesto a `127.0.0.1`
 - **Secrets**: backend se niega a arrancar con valores por defecto en producción
 - **CI (GitHub Actions)**: en cada push/PR corre `gitleaks` (fuga de secretos), los tests y `npm audit` (bloquea en CRITICAL de dependencias de producción). Ver `.github/workflows/ci.yml`
-- **Aviso de seguridad en la intranet**: una tarea cada 2 días (`scripts/comprobar-parches-docker.sh`) revisa parches de las imágenes Docker y CVEs HIGH/CRITICAL (Trivy) y dependencias npm, y deja un resumen en `informes_seguridad`; si hay algo pendiente, se muestra un aviso a los administradores dentro de la app
+- **Aviso de seguridad por correo**: una tarea cada 2 días (`scripts/comprobar-parches-docker.sh`) revisa parches de las imágenes Docker y CVEs HIGH/CRITICAL (Trivy) y dependencias npm, y deja un resumen en `informes_seguridad`. Si hay algo pendiente **y ha cambiado respecto al informe anterior**, envía un correo al administrador (`backend/src/scripts/avisar-seguridad.js`, al email del usuario `admin` o a `SEGURIDAD_AVISO_EMAIL`); así no se repite el mismo aviso cada 2 días por los CVEs residuales sin parche. Requiere tener configurado el envío de correo (sección Correos o variables `SMTP_*`)
 
 ### Pruebas de seguridad (pentesting autorizado)
 
