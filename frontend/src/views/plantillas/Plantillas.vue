@@ -172,14 +172,14 @@ const columns = computed(() => [
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false, enDetalle: false },
   { field: 'id_coordinador', header: 'Coordinador', type: 'select', options: opcionesCoordinador, required: false, enDetalle: false },
-  { field: 'codigo_competicion', header: 'Cód. Competición', type: 'text', required: false, enDetalle: false, enTabla: false },
-  { field: 'codigo_grupo', header: 'Cód. Grupo', type: 'text', required: false, enDetalle: false, enTabla: false },
-  { field: 'codigo_temporada', header: 'Cód. Temporada', type: 'text', required: false, enDetalle: false, enTabla: false },
-  { field: 'codigo_equipo', header: 'Cód. Equipo', type: 'text', required: false, enDetalle: false, enTabla: false },
+  { field: 'codigo_competicion', header: 'Cód. Competición', type: 'text', required: false, enDetalle: false },
+  { field: 'codigo_grupo', header: 'Cód. Grupo', type: 'text', required: false, enDetalle: false },
+  { field: 'codigo_temporada', header: 'Cód. Temporada', type: 'text', required: false, enDetalle: false },
+  { field: 'codigo_equipo', header: 'Cód. Equipo', type: 'text', required: false, enDetalle: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
   { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false },
-  // Solo para cargar ids_personal al editar (relation); se edita en la tabla Personal del formulario.
-  { field: 'ids_personal', header: 'Personal', type: 'multiselect', options: opcionesPersonal.value, required: false, relation: 'personal', enDetalle: false, enForm: false, enTabla: false }
+  // Se edita en la tabla Personal del formulario.
+  { field: 'ids_personal', header: 'Personal', type: 'multiselect', options: opcionesPersonal.value, required: false, relation: 'personal', enDetalle: false, enForm: false }
 ]);
 
 const emptyItem = {
@@ -513,6 +513,12 @@ function validarPlantilla(form) {
     <template #cell-ids_delegados="{ data }">
       <span v-if="data.delegados?.length">
         <template v-for="(d, i) in data.delegados" :key="d.id ?? i"><br v-if="i > 0" />{{ d.nombre }} {{ d.apellidos }}</template>
+      </span>
+      <span v-else>—</span>
+    </template>
+    <template #cell-ids_personal="{ data }">
+      <span v-if="data.personal?.length">
+        <template v-for="(p, i) in data.personal" :key="p.id ?? i"><br v-if="i > 0" />{{ p.nombre }} {{ p.apellidos }}<template v-if="p.tipoPersonal?.nombre"> · {{ p.tipoPersonal.nombre }}</template></template>
       </span>
       <span v-else>—</span>
     </template>
