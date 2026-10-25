@@ -205,6 +205,36 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     });
   });
 
+  it('lista por jugador los partidos en que marcó, con el rival y los minutos (y si fue de penalti)', async () => {
+    const fecha1 = new Date('2026-09-07T16:00:00Z');
+    const fecha2 = new Date('2026-09-14T16:00:00Z');
+    Partido.findAll.mockResolvedValue([
+      { id: 2, jornada: 2, fecha: fecha2, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'RIVAL B' }, equipoVisitante: { nombre: 'PALMA' } },
+      { id: 1, jornada: 1, fecha: fecha1, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'PALMA' }, equipoVisitante: { nombre: 'RIVAL A' } },
+      { id: 3, jornada: 3, fecha: fecha2, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'PALMA' }, equipoVisitante: { nombre: 'RIVAL C' } }
+    ]);
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: false, minuto_entrada: 60, minutos: 30, goles: 1, jugador: { nombre: 'Ana', apellidos: 'López' } },
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 2, jugador: { nombre: 'Ana', apellidos: 'López' } },
+      { id_partido: 3, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 0, jugador: { nombre: 'Ana', apellidos: 'López' } }
+    ]);
+    PartidoGol.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, minuto: 70, tipo: 'penalti' },
+      { id_partido: 1, id_jugador: 7, minuto: 12, tipo: 'normal' },
+      { id_partido: 2, id_jugador: 7, minuto: null, tipo: 'normal' } // sin minuto: cuenta el gol, sin minuto
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    // Solo los partidos con gol (no el 3), por jornada, con el rival del PALMA.
+    expect(res._json[0].partidos_goles).toEqual([
+      { id_partido: 1, jornada: 1, fecha: fecha1, es_local: true, rival: 'RIVAL A', titular: true, goles: 2,
+        minutos_goles: [{ minuto: 12, penalti: false }, { minuto: 70, penalti: true }] },
+      { id_partido: 2, jornada: 2, fecha: fecha2, es_local: false, rival: 'RIVAL B', titular: false, goles: 1, minutos_goles: [] }
+    ]);
+  });
+
   it('lista por jugador los partidos en que vio tarjeta, con el rival y los minutos', async () => {
     const fecha1 = new Date('2026-09-07T16:00:00Z');
     const fecha2 = new Date('2026-09-14T16:00:00Z');

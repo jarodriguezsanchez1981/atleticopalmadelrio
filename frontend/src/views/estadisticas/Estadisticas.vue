@@ -120,7 +120,7 @@ const TABLAS = {
   goles: {
     seccion: 'estadisticas_goles',
     titulo: 'Estadísticas Goles',
-    descripcion: 'Goles de cada jugador por tramos de 15 minutos dentro de cada parte (1ª parte: 0-15, 16-30, 31-45; 2ª parte: 46-60, 61-75, 76-90; el tiempo añadido se suma al último tramo de su parte) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol (si marca en 2 de 4 partidos, 50 %; marcar varios en un partido cuenta como uno). Los goles en propia puerta no cuentan.',
+    descripcion: 'Goles de cada jugador por tramos de 15 minutos dentro de cada parte (1ª parte: 0-15, 16-30, 31-45; 2ª parte: 46-60, 61-75, 76-90; el tiempo añadido se suma al último tramo de su parte) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol (si marca en 2 de 4 partidos, 50 %; marcar varios en un partido cuenta como uno). Los goles en propia puerta no cuentan. Pulsa en un jugador para ver en qué partidos marcó (y en qué minuto; (p) = de penalti).',
     metricas: METRICAS_GOLES,
     sortField: 'goles',
     porLado: true
@@ -158,18 +158,22 @@ function filasDelLado(sufijo) {
 
 const textoVacioTabla = computed(() => textoVacio.value);
 
-// Estadísticas Sanciones: desplegable por jugador con los partidos en que vio
-// tarjeta (en Local / Visitante, solo los de ese lado).
-function partidosConTarjeta(fila, clave) {
-  return (fila.partidos_tarjetas || [])
-    .filter((p) => clave === 'total' || p.es_local === (clave === 'local'));
+// Estadísticas Goles / Sanciones: desplegable por jugador con los partidos en
+// que marcó / vio tarjeta (en Local / Visitante, solo los de ese lado).
+function partidosDelJugador(fila, clave) {
+  const lista = props.tabla === 'goles' ? fila.partidos_goles : fila.partidos_tarjetas;
+  return (lista || []).filter((p) => clave === 'total' || p.es_local === (clave === 'local'));
 }
-function expandibleSanciones(clave) {
-  return props.tabla === 'sanciones' ? (fila) => partidosConTarjeta(fila, clave).length > 0 : null;
+function expandibleLado(clave) {
+  return conResumenEquipo.value ? (fila) => partidosDelJugador(fila, clave).length > 0 : null;
 }
 /** [12, 70] -> "12', 70'" */
 function textoMinutos(minutos) {
   return minutos?.length ? minutos.map((m) => `${m}'`).join(', ') : '';
+}
+/** [{ minuto: 12 }, { minuto: 70, penalti: true }] -> "12', 70' (p)" */
+function textoMinutosGoles(goles) {
+  return goles?.length ? goles.map((g) => `${g.minuto}'${g.penalti ? ' (p)' : ''}`).join(', ') : '';
 }
 
 const titulo = computed(() => plantilla.value
@@ -234,7 +238,7 @@ onBeforeUnmount(() => {
           <h2 v-else class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
                             :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
-                            :expandible="expandibleSanciones(lado.clave)">
+                            :expandible="expandibleLado(lado.clave)">
             <template #detalle="{ data }">
               <div class="overflow-x-auto py-1">
                 <table class="text-sm border-collapse">
@@ -243,23 +247,37 @@ onBeforeUnmount(() => {
                       <th class="text-left font-medium px-2 py-1">Jornada</th>
                       <th class="text-left font-medium px-2 py-1">Fecha</th>
                       <th class="text-left font-medium px-2 py-1">Rival</th>
-                      <th class="text-center font-medium px-2 py-1">TA</th>
-                      <th class="text-center font-medium px-2 py-1">TR</th>
+                      <template v-if="tabla === 'goles'">
+                        <th class="text-center font-medium px-2 py-1">Goles</th>
+                        <th class="text-left font-medium px-2 py-1">Minutos</th>
+                        <th class="text-left font-medium px-2 py-1">Jugó de</th>
+                      </template>
+                      <template v-else>
+                        <th class="text-center font-medium px-2 py-1">TA</th>
+                        <th class="text-center font-medium px-2 py-1">TR</th>
+                      </template>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="p in partidosConTarjeta(data, lado.clave)" :key="p.id_partido" class="border-t border-line">
+                    <tr v-for="p in partidosDelJugador(data, lado.clave)" :key="p.id_partido" class="border-t border-line">
                       <td class="px-2 py-1">{{ p.jornada ?? '—' }}</td>
                       <td class="px-2 py-1 whitespace-nowrap">{{ formatFechaCorta(p.fecha) }}</td>
                       <td class="px-2 py-1 whitespace-nowrap">{{ p.rival || '—' }} <span class="text-ink-tertiary">({{ p.es_local ? 'casa' : 'fuera' }})</span></td>
-                      <td class="px-2 py-1 text-center whitespace-nowrap">
-                        <template v-if="p.amarillas">{{ p.amarillas }}<span v-if="textoMinutos(p.minutos_amarillas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_amarillas) }}</span></template>
-                        <template v-else>—</template>
-                      </td>
-                      <td class="px-2 py-1 text-center whitespace-nowrap">
-                        <template v-if="p.rojas">{{ p.rojas }}<span v-if="textoMinutos(p.minutos_rojas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_rojas) }}</span></template>
-                        <template v-else>—</template>
-                      </td>
+                      <template v-if="tabla === 'goles'">
+                        <td class="px-2 py-1 text-center">{{ p.goles }}</td>
+                        <td class="px-2 py-1 whitespace-nowrap">{{ textoMinutosGoles(p.minutos_goles) || '—' }}</td>
+                        <td class="px-2 py-1 whitespace-nowrap">{{ p.titular ? 'Titular' : 'Suplente' }}</td>
+                      </template>
+                      <template v-else>
+                        <td class="px-2 py-1 text-center whitespace-nowrap">
+                          <template v-if="p.amarillas">{{ p.amarillas }}<span v-if="textoMinutos(p.minutos_amarillas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_amarillas) }}</span></template>
+                          <template v-else>—</template>
+                        </td>
+                        <td class="px-2 py-1 text-center whitespace-nowrap">
+                          <template v-if="p.rojas">{{ p.rojas }}<span v-if="textoMinutos(p.minutos_rojas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_rojas) }}</span></template>
+                          <template v-else>—</template>
+                        </td>
+                      </template>
                     </tr>
                   </tbody>
                 </table>
