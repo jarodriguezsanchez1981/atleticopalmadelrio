@@ -123,7 +123,11 @@ export const authService = {
   enrolar2faConfirmar: (codigo) => api.post('/auth/2fa/configurar/confirmar', { codigo }).then(r => r.data),
   me: () => api.get('/auth/me').then(r => r.data),
   logout: () => api.post('/auth/logout').then(r => r.data),
-  cambiarPassword: (passwordActual, password, confirmacion) => api.post('/auth/cambiar-password', { password_actual: passwordActual, password, confirmacion }).then(r => r.data)
+  cambiarPassword: (passwordActual, password, confirmacion) => api.post('/auth/cambiar-password', { password_actual: passwordActual, password, confirmacion }).then(r => r.data),
+  // Restablecer contraseña por email (sin sesión).
+  recuperarPassword: (identificador) => api.post('/auth/recuperar-password', { identificador }).then(r => r.data),
+  validarTokenReset: (token) => api.get('/auth/restablecer-password/validar', { params: { token } }).then(r => r.data),
+  restablecerPassword: (token, password, confirmacion) => api.post('/auth/restablecer-password', { token, password, confirmacion }).then(r => r.data)
 };
 
 export const calendarioService = {

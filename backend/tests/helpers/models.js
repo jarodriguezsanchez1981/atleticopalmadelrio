@@ -155,5 +155,14 @@ export function createJwtUtilsMock() {
   };
 }
 
+export function createMailerMock() {
+  return {
+    enviarEmail: vi.fn(),
+    mailConfigurado: vi.fn(),
+    remitente: vi.fn(() => 'no-reply@test')
+  };
+}
+
 export const passwordUtils = createPasswordUtilsMock();
 export const jwtUtils = createJwtUtilsMock();
+export const mailer = createMailerMock();

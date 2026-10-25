@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+const { Op } = require('sequelize');
 const { Usuario, Seccion, Categoria, UsuarioCodigoRecuperacion, sequelize } = require('../models');
 const { comprimirPermisos } = require('../utils/permisosToken');
 const { verifyPassword, hashPassword, isPasswordValid } = require('../utils/password.utils');
@@ -5,6 +7,7 @@ const { signToken, DURACION_SESION_SEG } = require('../utils/jwt.utils');
 const { ponerCookieSesion, borrarCookieSesion, ponerCookie2fa, borrarCookie2fa } = require('../utils/sesionCookie');
 const aes = require('../utils/aesCrypto');
 const totp = require('../utils/totp');
+const { enviarEmail, mailConfigurado } = require('../utils/mailer');
 
 const includeAuth = [
   { model: Seccion, as: 'secciones', attributes: ['id', 'clave', 'nombre'], through: { attributes: ['puede_ver', 'puede_editar'] } },
@@ -301,6 +304,146 @@ async function cambiarPassword(req, res, next) {
   }
 }
 
+// ---- Restablecer contraseña por email ----
+// El enlace del email lleva un token aleatorio; en BD se guarda solo su hash
+// SHA-256 y una caducidad corta. El token es de un solo uso. Restablecer la
+// contraseña NO inicia sesión: el usuario sigue necesitando su 2FA al entrar.
+const RESET_CADUCIDAD_MIN = 60; // el enlace caduca en 1 hora
+const RESET_URL_RUTA = '/restablecer-password';
+
+/** Respuesta genérica de "recuperar": igual exista o no la cuenta, para no
+ * revelar si un usuario/email está registrado (evita enumeración de cuentas). */
+const RESPUESTA_RECUPERAR = {
+  message: 'Si los datos corresponden a una cuenta con email, te hemos enviado un enlace para restablecer la contraseña.'
+};
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/** URL base de la intranet para construir el enlace del email. */
+function baseUrlApp() {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  const primerCors = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean)[0];
+  if (primerCors) return primerCors.replace(/\/$/, '');
+  return 'https://intranet.atleticopalmadelrio.com';
+}
+
+function emailRecuperacionHtml(nombre, enlace) {
+  const escudo = `${baseUrlApp()}/escudo-firma.png`;
+  return (
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#333;max-width:520px;margin:0 auto;">` +
+    `<div style="text-align:center;margin-bottom:16px;"><img src="${escudo}" width="60" height="68" alt="Atlético Palma del Río" style="border:0;"></div>` +
+    `<h2 style="color:#0B3D2E;font-size:18px;margin:0 0 12px;">Restablecer tu contraseña</h2>` +
+    `<p style="margin:0 0 12px;">Hola${nombre ? ` ${nombre}` : ''}:</p>` +
+    `<p style="margin:0 0 16px;">Has pedido restablecer la contraseña de la intranet del Atlético Palma del Río. ` +
+    `Pulsa el botón para elegir una nueva (el enlace caduca en ${RESET_CADUCIDAD_MIN} minutos):</p>` +
+    `<p style="text-align:center;margin:0 0 20px;"><a href="${enlace}" style="background:#0B3D2E;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;display:inline-block;font-weight:bold;">Restablecer contraseña</a></p>` +
+    `<p style="margin:0 0 8px;font-size:13px;color:#777;">Si el botón no funciona, copia este enlace en tu navegador:</p>` +
+    `<p style="margin:0 0 16px;font-size:12px;word-break:break-all;"><a href="${enlace}" style="color:#0B3D2E;">${enlace}</a></p>` +
+    `<p style="margin:0;font-size:13px;color:#777;">Si no has sido tú, ignora este correo: tu contraseña no cambiará.</p>` +
+    `</div>`
+  );
+}
+
+function emailRecuperacionTexto(nombre, enlace) {
+  return (
+    `Hola${nombre ? ` ${nombre}` : ''}:\n\n` +
+    `Has pedido restablecer la contraseña de la intranet del Atlético Palma del Río.\n` +
+    `Abre este enlace para elegir una nueva (caduca en ${RESET_CADUCIDAD_MIN} minutos):\n\n${enlace}\n\n` +
+    `Si no has sido tú, ignora este correo: tu contraseña no cambiará.`
+  );
+}
+
+/** Paso 1: el usuario pide el enlace. Responde siempre igual (sin enumeración);
+ * solo envía el email si existe una cuenta activa con email y SMTP configurado. */
+async function recuperarPassword(req, res, next) {
+  try {
+    const identificador = String((req.body && req.body.identificador) || '').trim();
+    if (!identificador) return res.status(400).json({ message: 'Escribe tu usuario o tu email.' });
+
+    const user = await Usuario.scope('withPassword').findOne({
+      where: { [Op.or]: [{ usuario: identificador }, { email: identificador }] }
+    });
+
+    if (user && user.activo && user.email && mailConfigurado()) {
+      const token = crypto.randomBytes(32).toString('hex');
+      await user.update({
+        reset_token: hashToken(token),
+        reset_expira: new Date(Date.now() + RESET_CADUCIDAD_MIN * 60 * 1000)
+      });
+      const enlace = `${baseUrlApp()}${RESET_URL_RUTA}?token=${token}`;
+      try {
+        await enviarEmail({
+          to: user.email,
+          subject: 'Restablecer tu contraseña — Atlético Palma del Río',
+          html: emailRecuperacionHtml(user.nombre, enlace),
+          text: emailRecuperacionTexto(user.nombre, enlace)
+        });
+      } catch (err) {
+        // No se revela el fallo al cliente (misma respuesta genérica); se registra.
+        console.error('Recuperar contraseña: error enviando el email:', err.message);
+      }
+    } else if (user && user.activo && user.email && !mailConfigurado()) {
+      console.warn('Recuperar contraseña: SMTP no configurado; no se envía el email.');
+    }
+
+    return res.json(RESPUESTA_RECUPERAR);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** Comprueba si un token de restablecimiento es válido (para la pantalla). */
+async function validarTokenReset(req, res, next) {
+  try {
+    const token = String((req.query && req.query.token) || '').trim();
+    if (!token) return res.json({ valido: false });
+    const user = await Usuario.scope('withPassword').findOne({ where: { reset_token: hashToken(token) } });
+    const valido = !!(user && user.activo && user.reset_expira && new Date(user.reset_expira) >= new Date());
+    return res.json({ valido });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** Paso 2: con un token válido, fija la nueva contraseña. No inicia sesión. */
+async function restablecerPassword(req, res, next) {
+  try {
+    const token = String((req.body && req.body.token) || '').trim();
+    const { password, confirmacion } = req.body || {};
+    if (!token) return res.status(400).json({ message: 'Falta el enlace de restablecimiento. Usa el del email.' });
+    if (typeof password !== 'string' || typeof confirmacion !== 'string' || !password) {
+      return res.status(400).json({ message: 'Escribe la nueva contraseña dos veces.' });
+    }
+    if (password !== confirmacion) {
+      return res.status(400).json({ message: 'Las dos contraseñas no coinciden.' });
+    }
+    if (!isPasswordValid(password)) {
+      return res.status(400).json({
+        message: 'La contraseña debe tener mínimo 8 caracteres, una minúscula, una mayúscula, un número y un símbolo.'
+      });
+    }
+
+    const user = await Usuario.scope('withPassword').findOne({ where: { reset_token: hashToken(token) } });
+    if (!user || !user.activo || !user.reset_expira || new Date(user.reset_expira) < new Date()) {
+      return res.status(400).json({ message: 'El enlace no es válido o ha caducado. Solicita uno nuevo.' });
+    }
+
+    await user.update({
+      password: await hashPassword(password),
+      reset_token: null,
+      reset_expira: null,
+      // Al recuperar la contraseña se levanta el bloqueo por intentos fallidos.
+      intentos_fallidos: 0,
+      bloqueado_hasta: null
+    });
+    return res.json({ message: 'Contraseña restablecida. Ya puedes iniciar sesión.' });
+  } catch (err) {
+    return next(err);
+  }
+}
+
 module.exports = {
   login,
   verificar2fa,
@@ -308,5 +451,8 @@ module.exports = {
   enrolar2faConfirmar,
   me,
   logout,
-  cambiarPassword
+  cambiarPassword,
+  recuperarPassword,
+  validarTokenReset,
+  restablecerPassword
 };

@@ -9,6 +9,18 @@ const routes = [
     meta: { public: true }
   },
   {
+    path: '/recuperar-password',
+    name: 'recuperar-password',
+    component: () => import('../views/auth/RecuperarPassword.vue'),
+    meta: { public: true }
+  },
+  {
+    path: '/restablecer-password',
+    name: 'restablecer-password',
+    component: () => import('../views/auth/RestablecerPassword.vue'),
+    meta: { public: true }
+  },
+  {
     path: '/',
     component: () => import('../layouts/MainLayout.vue'),
     children: [

@@ -27,12 +27,25 @@ const verificar2faLimiter = rateLimit({
   message: { message: 'Demasiados intentos. Inténtalo de nuevo en unos minutos.' }
 });
 
+// Limita las peticiones de "recuperar contraseña" por IP (evita bombardear de
+// emails a un usuario y la enumeración por tiempos).
+const recuperarLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  message: { message: 'Demasiadas solicitudes. Inténtalo de nuevo en unos minutos.' }
+});
+
 router.post('/login', loginLimiter, authController.login);
 // Segundo factor (2FA). La cookie temporal `apr_2fa` identifica al usuario.
 router.post('/2fa/verificar', verificar2faLimiter, requierePendiente2fa('verificar'), authController.verificar2fa);
 router.post('/2fa/configurar/inicio', requierePendiente2fa('configurar'), authController.enrolar2faInicio);
 router.post('/2fa/configurar/confirmar', verificar2faLimiter, requierePendiente2fa('configurar'), authController.enrolar2faConfirmar);
 router.post('/cambiar-password', authenticate, passwordLimiter, authController.cambiarPassword);
+// Restablecer contraseña por email (público, sin sesión): pedir el enlace,
+// validar el token de la pantalla y fijar la nueva contraseña.
+router.post('/recuperar-password', recuperarLimiter, authController.recuperarPassword);
+router.get('/restablecer-password/validar', authController.validarTokenReset);
+router.post('/restablecer-password', passwordLimiter, authController.restablecerPassword);
 router.get('/me', authenticate, authController.me);
 router.post('/logout', authController.logout);
 

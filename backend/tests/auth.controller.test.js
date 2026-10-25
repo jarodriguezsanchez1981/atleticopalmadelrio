@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Usuario, Seccion, UsuarioCodigoRecuperacion } from './helpers/models.js';
-import { passwordUtils, jwtUtils } from './helpers/models.js';
+import { passwordUtils, jwtUtils, mailer } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 import * as totp from '../src/utils/totp.js';
 import * as aes from '../src/utils/aesCrypto.js';
@@ -445,6 +445,98 @@ describe('Autenticación · auth.controller', () => {
       expect(registro.update).toHaveBeenCalledWith({ password: 'hash-nuevo' });
       expect(res._cookies.apr_sesion.valor).toBeNull();
       expect(res._status ?? 200).toBe(200);
+    });
+  });
+
+  describe('recuperar contraseña (por email)', () => {
+    beforeEach(() => {
+      mailer.enviarEmail.mockReset();
+      mailer.mailConfigurado.mockReset();
+      mailer.enviarEmail.mockResolvedValue({});
+      mailer.mailConfigurado.mockReturnValue(true);
+    });
+
+    it('recuperar exige identificador', async () => {
+      const { promesa, res } = llamar(ctrl.recuperarPassword, { body: {} });
+      await promesa;
+      expect(res._status).toBe(400);
+    });
+
+    it('recuperar responde genérico y no envía si el usuario no existe', async () => {
+      Usuario.findOne.mockResolvedValue(null);
+      const { promesa, res } = llamar(ctrl.recuperarPassword, { body: { identificador: 'fantasma' } });
+      await promesa;
+      expect(mailer.enviarEmail).not.toHaveBeenCalled();
+      expect(res._json.message).toContain('Si los datos corresponden');
+    });
+
+    it('recuperar genera token y envía el email si el usuario tiene email', async () => {
+      const registro = { id: 3, activo: true, email: 'u@club.es', nombre: 'Ana', update: vi.fn().mockResolvedValue() };
+      Usuario.findOne.mockResolvedValue(registro);
+      const { promesa, res } = llamar(ctrl.recuperarPassword, { body: { identificador: 'ana' } });
+      await promesa;
+      // Se guarda el HASH del token y una caducidad; nunca el token en claro.
+      const guardado = registro.update.mock.calls[0][0];
+      expect(guardado.reset_token).toMatch(/^[0-9a-f]{64}$/);
+      expect(guardado.reset_expira instanceof Date).toBe(true);
+      expect(mailer.enviarEmail).toHaveBeenCalledTimes(1);
+      expect(mailer.enviarEmail.mock.calls[0][0].to).toBe('u@club.es');
+      expect(res._json.message).toContain('Si los datos corresponden');
+    });
+
+    it('recuperar no envía (pero responde igual) si no hay email o SMTP', async () => {
+      Usuario.findOne.mockResolvedValue({ id: 3, activo: true, email: null, update: vi.fn() });
+      const { promesa, res } = llamar(ctrl.recuperarPassword, { body: { identificador: 'ana' } });
+      await promesa;
+      expect(mailer.enviarEmail).not.toHaveBeenCalled();
+      expect(res._json.message).toContain('Si los datos corresponden');
+    });
+
+    it('restablecer rechaza un token inválido o caducado', async () => {
+      Usuario.findOne.mockResolvedValue(null);
+      const { promesa, res } = llamar(ctrl.restablecerPassword, {
+        body: { token: 'loquesea', password: 'Nueva#2026', confirmacion: 'Nueva#2026' }
+      });
+      passwordUtils.isPasswordValid.mockReturnValue(true);
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(res._json.message).toContain('no es válido o ha caducado');
+    });
+
+    it('restablecer exige que las contraseñas coincidan', async () => {
+      const { promesa, res } = llamar(ctrl.restablecerPassword, {
+        body: { token: 'x', password: 'Nueva#2026', confirmacion: 'Otra#2026' }
+      });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(res._json.message).toContain('no coinciden');
+    });
+
+    it('restablecer fija la nueva contraseña con un token válido y limpia el token', async () => {
+      passwordUtils.isPasswordValid.mockReturnValue(true);
+      passwordUtils.hashPassword.mockResolvedValue('hash-nuevo');
+      const registro = {
+        id: 3, activo: true,
+        reset_expira: new Date(Date.now() + 10 * 60 * 1000),
+        update: vi.fn().mockResolvedValue()
+      };
+      Usuario.findOne.mockResolvedValue(registro);
+      const { promesa, res } = llamar(ctrl.restablecerPassword, {
+        body: { token: 'tok', password: 'Nueva#2026', confirmacion: 'Nueva#2026' }
+      });
+      await promesa;
+      const guardado = registro.update.mock.calls[0][0];
+      expect(guardado.password).toBe('hash-nuevo');
+      expect(guardado.reset_token).toBeNull();
+      expect(guardado.reset_expira).toBeNull();
+      expect(res._json.message).toContain('restablecida');
+    });
+
+    it('validarTokenReset indica si el token es válido', async () => {
+      Usuario.findOne.mockResolvedValue({ activo: true, reset_expira: new Date(Date.now() + 60000) });
+      const { promesa, res } = llamar(ctrl.validarTokenReset, { query: { token: 'tok' } });
+      await promesa;
+      expect(res._json).toEqual({ valido: true });
     });
   });
 });

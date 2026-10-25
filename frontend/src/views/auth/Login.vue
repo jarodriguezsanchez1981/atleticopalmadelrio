@@ -144,6 +144,12 @@ async function copiarCodigos() {
             :loading="enviando"
             class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight"
           />
+
+          <div class="text-center">
+            <router-link to="/recuperar-password" class="text-sm text-club-green hover:underline">
+              ¿Olvidaste la contraseña?
+            </router-link>
+          </div>
         </form>
 
         <!-- Paso 2 (ya tiene 2FA): código del autenticador -->

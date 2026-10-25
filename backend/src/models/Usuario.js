@@ -19,12 +19,17 @@ const Usuario = sequelize.define('Usuario', {
   rol: { type: DataTypes.ENUM('coordinador', 'entrenador'), allowNull: false, defaultValue: 'coordinador' },
   id_categoria: { type: DataTypes.INTEGER, allowNull: true },
   // Dirección de correo electrónico del usuario (opcional).
-  email: { type: DataTypes.STRING(150), allowNull: true }
+  email: { type: DataTypes.STRING(150), allowNull: true },
+  // Restablecer contraseña por email: hash SHA-256 del token y su caducidad.
+  // El token en claro nunca se guarda (solo viaja en el enlace del email).
+  reset_token: { type: DataTypes.STRING(255), allowNull: true },
+  reset_expira: { type: DataTypes.DATE, allowNull: true }
 }, {
   tableName: 'usuarios',
   defaultScope: {
-    // Ni el hash de la contraseña ni el secreto TOTP salen por defecto.
-    attributes: { exclude: ['password', 'totp_secret'] }
+    // No salen por defecto: ni el hash de la contraseña, ni el secreto TOTP,
+    // ni el token de restablecimiento de contraseña.
+    attributes: { exclude: ['password', 'totp_secret', 'reset_token', 'reset_expira'] }
   },
   scopes: {
     // Incluye todo (password y totp_secret): solo para login/verificación 2FA.

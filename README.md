@@ -248,6 +248,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **JWT**: sesión de 1 hora como máximo desde el login (renovar el token no la alarga), con secrets generados por entorno
 - **2FA obligatorio (TOTP)**: segundo factor obligatorio para todos los usuarios (Google Authenticator, Authy…). El login nunca da sesión por sí solo: siempre pide el código de 6 dígitos y, si el usuario aún no lo ha configurado, le obliga a enrolarse. El secreto TOTP se guarda cifrado con AES-256-GCM. Recuperación con **códigos de un solo uso** y **reset por un administrador** desde Administración
 - **Bloqueo temporal de cuenta**: tras 5 contraseñas fallidas seguidas, la cuenta se bloquea 15 min (freno a la fuerza bruta dirigida, además del límite por IP). El login correcto lo reinicia
+- **Recuperación de contraseña por email**: enlace "¿Olvidaste la contraseña?" en el login. El backend envía un email con un enlace que lleva un token aleatorio de un solo uso y caducidad de 1 hora (en la BD solo se guarda su hash SHA-256, nunca el token). La respuesta es siempre la misma exista o no la cuenta (sin enumeración de usuarios) y está limitada por IP. Restablecer la contraseña **no** inicia sesión: el 2FA sigue siendo obligatorio al entrar. Requiere configurar el envío SMTP (ver "Correo saliente (SMTP)")
 - **bcrypt**: hashing de contraseñas con 12 rondas
 - **Política de contraseñas**: mín. 8 caracteres + mayúscula + minúscula + número + símbolo
 - **Cifrado en reposo (AES-256-GCM)**: datos sensibles cifrados en la BD (DNI de jugadores/entrenadores/delegados, secreto TOTP)
@@ -359,6 +360,22 @@ Mocks en `backend/tests/helpers/` — `Module._load` interceptor para Sequelize 
 | `DOMAIN` | — | intranet.atleticopalmadelrio.com |
 | `TRUST_PROXY_HOPS` | 1 (por defecto) | 2 |
 | `JWT_SECRET` | (desarrollo) | (generado por entorno) |
+
+### Correo saliente (SMTP)
+
+El envío de correo (hoy: recuperación de contraseña) se configura con variables de entorno en el env file del servidor; **no se versionan** (son secretos). Si no están, la función de recuperar contraseña responde igual al usuario pero no envía nada (queda un aviso en el log del backend).
+
+| Variable | Descripción |
+|----------|-------------|
+| `SMTP_HOST` | Servidor SMTP (p. ej. `smtp.gmail.com`) |
+| `SMTP_PORT` | Puerto: `465` (TLS directo) o `587` (STARTTLS). Opcional, por defecto `587` |
+| `SMTP_SECURE` | `true` para TLS directo (465). Opcional, se deduce del puerto |
+| `SMTP_USER` | Usuario del buzón |
+| `SMTP_PASS` | Contraseña del buzón (en Gmail, una *app password*) |
+| `SMTP_FROM` | Remitente, p. ej. `Atlético Palma del Río <no-reply@atleticopalmadelrio.com>`. Opcional, por defecto `SMTP_USER` |
+| `APP_URL` | Base para los enlaces del email. Opcional, por defecto el primer `CORS_ORIGIN` o el dominio de producción |
+
+> Para que los correos no caigan en spam, el dominio desde el que se envía (`SMTP_FROM`) debe tener bien configurados **SPF** y **DKIM** en su DNS (lo da el proveedor del buzón).
 
 ## Comandos útiles
 
