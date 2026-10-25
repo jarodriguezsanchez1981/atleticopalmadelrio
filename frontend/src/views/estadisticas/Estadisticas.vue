@@ -3,10 +3,10 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import MultiSelect from 'primevue/multiselect';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
+import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
-import { formatFechaCorta } from '../../utils/formatFecha';
 import {
   METRICAS_EQUIPO_GOLES, METRICAS_EQUIPO_TARJETAS, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
 } from '../../utils/estadisticasMetricas';
@@ -167,14 +167,6 @@ function partidosDelJugador(fila, clave) {
 function expandibleLado(clave) {
   return conResumenEquipo.value ? (fila) => partidosDelJugador(fila, clave).length > 0 : null;
 }
-/** [12, 70] -> "12', 70'" */
-function textoMinutos(minutos) {
-  return minutos?.length ? minutos.map((m) => `${m}'`).join(', ') : '';
-}
-/** [{ minuto: 12 }, { minuto: 70, penalti: true }] -> "12', 70' (p)" */
-function textoMinutosGoles(goles) {
-  return goles?.length ? goles.map((g) => `${g.minuto}'${g.penalti ? ' (p)' : ''}`).join(', ') : '';
-}
 
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
@@ -240,48 +232,7 @@ onBeforeUnmount(() => {
                             :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
                             :expandible="expandibleLado(lado.clave)">
             <template #detalle="{ data }">
-              <div class="overflow-x-auto py-1">
-                <table class="text-sm border-collapse">
-                  <thead>
-                    <tr class="text-xs text-ink-tertiary">
-                      <th class="text-left font-medium px-2 py-1">Jornada</th>
-                      <th class="text-left font-medium px-2 py-1">Fecha</th>
-                      <th class="text-left font-medium px-2 py-1">Rival</th>
-                      <template v-if="tabla === 'goles'">
-                        <th class="text-center font-medium px-2 py-1">Goles</th>
-                        <th class="text-left font-medium px-2 py-1">Minutos</th>
-                        <th class="text-left font-medium px-2 py-1">Jugó de</th>
-                      </template>
-                      <template v-else>
-                        <th class="text-center font-medium px-2 py-1">TA</th>
-                        <th class="text-center font-medium px-2 py-1">TR</th>
-                      </template>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="p in partidosDelJugador(data, lado.clave)" :key="p.id_partido" class="border-t border-line">
-                      <td class="px-2 py-1">{{ p.jornada ?? '—' }}</td>
-                      <td class="px-2 py-1 whitespace-nowrap">{{ formatFechaCorta(p.fecha) }}</td>
-                      <td class="px-2 py-1 whitespace-nowrap">{{ p.rival || '—' }} <span class="text-ink-tertiary">({{ p.es_local ? 'casa' : 'fuera' }})</span></td>
-                      <template v-if="tabla === 'goles'">
-                        <td class="px-2 py-1 text-center">{{ p.goles }}</td>
-                        <td class="px-2 py-1 whitespace-nowrap">{{ textoMinutosGoles(p.minutos_goles) || '—' }}</td>
-                        <td class="px-2 py-1 whitespace-nowrap">{{ p.titular ? 'Titular' : 'Suplente' }}</td>
-                      </template>
-                      <template v-else>
-                        <td class="px-2 py-1 text-center whitespace-nowrap">
-                          <template v-if="p.amarillas">{{ p.amarillas }}<span v-if="textoMinutos(p.minutos_amarillas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_amarillas) }}</span></template>
-                          <template v-else>—</template>
-                        </td>
-                        <td class="px-2 py-1 text-center whitespace-nowrap">
-                          <template v-if="p.rojas">{{ p.rojas }}<span v-if="textoMinutos(p.minutos_rojas)" class="text-ink-tertiary"> · {{ textoMinutos(p.minutos_rojas) }}</span></template>
-                          <template v-else>—</template>
-                        </td>
-                      </template>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" />
             </template>
           </TablaEstadistica>
         </div>

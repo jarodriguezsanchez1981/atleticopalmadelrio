@@ -4,6 +4,7 @@ import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
 import { estadisticasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
+import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { METRICAS_CONVOCATORIAS, METRICAS_GOLES } from '../../utils/estadisticasMetricas';
 
@@ -38,7 +39,7 @@ const TABLAS = {
   },
   goles: {
     titulo: 'Goles',
-    descripcion: 'Goles de cada jugador por tramos: cada parte se divide en 3 según la duración de juego del tipo de fútbol (Fútbol 7 no juega 90\'); el tiempo añadido se suma al último tramo de su parte. En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan.',
+    descripcion: 'Goles de cada jugador por tramos: cada parte se divide en 3 según la duración de juego del tipo de fútbol (Fútbol 7 no juega 90\'); el tiempo añadido se suma al último tramo de su parte. En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol. Los goles en propia puerta no cuentan. Pulsa en un jugador para ver en qué partidos marcó (y en qué minuto; (p) = de penalti).',
     metricas: sinTitularSuplente(METRICAS_GOLES),
     sortField: 'goles',
     porLado: true
@@ -143,6 +144,14 @@ function filasDelLado(sufijo) {
   if (props.tabla === 'goles') return filasFiltradas.value.filter((f) => f[`goles${sufijo}`] > 0);
   return filasFiltradas.value;
 }
+// Goles: desplegable por jugador con los partidos en que marcó (en Local /
+// Visitante, solo los de ese lado).
+function partidosConGol(fila, clave) {
+  return (fila.partidos_goles || []).filter((p) => clave === 'total' || p.es_local === (clave === 'local'));
+}
+function expandibleLado(clave) {
+  return props.tabla === 'goles' ? (fila) => partidosConGol(fila, clave).length > 0 : null;
+}
 const filasTabla = computed(() => (props.tabla === 'goles'
   ? filasFiltradas.value.filter((f) => f.goles > 0)
   : filasFiltradas.value));
@@ -209,7 +218,12 @@ onBeforeUnmount(() => {
         <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
           <h2 class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
-                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacio" />
+                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacio"
+                            :expandible="expandibleLado(lado.clave)">
+            <template #detalle="{ data }">
+              <PartidosJugadorEstadistica :partidos="partidosConGol(data, lado.clave)" tipo="goles" :conTitular="false" />
+            </template>
+          </TablaEstadistica>
         </div>
       </template>
       <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
