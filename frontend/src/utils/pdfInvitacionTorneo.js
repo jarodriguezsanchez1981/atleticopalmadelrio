@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 /**
  * Carta de invitación a un torneo del club (sección Notificaciones →
  * Invitación Torneo). El formulario pasa { nombreTorneo, fecha, hora, lugar,
- * categoria } y aquí se genera un PDF A4 con el formato oficial del club
+ * categorias } (una o varias; también vale `categoria` con una sola) y aquí se genera un PDF A4 con el formato oficial del club
  * (escudo, cabecera azul, tabla de datos y pie). `construirInvitacion` arma
  * el texto (función pura, testeable) y `crearDocInvitacionTorneo` lo dibuja.
  */
@@ -48,10 +48,19 @@ function limpio(v, porDefecto = '') {
   return t || porDefecto;
 }
 
+/** ['Bebé', 'Prebenjamín', 'Benjamín'] -> 'Bebé, Prebenjamín y Benjamín'. */
+export function unirCategorias(lista) {
+  if (lista.length <= 1) return lista[0] || '';
+  return `${lista.slice(0, -1).join(', ')} y ${lista[lista.length - 1]}`;
+}
+
 /** Arma el texto de la carta a partir de los valores del formulario. Pura. */
 export function construirInvitacion(valores = {}) {
   const nombreTorneo = limpio(valores.nombreTorneo, 'Torneo de Fútbol');
-  const categoria = limpio(valores.categoria);
+  const lista = (Array.isArray(valores.categorias) ? valores.categorias : [valores.categoria])
+    .map((c) => limpio(c)).filter(Boolean);
+  const categoria = unirCategorias(lista);
+  const coletilla = lista.length > 1 ? `, en las categorías ${categoria}` : `, en la categoría ${categoria}`;
   const lugar = limpio(valores.lugar, '—');
   const hora = limpio(valores.hora, '—');
   const fechaLarga = formatearFechaCarta(valores.fecha) || '—';
@@ -59,7 +68,7 @@ export function construirInvitacion(valores = {}) {
   const subtitulo = `Invitación oficial · ${nombreTorneo}`;
   const parrafos = [
     'A la atención del club invitado y de su coordinación deportiva:',
-    `Desde el ${ORGANIZADOR} tenemos el placer de invitaros a participar en nuestro ${nombreTorneo}${categoria ? `, en la categoría ${categoria}` : ''}, una jornada pensada para que los más pequeños disfruten del fútbol en un ambiente de convivencia, compañerismo, ilusión y deportividad.`,
+    `Desde el ${ORGANIZADOR} tenemos el placer de invitaros a participar en nuestro ${nombreTorneo}${categoria ? coletilla : ''}, una jornada pensada para que los más pequeños disfruten del fútbol en un ambiente de convivencia, compañerismo, ilusión y deportividad.`,
     `El torneo se celebrará el ${fechaLarga}, en horario de ${hora}, en ${lugar}. Nos encantaría contar con vuestra presencia y compartir una mañana de fútbol base en la que los niños y niñas sean los verdaderos protagonistas.`
   ];
   const parrafosCierre = [
@@ -71,7 +80,7 @@ export function construirInvitacion(valores = {}) {
     ['FECHA', fechaLarga],
     ['HORARIO', hora],
     ['LUGAR', lugar],
-    ['CATEGORÍA', categoria || '—'],
+    [lista.length > 1 ? 'CATEGORÍAS' : 'CATEGORÍA', categoria || '—'],
     ['ORGANIZA', ORGANIZADOR]
   ];
   const firma = [ORGANIZADOR, `Organización del ${nombreTorneo}`];

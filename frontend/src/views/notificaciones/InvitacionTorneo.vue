@@ -3,14 +3,15 @@ import { reactive, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import InputText from 'primevue/inputtext';
 import DatePicker from 'primevue/datepicker';
 import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { crearDocInvitacionTorneo, generarPdfInvitacionTorneo } from '../../utils/pdfInvitacionTorneo';
 
 /** Notificaciones → Invitación Torneo: formulario para generar la carta de
  * invitación oficial del club a un torneo en PDF. Se pueden cambiar el nombre
- * del torneo, la fecha, la hora, el lugar y la categoría; el borrador se
- * recuerda en este navegador. */
+ * del torneo, la fecha, la hora, el lugar y las categorías (una o varias); el
+ * borrador se recuerda en este navegador. */
 const SECCION = 'invitacion_torneo';
 const CLAVE_BORRADOR = 'apr_invitacion_torneo';
 const toast = useToast();
@@ -29,20 +30,25 @@ const DATOS_POR_DEFECTO = {
   horaDesde: '10:00',
   horaHasta: '14:00',
   lugar: 'Estadio Municipal Sergio León',
-  categoria: 'Bebé'
+  categorias: ['Bebé']
 };
 
 function leerBorrador() {
   try {
     const b = JSON.parse(localStorage.getItem(CLAVE_BORRADOR) || 'null');
     if (b && b.fecha) b.fecha = new Date(b.fecha);
+    // Borradores antiguos guardaban una sola categoría en `categoria`.
+    if (b && !Array.isArray(b.categorias)) {
+      b.categorias = b.categoria ? [b.categoria] : [];
+    }
+    if (b) delete b.categoria;
     return b;
   } catch {
     return null;
   }
 }
 
-const datos = reactive({ ...DATOS_POR_DEFECTO, ...(leerBorrador() || {}) });
+const datos = reactive({ ...DATOS_POR_DEFECTO, categorias: [...DATOS_POR_DEFECTO.categorias], ...(leerBorrador() || {}) });
 
 // La franja horaria se compone "10:00 a 14:00 h" para la carta.
 const valores = computed(() => ({
@@ -52,7 +58,8 @@ const valores = computed(() => ({
     ? `${datos.horaDesde} a ${datos.horaHasta} h`
     : (datos.horaDesde || datos.horaHasta || ''),
   lugar: datos.lugar,
-  categoria: datos.categoria
+  // En el orden de la lista, no en el que se marcaron.
+  categorias: OPCIONES_CATEGORIA.filter((c) => datos.categorias.includes(c))
 }));
 
 const previaUrl = ref('');
@@ -83,7 +90,7 @@ async function descargar() {
 }
 
 function restablecer() {
-  Object.assign(datos, DATOS_POR_DEFECTO);
+  Object.assign(datos, DATOS_POR_DEFECTO, { categorias: [...DATOS_POR_DEFECTO.categorias] });
 }
 
 // Guardar el borrador y regenerar la vista previa en cuanto cambie un dato.
@@ -138,8 +145,9 @@ onBeforeUnmount(() => {
           <Select inputId="it-lugar" v-model="datos.lugar" :options="OPCIONES_LUGAR" placeholder="Elige un lugar" class="w-full" />
         </div>
         <div class="flex flex-col gap-1.5">
-          <label for="it-categoria" class="text-sm font-medium text-ink-secondary">Categoría</label>
-          <Select inputId="it-categoria" v-model="datos.categoria" :options="OPCIONES_CATEGORIA" placeholder="Elige una categoría" class="w-full" />
+          <label for="it-categoria" class="text-sm font-medium text-ink-secondary">Categorías</label>
+          <MultiSelect inputId="it-categoria" v-model="datos.categorias" :options="OPCIONES_CATEGORIA" display="chip"
+                       :showToggleAll="false" placeholder="Elige una o varias categorías" class="w-full" />
         </div>
 
         <div class="flex flex-wrap gap-2 pt-1">

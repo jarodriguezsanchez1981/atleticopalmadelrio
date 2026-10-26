@@ -46,6 +46,18 @@ describe('pdfInvitacionTorneo · construirInvitacion', () => {
     expect(inv.tabla.find((f) => f[0] === 'CATEGORÍA')[1]).toBe('—');
   });
 
+  it('con varias categorías las une con comas e "y" y usa el plural', () => {
+    const inv = construirInvitacion({ ...valores, categoria: undefined, categorias: ['Bebé', 'Prebenjamín', 'Benjamín'] });
+    expect(inv.parrafos[1]).toContain('en las categorías Bebé, Prebenjamín y Benjamín');
+    expect(inv.tabla.find((f) => f[0] === 'CATEGORÍAS')[1]).toBe('Bebé, Prebenjamín y Benjamín');
+  });
+
+  it('con una sola categoría en la lista usa el singular', () => {
+    const inv = construirInvitacion({ ...valores, categorias: ['Alevín'] });
+    expect(inv.parrafos[1]).toContain('en la categoría Alevín');
+    expect(inv.tabla.find((f) => f[0] === 'CATEGORÍA')[1]).toBe('Alevín');
+  });
+
   it('con campos vacíos usa valores por defecto sin romperse', () => {
     const inv = construirInvitacion({});
     expect(inv.subtitulo).toBe('Invitación oficial · Torneo de Fútbol');
