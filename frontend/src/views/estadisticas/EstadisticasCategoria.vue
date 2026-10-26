@@ -6,16 +6,16 @@ import { estadisticasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
-import { METRICAS_CONVOCATORIAS, METRICAS_GOLES } from '../../utils/estadisticasMetricas';
+import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES } from '../../utils/estadisticasMetricas';
 
-/** Estadísticas de Convocatorias y Goles de la categoría del usuario (a
+/** Estadísticas de Convocatorias, Goles y Sanciones de la categoría del usuario (a
  * diferencia de views/estadisticas/Estadisticas.vue, que son siempre de Senior
  * A). Un entrenador ve las de su categoría; un coordinador elige la plantilla
  * de la temporada actual con el selector. Las plantillas disponibles y sus
  * jugadores los da `/estadisticas/plantillas` (filtradas por categoría en el
  * backend), así que no hace falta el permiso de la sección Plantillas. */
 const props = defineProps({
-  tabla: { type: String, required: true },   // 'convocatorias' | 'goles'
+  tabla: { type: String, required: true },   // 'convocatorias' | 'goles' | 'sanciones'
   seccion: { type: String, required: true }   // clave para SectionGuard
 });
 
@@ -25,7 +25,8 @@ const props = defineProps({
 // cada gol (requiere que el acta esté finalizada con la versión que lo guarda).
 const CAMPOS_OCULTOS = new Set([
   'titular', 'suplente', 'banquillo_no_jugados',
-  'goles_titular', 'porcentaje_goles_titular', 'goles_banquillo', 'porcentaje_goles_banquillo'
+  'goles_titular', 'porcentaje_goles_titular', 'goles_banquillo', 'porcentaje_goles_banquillo',
+  'amarillas_titular', 'amarillas_suplente', 'rojas_titular', 'rojas_suplente'
 ]);
 const sinTitularSuplente = (metricas) => metricas.filter((m) => !CAMPOS_OCULTOS.has(m.campo));
 
@@ -43,8 +44,22 @@ const TABLAS = {
     metricas: sinTitularSuplente(METRICAS_GOLES),
     sortField: 'goles',
     porLado: true
+  },
+  sanciones: {
+    titulo: 'Sanciones',
+    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo. Solo plantillas de Fútbol 11 (Senior A tiene su propio apartado). Pulsa en un jugador para ver en qué partidos vio cada tarjeta (y en qué minuto).',
+    metricas: sinTitularSuplente(METRICAS_SANCIONES),
+    sortField: 'tarjetas_amarillas',
+    porLado: true
   }
 };
+
+// Sanciones: solo plantillas de Fútbol 11, sin Senior A (tiene su propio apartado).
+const CATEGORIA_SENIOR_A = 'Senior A';
+function plantillaDeLaTabla(p) {
+  if (props.tabla !== 'sanciones') return true;
+  return Number(p.categoria?.id_tipofutbol) !== TIPO_FUTBOL_7 && p.categoria?.nombre !== CATEGORIA_SENIOR_A;
+}
 
 const plantillas = ref([]);        // disponibles (temporada actual, categoría del usuario)
 const idPlantilla = ref(null);     // plantilla elegida
@@ -82,7 +97,7 @@ const opcionesPlantillas = computed(() => plantillas.value
   .map((p) => ({ value: p.id, label: `${p.categoria?.nombre || 'Sin categoría'} / ${p.temporada?.nombre || ''}` })));
 
 async function cargarPlantillas() {
-  plantillas.value = await estadisticasService.plantillas();
+  plantillas.value = (await estadisticasService.plantillas()).filter(plantillaDeLaTabla);
   // Mantiene la elegida si sigue disponible; si no, la primera.
   if (!plantillas.value.some((p) => p.id === idPlantilla.value)) {
     idPlantilla.value = plantillas.value[0]?.id ?? null;
@@ -142,15 +157,21 @@ const LADOS_TABLA = [
 ];
 function filasDelLado(sufijo) {
   if (props.tabla === 'goles') return filasFiltradas.value.filter((f) => f[`goles${sufijo}`] > 0);
+  if (props.tabla === 'sanciones') {
+    return filasFiltradas.value.filter((f) => f[`tarjetas_amarillas${sufijo}`] > 0 || f[`tarjetas_rojas${sufijo}`] > 0);
+  }
   return filasFiltradas.value;
 }
-// Goles: desplegable por jugador con los partidos en que marcó (en Local /
-// Visitante, solo los de ese lado).
-function partidosConGol(fila, clave) {
-  return (fila.partidos_goles || []).filter((p) => clave === 'total' || p.es_local === (clave === 'local'));
+// Goles / Sanciones: desplegable por jugador con los partidos en que marcó /
+// vio tarjeta (en Local / Visitante, solo los de ese lado).
+function partidosDelJugador(fila, clave) {
+  const lista = props.tabla === 'goles' ? fila.partidos_goles : fila.partidos_tarjetas;
+  return (lista || []).filter((p) => clave === 'total' || p.es_local === (clave === 'local'));
 }
 function expandibleLado(clave) {
-  return props.tabla === 'goles' ? (fila) => partidosConGol(fila, clave).length > 0 : null;
+  return props.tabla === 'goles' || props.tabla === 'sanciones'
+    ? (fila) => partidosDelJugador(fila, clave).length > 0
+    : null;
 }
 const filasTabla = computed(() => (props.tabla === 'goles'
   ? filasFiltradas.value.filter((f) => f.goles > 0)
@@ -163,9 +184,13 @@ const textoVacio = computed(() => (jugadoresFiltro.value.length
   ? 'Ninguno de los jugadores elegidos tiene datos en esta tabla.'
   : 'Todavía no hay datos: finaliza el acta de los partidos.'));
 
-// Al pasar de Convocatorias a Goles (misma vista) se reutiliza el componente;
-// los datos son los mismos, solo cambia la tabla, así que no hay que recargar.
-watch(() => props.tabla, () => { jugadoresFiltro.value = []; });
+// Al pasar de una tabla a otra (misma vista) se reutiliza el componente; los
+// datos son los mismos, pero Sanciones solo ofrece plantillas de Fútbol 11, así
+// que al entrar o salir de ella se recargan las plantillas disponibles.
+watch(() => props.tabla, (nueva, anterior) => {
+  jugadoresFiltro.value = [];
+  if (nueva === 'sanciones' || anterior === 'sanciones') cargar();
+});
 
 onMounted(async () => {
   await cargar();
@@ -193,7 +218,9 @@ onBeforeUnmount(() => {
       {{ error }} Recarga la página; si sigue pasando, revisa tus permisos de Estadísticas.
     </div>
     <div v-else-if="!cargando && !plantillas.length" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
-      No hay ninguna plantilla disponible en la temporada actual.
+      {{ tabla === 'sanciones'
+        ? 'No hay ninguna plantilla de Fútbol 11 (salvo Senior A) disponible en la temporada actual.'
+        : 'No hay ninguna plantilla disponible en la temporada actual.' }}
     </div>
 
     <template v-if="plantillas.length && !error">
@@ -221,7 +248,7 @@ onBeforeUnmount(() => {
                             :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacio"
                             :expandible="expandibleLado(lado.clave)">
             <template #detalle="{ data }">
-              <PartidosJugadorEstadistica :partidos="partidosConGol(data, lado.clave)" tipo="goles" :conTitular="false" />
+              <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" :conTitular="false" />
             </template>
           </TablaEstadistica>
         </div>

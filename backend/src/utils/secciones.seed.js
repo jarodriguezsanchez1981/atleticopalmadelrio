@@ -37,9 +37,10 @@ const SECCIONES = [
   { clave: 'estadisticas_sanciones', nombre: 'Estadísticas Senior A Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'estadisticas' },
   { clave: 'estadisticas_clasificacion', nombre: 'Estadísticas Senior A Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas' },
   // Estadísticas por categoría (de la categoría de cada usuario): apartado
-  // aparte del de Senior A, con solo Convocatorias y Goles.
+  // aparte del de Senior A (Sanciones: solo plantillas de Fútbol 11).
   { clave: 'estadisticas_cat_convocatorias', nombre: 'Estadísticas Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas_cat' },
   { clave: 'estadisticas_cat_goles', nombre: 'Estadísticas Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas_cat' },
+  { clave: 'estadisticas_cat_sanciones', nombre: 'Estadísticas Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'estadisticas_cat' },
   { clave: 'estadisticas_cat_clasificacion', nombre: 'Estadísticas Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas_cat' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   // Notificaciones: submenú dentro del apartado "Club" (grupo 'notificaciones',

@@ -128,7 +128,7 @@ const TABLAS = {
   sanciones: {
     seccion: 'estadisticas_sanciones',
     titulo: 'Estadísticas Sanciones',
-    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo. Tit. / Supl.: amarillas (TA) y rojas (TR) siendo titular o suplente (las del suplente cuentan aunque no llegara a entrar). Pulsa en un jugador para ver en qué partidos vio cada tarjeta (y en qué minuto).',
+    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo. Tit. / Supl.: tarjetas siendo titular o suplente (las del suplente cuentan aunque no llegara a entrar). Pulsa en un jugador para ver en qué partidos vio cada tarjeta (y en qué minuto).',
     metricas: METRICAS_SANCIONES,
     sortField: 'tarjetas_amarillas',
     porLado: true

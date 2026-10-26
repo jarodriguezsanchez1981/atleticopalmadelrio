@@ -84,19 +84,19 @@ export const METRICAS_GOLES_CONTRA = [
 export const METRICAS_SANCIONES = [
   { campo: 'partidos', titulo: 'Partidos' },
   { campo: 'tarjetas_amarillas', titulo: 'Total', subgrupo: 'Amarillas' },
+  // Siendo titular o suplente (las del suplente, aunque no llegara a entrar).
+  { campo: 'amarillas_titular', titulo: 'Tit.', subgrupo: 'Amarillas', descripcion: 'Amarillas siendo titular' },
+  { campo: 'amarillas_suplente', titulo: 'Supl.', subgrupo: 'Amarillas', descripcion: 'Amarillas siendo suplente (haya entrado o no)' },
   { campo: 'amarillas_primera', titulo: '1ª Parte', subgrupo: 'Amarillas' },
   { campo: 'amarillas_segunda', titulo: '2ª Parte', subgrupo: 'Amarillas' },
   { campo: 'amarillas_ganando', titulo: 'Ganando', subgrupo: 'Amarillas' },
   { campo: 'amarillas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Amarillas' },
   { campo: 'dobles_amarillas', titulo: 'Dobles', subgrupo: 'Amarillas', descripcion: 'Partidos en los que vio 2 o más amarillas (doble amarilla)' },
   { campo: 'tarjetas_rojas', titulo: 'Total', subgrupo: 'Rojas' },
+  { campo: 'rojas_titular', titulo: 'Tit.', subgrupo: 'Rojas', descripcion: 'Rojas siendo titular' },
+  { campo: 'rojas_suplente', titulo: 'Supl.', subgrupo: 'Rojas', descripcion: 'Rojas siendo suplente (haya entrado o no)' },
   { campo: 'rojas_primera', titulo: '1ª Parte', subgrupo: 'Rojas' },
   { campo: 'rojas_segunda', titulo: '2ª Parte', subgrupo: 'Rojas' },
   { campo: 'rojas_ganando', titulo: 'Ganando', subgrupo: 'Rojas' },
-  { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas' },
-  // Tarjetas siendo titular o suplente (las del suplente, aunque no llegara a entrar).
-  { campo: 'amarillas_titular', titulo: 'TA', subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', descripcion: 'Amarillas siendo titular' },
-  { campo: 'rojas_titular', titulo: 'TR', subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', descripcion: 'Rojas siendo titular' },
-  { campo: 'amarillas_suplente', titulo: 'TA', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente (haya entrado o no)', descripcion: 'Amarillas siendo suplente' },
-  { campo: 'rojas_suplente', titulo: 'TR', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente (haya entrado o no)', descripcion: 'Rojas siendo suplente' }
+  { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas' }
 ];

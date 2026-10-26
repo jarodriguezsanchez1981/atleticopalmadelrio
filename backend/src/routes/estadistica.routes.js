@@ -16,7 +16,7 @@ router.use(restringirACategoria());
 // categoría (estadisticas_cat_*) reutilizan el mismo listado por jugador.
 const SECCIONES_LISTADO = [
   'estadisticas_convocatorias', 'estadisticas_tiempo', 'estadisticas_goles', 'estadisticas_sanciones',
-  'estadisticas_cat_convocatorias', 'estadisticas_cat_goles'
+  'estadisticas_cat_convocatorias', 'estadisticas_cat_goles', 'estadisticas_cat_sanciones'
 ];
 router.get('/', authorize(...SECCIONES_LISTADO), ctrl.listar);
 // Plantillas (con jugadores) para el selector de las Estadísticas por categoría.

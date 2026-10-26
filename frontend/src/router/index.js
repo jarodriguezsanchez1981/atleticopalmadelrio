@@ -244,6 +244,13 @@ const routes = [
         meta: { seccion: 'estadisticas_cat_goles' }
       },
       {
+        path: 'estadisticas-categoria/sanciones',
+        name: 'estadisticas_cat_sanciones',
+        component: () => import('../views/estadisticas/EstadisticasCategoria.vue'),
+        props: { tabla: 'sanciones', seccion: 'estadisticas_cat_sanciones' },
+        meta: { seccion: 'estadisticas_cat_sanciones' }
+      },
+      {
         path: 'estadisticas-categoria/clasificacion',
         name: 'estadisticas_cat_clasificacion',
         component: () => import('../views/estadisticas/EstadisticasClasificacionCategoria.vue'),
