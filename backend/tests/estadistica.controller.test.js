@@ -205,6 +205,25 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     });
   });
 
+  it('reparte las tarjetas según fuera titular o suplente (también en el banquillo sin entrar)', async () => {
+    Partido.findAll.mockResolvedValue([{ id: 1, jornada: 1, acta_finalizada_at: new Date() }, { id: 2, jornada: 2, acta_finalizada_at: new Date() }, { id: 3, jornada: 3, acta_finalizada_at: new Date() }]);
+    const ana = { nombre: 'Ana', apellidos: 'López' };
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, tarjeta_amarilla: 1, tarjeta_roja: 0, jugador: ana },
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: false, minuto_entrada: 60, minutos: 30, tarjeta_amarilla: 2, tarjeta_roja: 1, jugador: ana },
+      // En el banquillo sin entrar: la amarilla cuenta como de suplente.
+      { id_partido: 3, id_jugador: 7, es_local: true, titular: 0, minuto_entrada: null, minutos: 0, tarjeta_amarilla: 1, tarjeta_roja: 0, jugador: ana }
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    expect(res._json[0]).toMatchObject({
+      amarillas_titular: 1, rojas_titular: 0, amarillas_suplente: 3, rojas_suplente: 1,
+      amarillas_titular_local: 1, amarillas_suplente_local: 1, amarillas_suplente_visitante: 2, rojas_suplente_visitante: 1
+    });
+  });
+
   it('lista por jugador los partidos en que marcó, con el rival y los minutos (y si fue de penalti)', async () => {
     const fecha1 = new Date('2026-09-07T16:00:00Z');
     const fecha2 = new Date('2026-09-14T16:00:00Z');

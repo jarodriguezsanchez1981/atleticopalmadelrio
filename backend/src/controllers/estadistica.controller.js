@@ -21,7 +21,8 @@ const FIN_PRIMERA_PARTE = 45;
 const CATEGORIA_CON_MINUTOS = 'Senior A';
 const CAMPOS_TARJETAS = [
   'amarillas_primera', 'amarillas_segunda', 'amarillas_ganando', 'amarillas_perdiendo',
-  'rojas_primera', 'rojas_segunda', 'rojas_ganando', 'rojas_perdiendo'
+  'rojas_primera', 'rojas_segunda', 'rojas_ganando', 'rojas_perdiendo',
+  'amarillas_titular', 'rojas_titular', 'amarillas_suplente', 'rojas_suplente'
 ];
 // Goles por tramos dentro de cada parte (de partido_goles, que lleva el minuto):
 // 3 tramos por parte, repartidos sobre la duración de juego del tipo de fútbol.
@@ -185,6 +186,14 @@ async function listar(req, res, next) {
       // Partido con 2 o más amarillas al mismo jugador (doble amarilla).
       if ((Number(f.tarjeta_amarilla) || 0) >= 2) sumar(fila, 'dobles_amarillas', 1, lado);
       sumar(fila, 'tarjetas_rojas', Number(f.tarjeta_roja) || 0, lado);
+      // Tarjetas siendo titular o suplente; las del suplente cuentan aunque no
+      // llegara a entrar (se puede ver tarjeta en el banquillo), igual que en
+      // Estadísticas Equipo.
+      const rol = esTitular ? 'titular' : esSuplente ? 'suplente' : null;
+      if (rol) {
+        sumar(fila, `amarillas_${rol}`, Number(f.tarjeta_amarilla) || 0, lado);
+        sumar(fila, `rojas_${rol}`, Number(f.tarjeta_roja) || 0, lado);
+      }
       const amarillas = Number(f.tarjeta_amarilla) || 0;
       const rojas = Number(f.tarjeta_roja) || 0;
       if (goles > 0) {

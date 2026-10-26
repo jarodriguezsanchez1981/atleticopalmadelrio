@@ -93,5 +93,10 @@ export const METRICAS_SANCIONES = [
   { campo: 'rojas_primera', titulo: '1ª Parte', subgrupo: 'Rojas' },
   { campo: 'rojas_segunda', titulo: '2ª Parte', subgrupo: 'Rojas' },
   { campo: 'rojas_ganando', titulo: 'Ganando', subgrupo: 'Rojas' },
-  { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas' }
+  { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas' },
+  // Tarjetas siendo titular o suplente (las del suplente, aunque no llegara a entrar).
+  { campo: 'amarillas_titular', titulo: 'TA', subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', descripcion: 'Amarillas siendo titular' },
+  { campo: 'rojas_titular', titulo: 'TR', subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', descripcion: 'Rojas siendo titular' },
+  { campo: 'amarillas_suplente', titulo: 'TA', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente (haya entrado o no)', descripcion: 'Amarillas siendo suplente' },
+  { campo: 'rojas_suplente', titulo: 'TR', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente (haya entrado o no)', descripcion: 'Rojas siendo suplente' }
 ];
