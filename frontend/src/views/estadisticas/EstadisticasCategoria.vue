@@ -6,7 +6,7 @@ import { estadisticasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
-import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES } from '../../utils/estadisticasMetricas';
+import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS } from '../../utils/estadisticasMetricas';
 
 /** Estadísticas de Convocatorias, Goles y Sanciones de la categoría del usuario (a
  * diferencia de views/estadisticas/Estadisticas.vue, que son siempre de Senior
@@ -26,7 +26,8 @@ const props = defineProps({
 const CAMPOS_OCULTOS = new Set([
   'titular', 'suplente', 'banquillo_no_jugados',
   'goles_titular', 'porcentaje_goles_titular', 'goles_banquillo', 'porcentaje_goles_banquillo',
-  'amarillas_titular', 'amarillas_suplente', 'rojas_titular', 'rojas_suplente'
+  'amarillas_titular', 'amarillas_suplente', 'rojas_titular', 'rojas_suplente',
+  'media_amarillas_titulares', 'media_amarillas_suplentes', 'media_rojas_titulares', 'media_rojas_suplentes'
 ]);
 const sinTitularSuplente = (metricas) => metricas.filter((m) => !CAMPOS_OCULTOS.has(m.campo));
 
@@ -64,6 +65,8 @@ function plantillaDeLaTabla(p) {
 const plantillas = ref([]);        // disponibles (temporada actual, categoría del usuario)
 const idPlantilla = ref(null);     // plantilla elegida
 const filas = ref([]);
+// Sanciones: tarjetas del equipo (tabla resumen, como en Senior A).
+const equipo = ref(null);
 const cargando = ref(false);
 const error = ref('');
 // Jugadores elegidos en el filtro (ids); vacío = todos.
@@ -106,10 +109,22 @@ async function cargarPlantillas() {
 
 async function cargarFilas() {
   filas.value = [];
+  equipo.value = null;
   if (!idPlantilla.value) return;
-  filas.value = (await estadisticasService.listar({ id_plantilla: idPlantilla.value }))
-    .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
+  const [jugadores, datosEquipo] = await Promise.all([
+    estadisticasService.listar({ id_plantilla: idPlantilla.value }),
+    props.tabla === 'sanciones' ? estadisticasService.equipo({ id_plantilla: idPlantilla.value }) : null
+  ]);
+  filas.value = jugadores.map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
+  equipo.value = datosEquipo;
 }
+
+// Sanciones: tabla resumen del equipo (una fila, la de la categoría), sin las
+// medias de titulares / suplentes (el acta no lo dice fuera de Senior A).
+const METRICAS_EQUIPO_RESUMEN = sinTitularSuplente(METRICAS_EQUIPO_TARJETAS);
+const filasEquipo = computed(() => (equipo.value?.partidos
+  ? [{ ...equipo.value, equipo: plantillaActual.value?.categoria?.nombre || '' }]
+  : []));
 
 async function cargar() {
   cargando.value = true;
@@ -119,6 +134,7 @@ async function cargar() {
     await cargarFilas();
   } catch (err) {
     filas.value = [];
+    equipo.value = null;
     error.value = err.response?.data?.message || 'No se pudieron cargar las estadísticas.';
   } finally {
     cargando.value = false;
@@ -134,6 +150,7 @@ async function cambiarPlantilla() {
     await cargarFilas();
   } catch (err) {
     filas.value = [];
+    equipo.value = null;
     error.value = err.response?.data?.message || 'No se pudieron cargar las estadísticas.';
   } finally {
     cargando.value = false;
@@ -241,9 +258,26 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <!-- Sanciones: primero el resumen del equipo (como en Senior A). -->
+      <div v-if="tabla === 'sanciones'" class="flex flex-col gap-2">
+        <h2 class="font-display text-lg text-club-green">Equipo</h2>
+        <p class="text-sm text-ink-tertiary">
+          Tarjetas del equipo por partido. TA / TR: amarillas y rojas de los jugadores del PALMA. Las medias son por
+          partido jugado.
+        </p>
+        <div v-for="lado in LADOS_TABLA" :key="`eqresumen-${lado.clave}`" class="flex flex-col gap-2">
+          <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+          <TablaEstadistica :filas="filasEquipo" :metricas="METRICAS_EQUIPO_RESUMEN" :soloGrupo="lado.clave"
+                            :cargando="cargando" textoVacio="Todavía no hay partidos con resultado."
+                            :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
+        </div>
+      </div>
+
+      <h2 v-if="tabla === 'sanciones'" class="mt-4 font-display text-lg text-club-green">Jugadores</h2>
       <template v-if="config.porLado">
         <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
-          <h2 class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
+          <h3 v-if="tabla === 'sanciones'" class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+          <h2 v-else class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
                             :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacio"
                             :expandible="expandibleLado(lado.clave)">

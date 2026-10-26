@@ -22,8 +22,8 @@ router.get('/', authorize(...SECCIONES_LISTADO), ctrl.listar);
 // Plantillas (con jugadores) para el selector de las Estadísticas por categoría.
 router.get('/plantillas', authorize(...SECCIONES_LISTADO), ctrl.plantillasEstadisticas);
 // Datos del equipo: los leen Estadísticas Goles (la parte de goles) y
-// Estadísticas Sanciones (la parte de tarjetas).
-router.get('/equipo', authorize('estadisticas_goles', 'estadisticas_cat_goles', 'estadisticas_sanciones'), ctrl.equipo);
+// Estadísticas Sanciones (la parte de tarjetas), de Senior A y por categoría.
+router.get('/equipo', authorize('estadisticas_goles', 'estadisticas_cat_goles', 'estadisticas_sanciones', 'estadisticas_cat_sanciones'), ctrl.equipo);
 // Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
 router.get('/goles-contra', authorize('estadisticas_goles', 'estadisticas_cat_goles'), ctrl.golesContra);
 // Clasificación de la liga por jornada (se copia sola de RFAF: utils/clasificacionAutomatica.js).
