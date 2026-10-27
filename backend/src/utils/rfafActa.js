@@ -3,6 +3,7 @@ const { execFile } = require('child_process');
 
 const SCRIPT = path.join(__dirname, '..', 'scripts', 'rfaf_acta.py');
 const SCRIPT_CLASIFICACION = path.join(__dirname, '..', 'scripts', 'rfaf_clasificacion.py');
+const SCRIPT_JORNADA = path.join(__dirname, '..', 'scripts', 'rfaf_jornada.py');
 
 /** Error de RFAF con el código HTTP que debe devolver la API. */
 class ErrorActa extends Error {
@@ -53,6 +54,13 @@ function leerClasificacion({ codPrimaria, codGrupo, codCompeticion }, jornada, {
     'No se pudo leer la clasificación de RFAF.');
 }
 
+/** Lee los partidos de una jornada de liga en RFAF (con el código de su acta).
+ * Devuelve { jornada, partidos: [...] } (ver scripts/rfaf_jornada.py). */
+function leerJornada({ codPrimaria, codGrupo, codCompeticion, codTemporada }, jornada, { script = SCRIPT_JORNADA, args } = {}) {
+  return ejecutarScript(script, args || [codPrimaria, codGrupo, codCompeticion, codTemporada, jornada].map(String),
+    'No se pudo leer la jornada de RFAF.');
+}
+
 /** "PÉREZ GÓMEZ, JUAN" -> "PEREZ GOMEZ JUAN", para poder comparar nombres
  * de RFAF (con acentos/orden distinto) con los de nuestra base de datos. */
 function normalizarNombre(texto) {
@@ -94,4 +102,4 @@ function nombreDesdeActa(texto) {
   return { nombre: capitalizar(nombre), apellidos: capitalizar(apellidos) || '-' };
 }
 
-module.exports = { leerActa, leerClasificacion, normalizarNombre, nombreDesdeActa, ErrorActa, SCRIPT, SCRIPT_CLASIFICACION };
+module.exports = { leerActa, leerClasificacion, leerJornada, normalizarNombre, nombreDesdeActa, ErrorActa, SCRIPT, SCRIPT_CLASIFICACION, SCRIPT_JORNADA };

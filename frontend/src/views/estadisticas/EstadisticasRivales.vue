@@ -8,18 +8,20 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { METRICAS_GOLES, METRICAS_SANCIONES } from '../../utils/estadisticasMetricas';
-import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
+import { construirHojaEstadistica, construirHojaSimple, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 
-/** Estadísticas Senior A → Rivales: goles y tarjetas de cada equipo contrario
- * de la plantilla Senior A de la temporada actual, con las mismas columnas que
- * las tablas Goles y Sanciones de los jugadores (una fila por rival). Los datos
- * del rival los guarda "Finalizar Acta". */
+/** Estadísticas Senior A → Rivales: goles, tarjetas y jugadores de cada equipo
+ * contrario en toda la liga de Senior A de la temporada actual (las actas de
+ * todos los partidos, no solo los del PALMA), con las mismas columnas que las
+ * tablas Goles y Sanciones de los jugadores (una fila por rival). Las actas se
+ * copian solas de RFAF cada día (y la del PALMA, con "Finalizar Acta"). */
 const SECCION = 'estadisticas_rivales';
 const CATEGORIA = CATEGORIA_CON_MINUTOS;
 
 const plantilla = ref(null);
 const equipos = ref([]);
-const partidosSinRival = ref(0);
+const jornadas = ref([]);
+const actasPendientes = ref(0);
 const cargando = ref(false);
 const error = ref('');
 let unsubCambio = null;
@@ -33,12 +35,14 @@ async function cargar() {
       .find((p) => p.categoria?.nombre === CATEGORIA) || null;
     const datos = plantilla.value
       ? await estadisticasService.rivales({ id_plantilla: plantilla.value.id })
-      : { equipos: [], partidos_sin_rival: 0 };
+      : {};
     equipos.value = datos.equipos || [];
-    partidosSinRival.value = datos.partidos_sin_rival || 0;
+    jornadas.value = datos.jornadas || [];
+    actasPendientes.value = datos.actas_pendientes || 0;
   } catch (err) {
     equipos.value = [];
-    partidosSinRival.value = 0;
+    jornadas.value = [];
+    actasPendientes.value = 0;
     error.value = err.response?.data?.message || 'No se pudieron cargar las estadísticas de los rivales.';
   } finally {
     cargando.value = false;
@@ -49,6 +53,13 @@ const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
 
+/** "GARCIA LOPEZ, JUAN" (como viene en el acta) -> "Juan Garcia Lopez". */
+function nombreJugador(nombre) {
+  const [apellidos, nombrePila] = String(nombre || '').split(',').map((t) => t.trim());
+  const capitalizar = (t) => t.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
+  return capitalizar(nombrePila ? `${nombrePila} ${apellidos}` : apellidos || '');
+}
+
 const COLUMNA_EQUIPO = { campo: 'equipo', titulo: 'Equipo' };
 const LADOS_TABLA = [
   { clave: 'total', titulo: 'Total', sufijo: '' },
@@ -56,26 +67,33 @@ const LADOS_TABLA = [
   { clave: 'visitante', titulo: 'Visitante', sufijo: '_visitante' }
 ];
 // Una tabla de goles y otra de tarjetas, cada una en Total / Local / Visitante.
-// Salen todos los rivales del calendario de liga en todas las tablas, también
-// los que aún no se han jugado (a 0).
+// Salen todos los rivales de la liga en todas las tablas, también los que aún
+// no tienen actas (a 0).
 const BLOQUES = [
   {
     clave: 'goles',
     titulo: 'Goles',
-    descripcion: 'Goles de cada rival por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de los goles del rival marcados con el PALMA en casa / fuera. "% por partido": partidos en los que marca algún gol. Las propias puertas del PALMA no cuentan.',
+    descripcion: 'Goles de cada rival en todos sus partidos de liga por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de sus goles marcados en casa / fuera. "% por partido": partidos en los que marca algún gol. Los goles en propia puerta no cuentan.',
     metricas: METRICAS_GOLES,
     sortField: 'goles'
   },
   {
     clave: 'sanciones',
     titulo: 'Sanciones',
-    descripcion: 'Tarjetas de los jugadores de cada rival por parte del partido (1ª parte hasta el minuto 45), según los marcara un titular o un suplente (las del suplente cuentan aunque no llegara a entrar) y según iba el marcador para el rival en ese momento (con empate no cuentan como ganando ni perdiendo).',
+    descripcion: 'Tarjetas de los jugadores de cada rival en todos sus partidos de liga por parte del partido (1ª parte hasta el minuto 45), según las viera un titular o un suplente (las del suplente cuentan aunque no llegara a entrar) y según iba el marcador para ese equipo en ese momento (con empate no cuentan como ganando ni perdiendo).',
     metricas: METRICAS_SANCIONES,
     sortField: 'tarjetas_amarillas'
   }
 ];
+const conJugadores = (fila) => (fila.jugadores || []).length > 0;
 
-// Exportar a Excel: cada tabla en su hoja.
+const COLUMNAS_JUGADORES = [
+  { campo: 'equipo', titulo: 'Equipo' }, { campo: 'jugador', titulo: 'Jugador' }, { campo: 'convocatorias', titulo: 'Conv.' },
+  { campo: 'partidos', titulo: 'Partidos' }, { campo: 'titular', titulo: 'Tit.' }, { campo: 'minutos', titulo: 'Min.' },
+  { campo: 'goles', titulo: 'Goles' }, { campo: 'tarjetas_amarillas', titulo: 'TA' }, { campo: 'tarjetas_rojas', titulo: 'TR' }
+];
+
+// Exportar a Excel: cada tabla en su hoja, y una más con todos los jugadores.
 const toast = useToast();
 const exportando = ref(false);
 async function exportarExcel() {
@@ -93,6 +111,13 @@ async function exportarExcel() {
         });
       }
     }
+    const jugadores = equipos.value.flatMap((e) => (e.jugadores || [])
+      .map((j) => ({ ...j, equipo: e.equipo, jugador: nombreJugador(j.nombre) })));
+    hojas.push({
+      nombre: 'Jugadores',
+      titulo: `Estadísticas Rivales · ${titulo.value} · Jugadores`,
+      ...construirHojaSimple({ columnas: COLUMNAS_JUGADORES, filas: jugadores })
+    });
     await descargarExcel(nombreFicheroExcel('Estadísticas Rivales', titulo.value), hojas);
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el Excel.', life: 4000 });
@@ -117,10 +142,10 @@ onBeforeUnmount(() => {
       <div>
         <h1 class="font-display text-xl text-club-green">Estadísticas Rivales</h1>
         <p class="text-sm text-ink-tertiary">
-          Goles y tarjetas de cada equipo contrario en los partidos de liga de <strong>{{ titulo }}</strong>, según las
-          actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). Local / Visitante: con el PALMA en
-          casa / fuera. Salen todos los rivales del calendario de liga; los que aún no se han jugado, a 0. Se puede
-          mover una columna arrastrando su título.
+          Goles, tarjetas y jugadores de cada equipo contrario en todos sus partidos de la liga de
+          <strong>{{ titulo }}</strong> (no solo contra el PALMA), según las actas de RFAF. Local / Visitante: el equipo en
+          casa / fuera. Salen todos los rivales de la liga. Pulsa en un equipo para ver sus jugadores. Se puede mover una
+          columna arrastrando su título.
         </p>
       </div>
       <Button v-if="plantilla && !error" label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined
@@ -135,12 +160,13 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="plantilla && !error">
-      <div v-if="partidosSinRival" class="rounded-xl border border-amber-200 bg-amber-50 py-3 px-4 text-sm text-amber-800">
+      <div v-if="!cargando" class="rounded-xl border border-line bg-white py-3 px-4 text-sm text-ink-tertiary">
         <i class="pi pi-info-circle mr-1" />
-        {{ partidosSinRival === 1 ? 'Hay 1 partido finalizado' : `Hay ${partidosSinRival} partidos finalizados` }} antes de
-        guardar los datos del rival: no tiene{{ partidosSinRival === 1 ? '' : 'n' }} sus tarjetas ni si quien marcó era
-        titular o suplente. Vuelve a pulsar "Finalizar Acta" en {{ partidosSinRival === 1 ? 'ese partido' : 'esos partidos' }}
-        para completarlos.
+        <template v-if="jornadas.length">Con actas de las jornadas {{ jornadas[0] }} a {{ jornadas[jornadas.length - 1] }}.</template>
+        <template v-else>Todavía no hay actas de la liga.</template>
+        <template v-if="actasPendientes"> Quedan {{ actasPendientes }} actas por copiar de RFAF.</template>
+        Las actas se copian solas cada día desde las 10:00, poco a poco para pedir a RFAF lo mínimo; la del PALMA, al
+        pulsar "Finalizar Acta".
       </div>
 
       <div v-for="b in BLOQUES" :key="b.clave" class="flex flex-col gap-2">
@@ -150,7 +176,38 @@ onBeforeUnmount(() => {
           <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
           <TablaEstadistica :filas="equipos" :metricas="b.metricas" :soloGrupo="lado.clave"
                             :sortField="b.sortField" :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo"
-                            textoVacio="Todavía no hay partidos finalizados." />
+                            textoVacio="Todavía no hay actas de la liga." :expandible="lado.clave === 'total' ? conJugadores : null">
+            <template #detalle="{ data }">
+              <div class="overflow-x-auto py-1">
+                <table class="text-sm border-collapse">
+                  <thead>
+                    <tr class="text-xs text-ink-tertiary">
+                      <th class="text-left font-medium px-2 py-1">Jugador</th>
+                      <th class="text-center font-medium px-2 py-1" title="Convocatorias (en el acta)">Conv.</th>
+                      <th class="text-center font-medium px-2 py-1" title="Partidos jugados (con minutos)">Partidos</th>
+                      <th class="text-center font-medium px-2 py-1" title="Titular">Tit.</th>
+                      <th class="text-center font-medium px-2 py-1" title="Minutos">Min.</th>
+                      <th class="text-center font-medium px-2 py-1">Goles</th>
+                      <th class="text-center font-medium px-2 py-1" title="Tarjetas amarillas">TA</th>
+                      <th class="text-center font-medium px-2 py-1" title="Tarjetas rojas">TR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="j in data.jugadores" :key="j.nombre" class="border-t border-line">
+                      <td class="px-2 py-1 whitespace-nowrap">{{ nombreJugador(j.nombre) }}</td>
+                      <td class="px-2 py-1 text-center">{{ j.convocatorias }}</td>
+                      <td class="px-2 py-1 text-center">{{ j.partidos }}</td>
+                      <td class="px-2 py-1 text-center">{{ j.titular }}</td>
+                      <td class="px-2 py-1 text-center">{{ j.minutos }}</td>
+                      <td class="px-2 py-1 text-center">{{ j.goles || '—' }}</td>
+                      <td class="px-2 py-1 text-center">{{ j.tarjetas_amarillas || '—' }}</td>
+                      <td class="px-2 py-1 text-center">{{ j.tarjetas_rojas || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </TablaEstadistica>
         </div>
       </div>
     </template>

@@ -1,6 +1,7 @@
-const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
+const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, LigaPartido, LigaJugador, LigaGol, LigaTarjeta, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
 const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 const { diaEspana } = require('../utils/horaEspana');
+const { esPalma: esPalmaEquipo } = require('./clasificacion.controller');
 
 /** Lunes (en hora española, 'YYYY-MM-DD') de la semana de una fecha: agrupa los
  * partidos del mismo fin de semana de liga aunque sean de distinta jornada o
@@ -440,124 +441,143 @@ async function golesContra(req, res, next) {
 }
 
 // Contadores de cada equipo contrario (Estadísticas Rivales): los mismos de las
-// tablas Goles y Sanciones de los jugadores, en total y según el PALMA jugara
+// tablas Goles y Sanciones de los jugadores, en total y según el equipo jugara
 // en casa o fuera.
 const CONTADORES_RIVAL = [
   'partidos', 'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', ...CAMPOS_GOLES_TRAMO,
   'tarjetas_amarillas', 'tarjetas_rojas', 'dobles_amarillas', ...CAMPOS_TARJETAS
 ];
+const CONTADORES_JUGADOR_RIVAL = ['convocatorias', 'partidos', 'titular', 'minutos', 'goles', 'tarjetas_amarillas', 'tarjetas_rojas'];
 
-/** Goles y tarjetas de cada equipo contrario en los partidos de liga de una
- * plantilla con el acta finalizada (no suspendidos), igual que las tablas Goles
- * y Sanciones de los jugadores: goles por tramo, de titular / suplente y % de
- * partidos con gol (sin las propias puertas del PALMA); tarjetas siendo titular
- * o suplente, por parte y según el marcador del rival en ese momento. En total
- * y como local / visitante del PALMA. Salen todos los rivales del calendario
- * de liga de la plantilla, también los que aún no se han jugado (a 0).
- * `partidos_sin_rival`: partidos
- * finalizados antes de guardar los datos del rival (hay que volver a pulsar
- * "Finalizar Acta"); en ellos solo cuentan los goles y sus tramos. */
+/** Estadísticas de cada equipo contrario en toda la liga de la plantilla (las
+ * actas de todos los partidos, no solo los del PALMA; ver liga.controller.js),
+ * igual que las tablas Goles y Sanciones de los jugadores: goles por tramo, de
+ * titular / suplente y % de partidos con gol (sin propia puerta); tarjetas
+ * siendo titular o suplente, por parte y según su marcador en ese momento.
+ * En total y con el equipo en casa (_local) o fuera (_visitante). Cada equipo
+ * lleva sus `jugadores` (convocatorias, partidos, titular, minutos, goles y
+ * tarjetas). Salen todos los rivales de la liga, aunque aún no haya actas
+ * suyas (a 0). También: jornadas copiadas y actas pendientes. */
 async function rivales(req, res, next) {
   try {
     const idPlantilla = Number(req.query.id_plantilla);
     if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
 
-    const plantilla = await Plantilla.findByPk(idPlantilla, {
-      include: [{ model: Categoria, as: 'categoria', attributes: ['id_tipofutbol'] }]
-    });
-    const durGoles = duracionJuego(plantilla?.categoria?.id_tipofutbol);
-
-    // Todo el calendario de liga del PALMA (para listar a todos los rivales);
-    // solo cuentan los partidos con el acta finalizada y no suspendidos.
-    const partidos = (await Partido.findAll({
+    const partidos = await LigaPartido.findAll({
       where: { id_plantilla: idPlantilla },
-      attributes: ['id', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'acta_finalizada_at', 'acta_rival', 'suspendido'],
       include: [
-        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
-        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
+        { model: LigaJugador, as: 'jugadores' },
+        { model: LigaGol, as: 'goles' },
+        { model: LigaTarjeta, as: 'tarjetas' }
       ]
-    }) || []).filter((p) => Number(p.jornada) > 0
-      && (Number(p.id_equipo_local) === PALMA_ID || Number(p.id_equipo_visitante) === PALMA_ID));
+    }) || [];
+
+    // Un equipo se reconoce por su código de RFAF; si un partido aún no lo
+    // tiene (lo creó "Finalizar Acta"), por el nombre.
+    const normal = (n) => String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const codigoPorNombre = new Map();
+    for (const p of partidos) {
+      if (p.codigo_equipo_local) codigoPorNombre.set(normal(p.equipo_local), p.codigo_equipo_local);
+      if (p.codigo_equipo_visitante) codigoPorNombre.set(normal(p.equipo_visitante), p.codigo_equipo_visitante);
+    }
+    const claveEquipo = (nombre, codigo) => codigo || codigoPorNombre.get(normal(nombre)) || `n:${normal(nombre)}`;
 
     const porEquipo = new Map();
-    // Partido -> { fila del rival, lado del PALMA }.
-    const enPartido = new Map();
-    const sumar = (fila, campo, valor, lado) => {
-      fila[campo] += valor;
-      fila[`${campo}_${lado}`] += valor;
-    };
-    let partidosSinRival = 0;
-    for (const p of partidos) {
-      const lado = Number(p.id_equipo_local) === PALMA_ID ? 'local' : 'visitante';
-      const rival = lado === 'local' ? p.equipoVisitante : p.equipoLocal;
-      const idEquipo = Number(lado === 'local' ? p.id_equipo_visitante : p.id_equipo_local);
-      let fila = porEquipo.get(idEquipo);
+    const filaEquipo = (nombre, codigo) => {
+      const clave = claveEquipo(nombre, codigo);
+      let fila = porEquipo.get(clave);
       if (!fila) {
-        fila = { id_equipo: idEquipo, equipo: rival?.nombre || '—' };
+        fila = { id_equipo: clave, equipo: nombre, jugadores: new Map() };
         for (const c of CONTADORES_RIVAL) {
           fila[c] = 0;
           for (const l of LADOS) fila[`${c}_${l}`] = 0;
         }
-        porEquipo.set(idEquipo, fila);
+        porEquipo.set(clave, fila);
       }
-      if (p.acta_finalizada_at == null || p.suspendido) continue;
-      sumar(fila, 'partidos', 1, lado);
-      if (!p.acta_rival) partidosSinRival += 1;
-      enPartido.set(p.id, { fila, lado, golesEnPartido: 0 });
-    }
+      return fila;
+    };
+    const sumar = (fila, campo, valor, lado) => {
+      fila[campo] += valor;
+      fila[`${campo}_${lado}`] += valor;
+    };
 
-    const idsPartidos = [...enPartido.keys()];
-    if (idsPartidos.length) {
-      const [goles, tarjetas] = await Promise.all([
-        PartidoGolContra.findAll({ where: { id_partido: idsPartidos } }),
-        PartidoTarjetaContra.findAll({ where: { id_partido: idsPartidos } })
-      ]);
-      for (const g of goles || []) {
-        const ctx = enPartido.get(g.id_partido);
-        if (!ctx || g.propia) continue;
-        const { fila, lado } = ctx;
-        sumar(fila, 'goles', 1, lado);
-        ctx.golesEnPartido += 1;
-        if (g.titular === true || g.titular === 1) sumar(fila, 'goles_titular', 1, lado);
-        else if (g.titular === false || g.titular === 0) sumar(fila, 'goles_banquillo', 1, lado);
-        if (g.minuto != null) sumar(fila, tramoGol(g.minuto, durGoles), 1, lado);
+    let actasPendientes = 0;
+    const jornadas = new Set();
+    for (const p of partidos) {
+      const filas = {
+        local: esPalmaEquipo(p.equipo_local) ? null : filaEquipo(p.equipo_local, p.codigo_equipo_local),
+        visitante: esPalmaEquipo(p.equipo_visitante) ? null : filaEquipo(p.equipo_visitante, p.codigo_equipo_visitante)
+      };
+      if (!p.acta_at) {
+        actasPendientes += 1;
+        continue;
       }
-      for (const { fila, lado, golesEnPartido } of enPartido.values()) {
-        if (golesEnPartido > 0) sumar(fila, 'partidos_con_gol', 1, lado);
-      }
+      jornadas.add(Number(p.jornada));
+      const golesEn = { local: 0, visitante: 0 };
+      for (const lado of LADOS) if (filas[lado]) sumar(filas[lado], 'partidos', 1, lado);
 
-      // Amarillas de cada jugador del rival en cada partido (dobles amarillas).
+      for (const g of p.goles || []) {
+        const fila = filas[g.lado];
+        if (!fila || g.tipo === 'propia') continue;
+        sumar(fila, 'goles', 1, g.lado);
+        golesEn[g.lado] += 1;
+        if (g.titular === true || g.titular === 1) sumar(fila, 'goles_titular', 1, g.lado);
+        else if (g.titular === false || g.titular === 0) sumar(fila, 'goles_banquillo', 1, g.lado);
+        if (g.minuto != null) sumar(fila, tramoGol(g.minuto, MINUTOS_PARTIDO), 1, g.lado);
+      }
+      for (const lado of LADOS) if (filas[lado] && golesEn[lado] > 0) sumar(filas[lado], 'partidos_con_gol', 1, lado);
+
       const amarillasJugador = new Map();
-      for (const t of tarjetas || []) {
-        const ctx = enPartido.get(t.id_partido);
-        if (!ctx) continue;
-        const { fila, lado } = ctx;
+      for (const t of p.tarjetas || []) {
+        const fila = filas[t.lado];
+        if (!fila) continue;
         const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
-        sumar(fila, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, lado);
-        if (t.titular === true || t.titular === 1) sumar(fila, `${tipo}_titular`, 1, lado);
-        else if (t.titular === false || t.titular === 0) sumar(fila, `${tipo}_suplente`, 1, lado);
-        if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, lado);
-        if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, lado);
-        else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, lado);
-        if (tipo === 'amarillas' && t.num_jugador != null) {
-          const clave = `${t.id_partido}-${t.num_jugador}`;
+        sumar(fila, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, t.lado);
+        if (t.titular === true || t.titular === 1) sumar(fila, `${tipo}_titular`, 1, t.lado);
+        else if (t.titular === false || t.titular === 0) sumar(fila, `${tipo}_suplente`, 1, t.lado);
+        if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, t.lado);
+        if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, t.lado);
+        else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, t.lado);
+        if (tipo === 'amarillas') {
+          const clave = `${t.lado}-${normal(t.nombre)}`;
           const n = (amarillasJugador.get(clave) || 0) + 1;
           amarillasJugador.set(clave, n);
-          if (n === 2) sumar(fila, 'dobles_amarillas', 1, lado);
+          if (n === 2) sumar(fila, 'dobles_amarillas', 1, t.lado);
         }
+      }
+
+      for (const j of p.jugadores || []) {
+        const fila = filas[j.lado];
+        if (!fila) continue;
+        const clave = normal(j.nombre);
+        let jug = fila.jugadores.get(clave);
+        if (!jug) {
+          jug = { nombre: j.nombre, ...Object.fromEntries(CONTADORES_JUGADOR_RIVAL.map((c) => [c, 0])) };
+          fila.jugadores.set(clave, jug);
+        }
+        jug.convocatorias += 1;
+        if (Number(j.minutos) > 0) jug.partidos += 1;
+        if (j.titular) jug.titular += 1;
+        jug.minutos += Number(j.minutos) || 0;
+        jug.goles += Number(j.goles) || 0;
+        jug.tarjetas_amarillas += Number(j.amarillas) || 0;
+        jug.tarjetas_rojas += Number(j.rojas) || 0;
       }
     }
 
-    for (const f of porEquipo.values()) {
+    const equipos = [...porEquipo.values()].map((f) => {
       for (const sufijo of ['', '_local', '_visitante']) {
         f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`partidos_con_gol${sufijo}`], f[`partidos${sufijo}`]);
         f[`porcentaje_goles_titular${sufijo}`] = porcentaje(f[`goles_titular${sufijo}`], f[`goles${sufijo}`]);
         f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
       }
       for (const l of LADOS) f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
-    }
-    const equipos = [...porEquipo.values()].sort((a, b) => b.goles - a.goles || a.equipo.localeCompare(b.equipo, 'es'));
-    res.json({ equipos, partidos_sin_rival: partidosSinRival });
+      const jugadores = [...f.jugadores.values()]
+        .sort((a, b) => b.minutos - a.minutos || b.convocatorias - a.convocatorias || a.nombre.localeCompare(b.nombre, 'es'));
+      return { ...f, jugadores };
+    }).sort((a, b) => b.goles - a.goles || a.equipo.localeCompare(b.equipo, 'es'));
+
+    res.json({ equipos, jornadas: [...jornadas].sort((a, b) => a - b), actas_pendientes: actasPendientes });
   } catch (err) { next(err); }
 }
 

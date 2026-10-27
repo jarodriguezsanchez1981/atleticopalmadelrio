@@ -6,6 +6,7 @@ const { desdeHoraEspana, partesEspana } = require('./horaEspana');
  * partido fue el día anterior o antes, y al arrancar el backend se ponen al
  * día las que se hubieran quedado pendientes. Una petición a rfaf.es por
  * jornada; si falla, se vuelve a intentar en la siguiente actualización.
+ * Después, las actas de la liga de Senior A (controllers/liga.controller.js).
  * Solo en producción (EC2): en local no se pide nada a rfaf.es.
  */
 const MAX_ESPERA_MS = 6 * 60 * 60 * 1000; // setTimeout no admite esperas muy largas; se recalcula
@@ -26,6 +27,8 @@ function actualizar() {
     const { actualizarTodas } = require('../controllers/clasificacion.controller');
     enCurso = actualizarTodas()
       .catch((err) => console.warn('⚠️  Clasificación automática:', err.message))
+      .then(() => require('../controllers/liga.controller').actualizar())
+      .catch((err) => console.warn('⚠️  Liga automática:', err.message))
       .finally(() => { enCurso = null; });
   }
   return enCurso;

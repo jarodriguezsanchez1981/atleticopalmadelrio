@@ -22,6 +22,10 @@ const PartidoTarjeta = require('./PartidoTarjeta');
 const PartidoGol = require('./PartidoGol');
 const PartidoGolContra = require('./PartidoGolContra');
 const PartidoTarjetaContra = require('./PartidoTarjetaContra');
+const LigaPartido = require('./LigaPartido');
+const LigaJugador = require('./LigaJugador');
+const LigaGol = require('./LigaGol');
+const LigaTarjeta = require('./LigaTarjeta');
 const Torneo = require('./Torneo');
 const Sancion = require('./Sancion');
 const Plantilla = require('./Plantilla');
@@ -159,6 +163,11 @@ PartidoTarjeta.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', a
 PartidoGol.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
 PartidoGolContra.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
 PartidoTarjetaContra.belongsTo(Partido, { foreignKey: 'id_partido', targetKey: 'id', as: 'partido' });
+
+// ---- Actas de toda la liga (Estadísticas Rivales) ----
+LigaPartido.hasMany(LigaJugador, { foreignKey: 'id_liga_partido', sourceKey: 'id', as: 'jugadores', onDelete: 'CASCADE' });
+LigaPartido.hasMany(LigaGol, { foreignKey: 'id_liga_partido', sourceKey: 'id', as: 'goles', onDelete: 'CASCADE' });
+LigaPartido.hasMany(LigaTarjeta, { foreignKey: 'id_liga_partido', sourceKey: 'id', as: 'tarjetas', onDelete: 'CASCADE' });
 PartidoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
 Jugador.hasMany(PartidoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'partidosJugador' });
 PartidoJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
@@ -337,6 +346,10 @@ module.exports = {
   PartidoGol,
   PartidoGolContra,
   PartidoTarjetaContra,
+  LigaPartido,
+  LigaJugador,
+  LigaGol,
+  LigaTarjeta,
   Torneo,
   Sancion,
   Plantilla,

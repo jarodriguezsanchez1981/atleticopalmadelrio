@@ -6,6 +6,8 @@ const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 const rfafActa = require('../utils/rfafActa');
+const { minutosJugados } = require('../utils/minutosActa');
+const liga = require('./liga.controller');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
@@ -310,24 +312,6 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/** Finaliza el partido con el acta oficial de RFAF (una sola petición a
- * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
- * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
- * aparecen en el acta, con sus goles, tarjetas y minutos jugados (según las
- * sustituciones, sobre 90 minutos; solo en Senior A), y una sanción en Sanciones
- * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se busca por
- * nombre primero en la plantilla del partido y luego en todos los jugadores;
- * si no existe, se crea en Jugadores y se añade a la plantilla del partido con
- * su dorsal del acta (devuelto en "creados"). */
-/** Minutos jugados según el acta: el titular juega desde el 0 y el suplente
- * desde que entra (si no entra, 0); los dos hasta que salen o hasta el final. */
-function minutosJugados(jugador, duracion) {
-  const entrada = jugador.titular ? 0 : jugador.minuto_entrada;
-  if (entrada === null || entrada === undefined) return 0;
-  const salida = jugador.minuto_salida ?? duracion;
-  return Math.max(0, Math.min(salida, duracion) - entrada);
-}
-
 /** Pone al día entrenadores y delegados del PALMA con el cuerpo técnico del
  * acta: a quien ya existe (por nombre) y no tiene foto se le pone la del acta;
  * a quien no existe se le crea con sus datos (los delegados, con su tipo:
@@ -390,6 +374,15 @@ async function sincronizarCuerpoTecnico(cuerpoTecnico = []) {
   }
 }
 
+/** Finaliza el partido con el acta oficial de RFAF (una sola petición a
+ * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
+ * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
+ * aparecen en el acta, con sus goles, tarjetas y minutos jugados (según las
+ * sustituciones, sobre 90 minutos; solo en Senior A), y una sanción en Sanciones
+ * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se busca por
+ * nombre primero en la plantilla del partido y luego en todos los jugadores;
+ * si no existe, se crea en Jugadores y se añade a la plantilla del partido con
+ * su dorsal del acta (devuelto en "creados"). */
 async function finalizarActa(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
@@ -644,6 +637,14 @@ async function finalizarActa(req, res, next) {
     partido.acta_finalizada_at = new Date();
     partido.acta_rival = true;
     await partido.save();
+
+    // El acta también va a la liga (Estadísticas Rivales), sin pedir nada más
+    // a RFAF. Si falla, el partido queda finalizado igual.
+    try {
+      await liga.guardarActaDelPalma({ partido, plantilla: plantillaPartido, codigoActa: codigo_acta, acta });
+    } catch (err) {
+      console.warn('⚠️  No se pudo guardar el acta en la liga:', err.message);
+    }
 
     res.json({ resultado: acta.resultado, actualizados, creados });
   } catch (err) { next(err); }

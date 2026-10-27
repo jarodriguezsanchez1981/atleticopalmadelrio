@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador, Delegado } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, LigaPartido, LigaJugador, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador, Delegado } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -735,6 +735,22 @@ describe('Sección Partidos · partido.controller', () => {
         ? [{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }]
         : [{ id: 900, nombre: 'Juan', apellidos: 'Pérez Gómez' }]));
       Jugador.create.mockImplementation(async (datos) => ({ id: 950, ...datos }));
+      LigaPartido.findOrCreate.mockReset();
+      LigaPartido.findOrCreate.mockResolvedValue([{ id: 77 }, true]);
+      LigaJugador.bulkCreate.mockReset();
+    });
+
+    it('guarda también el acta en la liga (Estadísticas Rivales) sin pedir nada más a RFAF', async () => {
+      Partido.findByPk.mockResolvedValue(partidoPalma({ jornada: 8, fecha: new Date('2026-10-25T17:00:00Z') }));
+      const { promesa } = llamar(ctrl.finalizarActa, { params: { id: '1' }, body: {} });
+      await promesa;
+      expect(leerActa).toHaveBeenCalledTimes(1);
+      expect(LigaPartido.findOrCreate).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id_plantilla: 5, codigo_acta: '2733994' }
+      }));
+      // Los jugadores de los dos equipos, sin foto.
+      const jugadores = LigaJugador.bulkCreate.mock.calls[0][0];
+      expect(jugadores.map((j) => j.lado)).toEqual(['local', 'local', 'visitante']);
     });
 
     it('devuelve 404 si el partido no existe', async () => {
