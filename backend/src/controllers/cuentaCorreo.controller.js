@@ -1,9 +1,11 @@
 const { Op } = require('sequelize');
 const { CuentaCorreo, sequelize } = require('../models');
 const aes = require('../utils/aesCrypto');
-const { enviarConConfig } = require('../utils/mailer');
+const { enviarConConfig, conFirma } = require('../utils/mailer');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Tamaño máximo del HTML de la firma (la plantilla ocupa unos pocos KB).
+const MAX_FIRMA = 50000;
 
 /** Quita la contraseña cifrada de la respuesta y añade `tiene_password`. */
 function serializar(cuenta) {
@@ -34,11 +36,17 @@ function validar(body, { esNuevo }) {
   if (esNuevo && !String(body.smtp_password ?? '').trim()) {
     return { error: 'La contraseña SMTP es obligatoria al crear una cuenta.' };
   }
+  // Firma: ambas o ninguna (sin firma).
+  const firma_html = typeof body.firma_html === 'string' && body.firma_html.trim() ? body.firma_html : null;
+  const firma_datos = firma_html && body.firma_datos && typeof body.firma_datos === 'object' ? body.firma_datos : null;
+  if (firma_html && firma_html.length > MAX_FIRMA) return { error: 'La firma es demasiado larga.' };
   return {
     datos: {
       etiqueta, email, smtp_host, smtp_user, smtp_port,
       smtp_secure: !!body.smtp_secure,
-      activa: !!body.activa
+      activa: !!body.activa,
+      firma_datos,
+      firma_html: firma_datos ? firma_html : null
     }
   };
 }
@@ -141,7 +149,7 @@ async function probar(req, res, next) {
         to: destino,
         subject: 'Correo de prueba — Atlético Palma del Río',
         text: `Este es un correo de prueba de la cuenta "${cuenta.etiqueta}" de la intranet del Atlético Palma del Río. Si lo recibes, la configuración SMTP funciona.`,
-        html: `<p>Este es un correo de prueba de la cuenta <strong>${cuenta.etiqueta}</strong> de la intranet del Atlético Palma del Río.</p><p>Si lo recibes, la configuración SMTP funciona.</p>`
+        html: conFirma(`<p>Este es un correo de prueba de la cuenta <strong>${cuenta.etiqueta}</strong> de la intranet del Atlético Palma del Río.</p><p>Si lo recibes, la configuración SMTP funciona.</p>`, cuenta.firma_html)
       });
     } catch (err) {
       return res.status(502).json({ message: `No se pudo enviar el correo de prueba: ${err.message}` });

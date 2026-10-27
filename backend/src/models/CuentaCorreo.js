@@ -14,7 +14,11 @@ const CuentaCorreo = sequelize.define('CuentaCorreo', {
   // Contraseña SMTP cifrada (iv:tag:data en base64); NULL si no se ha puesto.
   smtp_password: { type: DataTypes.STRING(512), allowNull: true },
   // Solo una cuenta puede estar activa a la vez (es la que usa la web para enviar).
-  activa: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
+  activa: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  // Firma (plantilla de Firma Email): datos del formulario y HTML generado,
+  // que se añade a los correos que salen de esta cuenta. NULL = sin firma.
+  firma_datos: { type: DataTypes.JSON, allowNull: true },
+  firma_html: { type: DataTypes.TEXT('medium'), allowNull: true }
 }, {
   tableName: 'cuentas_correo',
   defaultScope: {

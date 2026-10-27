@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
+import FirmaCuentaCorreo from '../../components/FirmaCuentaCorreo.vue';
 import { cuentasCorreoService } from '../../services';
 import { useAuthStore } from '../../stores/auth.store';
 import { useToast } from 'primevue/usetoast';
@@ -44,8 +45,14 @@ const emptyItem = {
   smtp_secure: false,
   smtp_user: '',
   smtp_password: '',
-  activa: false
+  activa: false,
+  firma_datos: null,
+  firma_html: null
 };
+
+// Vista previa de la firma en un iframe sin scripts (sandbox).
+const documentoFirma = (html) =>
+  `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:12px;background:#fff;}</style></head><body>${html}</body></html>`;
 
 function enviarPrueba(data) {
   confirm.require({
@@ -81,6 +88,7 @@ function enviarPrueba(data) {
     <Message severity="info" :closable="false" class="mb-4">
       La contraseña SMTP se guarda cifrada y nunca se muestra. Al editar, deja la contraseña vacía para conservar la actual.
       Usa <strong>Enviar correo de prueba</strong> (en el detalle de cada cuenta) para comprobar que las credenciales funcionan.
+      La <strong>firma</strong> de cada cuenta (como en Firma Email) se añade al final de los correos que salen de ella.
     </Message>
 
     <CrudDataTable
@@ -101,7 +109,15 @@ function enviarPrueba(data) {
       <template #cell-smtp_password>
         <span class="text-ink-tertiary">••••••••</span>
       </template>
+      <template #form-extra="{ form }">
+        <FirmaCuentaCorreo :form="form" />
+      </template>
       <template #detail-extra="{ data }">
+        <div v-if="data.firma_html" class="flex flex-col gap-1 border-t border-line pt-3 mt-1">
+          <div class="text-xs font-medium text-ink-secondary">Firma</div>
+          <iframe :srcdoc="documentoFirma(data.firma_html)"
+                  sandbox="" title="Firma de la cuenta" class="w-full h-56 rounded-lg border border-line bg-white"></iframe>
+        </div>
         <div class="flex items-center justify-between gap-3 border-t border-line pt-3 mt-1">
           <div class="text-sm text-ink-secondary">
             Comprueba que esta cuenta puede enviar correo.

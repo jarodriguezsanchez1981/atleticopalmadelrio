@@ -171,6 +171,7 @@ export function createMailerMock() {
   return {
     enviarEmail: vi.fn(),
     enviarDesde: vi.fn(),
+    conFirma: vi.fn((html, firma) => (html && firma ? `${html}<br><br>${firma}` : html)),
     enviarConConfig: vi.fn(),
     mailConfigurado: vi.fn(),
     resolverConfig: vi.fn()

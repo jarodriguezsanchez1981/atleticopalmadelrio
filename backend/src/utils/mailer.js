@@ -50,7 +50,8 @@ async function configActivaBD() {
       secure: !!cuenta.smtp_secure,
       user: cuenta.smtp_user,
       pass: aes.decrypt(cuenta.smtp_password),
-      from: cuenta.etiqueta ? `${cuenta.etiqueta} <${cuenta.email}>` : cuenta.email
+      from: cuenta.etiqueta ? `${cuenta.etiqueta} <${cuenta.email}>` : cuenta.email,
+      firma: cuenta.firma_html || null
     };
   } catch (err) {
     console.error('Mailer: no se pudo leer la cuenta de correo activa:', err.message);
@@ -80,6 +81,12 @@ function transporteDe(cfg) {
   return t;
 }
 
+/** Añade la firma de la cuenta (sección Correos) al final del HTML del correo. */
+function conFirma(html, firma) {
+  if (!html || !firma) return html;
+  return `${html}<br><br>${firma}`;
+}
+
 /** ¿Hay alguna configuración de correo disponible (BD activa o entorno)? */
 async function mailConfigurado() {
   return !!(await resolverConfig());
@@ -91,7 +98,7 @@ async function enviarEmail({ to, subject, html, text }) {
   if (!cfg) {
     throw new Error('No hay cuenta de correo configurada (ni cuenta activa en BD ni SMTP_* en el entorno).');
   }
-  return transporteDe(cfg).sendMail({ from: cfg.from, to, subject, html, text });
+  return transporteDe(cfg).sendMail({ from: cfg.from, to, subject, html: conFirma(html, cfg.firma), text });
 }
 
 /** Envía desde la cuenta de "Correos" con ese email (esté o no activa). Si no
@@ -113,7 +120,7 @@ async function enviarDesde(email, { to, subject, html, text }) {
     pass: aes.decrypt(cuenta.smtp_password),
     from: cuenta.etiqueta ? `${cuenta.etiqueta} <${cuenta.email}>` : cuenta.email
   };
-  return transporteDe(cfg).sendMail({ from: cfg.from, to, subject, html, text });
+  return transporteDe(cfg).sendMail({ from: cfg.from, to, subject, html: conFirma(html, cuenta.firma_html), text });
 }
 
 /** Envía con una configuración explícita (para "probar" una cuenta concreta). */
@@ -121,4 +128,4 @@ async function enviarConConfig(cfg, { to, subject, html, text }) {
   return transporteDe(cfg).sendMail({ from: cfg.from || cfg.user, to, subject, html, text });
 }
 
-module.exports = { enviarEmail, enviarDesde, enviarConConfig, mailConfigurado, resolverConfig };
+module.exports = { enviarEmail, enviarDesde, conFirma, enviarConConfig, mailConfigurado, resolverConfig };

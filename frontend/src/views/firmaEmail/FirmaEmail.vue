@@ -1,11 +1,9 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
-import InputText from 'primevue/inputtext';
-import Textarea from 'primevue/textarea';
-import Checkbox from 'primevue/checkbox';
 import Button from 'primevue/button';
 import { useToast } from 'primevue/usetoast';
 import { DATOS_POR_DEFECTO, generarFirmaHtml } from '../../utils/firmaEmail';
+import FirmaDatosForm from '../../components/FirmaDatosForm.vue';
 
 /** Editor de la firma de correo del club (solo coordinadores, ver
  * SECCIONES_SOLO_COORDINADORES en auth.store). Se genera a partir del
@@ -121,54 +119,7 @@ function descargarHtml() {
       <!-- Formulario -->
       <div class="rounded-xl border border-line bg-white p-4 flex flex-col gap-3">
         <h2 class="text-sm font-semibold text-club-green">Datos</h2>
-        <div class="grid gap-3 sm:grid-cols-2">
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-nombre">Nombre y apellidos</label>
-            <InputText id="firma-nombre" v-model="datos.nombre" placeholder="Nombre Apellidos" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-cargo">Cargo</label>
-            <InputText id="firma-cargo" v-model="datos.cargo" placeholder="Coordinador de fútbol base" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-telefono">Teléfono</label>
-            <InputText id="firma-telefono" v-model="datos.telefono" placeholder="600 000 000" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-email">Email</label>
-            <InputText id="firma-email" v-model="datos.email" placeholder="nombre@atleticopalmadelrio.com" />
-          </div>
-          <div class="flex flex-col gap-1 sm:col-span-2">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-direccion">Dirección</label>
-            <InputText id="firma-direccion" v-model="datos.direccion" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-color1">Color principal</label>
-            <div class="flex items-center gap-2">
-              <input id="firma-color1" v-model="datos.colorPrincipal" type="color" class="h-9 w-12 rounded border border-line" />
-              <InputText v-model="datos.colorPrincipal" class="flex-1" />
-            </div>
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-color2">Color del cargo</label>
-            <div class="flex items-center gap-2">
-              <input id="firma-color2" v-model="datos.colorSecundario" type="color" class="h-9 w-12 rounded border border-line" />
-              <InputText v-model="datos.colorSecundario" class="flex-1" />
-            </div>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-4">
-          <label class="flex items-center gap-2 text-sm text-ink-secondary">
-            <Checkbox v-model="datos.mostrarEscudo" :binary="true" /> Mostrar escudo
-          </label>
-          <label class="flex items-center gap-2 text-sm text-ink-secondary">
-            <Checkbox v-model="datos.mostrarAviso" :binary="true" /> Aviso legal
-          </label>
-        </div>
-        <div v-if="datos.mostrarAviso" class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-ink-secondary" for="firma-aviso">Texto del aviso legal</label>
-          <Textarea id="firma-aviso" v-model="datos.aviso" rows="4" autoResize />
-        </div>
+        <FirmaDatosForm :datos="datos" />
         <div class="flex justify-end gap-2">
           <Button label="Limpiar" icon="pi pi-eraser" text severity="secondary" @click="limpiar" />
           <Button label="Restablecer" icon="pi pi-refresh" text severity="secondary" @click="restablecer" />

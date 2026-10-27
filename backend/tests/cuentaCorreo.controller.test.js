@@ -74,6 +74,22 @@ describe('Sección Correos · cuentaCorreo.controller', () => {
     expect(res._json.tiene_password).toBe(true);
   });
 
+  it('crear guarda la firma (datos + HTML) y sin HTML no guarda ninguna', async () => {
+    CuentaCorreo.create.mockImplementation(async (data) => ({ id: 7, ...data }));
+    CuentaCorreo.findByPk.mockResolvedValue({ id: 7, toJSON: () => ({ id: 7 }) });
+    await llamar(ctrl.crear, { body: cuerpoValido({ firma_datos: { nombre: 'Pepe' }, firma_html: '<table>firma</table>' }) }).promesa;
+    expect(CuentaCorreo.create.mock.calls[0][0]).toMatchObject({ firma_datos: { nombre: 'Pepe' }, firma_html: '<table>firma</table>' });
+
+    await llamar(ctrl.crear, { body: cuerpoValido({ firma_datos: { nombre: 'Pepe' }, firma_html: '' }) }).promesa;
+    expect(CuentaCorreo.create.mock.calls[1][0]).toMatchObject({ firma_datos: null, firma_html: null });
+  });
+
+  it('crear rechaza una firma demasiado larga', async () => {
+    const { promesa, res } = llamar(ctrl.crear, { body: cuerpoValido({ firma_datos: {}, firma_html: 'x'.repeat(50001) }) });
+    await promesa;
+    expect(res._status).toBe(400);
+  });
+
   it('crear con activa=true desmarca las demás cuentas', async () => {
     CuentaCorreo.create.mockResolvedValue({ id: 4 });
     CuentaCorreo.findByPk.mockResolvedValue({ toJSON: () => ({ id: 4, smtp_password: 'c', activa: true }) });
