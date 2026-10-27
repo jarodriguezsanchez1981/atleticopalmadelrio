@@ -2,6 +2,11 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import MultiSelect from 'primevue/multiselect';
 import Button from 'primevue/button';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
+import TabPanels from 'primevue/tabpanels';
+import TabPanel from 'primevue/tabpanel';
 import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
@@ -219,8 +224,19 @@ async function exportarExcel() {
   }
 }
 
+// Estadísticas Goles / Sanciones: cada bloque (Equipo, Jugadores y, en Goles,
+// Equipo Contrario) en su pestaña.
+const pestana = ref('equipo');
+const PESTANAS = computed(() => [
+  { valor: 'equipo', titulo: 'Equipo' },
+  { valor: 'jugadores', titulo: 'Jugadores' },
+  ...(props.tabla === 'goles' ? [{ valor: 'contrario', titulo: 'Equipo Contrario' }] : [])
+]);
+// El filtro de jugadores solo afecta a las tablas de jugadores.
+const verFiltroJugadores = computed(() => !conResumenEquipo.value || pestana.value === 'jugadores');
+
 // Al pasar de una sección de Estadísticas a otra se reutiliza el componente.
-watch(() => props.tabla, () => { cargar(); });
+watch(() => props.tabla, () => { pestana.value = 'equipo'; cargar(); });
 
 onMounted(async () => {
   await cargar();
@@ -252,58 +268,68 @@ onBeforeUnmount(() => {
 
     <template v-if="plantilla && !error">
       <div class="flex flex-wrap items-center gap-2">
-        <label for="filtro-jugadores" class="text-sm font-medium text-ink-secondary">Jugadores</label>
-        <MultiSelect inputId="filtro-jugadores" v-model="jugadoresFiltro" :options="opcionesJugadores" optionLabel="label"
-                     optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear
-                     :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
+        <template v-if="verFiltroJugadores">
+          <label for="filtro-jugadores" class="text-sm font-medium text-ink-secondary">Jugadores</label>
+          <MultiSelect inputId="filtro-jugadores" v-model="jugadoresFiltro" :options="opcionesJugadores" optionLabel="label"
+                       optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear
+                       :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
+        </template>
         <Button label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined class="sm:ml-auto"
                 :loading="exportando" :disabled="cargando" @click="exportarExcel" />
       </div>
 
-      <!-- Estadísticas Goles / Sanciones: primero el resumen del equipo (parte de Estadísticas Equipo). -->
-      <div v-if="conResumenEquipo" class="flex flex-col gap-2">
-        <h2 class="font-display text-lg text-club-green">Equipo</h2>
-        <p class="text-sm text-ink-tertiary">{{ descripcionEquipoResumen }}</p>
-        <div v-for="lado in LADOS_TABLA" :key="`eqresumen-${lado.clave}`" class="flex flex-col gap-2">
-          <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
-          <TablaEstadistica :filas="filasEquipo" :metricas="metricasEquipoResumen" :soloGrupo="lado.clave"
-                            :cargando="cargando" textoVacio="Todavía no hay partidos con resultado."
-                            :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
-        </div>
-      </div>
+      <!-- Estadísticas Goles / Sanciones: Equipo, Jugadores y (Goles) Equipo Contrario, en pestañas. -->
+      <Tabs v-if="conResumenEquipo" v-model:value="pestana">
+        <TabList>
+          <Tab v-for="p in PESTANAS" :key="p.valor" :value="p.valor">{{ p.titulo }}</Tab>
+        </TabList>
+        <TabPanels class="!px-0">
+          <TabPanel value="equipo">
+            <div class="flex flex-col gap-2">
+              <p class="text-sm text-ink-tertiary">{{ descripcionEquipoResumen }}</p>
+              <div v-for="lado in LADOS_TABLA" :key="`eqresumen-${lado.clave}`" class="flex flex-col gap-2">
+                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+                <TablaEstadistica :filas="filasEquipo" :metricas="metricasEquipoResumen" :soloGrupo="lado.clave"
+                                  :cargando="cargando" textoVacio="Todavía no hay partidos con resultado."
+                                  :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
+              </div>
+            </div>
+          </TabPanel>
+          <TabPanel value="jugadores">
+            <div class="flex flex-col gap-2">
+              <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
+                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+                <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
+                                  :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
+                                  :expandible="expandibleLado(lado.clave)">
+                  <template #detalle="{ data }">
+                    <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" />
+                  </template>
+                </TablaEstadistica>
+              </div>
+            </div>
+          </TabPanel>
+          <!-- Estadísticas Goles: goles que nos marca el equipo contrario, por periodo. -->
+          <TabPanel v-if="tabla === 'goles'" value="contrario">
+            <div class="flex flex-col gap-2">
+              <p class="text-sm text-ink-tertiary">
+                Goles que nos marca el rival y en qué periodo (mismos tramos de 15 minutos). El reparto por tramo sale de
+                las actas finalizadas; si un partido no se ha vuelto a finalizar desde que se guardan los goles del rival,
+                suma al total pero no a los tramos.
+              </p>
+              <div v-for="lado in LADOS_TABLA" :key="`contra-${lado.clave}`" class="flex flex-col gap-2">
+                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+                <TablaEstadistica :filas="filasContra" :metricas="METRICAS_CONTRA" :soloGrupo="lado.clave"
+                                  :cargando="cargando" textoVacio="Todavía no hay goles en contra."
+                                  :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
+              </div>
+            </div>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
 
-      <h2 v-if="conResumenEquipo" class="mt-4 font-display text-lg text-club-green">Jugadores</h2>
-      <template v-if="config.porLado">
-        <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
-          <h3 v-if="conResumenEquipo" class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
-          <h2 v-else class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
-          <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
-                            :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
-                            :expandible="expandibleLado(lado.clave)">
-            <template #detalle="{ data }">
-              <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" />
-            </template>
-          </TablaEstadistica>
-        </div>
-      </template>
       <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
                         :cargando="cargando" :textoVacio="textoVacioTabla" />
-
-      <!-- Estadísticas Goles: goles que nos marca el equipo contrario, por periodo. -->
-      <div v-if="tabla === 'goles'" class="mt-4 flex flex-col gap-2">
-        <h2 class="font-display text-lg text-club-green">Equipo Contrario</h2>
-        <p class="text-sm text-ink-tertiary">
-          Goles que nos marca el rival y en qué periodo (mismos tramos de 15 minutos). El reparto por tramo sale de las
-          actas finalizadas; si un partido no se ha vuelto a finalizar desde que se guardan los goles del rival, suma al
-          total pero no a los tramos.
-        </p>
-        <div v-for="lado in LADOS_TABLA" :key="`contra-${lado.clave}`" class="flex flex-col gap-2">
-          <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
-          <TablaEstadistica :filas="filasContra" :metricas="METRICAS_CONTRA" :soloGrupo="lado.clave"
-                            :cargando="cargando" textoVacio="Todavía no hay goles en contra."
-                            :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
-        </div>
-      </div>
     </template>
   </div>
 </SectionGuard>
