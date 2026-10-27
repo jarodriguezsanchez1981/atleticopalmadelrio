@@ -170,6 +170,7 @@ export function createJwtUtilsMock() {
 export function createMailerMock() {
   return {
     enviarEmail: vi.fn(),
+    enviarDesde: vi.fn(),
     enviarConConfig: vi.fn(),
     mailConfigurado: vi.fn(),
     resolverConfig: vi.fn()

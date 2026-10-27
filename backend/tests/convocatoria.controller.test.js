@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Convocatoria, ConvocatoriaJugador, ConvocatoriaSinJugador, Temporada, Plantilla, Partido, PlantillaJugador, PartidoJugador, Categoria, Promocion, ConvocatoriaPromocion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
+import { mailer } from './helpers/models.js';
 
 import * as ctrl from '../src/controllers/convocatoria.controller.js';
 
@@ -436,5 +437,67 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     await promesa;
     expect(destroy).toHaveBeenCalled();
     expect(res._status).toBe(204);
+  });
+  describe('enviarCorreo', () => {
+    const convocatoria = (categoria = 'Senior A') => ({
+      id: 3,
+      plantilla: { categoria: { nombre: categoria } },
+      partido: {
+        jornada: 9,
+        fecha: '2026-11-01T16:30:00.000Z', // 17:30 en España (horario de invierno)
+        equipoLocal: { nombre: 'PALMA DEL RIO ATLETICO C.F.' },
+        equipoVisitante: { nombre: 'C.D. Rival <B>' }
+      },
+      jugadores: [
+        { jugador: { nombre: 'Zoe', apellidos: 'Álvarez' } },
+        { jugador: { nombre: 'Ana', apellidos: 'Pérez' } }
+      ],
+      promocionados: [{ jugador: { nombre: 'Luis', apellidos: 'García' } }],
+      noConvocados: [{ jugador: { nombre: 'Juan', apellidos: 'Ruiz' }, observaciones: 'Lesionado' }]
+    });
+
+    beforeEach(() => {
+      mailer.enviarDesde.mockReset();
+      mailer.enviarDesde.mockResolvedValue({});
+    });
+
+    it('envía desde convocatoria@ con la jornada y el partido en el asunto y los jugadores ordenados', async () => {
+      Convocatoria.findByPk.mockResolvedValue(convocatoria());
+      const { promesa, res } = llamar(ctrl.enviarCorreo, { params: { id: '3' } });
+      await promesa;
+      expect(res._status).not.toBe(400);
+      const [desde, correo] = mailer.enviarDesde.mock.calls[0];
+      expect(desde).toBe('convocatoria@atleticopalmadelrio.com');
+      expect(correo.to).toBe('pablo.navarro.corredera@atleticopalmadelrio.com');
+      expect(correo.subject).toBe('Jornada 9: PALMA DEL RIO ATLETICO C.F. - C.D. Rival <B>');
+      expect(correo.text).toContain('domingo 01/11/2026 a las 17:30');
+      expect(correo.text).toContain('1. Zoe Álvarez\n2. Luis García (promoción)\n3. Ana Pérez');
+      expect(correo.text).toContain('- Juan Ruiz: Lesionado');
+      expect(correo.html).toContain('C.D. Rival &lt;B&gt;');
+    });
+
+    it('solo para Senior A', async () => {
+      Convocatoria.findByPk.mockResolvedValue(convocatoria('Juvenil A'));
+      const { promesa, res } = llamar(ctrl.enviarCorreo, { params: { id: '3' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(mailer.enviarDesde).not.toHaveBeenCalled();
+    });
+
+    it('avisa si la cuenta de convocatorias no está en Correos', async () => {
+      Convocatoria.findByPk.mockResolvedValue(convocatoria());
+      mailer.enviarDesde.mockRejectedValue(Object.assign(new Error('La cuenta de correo convocatoria@atleticopalmadelrio.com no está registrada en Correos.'), { sinCuenta: true }));
+      const { promesa, res } = llamar(ctrl.enviarCorreo, { params: { id: '3' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(res._json.message).toContain('no está registrada en Correos');
+    });
+
+    it('404 si no existe', async () => {
+      Convocatoria.findByPk.mockResolvedValue(null);
+      const { promesa, res } = llamar(ctrl.enviarCorreo, { params: { id: '99' } });
+      await promesa;
+      expect(res._status).toBe(404);
+    });
   });
 });

@@ -4,8 +4,15 @@ const {
   Equipo, Jugador, PlantillaJugador, PartidoJugador, Promocion, ConvocatoriaPromocion
 } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
+const mailer = require('../utils/mailer');
+const { partesEspana } = require('../utils/horaEspana');
 
 const PALMA_ID = 73;
+// "Enviar Correo" de las convocatorias de Senior A: desde la cuenta de Correos
+// con este email, al entrenador.
+const CATEGORIA_CORREO = 'Senior A';
+const CORREO_REMITENTE = 'convocatoria@atleticopalmadelrio.com';
+const CORREO_DESTINATARIO = 'pablo.navarro.corredera@atleticopalmadelrio.com';
 
 const includesBase = [
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
@@ -296,4 +303,87 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+const escaparHtml = (texto) => String(texto ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** Ordena por apellidos y nombre (alfabético en español). */
+const porApellidos = (a, b) => `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`, 'es');
+
+/** Asunto, texto y HTML del correo de una convocatoria (cargada con
+ * includesBase): jornada y partido en el asunto; día y hora, convocados
+ * (incluidos los de promoción) por orden alfabético y no convocados con sus
+ * observaciones en el cuerpo. */
+function construirCorreoConvocatoria(convocatoria) {
+  const partido = convocatoria.partido || {};
+  const local = partido.equipoLocal?.nombre || '—';
+  const visitante = partido.equipoVisitante?.nombre || '—';
+  const enfrentamiento = `${local} - ${visitante}`;
+  const subject = partido.jornada ? `Jornada ${partido.jornada}: ${enfrentamiento}` : enfrentamiento;
+
+  const f = partesEspana(partido.fecha);
+  const dosCifras = (n) => String(n).padStart(2, '0');
+  const diaSemana = DIAS_SEMANA[new Date(Date.UTC(f.y, f.m - 1, f.d)).getUTCDay()];
+  const cuando = `${diaSemana} ${dosCifras(f.d)}/${dosCifras(f.m)}/${f.y} a las ${dosCifras(f.h)}:${dosCifras(f.mi)}`;
+
+  const convocados = [
+    ...(convocatoria.jugadores || []).map((c) => ({ ...c.jugador })),
+    ...(convocatoria.promocionados || []).map((c) => ({ ...c.jugador, promocion: true }))
+  ].filter((j) => j.nombre != null).sort(porApellidos);
+  const noConvocados = (convocatoria.noConvocados || [])
+    .filter((c) => c.jugador)
+    .map((c) => ({ ...c.jugador, observaciones: c.observaciones }))
+    .sort(porApellidos);
+  const nombre = (j) => `${j.nombre} ${j.apellidos}${j.promocion ? ' (promoción)' : ''}`;
+
+  const text = [
+    subject,
+    `Fecha: ${cuando}`,
+    '',
+    `Convocados (${convocados.length}):`,
+    ...convocados.map((j, i) => `${i + 1}. ${nombre(j)}`),
+    '',
+    `No convocados (${noConvocados.length}):`,
+    ...(noConvocados.length
+      ? noConvocados.map((j) => `- ${nombre(j)}${j.observaciones ? `: ${j.observaciones}` : ''}`)
+      : ['- Ninguno'])
+  ].join('\n');
+
+  const html = `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1a1a1a;">
+<h2 style="color: #0B3D2E; margin: 0 0 4px;">${escaparHtml(subject)}</h2>
+<p style="margin: 0 0 16px;"><strong>Fecha:</strong> ${escaparHtml(cuando)}</p>
+<h3 style="color: #0B3D2E; margin: 0 0 4px;">Convocados (${convocados.length})</h3>
+<ol style="margin: 0 0 16px;">${convocados.map((j) => `<li>${escaparHtml(nombre(j))}</li>`).join('')}</ol>
+<h3 style="color: #0B3D2E; margin: 0 0 4px;">No convocados (${noConvocados.length})</h3>
+${noConvocados.length
+    ? `<ul style="margin: 0;">${noConvocados.map((j) => `<li>${escaparHtml(nombre(j))}${j.observaciones ? `: <em>${escaparHtml(j.observaciones)}</em>` : ''}</li>`).join('')}</ul>`
+    : '<p style="margin: 0;">Ninguno</p>'}
+</div>`;
+
+  return { subject, text, html };
+}
+
+/** "Enviar Correo": manda la convocatoria de Senior A por correo al
+ * entrenador desde la cuenta de convocatorias (sección Correos). */
+async function enviarCorreo(req, res, next) {
+  try {
+    const item = await Convocatoria.findByPk(req.params.id, { include: includesBase });
+    if (!item) return res.status(404).json({ message: 'Convocatoria no encontrada.' });
+    const convocatoria = serialize(item);
+    if (convocatoria.plantilla?.categoria?.nombre !== CATEGORIA_CORREO) {
+      return res.status(400).json({ message: `Solo se envían por correo las convocatorias de ${CATEGORIA_CORREO}.` });
+    }
+    const correo = construirCorreoConvocatoria(convocatoria);
+    try {
+      await mailer.enviarDesde(CORREO_REMITENTE, { to: CORREO_DESTINATARIO, ...correo });
+    } catch (err) {
+      if (err.sinCuenta) return res.status(400).json({ message: err.message });
+      console.error('Convocatorias: no se pudo enviar el correo:', err.message);
+      return res.status(502).json({ message: 'No se pudo enviar el correo. Revisa la cuenta de convocatorias en Correos.' });
+    }
+    res.json({ message: `Correo enviado a ${CORREO_DESTINATARIO}.` });
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, enviarCorreo, construirCorreoConvocatoria };

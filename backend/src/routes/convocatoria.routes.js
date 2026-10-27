@@ -16,6 +16,7 @@ router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
 router.post('/', requireEditar('convocatorias'), ctrl.crear);
 router.put('/:id', requireEditar('convocatorias'), ctrl.actualizar);
+router.post('/:id/enviar-correo', requireEditar('convocatorias'), ctrl.enviarCorreo);
 router.delete('/:id', requireEditar('convocatorias'), ctrl.eliminar);
 
 module.exports = router;

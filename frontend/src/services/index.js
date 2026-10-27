@@ -54,7 +54,11 @@ export const partidosService = {
   ...crudService('partidos'),
   finalizarActa: (id, payload = {}) => api.post(`/partidos/${id}/finalizar-acta`, payload).then(r => r.data)
 };
-export const convocatoriasService = crudService('convocatorias');
+export const convocatoriasService = {
+  ...crudService('convocatorias'),
+  // Senior A: envía la convocatoria por correo al entrenador.
+  enviarCorreo: (id) => api.post(`/convocatorias/${id}/enviar-correo`).then(r => r.data)
+};
 /** Si la camiseta, las calzonas o las medias son "Rayas", compone el color1/color2
  * elegidos en cada combo en un único texto antes de enviarlo. */
 function prepararPayloadEquipo(payload) {

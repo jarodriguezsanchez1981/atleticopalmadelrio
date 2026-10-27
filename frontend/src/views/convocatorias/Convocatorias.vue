@@ -21,6 +21,8 @@ const cargando = ref(false);
 const formVisible = ref(false);
 const formRegistroId = ref(null);
 const formSoloLectura = ref(false);
+// Id de la convocatoria cuyo correo se está enviando (para el spinner del botón).
+const enviandoCorreo = ref(null);
 let unsubCambio = null;
 
 const puedeEditar = () => auth.puedeVer('convocatorias') && auth.puedeEditar('convocatorias');
@@ -90,6 +92,37 @@ function onFormSaved() {
   emitirCambio();
 }
 
+// "Enviar Correo" solo en las convocatorias de Senior A.
+const esSeniorA = (item) => item.plantilla?.categoria?.nombre === 'Senior A';
+
+function confirmarEnviarCorreo(item) {
+  const local = item.partido?.equipoLocal?.nombre || '—';
+  const visitante = item.partido?.equipoVisitante?.nombre || '—';
+  confirm.require({
+    message: `¿Enviar por correo la convocatoria de ${local} - ${visitante} a pablo.navarro.corredera@atleticopalmadelrio.com?`,
+    header: 'Enviar correo',
+    icon: 'pi pi-envelope',
+    acceptLabel: 'Enviar',
+    rejectLabel: 'Cancelar',
+    accept: async () => {
+      enviandoCorreo.value = item.id;
+      try {
+        const r = await convocatoriasService.enviarCorreo(item.id);
+        toast.add({ severity: 'success', summary: 'Correo enviado', detail: r.message, life: 4000 });
+      } catch (err) {
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err.response?.data?.message || 'No se pudo enviar el correo.',
+          life: 6000
+        });
+      } finally {
+        enviandoCorreo.value = null;
+      }
+    }
+  });
+}
+
 function confirmarEliminar(item) {
   confirm.require({
     message: '¿Seguro que quieres eliminar esta convocatoria? Esta acción no se puede deshacer.',
@@ -155,13 +188,16 @@ function confirmarEliminar(item) {
       <Column header="Promociones">
         <template #body="{ data }">{{ (data.promocionados || []).length }}</template>
       </Column>
-      <Column header="Acciones" style="width: 130px">
+      <Column header="Acciones" style="width: 170px">
         <template #body="{ data }">
           <div class="flex gap-1">
             <Button icon="pi pi-eye" text rounded size="small" class="!text-ink-secondary"
                     v-tooltip.top="'Ver'" @click="verConvocatoria(data)" />
             <Button icon="pi pi-pencil" text rounded size="small" class="!text-club-green"
                     v-tooltip.top="'Editar'" :disabled="!puedeEditar()" @click="editarConvocatoria(data)" />
+            <Button v-if="esSeniorA(data)" icon="pi pi-envelope" text rounded size="small" class="!text-club-green"
+                    v-tooltip.top="'Enviar Correo'" aria-label="Enviar Correo" :loading="enviandoCorreo === data.id"
+                    :disabled="!puedeEditar() || enviandoCorreo !== null" @click="confirmarEnviarCorreo(data)" />
             <Button icon="pi pi-trash" text rounded size="small" severity="danger"
                     v-tooltip.top="eliminacionBloqueada(data) ? 'No se puede eliminar: el partido ya se ha jugado' : 'Eliminar'"
                     :disabled="!puedeEditar() || eliminacionBloqueada(data)" @click="confirmarEliminar(data)" />
