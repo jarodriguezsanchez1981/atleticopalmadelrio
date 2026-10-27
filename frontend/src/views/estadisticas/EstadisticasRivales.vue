@@ -1,6 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import Button from 'primevue/button';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
+import TabPanels from 'primevue/tabpanels';
+import TabPanel from 'primevue/tabpanel';
 import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
@@ -86,6 +91,8 @@ const BLOQUES = [
   }
 ];
 const conJugadores = (fila) => (fila.jugadores || []).length > 0;
+// Goles y Sanciones, cada uno en su pestaña.
+const pestana = ref(BLOQUES[0].clave);
 
 const COLUMNAS_JUGADORES = [
   { campo: 'equipo', titulo: 'Equipo' }, { campo: 'jugador', titulo: 'Jugador' }, { campo: 'convocatorias', titulo: 'Conv.' },
@@ -169,47 +176,55 @@ onBeforeUnmount(() => {
         pausas; la del PALMA, al pulsar "Finalizar Acta".
       </div>
 
-      <div v-for="b in BLOQUES" :key="b.clave" class="flex flex-col gap-2">
-        <h2 class="font-display text-lg text-club-green">{{ b.titulo }}</h2>
-        <p class="text-sm text-ink-tertiary">{{ b.descripcion }}</p>
-        <div v-for="lado in LADOS_TABLA" :key="`${b.clave}-${lado.clave}`" class="flex flex-col gap-2">
-          <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
-          <TablaEstadistica :filas="equipos" :metricas="b.metricas" :soloGrupo="lado.clave"
-                            :sortField="b.sortField" :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo"
-                            textoVacio="Todavía no hay actas de la liga." :expandible="lado.clave === 'total' ? conJugadores : null">
-            <template #detalle="{ data }">
-              <div class="overflow-x-auto py-1">
-                <table class="text-sm border-collapse">
-                  <thead>
-                    <tr class="text-xs text-ink-tertiary">
-                      <th class="text-left font-medium px-2 py-1">Jugador</th>
-                      <th class="text-center font-medium px-2 py-1" title="Convocatorias (en el acta)">Conv.</th>
-                      <th class="text-center font-medium px-2 py-1" title="Partidos jugados (con minutos)">Partidos</th>
-                      <th class="text-center font-medium px-2 py-1" title="Titular">Tit.</th>
-                      <th class="text-center font-medium px-2 py-1" title="Minutos">Min.</th>
-                      <th class="text-center font-medium px-2 py-1">Goles</th>
-                      <th class="text-center font-medium px-2 py-1" title="Tarjetas amarillas">TA</th>
-                      <th class="text-center font-medium px-2 py-1" title="Tarjetas rojas">TR</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="j in data.jugadores" :key="j.nombre" class="border-t border-line">
-                      <td class="px-2 py-1 whitespace-nowrap">{{ nombreJugador(j.nombre) }}</td>
-                      <td class="px-2 py-1 text-center">{{ j.convocatorias }}</td>
-                      <td class="px-2 py-1 text-center">{{ j.partidos }}</td>
-                      <td class="px-2 py-1 text-center">{{ j.titular }}</td>
-                      <td class="px-2 py-1 text-center">{{ j.minutos }}</td>
-                      <td class="px-2 py-1 text-center">{{ j.goles || '—' }}</td>
-                      <td class="px-2 py-1 text-center">{{ j.tarjetas_amarillas || '—' }}</td>
-                      <td class="px-2 py-1 text-center">{{ j.tarjetas_rojas || '—' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+      <Tabs v-model:value="pestana">
+        <TabList>
+          <Tab v-for="b in BLOQUES" :key="b.clave" :value="b.clave">{{ b.titulo }}</Tab>
+        </TabList>
+        <TabPanels class="!px-0">
+          <TabPanel v-for="b in BLOQUES" :key="b.clave" :value="b.clave">
+            <div class="flex flex-col gap-2">
+              <p class="text-sm text-ink-tertiary">{{ b.descripcion }}</p>
+              <div v-for="lado in LADOS_TABLA" :key="`${b.clave}-${lado.clave}`" class="flex flex-col gap-2">
+                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+                <TablaEstadistica :filas="equipos" :metricas="b.metricas" :soloGrupo="lado.clave"
+                                  :sortField="b.sortField" :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo"
+                                  textoVacio="Todavía no hay actas de la liga." :expandible="lado.clave === 'total' ? conJugadores : null">
+                  <template #detalle="{ data }">
+                    <div class="overflow-x-auto py-1">
+                      <table class="text-sm border-collapse">
+                        <thead>
+                          <tr class="text-xs text-ink-tertiary">
+                            <th class="text-left font-medium px-2 py-1">Jugador</th>
+                            <th class="text-center font-medium px-2 py-1" title="Convocatorias (en el acta)">Conv.</th>
+                            <th class="text-center font-medium px-2 py-1" title="Partidos jugados (con minutos)">Partidos</th>
+                            <th class="text-center font-medium px-2 py-1" title="Titular">Tit.</th>
+                            <th class="text-center font-medium px-2 py-1" title="Minutos">Min.</th>
+                            <th class="text-center font-medium px-2 py-1">Goles</th>
+                            <th class="text-center font-medium px-2 py-1" title="Tarjetas amarillas">TA</th>
+                            <th class="text-center font-medium px-2 py-1" title="Tarjetas rojas">TR</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="j in data.jugadores" :key="j.nombre" class="border-t border-line">
+                            <td class="px-2 py-1 whitespace-nowrap">{{ nombreJugador(j.nombre) }}</td>
+                            <td class="px-2 py-1 text-center">{{ j.convocatorias }}</td>
+                            <td class="px-2 py-1 text-center">{{ j.partidos }}</td>
+                            <td class="px-2 py-1 text-center">{{ j.titular }}</td>
+                            <td class="px-2 py-1 text-center">{{ j.minutos }}</td>
+                            <td class="px-2 py-1 text-center">{{ j.goles || '—' }}</td>
+                            <td class="px-2 py-1 text-center">{{ j.tarjetas_amarillas || '—' }}</td>
+                            <td class="px-2 py-1 text-center">{{ j.tarjetas_rojas || '—' }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </template>
+                </TablaEstadistica>
               </div>
-            </template>
-          </TablaEstadistica>
-        </div>
-      </div>
+            </div>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
     </template>
   </div>
 </SectionGuard>
