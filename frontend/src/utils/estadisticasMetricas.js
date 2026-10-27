@@ -65,12 +65,14 @@ export const METRICAS_GOLES = [
   { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true, calculo: 'Partidos con gol /\nPartidos × 100' }
 ];
 // Estadísticas Rivales → Goles: como Goles, con los resultados del equipo
-// (goles a favor / en contra) tras Partidos.
+// (goles a favor / en contra y su diferencia) tras Partidos, sin la columna Goles.
+// `diferencia` la calcula la vista (GF - GC de cada lado).
 export const METRICAS_GOLES_RIVALES = [
   METRICAS_GOLES[0],
   { campo: 'goles_favor', titulo: 'GF', descripcion: 'Goles a favor (del resultado, con las propias puertas del rival)' },
   { campo: 'goles_contra', titulo: 'GC', descripcion: 'Goles en contra (del resultado)' },
-  ...METRICAS_GOLES.slice(1)
+  { campo: 'diferencia', titulo: 'Dif.', descripcion: 'Diferencia de goles', calculo: 'GF - GC' },
+  ...METRICAS_GOLES.slice(2)
 ];
 // Solo la parte de goles de Estadísticas Equipo (partidos + goles, sin
 // tarjetas): se muestra también como tabla del equipo en Estadísticas Goles.

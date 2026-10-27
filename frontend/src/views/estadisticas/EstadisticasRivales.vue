@@ -41,7 +41,14 @@ async function cargar() {
     const datos = plantilla.value
       ? await estadisticasService.rivales({ id_plantilla: plantilla.value.id })
       : {};
-    equipos.value = datos.equipos || [];
+    // Diferencia de goles (GF - GC) en Total, Local y Visitante.
+    equipos.value = (datos.equipos || []).map((e) => {
+      const fila = { ...e };
+      for (const sufijo of ['', '_local', '_visitante']) {
+        fila[`diferencia${sufijo}`] = (e[`goles_favor${sufijo}`] || 0) - (e[`goles_contra${sufijo}`] || 0);
+      }
+      return fila;
+    });
     jornadas.value = datos.jornadas || [];
     actasPendientes.value = datos.actas_pendientes || 0;
   } catch (err) {
@@ -78,7 +85,7 @@ const BLOQUES = [
   {
     clave: 'goles',
     titulo: 'Goles',
-    descripcion: 'Goles de cada rival en todos sus partidos de liga por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de sus goles marcados en casa / fuera. "% por partido": partidos en los que marca algún gol. Los goles en propia puerta no cuentan en Goles, pero sí en GF / GC, que salen del resultado.',
+    descripcion: 'Goles de cada rival en todos sus partidos de liga por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de sus goles marcados en casa / fuera. "% por partido": partidos en los que marca algún gol. GF / GC salen del resultado (con los goles en propia puerta) y Dif. es GF - GC; los tramos y Tit. / Supl. no cuentan los de propia puerta.',
     metricas: METRICAS_GOLES_RIVALES,
     sortField: 'goles'
   },
