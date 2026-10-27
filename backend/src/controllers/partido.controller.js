@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const { filasPlanas } = require('../utils/filasPlanas');
 const { limiteConsulta } = require('../utils/limiteConsulta');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, PartidoGolContra, Promocion, Entrenador, Delegado } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Promocion, Entrenador, Delegado } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -569,12 +569,53 @@ async function finalizarActa(req, res, next) {
     // Goles del rival con su minuto (para saber en qué periodo nos marcan). El
     // acta ya asigna cada gol al equipo al que suma (`equipo`), contando la
     // propia puerta: un gol en contra es, sin más, el que no suma al PALMA
-    // (incluye las propias puertas del PALMA; las del rival suman a favor, no aquí).
+    // (incluye las propias puertas del PALMA, marcadas con `propia`; las del
+    // rival suman a favor, no aquí). `titular`: si quien marca era titular o
+    // suplente en el rival (Estadísticas Rivales).
+    const rivalActa = esLocal ? acta.visitante : acta.local;
+    const jugadoresRival = Array.isArray(rivalActa?.jugadores) ? rivalActa.jugadores : [];
+    const posicionRival = (nombre) => {
+      const n = rfafActa.normalizarNombre(nombre || '');
+      return jugadoresRival.findIndex((j) => rfafActa.normalizarNombre(j.nombre) === n);
+    };
     const golesContra = golesActa
       .filter((g) => g.equipo !== ladoPalma)
-      .map((g) => ({ id_partido: partido.id, minuto: g.minuto ?? null, tipo: g.tipo === 'penalti' ? 'penalti' : 'normal' }));
+      .map((g) => {
+        const propia = g.tipo === 'propia';
+        const i = propia ? -1 : posicionRival(g.nombre);
+        return {
+          id_partido: partido.id,
+          minuto: g.minuto ?? null,
+          tipo: g.tipo === 'penalti' ? 'penalti' : 'normal',
+          titular: i >= 0 ? !!jugadoresRival[i].titular : null,
+          propia
+        };
+      });
     await PartidoGolContra.destroy({ where: { id_partido: partido.id } });
     if (golesContra.length) await PartidoGolContra.bulkCreate(golesContra);
+
+    // Tarjetas de los jugadores del rival con su minuto, si era titular o
+    // suplente y el marcador justo antes visto desde el rival. Sin nombres:
+    // num_jugador (posición en el acta) solo sirve para las dobles amarillas.
+    const ladoRival = esLocal ? 'visitante' : 'local';
+    const tarjetasContra = (rivalActa?.tarjetas || [])
+      .map((t) => {
+        const i = posicionRival(t.nombre);
+        if (i < 0) return null;
+        const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
+        return {
+          id_partido: partido.id,
+          num_jugador: i,
+          tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
+          minuto: t.minuto ?? null,
+          titular: !!jugadoresRival[i].titular,
+          goles_favor: antes.filter((g) => g.equipo === ladoRival).length,
+          goles_contra: antes.filter((g) => g.equipo !== ladoRival).length
+        };
+      })
+      .filter(Boolean);
+    await PartidoTarjetaContra.destroy({ where: { id_partido: partido.id } });
+    if (tarjetasContra.length) await PartidoTarjetaContra.bulkCreate(tarjetasContra);
 
     // Cuerpo técnico del PALMA en el acta: entrenadores y delegados. A quien ya
     // está en su sección y no tiene foto, se le pone la del acta; a quien no
@@ -601,6 +642,7 @@ async function finalizarActa(req, res, next) {
     partido.goles_penalti_favor = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo === ladoPalma).length;
     partido.goles_penalti_contra = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo !== ladoPalma).length;
     partido.acta_finalizada_at = new Date();
+    partido.acta_rival = true;
     await partido.save();
 
     res.json({ resultado: acta.resultado, actualizados, creados });

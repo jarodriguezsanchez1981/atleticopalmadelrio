@@ -33,7 +33,8 @@ const SECCIONES_SOLO_CATEGORIA_ESTADISTICAS = [
   'estadisticas_tiempo',
   'estadisticas_goles',
   'estadisticas_sanciones',
-  'estadisticas_clasificacion'
+  'estadisticas_clasificacion',
+  'estadisticas_rivales'
 ];
 
 /** Estadísticas por categoría: su público es el resto (entrenadores de otras

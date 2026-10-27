@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, Plantilla, Temporada } from './helpers/models.js';
+import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Plantilla, Temporada } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/estadistica.controller.js';
@@ -556,6 +556,87 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       expect(f.contra_1t1).toBe(1);
       expect(f.contra_2t3).toBe(1);
       expect(f.contra_2t1).toBe(1);
+    });
+  });
+
+  describe('rivales (goles y tarjetas de cada equipo contrario)', () => {
+    beforeEach(() => {
+      Partido.findAll.mockReset();
+      PartidoGolContra.findAll.mockReset();
+      PartidoGolContra.findAll.mockResolvedValue([]);
+      PartidoTarjetaContra.findAll.mockReset();
+      PartidoTarjetaContra.findAll.mockResolvedValue([]);
+      Plantilla.findByPk.mockReset();
+      Plantilla.findByPk.mockResolvedValue({ categoria: { id_tipofutbol: 2 } });
+    });
+
+    function llamarRivales(overrides = {}) {
+      const { req, res, next } = mockReqRes(overrides);
+      return { promesa: ctrl.rivales(req, res, next), res };
+    }
+    const partido = (id, local, visitante, extra = {}) => ({
+      id, jornada: id, id_equipo_local: local, id_equipo_visitante: visitante, acta_finalizada_at: new Date(), acta_rival: true,
+      suspendido: false, equipoLocal: { nombre: `Equipo ${local}` }, equipoVisitante: { nombre: `Equipo ${visitante}` }, ...extra
+    });
+
+    it('exige la plantilla', async () => {
+      const { promesa, res } = llamarRivales({ query: {} });
+      await promesa;
+      expect(res._status).toBe(400);
+    });
+
+    it('agrupa por rival (una fila por equipo) solo los partidos de liga finalizados', async () => {
+      Partido.findAll.mockResolvedValue([
+        partido(1, 73, 40),
+        partido(2, 40, 73),
+        partido(3, 73, 55, { acta_rival: false }),
+        partido(4, 73, 60, { acta_finalizada_at: null }),
+        partido(5, 73, 61, { suspendido: true }),
+        partido(0, 73, 62, { jornada: 0 })
+      ]);
+      const { promesa, res } = llamarRivales({ query: { id_plantilla: '5' } });
+      await promesa;
+      const { equipos, partidos_sin_rival } = res._json;
+      expect(equipos.map((e) => e.equipo).sort()).toEqual(['Equipo 40', 'Equipo 55']);
+      const e40 = equipos.find((e) => e.id_equipo === 40);
+      expect(e40).toMatchObject({ partidos: 2, partidos_local: 1, partidos_visitante: 1 });
+      expect(partidos_sin_rival).toBe(1);
+    });
+
+    it('cuenta los goles del rival por tramo y de titular / suplente, sin las propias puertas', async () => {
+      Partido.findAll.mockResolvedValue([partido(1, 73, 40), partido(2, 40, 73)]);
+      PartidoGolContra.findAll.mockResolvedValue([
+        { id_partido: 1, minuto: 10, titular: true, propia: false },
+        { id_partido: 1, minuto: 80, titular: false, propia: false },
+        { id_partido: 1, minuto: 85, titular: null, propia: true },
+        { id_partido: 2, minuto: 50, titular: 1, propia: 0 }
+      ]);
+      const { promesa, res } = llamarRivales({ query: { id_plantilla: '5' } });
+      await promesa;
+      const e = res._json.equipos[0];
+      expect(e).toMatchObject({
+        goles: 3, goles_local: 2, goles_visitante: 1, goles_titular: 2, goles_banquillo: 1,
+        goles_1t1: 1, goles_2t3: 1, goles_2t1: 1, partidos_con_gol: 2, porcentaje_goles_partido: 100,
+        porcentaje_goles_local: 66.7, porcentaje_goles_titular: 66.7
+      });
+    });
+
+    it('cuenta las tarjetas del rival por parte, marcador, titular / suplente y dobles amarillas', async () => {
+      Partido.findAll.mockResolvedValue([partido(1, 73, 40)]);
+      PartidoTarjetaContra.findAll.mockResolvedValue([
+        { id_partido: 1, num_jugador: 3, tipo: 'amarilla', minuto: 20, titular: true, goles_favor: 1, goles_contra: 0 },
+        { id_partido: 1, num_jugador: 3, tipo: 'amarilla', minuto: 70, titular: true, goles_favor: 0, goles_contra: 2 },
+        { id_partido: 1, num_jugador: 3, tipo: 'roja', minuto: 70, titular: true, goles_favor: 1, goles_contra: 1 },
+        { id_partido: 1, num_jugador: 12, tipo: 'amarilla', minuto: 88, titular: false, goles_favor: 0, goles_contra: 0 }
+      ]);
+      const { promesa, res } = llamarRivales({ query: { id_plantilla: '5' } });
+      await promesa;
+      const e = res._json.equipos[0];
+      expect(e).toMatchObject({
+        tarjetas_amarillas: 3, tarjetas_amarillas_local: 3, amarillas_titular: 2, amarillas_suplente: 1,
+        amarillas_primera: 1, amarillas_segunda: 2, amarillas_ganando: 1, amarillas_perdiendo: 1, dobles_amarillas: 1,
+        tarjetas_rojas: 1, rojas_titular: 1, rojas_segunda: 1, rojas_ganando: 0, rojas_perdiendo: 0
+      });
     });
   });
 });

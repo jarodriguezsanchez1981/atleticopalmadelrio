@@ -20,6 +20,8 @@ const Partido = sequelize.define('Partido', {
   suspendido: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   codigo_acta: { type: DataTypes.STRING(50), allowNull: true },
   acta_finalizada_at: { type: DataTypes.DATE, allowNull: true },
+  // El acta se finalizó guardando también los goles y tarjetas del rival.
+  acta_rival: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   codigo_primaria: { type: DataTypes.STRING(50), allowNull: true }
 }, {
   tableName: 'partidos'

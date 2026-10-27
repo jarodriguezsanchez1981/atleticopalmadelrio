@@ -227,6 +227,12 @@ const routes = [
         component: () => import('../views/estadisticas/EstadisticasClasificacion.vue'),
         meta: { seccion: 'estadisticas_clasificacion' }
       },
+      {
+        path: 'estadisticas/rivales',
+        name: 'estadisticas_rivales',
+        component: () => import('../views/estadisticas/EstadisticasRivales.vue'),
+        meta: { seccion: 'estadisticas_rivales' }
+      },
       // Estadísticas por categoría (Convocatorias y Goles de la categoría del
       // usuario), apartado distinto al de Senior A.
       {

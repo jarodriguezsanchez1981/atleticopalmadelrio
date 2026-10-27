@@ -1,4 +1,4 @@
-const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
+const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
 const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 const { diaEspana } = require('../utils/horaEspana');
 
@@ -439,6 +439,123 @@ async function golesContra(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Contadores de cada equipo contrario (Estadísticas Rivales): los mismos de las
+// tablas Goles y Sanciones de los jugadores, en total y según el PALMA jugara
+// en casa o fuera.
+const CONTADORES_RIVAL = [
+  'partidos', 'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', ...CAMPOS_GOLES_TRAMO,
+  'tarjetas_amarillas', 'tarjetas_rojas', 'dobles_amarillas', ...CAMPOS_TARJETAS
+];
+
+/** Goles y tarjetas de cada equipo contrario en los partidos de liga de una
+ * plantilla con el acta finalizada (no suspendidos), igual que las tablas Goles
+ * y Sanciones de los jugadores: goles por tramo, de titular / suplente y % de
+ * partidos con gol (sin las propias puertas del PALMA); tarjetas siendo titular
+ * o suplente, por parte y según el marcador del rival en ese momento. En total
+ * y como local / visitante del PALMA. `partidos_sin_rival`: partidos
+ * finalizados antes de guardar los datos del rival (hay que volver a pulsar
+ * "Finalizar Acta"); en ellos solo cuentan los goles y sus tramos. */
+async function rivales(req, res, next) {
+  try {
+    const idPlantilla = Number(req.query.id_plantilla);
+    if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+
+    const plantilla = await Plantilla.findByPk(idPlantilla, {
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id_tipofutbol'] }]
+    });
+    const durGoles = duracionJuego(plantilla?.categoria?.id_tipofutbol);
+
+    const partidos = (await Partido.findAll({
+      where: { id_plantilla: idPlantilla },
+      attributes: ['id', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'acta_finalizada_at', 'acta_rival', 'suspendido'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
+      ]
+    }) || []).filter((p) => Number(p.jornada) > 0 && p.acta_finalizada_at != null && !p.suspendido
+      && (Number(p.id_equipo_local) === PALMA_ID || Number(p.id_equipo_visitante) === PALMA_ID));
+
+    const porEquipo = new Map();
+    // Partido -> { fila del rival, lado del PALMA }.
+    const enPartido = new Map();
+    const sumar = (fila, campo, valor, lado) => {
+      fila[campo] += valor;
+      fila[`${campo}_${lado}`] += valor;
+    };
+    let partidosSinRival = 0;
+    for (const p of partidos) {
+      const lado = Number(p.id_equipo_local) === PALMA_ID ? 'local' : 'visitante';
+      const rival = lado === 'local' ? p.equipoVisitante : p.equipoLocal;
+      const idEquipo = Number(lado === 'local' ? p.id_equipo_visitante : p.id_equipo_local);
+      let fila = porEquipo.get(idEquipo);
+      if (!fila) {
+        fila = { id_equipo: idEquipo, equipo: rival?.nombre || '—' };
+        for (const c of CONTADORES_RIVAL) {
+          fila[c] = 0;
+          for (const l of LADOS) fila[`${c}_${l}`] = 0;
+        }
+        porEquipo.set(idEquipo, fila);
+      }
+      sumar(fila, 'partidos', 1, lado);
+      if (!p.acta_rival) partidosSinRival += 1;
+      enPartido.set(p.id, { fila, lado, golesEnPartido: 0 });
+    }
+
+    const idsPartidos = [...enPartido.keys()];
+    if (idsPartidos.length) {
+      const [goles, tarjetas] = await Promise.all([
+        PartidoGolContra.findAll({ where: { id_partido: idsPartidos } }),
+        PartidoTarjetaContra.findAll({ where: { id_partido: idsPartidos } })
+      ]);
+      for (const g of goles || []) {
+        const ctx = enPartido.get(g.id_partido);
+        if (!ctx || g.propia) continue;
+        const { fila, lado } = ctx;
+        sumar(fila, 'goles', 1, lado);
+        ctx.golesEnPartido += 1;
+        if (g.titular === true || g.titular === 1) sumar(fila, 'goles_titular', 1, lado);
+        else if (g.titular === false || g.titular === 0) sumar(fila, 'goles_banquillo', 1, lado);
+        if (g.minuto != null) sumar(fila, tramoGol(g.minuto, durGoles), 1, lado);
+      }
+      for (const { fila, lado, golesEnPartido } of enPartido.values()) {
+        if (golesEnPartido > 0) sumar(fila, 'partidos_con_gol', 1, lado);
+      }
+
+      // Amarillas de cada jugador del rival en cada partido (dobles amarillas).
+      const amarillasJugador = new Map();
+      for (const t of tarjetas || []) {
+        const ctx = enPartido.get(t.id_partido);
+        if (!ctx) continue;
+        const { fila, lado } = ctx;
+        const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
+        sumar(fila, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, lado);
+        if (t.titular === true || t.titular === 1) sumar(fila, `${tipo}_titular`, 1, lado);
+        else if (t.titular === false || t.titular === 0) sumar(fila, `${tipo}_suplente`, 1, lado);
+        if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, lado);
+        if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, lado);
+        else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, lado);
+        if (tipo === 'amarillas' && t.num_jugador != null) {
+          const clave = `${t.id_partido}-${t.num_jugador}`;
+          const n = (amarillasJugador.get(clave) || 0) + 1;
+          amarillasJugador.set(clave, n);
+          if (n === 2) sumar(fila, 'dobles_amarillas', 1, lado);
+        }
+      }
+    }
+
+    for (const f of porEquipo.values()) {
+      for (const sufijo of ['', '_local', '_visitante']) {
+        f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`partidos_con_gol${sufijo}`], f[`partidos${sufijo}`]);
+        f[`porcentaje_goles_titular${sufijo}`] = porcentaje(f[`goles_titular${sufijo}`], f[`goles${sufijo}`]);
+        f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
+      }
+      for (const l of LADOS) f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
+    }
+    const equipos = [...porEquipo.values()].sort((a, b) => b.goles - a.goles || a.equipo.localeCompare(b.equipo, 'es'));
+    res.json({ equipos, partidos_sin_rival: partidosSinRival });
+  } catch (err) { next(err); }
+}
+
 // Plantilla que en el Dashboard tiene su propia gráfica (partido a partido)
 // en vez de ir en la de su tipo de fútbol.
 const CATEGORIA_GRAFICA_PROPIA = 'Senior A';
@@ -578,4 +695,4 @@ async function plantillasEstadisticas(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, equipo, golesContra, balance, plantillasEstadisticas };
+module.exports = { listar, equipo, golesContra, rivales, balance, plantillasEstadisticas };

@@ -96,6 +96,8 @@ export const estadisticasService = {
   equipo: (params = {}) => api.get('/estadisticas/equipo', { params }).then(r => r.data),
   // Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
   golesContra: (params = {}) => api.get('/estadisticas/goles-contra', { params }).then(r => r.data),
+  // Goles y tarjetas de cada equipo contrario (Estadísticas Senior A Rivales).
+  rivales: (params = {}) => api.get('/estadisticas/rivales', { params }).then(r => r.data),
   // Clasificación de la liga por jornada; guardar copia de RFAF la siguiente jornada.
   clasificacion: (params = {}) => api.get('/estadisticas/clasificacion', { params }).then(r => r.data),
   // Victorias/empates/derrotas por plantilla de la temporada actual (Dashboard).
