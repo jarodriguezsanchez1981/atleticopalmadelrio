@@ -3,7 +3,8 @@ import { formatFechaCorta } from '../utils/formatFecha';
 
 /** Desplegable de un jugador en Estadísticas Goles / Sanciones: los partidos en
  * que marcó (partidos_goles) o vio tarjeta (partidos_tarjetas), del listado de
- * /estadisticas. */
+ * /estadisticas. También el de Equipo Contrario (partidos en que nos marcan,
+ * de /estadisticas/goles-contra). */
 defineProps({
   partidos: { type: Array, default: () => [] },
   tipo: { type: String, required: true },          // 'goles' | 'sanciones'
@@ -15,9 +16,11 @@ defineProps({
 function textoMinutos(minutos) {
   return minutos?.length ? minutos.map((m) => `${m}'`).join(', ') : '';
 }
-/** [{ minuto: 12 }, { minuto: 70, penalti: true }] -> "12', 70' (p)" */
+/** [{ minuto: 12 }, { minuto: 70, penalti: true }, { minuto: 80, propia: true }] -> "12', 70' (p), 80' (pp)" */
 function textoMinutosGoles(goles) {
-  return goles?.length ? goles.map((g) => `${g.minuto}'${g.penalti ? ' (p)' : ''}`).join(', ') : '';
+  return goles?.length
+    ? goles.map((g) => `${g.minuto}'${g.penalti ? ' (p)' : ''}${g.propia ? ' (pp)' : ''}`).join(', ')
+    : '';
 }
 </script>
 

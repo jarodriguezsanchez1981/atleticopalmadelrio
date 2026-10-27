@@ -175,6 +175,12 @@ function partidosDelJugador(fila, clave) {
 function expandibleLado(clave) {
   return conResumenEquipo.value ? (fila) => partidosDelJugador(fila, clave).length > 0 : null;
 }
+// Equipo Contrario: desplegable con los partidos en los que nos marca (en
+// Local / Visitante, solo los de ese lado).
+function partidosContra(fila, clave) {
+  return (fila.partidos_goles || []).filter((p) => clave === 'total' || p.es_local === (clave === 'local'));
+}
+const expandibleContra = (clave) => (fila) => partidosContra(fila, clave).length > 0;
 
 const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
@@ -315,13 +321,19 @@ onBeforeUnmount(() => {
               <p class="text-sm text-ink-tertiary">
                 Goles que nos marca el rival y en qué periodo (mismos tramos de 15 minutos). El reparto por tramo sale de
                 las actas finalizadas; si un partido no se ha vuelto a finalizar desde que se guardan los goles del rival,
-                suma al total pero no a los tramos.
+                suma al total pero no a los tramos. Pulsa en la fila para ver en qué partidos nos marcó y en qué minuto
+                ((p) = de penalti, (pp) = en propia puerta de un jugador nuestro).
               </p>
               <div v-for="lado in LADOS_TABLA" :key="`contra-${lado.clave}`" class="flex flex-col gap-2">
                 <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
                 <TablaEstadistica :filas="filasContra" :metricas="METRICAS_CONTRA" :soloGrupo="lado.clave"
                                   :cargando="cargando" textoVacio="Todavía no hay goles en contra."
-                                  :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
+                                  :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla"
+                                  :expandible="expandibleContra(lado.clave)">
+                  <template #detalle="{ data }">
+                    <PartidosJugadorEstadistica :partidos="partidosContra(data, lado.clave)" tipo="goles" :conTitular="false" />
+                  </template>
+                </TablaEstadistica>
               </div>
             </div>
           </TabPanel>

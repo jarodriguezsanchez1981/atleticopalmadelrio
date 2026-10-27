@@ -557,6 +557,30 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       expect(f.contra_2t3).toBe(1);
       expect(f.contra_2t1).toBe(1);
     });
+
+    it('desglosa los partidos en los que nos marca el rival, con los minutos', async () => {
+      Partido.findAll.mockResolvedValue([
+        { id: 2, jornada: 2, fecha: '2026-09-20', id_equipo_local: 55, id_equipo_visitante: 73, resultado: '1-0', suspendido: false,
+          equipoLocal: { nombre: 'RIVAL B' }, equipoVisitante: { nombre: 'PALMA' } },
+        { id: 1, jornada: 1, fecha: '2026-09-13', id_equipo_local: 73, id_equipo_visitante: 40, resultado: '1-2', suspendido: false,
+          equipoLocal: { nombre: 'PALMA' }, equipoVisitante: { nombre: 'RIVAL A' } },
+        { id: 3, jornada: 3, fecha: '2026-09-27', id_equipo_local: 73, id_equipo_visitante: 41, resultado: '2-0', suspendido: false,
+          equipoLocal: { nombre: 'PALMA' }, equipoVisitante: { nombre: 'RIVAL C' } }
+      ]);
+      PartidoGolContra.findAll.mockResolvedValue([
+        { id_partido: 1, minuto: 80, tipo: 'penalti', propia: false },
+        { id_partido: 1, minuto: 10, tipo: 'normal', propia: true },
+        { id_partido: 2, minuto: 50, tipo: 'normal', propia: false }
+      ]);
+      const { promesa, res } = llamarContra({ query: { id_plantilla: '5' } });
+      await promesa;
+      const d = res._json.partidos_goles;
+      // Sin el partido 3 (no nos marcan), ordenados por jornada.
+      expect(d.map((p) => p.id_partido)).toEqual([1, 2]);
+      expect(d[0]).toMatchObject({ jornada: 1, rival: 'RIVAL A', es_local: true, goles: 2 });
+      expect(d[0].minutos_goles).toEqual([{ minuto: 10, penalti: false, propia: true }, { minuto: 80, penalti: true, propia: false }]);
+      expect(d[1]).toMatchObject({ rival: 'RIVAL B', es_local: false, goles: 1 });
+    });
   });
 
   describe('rivales (estadísticas de cada equipo contrario en toda la liga)', () => {

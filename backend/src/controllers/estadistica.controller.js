@@ -415,15 +415,37 @@ async function golesContra(req, res, next) {
 
     const partidos = (await Partido.findAll({
       where: { id_plantilla: idPlantilla },
-      attributes: ['id', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido']
+      attributes: ['id', 'jornada', 'fecha', 'id_equipo_local', 'id_equipo_visitante', 'resultado', 'suspendido'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['nombre'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['nombre'] }
+      ]
     }) || []).filter((p) => Number(p.jornada) > 0 && !p.suspendido && golesResultado(p.resultado)
       && (Number(p.id_equipo_local) === PALMA_ID || Number(p.id_equipo_visitante) === PALMA_ID));
     const ladoPartido = new Map();
+    // partidos_goles: desglose de los partidos en los que el rival nos marca
+    // (jornada, fecha, rival, goles del resultado y minuto de cada uno).
+    fila.partidos_goles = [];
+    const desglose = new Map();
     for (const p of partidos) {
       const lado = Number(p.id_equipo_local) === PALMA_ID ? 'local' : 'visitante';
       ladoPartido.set(p.id, lado);
       const goles = golesResultado(p.resultado);
-      sumar('goles_contra', lado === 'local' ? goles.visitante : goles.local, lado);
+      const contra = lado === 'local' ? goles.visitante : goles.local;
+      sumar('goles_contra', contra, lado);
+      if (contra > 0) {
+        const item = {
+          id_partido: p.id,
+          jornada: p.jornada ?? null,
+          fecha: p.fecha ?? null,
+          es_local: lado === 'local',
+          rival: (lado === 'local' ? p.equipoVisitante?.nombre : p.equipoLocal?.nombre) || '',
+          goles: contra,
+          minutos_goles: []
+        };
+        fila.partidos_goles.push(item);
+        desglose.set(p.id, item);
+      }
     }
 
     const idsPartidos = [...ladoPartido.keys()];
@@ -434,8 +456,11 @@ async function golesContra(req, res, next) {
         if (!lado || g.minuto == null) continue;
         const idx = CAMPOS_GOLES_TRAMO.indexOf(tramoGol(g.minuto, durGoles));
         sumar(CAMPOS_CONTRA_TRAMO[idx], 1, lado);
+        desglose.get(g.id_partido)?.minutos_goles.push({ minuto: g.minuto, penalti: g.tipo === 'penalti', propia: !!g.propia });
       }
     }
+    fila.partidos_goles.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
+    for (const x of fila.partidos_goles) x.minutos_goles.sort((a, b) => a.minuto - b.minuto);
     res.json(fila);
   } catch (err) { next(err); }
 }
