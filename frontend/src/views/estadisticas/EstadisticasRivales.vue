@@ -78,7 +78,7 @@ const BLOQUES = [
   {
     clave: 'goles',
     titulo: 'Goles',
-    descripcion: 'Goles de cada rival en todos sus partidos de liga por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de sus goles marcados en casa / fuera. "% por partido": partidos en los que marca algún gol. Los goles en propia puerta no cuentan en Goles, pero sí en GF / GC, que salen del resultado. PG / PE / PP: partidos ganados, empatados y perdidos.',
+    descripcion: 'Goles de cada rival en todos sus partidos de liga por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de sus goles marcados en casa / fuera. "% por partido": partidos en los que marca algún gol. Los goles en propia puerta no cuentan en Goles, pero sí en GF / GC, que salen del resultado.',
     metricas: METRICAS_GOLES_RIVALES,
     sortField: 'goles'
   },

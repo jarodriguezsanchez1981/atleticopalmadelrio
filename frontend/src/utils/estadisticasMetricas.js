@@ -65,12 +65,9 @@ export const METRICAS_GOLES = [
   { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true, calculo: 'Partidos con gol /\nPartidos × 100' }
 ];
 // Estadísticas Rivales → Goles: como Goles, con los resultados del equipo
-// (ganados / empatados / perdidos y goles a favor / en contra) tras Partidos.
+// (goles a favor / en contra) tras Partidos.
 export const METRICAS_GOLES_RIVALES = [
   METRICAS_GOLES[0],
-  { campo: 'victorias', titulo: 'PG', descripcion: 'Partidos ganados' },
-  { campo: 'empates', titulo: 'PE', descripcion: 'Partidos empatados' },
-  { campo: 'derrotas', titulo: 'PP', descripcion: 'Partidos perdidos' },
   { campo: 'goles_favor', titulo: 'GF', descripcion: 'Goles a favor (del resultado, con las propias puertas del rival)' },
   { campo: 'goles_contra', titulo: 'GC', descripcion: 'Goles en contra (del resultado)' },
   ...METRICAS_GOLES.slice(1)
