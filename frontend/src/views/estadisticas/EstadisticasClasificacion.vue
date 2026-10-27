@@ -3,12 +3,15 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import Chart from 'primevue/chart';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import Button from 'primevue/button';
+import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { estiloTabla } from '../../utils/estiloTabla';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { colorPosicion } from '../../utils/colorPosicion';
+import { construirHojaSimple, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 
 /** Estadísticas → Clasificación: posición del PALMA en la liga jornada a
  * jornada (plantilla Senior A de la temporada actual). El servidor copia cada
@@ -123,6 +126,41 @@ const ultima = computed(() => datos.value.ultima);
 const equiposTabla = computed(() => (ultima.value?.equipos || [])
   .map((e) => ({ ...e, diferencia: e.goles_favor - e.goles_contra })));
 
+// Exportar a Excel: la tabla de la clasificación y, en otra hoja, la evolución
+// jornada a jornada (los datos de la gráfica).
+const toast = useToast();
+const exportando = ref(false);
+const COLUMNAS_CLASIFICACION = [
+  { campo: 'posicion', titulo: 'Pos.' }, { campo: 'equipo', titulo: 'Equipo' }, { campo: 'puntos', titulo: 'Pts' },
+  { campo: 'jugados', titulo: 'J' }, { campo: 'ganados', titulo: 'G' }, { campo: 'empatados', titulo: 'E' },
+  { campo: 'perdidos', titulo: 'P' }, { campo: 'goles_favor', titulo: 'GF' }, { campo: 'goles_contra', titulo: 'GC' },
+  { campo: 'diferencia', titulo: 'Dif.' }
+];
+const COLUMNAS_EVOLUCION = [
+  { campo: 'jornada', titulo: 'Jornada' }, { campo: 'fecha', titulo: 'Fecha' }, { campo: 'posicion', titulo: 'Posición' },
+  { campo: 'total_equipos', titulo: 'Equipos' }, ...COLUMNAS_CLASIFICACION.slice(2)
+];
+async function exportarExcel() {
+  exportando.value = true;
+  try {
+    const nombre = `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`;
+    const hojas = [];
+    if (ultima.value) {
+      hojas.push({ nombre: 'Clasificación', titulo: `Clasificación tras la jornada ${ultima.value.jornada} · ${nombre}`,
+        ...construirHojaSimple({ columnas: COLUMNAS_CLASIFICACION, filas: equiposTabla.value }) });
+    }
+    const evolucion = jornadas.value.map((j) => ({ ...j.palma, jornada: j.jornada, fecha: formatoDia(j.fecha),
+      total_equipos: j.total_equipos, diferencia: j.palma.goles_favor - j.palma.goles_contra }));
+    hojas.push({ nombre: 'Evolución', titulo: `Posición del PALMA jornada a jornada · ${nombre}`,
+      ...construirHojaSimple({ columnas: COLUMNAS_EVOLUCION, filas: evolucion }) });
+    await descargarExcel(nombreFicheroExcel('Estadísticas Clasificación', nombre), hojas);
+  } catch {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el Excel.', life: 4000 });
+  } finally {
+    exportando.value = false;
+  }
+}
+
 onMounted(async () => {
   await cargar();
   unsubCambio = suscribirseCambio(cargar);
@@ -144,10 +182,14 @@ onBeforeUnmount(() => {
           según la clasificación de RFAF. Cada jornada se guarda automáticamente el día siguiente a su partido a las 10:00.
         </p>
       </div>
-      <div v-if="plantilla && siguiente" class="rounded-lg border border-line bg-white px-3 py-2 text-xs text-ink-tertiary">
-        <i class="pi pi-clock mr-1" />
-        <template v-if="siguiente.disponible">Jornada {{ siguiente.jornada }} pendiente: se guardará en la próxima actualización (10:00).</template>
-        <template v-else-if="siguiente.desde">Jornada {{ siguiente.jornada }}: se guardará el {{ formatoDia(siguiente.desde) }} a las 10:00.</template>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button v-if="plantilla" label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined
+                :loading="exportando" :disabled="cargando || !jornadas.length" @click="exportarExcel" />
+        <div v-if="plantilla && siguiente" class="rounded-lg border border-line bg-white px-3 py-2 text-xs text-ink-tertiary">
+          <i class="pi pi-clock mr-1" />
+          <template v-if="siguiente.disponible">Jornada {{ siguiente.jornada }} pendiente: se guardará en la próxima actualización (10:00).</template>
+          <template v-else-if="siguiente.desde">Jornada {{ siguiente.jornada }}: se guardará el {{ formatoDia(siguiente.desde) }} a las 10:00.</template>
+        </div>
       </div>
     </div>
 

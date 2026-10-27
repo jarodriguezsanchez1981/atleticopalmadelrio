@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import MultiSelect from 'primevue/multiselect';
+import Button from 'primevue/button';
+import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
@@ -10,6 +12,7 @@ import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import {
   METRICAS_EQUIPO_GOLES, METRICAS_EQUIPO_TARJETAS, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
 } from '../../utils/estadisticasMetricas';
+import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 
 /** Estadísticas en los partidos de la plantilla Senior A de la temporada
  * actual (las rellena "Finalizar Acta" en Partidos). Cada tabla es una sección
@@ -172,6 +175,50 @@ const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
 
+// Exportar a Excel: cada tabla de la pantalla en su hoja (con el filtro de
+// jugadores aplicado), en el mismo orden.
+const toast = useToast();
+const exportando = ref(false);
+function hojasExcel() {
+  const hojas = [];
+  const columnaEquipo = { campo: 'equipo', titulo: 'Equipo' };
+  const agregar = (nombre, opciones) => hojas.push({
+    nombre, titulo: `${config.value.titulo} · ${titulo.value} · ${nombre}`, ...construirHojaEstadistica(opciones)
+  });
+  if (conResumenEquipo.value) {
+    for (const lado of LADOS_TABLA) {
+      agregar(`Equipo ${lado.titulo}`, { metricas: metricasEquipoResumen.value, filas: filasEquipo.value,
+        soloGrupo: lado.clave, columnaNombre: columnaEquipo });
+    }
+  }
+  if (config.value.porLado) {
+    for (const lado of LADOS_TABLA) {
+      agregar(`Jugadores ${lado.titulo}`, { metricas: config.value.metricas, filas: filasDelLado(lado.sufijo),
+        soloGrupo: lado.clave, sortField: config.value.sortField });
+    }
+  } else {
+    agregar(config.value.titulo.replace(/^Estadísticas\s+/, ''), { metricas: config.value.metricas,
+      filas: filasTabla.value, sortField: config.value.sortField });
+  }
+  if (props.tabla === 'goles') {
+    for (const lado of LADOS_TABLA) {
+      agregar(`Equipo Contrario ${lado.titulo}`, { metricas: METRICAS_CONTRA, filas: filasContra.value,
+        soloGrupo: lado.clave, columnaNombre: columnaEquipo });
+    }
+  }
+  return hojas;
+}
+async function exportarExcel() {
+  exportando.value = true;
+  try {
+    await descargarExcel(nombreFicheroExcel(config.value.titulo, titulo.value), hojasExcel());
+  } catch {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el Excel.', life: 4000 });
+  } finally {
+    exportando.value = false;
+  }
+}
+
 // Al pasar de una sección de Estadísticas a otra se reutiliza el componente.
 watch(() => props.tabla, () => { cargar(); });
 
@@ -209,6 +256,8 @@ onBeforeUnmount(() => {
         <MultiSelect inputId="filtro-jugadores" v-model="jugadoresFiltro" :options="opcionesJugadores" optionLabel="label"
                      optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear
                      :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
+        <Button label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined class="sm:ml-auto"
+                :loading="exportando" :disabled="cargando" @click="exportarExcel" />
       </div>
 
       <!-- Estadísticas Goles / Sanciones: primero el resumen del equipo (parte de Estadísticas Equipo). -->
