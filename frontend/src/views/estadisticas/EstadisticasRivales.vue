@@ -165,8 +165,8 @@ onBeforeUnmount(() => {
         <template v-if="jornadas.length">Con actas de las jornadas {{ jornadas[0] }} a {{ jornadas[jornadas.length - 1] }}.</template>
         <template v-else>Todavía no hay actas de la liga.</template>
         <template v-if="actasPendientes"> Quedan {{ actasPendientes }} actas por copiar de RFAF.</template>
-        Las actas se copian solas cada día desde las 10:00, poco a poco para pedir a RFAF lo mínimo; la del PALMA, al
-        pulsar "Finalizar Acta".
+        Las actas se copian solas de RFAF cada día desde las 10:00 (mientras falten, cada 30 minutos), poco a poco y con
+        pausas; la del PALMA, al pulsar "Finalizar Acta".
       </div>
 
       <div v-for="b in BLOQUES" :key="b.clave" class="flex flex-col gap-2">

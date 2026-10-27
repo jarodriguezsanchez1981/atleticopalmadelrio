@@ -16,8 +16,11 @@ const { esPalma } = require('./clasificacion.controller');
  * - una petición por acta, una sola vez (lo guardado no se vuelve a pedir);
  * - el partido del PALMA no se pide: lo guarda "Finalizar Acta" con el acta
  *   que ya ha leído;
- * - una pausa entre peticiones y un máximo por día; al primer error se para
- *   hasta el día siguiente (sin reintentos).
+ * - una pausa entre peticiones y un máximo por ejecución; al primer error se
+ *   para hasta el día siguiente (sin reintentos).
+ * Mientras queden jornadas o actas por copiar (p. ej. al empezar con la
+ * temporada ya empezada) se repite cada 30 minutos hasta ponerse al día
+ * (utils/ligaRecuperacion.js); después, solo la copia diaria.
  */
 
 // Solo la liga de Senior A: el resto de categorías son de menores y no se
@@ -161,13 +164,52 @@ async function plantillaLiga() {
   return plantilla || null;
 }
 
+/** Jornadas jugadas (con la clasificación guardada) sin copiar todavía. */
+async function jornadasPorCopiar(idPlantilla) {
+  const jugadas = [...new Set((await Clasificacion.findAll({
+    where: { id_plantilla: idPlantilla }, attributes: ['jornada'], raw: true
+  }) || []).map((c) => Number(c.jornada)))].sort((a, b) => a - b);
+  // Jornadas ya copiadas: algún partido con los códigos de equipo de RFAF
+  // (el que crea "Finalizar Acta" no los lleva).
+  const copiadas = new Set((await LigaPartido.findAll({
+    where: { id_plantilla: idPlantilla, codigo_equipo_local: { [Op.ne]: null } }, attributes: ['jornada'], raw: true
+  }) || []).map((p) => Number(p.jornada)));
+  return jugadas.filter((j) => !copiadas.has(j));
+}
+
+/** Actas por descargar (sin la del PALMA). `soloNuevas`: solo las que aún no se
+ * han pedido nunca (las de un partido aplazado se dejan para la copia diaria). */
+async function actasPorCopiar(idPlantilla, { soloNuevas = false } = {}) {
+  return (await LigaPartido.findAll({
+    where: { id_plantilla: idPlantilla, acta_at: null, intentos: soloNuevas ? 0 : { [Op.lt]: MAX_INTENTOS } },
+    order: [['jornada', 'ASC'], ['id', 'ASC']]
+  }) || []).filter((p) => !esPalma(p.equipo_local) && !esPalma(p.equipo_visitante));
+}
+
+/** true si quedan jornadas jugadas o actas nuevas por copiar (para la
+ * recuperación cada 30 minutos). */
+async function hayPendientes() {
+  const plantilla = await plantillaLiga();
+  if (!plantilla) return false;
+  return (await jornadasPorCopiar(plantilla.id)).length > 0
+    || (await actasPorCopiar(plantilla.id, { soloNuevas: true })).length > 0;
+}
+
+let enCurso = null;
+
 /**
- * Copia diaria: primero los partidos de las jornadas ya jugadas que falten
- * (como mucho MAX_JORNADAS_POR_DIA), después las actas pendientes (como mucho
+ * Copia: primero los partidos de las jornadas ya jugadas que falten (como
+ * mucho MAX_JORNADAS_POR_DIA), después las actas pendientes (como mucho
  * MAX_ACTAS_POR_DIA, sin la del PALMA), con una pausa entre peticiones. Al
- * primer error se para. Devuelve { jornadas, actas } guardadas.
+ * primer error se para. Nunca dos a la vez (la diaria y la recuperación).
+ * Devuelve { jornadas, actas } guardadas y `error` si RFAF ha fallado.
  */
-async function actualizar({ log = console, pausa = pausaPorDefecto, pausaMs = PAUSA_MS } = {}) {
+function actualizar(opciones = {}) {
+  if (!enCurso) enCurso = copiar(opciones).finally(() => { enCurso = null; });
+  return enCurso;
+}
+
+async function copiar({ log = console, pausa = pausaPorDefecto, pausaMs = PAUSA_MS, soloNuevas = false } = {}) {
   const hecho = { jornadas: [], actas: 0 };
   const plantilla = await plantillaLiga();
   if (!plantilla) return hecho;
@@ -184,17 +226,7 @@ async function actualizar({ log = console, pausa = pausaPorDefecto, pausaMs = PA
   };
 
   try {
-    // Jornadas ya jugadas: las que tienen la clasificación guardada.
-    const jugadas = [...new Set((await Clasificacion.findAll({
-      where: { id_plantilla: idPlantilla }, attributes: ['jornada'], raw: true
-    }) || []).map((c) => Number(c.jornada)))].sort((a, b) => a - b);
-    // Jornadas ya copiadas: algún partido con los códigos de equipo de RFAF
-    // (el que crea "Finalizar Acta" no los lleva).
-    const copiadas = new Set((await LigaPartido.findAll({
-      where: { id_plantilla: idPlantilla, codigo_equipo_local: { [Op.ne]: null } }, attributes: ['jornada'], raw: true
-    }) || []).map((p) => Number(p.jornada)));
-
-    for (const jornada of jugadas.filter((j) => !copiadas.has(j)).slice(0, MAX_JORNADAS_POR_DIA)) {
+    for (const jornada of (await jornadasPorCopiar(idPlantilla)).slice(0, MAX_JORNADAS_POR_DIA)) {
       await esperarTurno();
       const datos = await rfafActa.leerJornada(competicion, jornada);
       if (datos.jornada != null && Number(datos.jornada) !== jornada) {
@@ -208,10 +240,7 @@ async function actualizar({ log = console, pausa = pausaPorDefecto, pausaMs = PA
       log.log(`⚽ Liga ${CATEGORIA_LIGA}: jornada ${jornada} copiada (${filas.length} partidos).`);
     }
 
-    const pendientes = (await LigaPartido.findAll({
-      where: { id_plantilla: idPlantilla, acta_at: null, intentos: { [Op.lt]: MAX_INTENTOS } },
-      order: [['jornada', 'ASC'], ['id', 'ASC']]
-    }) || []).filter((p) => !esPalma(p.equipo_local) && !esPalma(p.equipo_visitante)).slice(0, MAX_ACTAS_POR_DIA);
+    const pendientes = (await actasPorCopiar(idPlantilla, { soloNuevas })).slice(0, MAX_ACTAS_POR_DIA);
 
     for (const p of pendientes) {
       await esperarTurno();
@@ -240,11 +269,12 @@ async function actualizar({ log = console, pausa = pausaPorDefecto, pausaMs = PA
     if (hecho.actas) log.log(`⚽ Liga ${CATEGORIA_LIGA}: ${hecho.actas} actas guardadas.`);
   } catch (err) {
     log.warn(`⚠️  Liga ${CATEGORIA_LIGA}: ${err.message} (se sigue mañana).`);
+    hecho.error = err.message;
   }
   return hecho;
 }
 
 module.exports = {
-  guardarActa, guardarActaDelPalma, actualizar, plantillaLiga,
+  guardarActa, guardarActaDelPalma, actualizar, hayPendientes, plantillaLiga,
   CATEGORIA_LIGA, MAX_JORNADAS_POR_DIA, MAX_ACTAS_POR_DIA, MAX_INTENTOS
 };

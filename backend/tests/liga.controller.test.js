@@ -172,4 +172,57 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
       expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('sesión'));
     });
   });
+
+  describe('recuperación cada 30 minutos', () => {
+    const log = { log: vi.fn(), warn: vi.fn() };
+    const req = createRequire(import.meta.url);
+    const ligaCjs = req('../src/controllers/liga.controller.js');
+    const recuperacion = req('../src/utils/ligaRecuperacion.js');
+    let leerActa;
+    beforeEach(() => {
+      log.log.mockReset();
+      log.warn.mockReset();
+      Plantilla.findOne.mockResolvedValue(SENIOR_A);
+      leerActa = vi.spyOn(rfafActa, 'leerActa');
+      leerActa.mockReset();
+    });
+    afterEach(() => { leerActa.mockRestore(); vi.restoreAllMocks(); });
+
+    it('soloNuevas: solo pide las actas que nunca se han pedido', async () => {
+      Clasificacion.findAll.mockResolvedValue([]);
+      LigaPartido.findAll.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      await liga.actualizar({ log, pausa: async () => {}, soloNuevas: true });
+      expect(LigaPartido.findAll.mock.calls[1][0].where.intentos).toBe(0);
+    });
+
+    it('hayPendientes: true si queda una jornada jugada sin copiar o un acta nueva', async () => {
+      Clasificacion.findAll.mockResolvedValue([{ jornada: 1 }, { jornada: 2 }]);
+      LigaPartido.findAll.mockResolvedValueOnce([{ jornada: 1 }, { jornada: 2 }]).mockResolvedValueOnce([]);
+      expect(await liga.hayPendientes()).toBe(false);
+      LigaPartido.findAll.mockResolvedValueOnce([{ jornada: 1 }]);
+      expect(await liga.hayPendientes()).toBe(true);
+      LigaPartido.findAll.mockResolvedValueOnce([{ jornada: 1 }, { jornada: 2 }])
+        .mockResolvedValueOnce([{ id: 1, equipo_local: 'UNO', equipo_visitante: 'DOS' }]);
+      expect(await liga.hayPendientes()).toBe(true);
+      // La del PALMA no cuenta (la guarda Finalizar Acta).
+      LigaPartido.findAll.mockResolvedValueOnce([{ jornada: 1 }, { jornada: 2 }])
+        .mockResolvedValueOnce([{ id: 2, equipo_local: PALMA, equipo_visitante: 'DOS' }]);
+      expect(await liga.hayPendientes()).toBe(false);
+    });
+
+    it('al ponerse al día no copia nada más', async () => {
+      vi.spyOn(ligaCjs, 'hayPendientes').mockResolvedValue(false);
+      const actualizar = vi.spyOn(ligaCjs, 'actualizar');
+      await recuperacion.siguiente(log);
+      expect(actualizar).not.toHaveBeenCalled();
+      expect(log.log).toHaveBeenCalledWith(expect.stringContaining('al día'));
+    });
+
+    it('si quedan, copia solo las nuevas; si RFAF falla, se para', async () => {
+      vi.spyOn(ligaCjs, 'hayPendientes').mockResolvedValue(true);
+      const actualizar = vi.spyOn(ligaCjs, 'actualizar').mockResolvedValue({ jornadas: [], actas: 0, error: 'sesión caducada' });
+      await recuperacion.siguiente(log);
+      expect(actualizar).toHaveBeenCalledWith(expect.objectContaining({ soloNuevas: true }));
+    });
+  });
 });

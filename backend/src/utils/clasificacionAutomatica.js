@@ -28,6 +28,8 @@ function actualizar() {
     enCurso = actualizarTodas()
       .catch((err) => console.warn('⚠️  Clasificación automática:', err.message))
       .then(() => require('../controllers/liga.controller').actualizar())
+      // Si quedan jornadas o actas por copiar, se sigue cada 30 minutos.
+      .then((r) => { if (!r?.error) require('./ligaRecuperacion').programar(); })
       .catch((err) => console.warn('⚠️  Liga automática:', err.message))
       .finally(() => { enCurso = null; });
   }
