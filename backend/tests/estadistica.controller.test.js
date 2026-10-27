@@ -585,7 +585,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       expect(res._status).toBe(400);
     });
 
-    it('agrupa por rival (una fila por equipo) solo los partidos de liga finalizados', async () => {
+    it('lista a todos los rivales del calendario de liga, pero solo cuenta los partidos finalizados', async () => {
       Partido.findAll.mockResolvedValue([
         partido(1, 73, 40),
         partido(2, 40, 73),
@@ -597,9 +597,12 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       const { promesa, res } = llamarRivales({ query: { id_plantilla: '5' } });
       await promesa;
       const { equipos, partidos_sin_rival } = res._json;
-      expect(equipos.map((e) => e.equipo).sort()).toEqual(['Equipo 40', 'Equipo 55']);
+      // Los amistosos (sin jornada) no; los aún no jugados o suspendidos, sí (a 0).
+      expect(equipos.map((e) => e.equipo).sort()).toEqual(['Equipo 40', 'Equipo 55', 'Equipo 60', 'Equipo 61']);
       const e40 = equipos.find((e) => e.id_equipo === 40);
       expect(e40).toMatchObject({ partidos: 2, partidos_local: 1, partidos_visitante: 1 });
+      expect(equipos.find((e) => e.id_equipo === 60)).toMatchObject({ partidos: 0, goles: 0, tarjetas_amarillas: 0 });
+      expect(equipos.find((e) => e.id_equipo === 61).partidos).toBe(0);
       expect(partidos_sin_rival).toBe(1);
     });
 

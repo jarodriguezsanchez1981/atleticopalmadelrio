@@ -56,8 +56,8 @@ const LADOS_TABLA = [
   { clave: 'visitante', titulo: 'Visitante', sufijo: '_visitante' }
 ];
 // Una tabla de goles y otra de tarjetas, cada una en Total / Local / Visitante.
-// Salen todos los rivales contra los que se ha jugado en ese lado, aunque no
-// tengan goles o tarjetas.
+// Salen todos los rivales del calendario de liga en todas las tablas, también
+// los que aún no se han jugado (a 0).
 const BLOQUES = [
   {
     clave: 'goles',
@@ -74,7 +74,6 @@ const BLOQUES = [
     sortField: 'tarjetas_amarillas'
   }
 ];
-const filasDelLado = (sufijo) => equipos.value.filter((e) => e[`partidos${sufijo}`] > 0);
 
 // Exportar a Excel: cada tabla en su hoja.
 const toast = useToast();
@@ -89,7 +88,7 @@ async function exportarExcel() {
         hojas.push({
           nombre,
           titulo: `Estadísticas Rivales · ${titulo.value} · ${nombre}`,
-          ...construirHojaEstadistica({ metricas: b.metricas, filas: filasDelLado(lado.sufijo), soloGrupo: lado.clave,
+          ...construirHojaEstadistica({ metricas: b.metricas, filas: equipos.value, soloGrupo: lado.clave,
             sortField: b.sortField, columnaNombre: COLUMNA_EQUIPO })
         });
       }
@@ -120,7 +119,8 @@ onBeforeUnmount(() => {
         <p class="text-sm text-ink-tertiary">
           Goles y tarjetas de cada equipo contrario en los partidos de liga de <strong>{{ titulo }}</strong>, según las
           actas de RFAF (se rellenan al pulsar "Finalizar Acta" en cada partido). Local / Visitante: con el PALMA en
-          casa / fuera. Se puede mover una columna arrastrando su título.
+          casa / fuera. Salen todos los rivales del calendario de liga; los que aún no se han jugado, a 0. Se puede
+          mover una columna arrastrando su título.
         </p>
       </div>
       <Button v-if="plantilla && !error" label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined
@@ -148,7 +148,7 @@ onBeforeUnmount(() => {
         <p class="text-sm text-ink-tertiary">{{ b.descripcion }}</p>
         <div v-for="lado in LADOS_TABLA" :key="`${b.clave}-${lado.clave}`" class="flex flex-col gap-2">
           <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
-          <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="b.metricas" :soloGrupo="lado.clave"
+          <TablaEstadistica :filas="equipos" :metricas="b.metricas" :soloGrupo="lado.clave"
                             :sortField="b.sortField" :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo"
                             textoVacio="Todavía no hay partidos finalizados." />
         </div>

@@ -452,7 +452,9 @@ const CONTADORES_RIVAL = [
  * y Sanciones de los jugadores: goles por tramo, de titular / suplente y % de
  * partidos con gol (sin las propias puertas del PALMA); tarjetas siendo titular
  * o suplente, por parte y según el marcador del rival en ese momento. En total
- * y como local / visitante del PALMA. `partidos_sin_rival`: partidos
+ * y como local / visitante del PALMA. Salen todos los rivales del calendario
+ * de liga de la plantilla, también los que aún no se han jugado (a 0).
+ * `partidos_sin_rival`: partidos
  * finalizados antes de guardar los datos del rival (hay que volver a pulsar
  * "Finalizar Acta"); en ellos solo cuentan los goles y sus tramos. */
 async function rivales(req, res, next) {
@@ -465,6 +467,8 @@ async function rivales(req, res, next) {
     });
     const durGoles = duracionJuego(plantilla?.categoria?.id_tipofutbol);
 
+    // Todo el calendario de liga del PALMA (para listar a todos los rivales);
+    // solo cuentan los partidos con el acta finalizada y no suspendidos.
     const partidos = (await Partido.findAll({
       where: { id_plantilla: idPlantilla },
       attributes: ['id', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'acta_finalizada_at', 'acta_rival', 'suspendido'],
@@ -472,7 +476,7 @@ async function rivales(req, res, next) {
         { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
         { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
       ]
-    }) || []).filter((p) => Number(p.jornada) > 0 && p.acta_finalizada_at != null && !p.suspendido
+    }) || []).filter((p) => Number(p.jornada) > 0
       && (Number(p.id_equipo_local) === PALMA_ID || Number(p.id_equipo_visitante) === PALMA_ID));
 
     const porEquipo = new Map();
@@ -496,6 +500,7 @@ async function rivales(req, res, next) {
         }
         porEquipo.set(idEquipo, fila);
       }
+      if (p.acta_finalizada_at == null || p.suspendido) continue;
       sumar(fila, 'partidos', 1, lado);
       if (!p.acta_rival) partidosSinRival += 1;
       enPartido.set(p.id, { fila, lado, golesEnPartido: 0 });
