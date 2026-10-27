@@ -15,26 +15,31 @@ export const AVISO_LEGAL_POR_DEFECTO =
   `${NOMBRE_CLUB} para gestionar esta comunicación; puede ejercer sus derechos de acceso, rectificación, ` +
   'supresión y demás reconocidos por el RGPD respondiendo a este correo.';
 
-/** Redes sociales que puede mostrar la firma. `base` se antepone cuando el
- * usuario escribe solo el nombre de usuario en vez del enlace completo. */
+/** Redes sociales que puede mostrar la firma. `base` se antepone al nombre de
+ * usuario; `conArroba`: el enlace lleva la @ (los canales de YouTube). */
 export const REDES = [
   { clave: 'facebook', etiqueta: 'Facebook', base: 'https://facebook.com/' },
   { clave: 'instagram', etiqueta: 'Instagram', base: 'https://instagram.com/' },
   { clave: 'twitter', etiqueta: 'Twitter', base: 'https://twitter.com/' },
-  { clave: 'youtube', etiqueta: 'YouTube', base: 'https://youtube.com/' }
+  { clave: 'youtube', etiqueta: 'YouTube', base: 'https://youtube.com/', conArroba: true }
 ];
+
+/** Web y redes del club: iguales en todas las firmas, se añaden siempre y no
+ * salen en el formulario. */
+export const VALORES_FIJOS = {
+  web: 'www.atleticopalmadelrio.com',
+  facebook: 'atleticopalmadelriocf',
+  instagram: 'atlpalmadelrio',
+  twitter: 'AtcoPalmadelRio',
+  youtube: '@atleticopalmadelrio'
+};
 
 export const DATOS_POR_DEFECTO = {
   nombre: '',
   cargo: '',
   telefono: '',
   email: '',
-  web: '',
   direccion: 'Palma del Río (Córdoba)',
-  facebook: '',
-  instagram: '',
-  twitter: '',
-  youtube: '',
   colorPrincipal: '#0F3D22',
   colorSecundario: '#7A1E2B',
   mostrarEscudo: true,
@@ -65,12 +70,15 @@ function urlWeb(web) {
 function urlRed(red, valor) {
   const limpio = String(valor || '').trim();
   if (!limpio) return '';
-  return /^https?:\/\//i.test(limpio) ? limpio : red.base + limpio.replace(/^@/, '');
+  if (/^https?:\/\//i.test(limpio)) return limpio;
+  const usuario = limpio.replace(/^@/, '');
+  return red.base + (red.conArroba ? `@${usuario}` : usuario);
 }
 
-/** HTML de la firma a partir de los datos del formulario. */
+/** HTML de la firma a partir de los datos del formulario (con la web y las
+ * redes del club, VALORES_FIJOS, aunque los datos traigan otras). */
 export function generarFirmaHtml(datos = {}) {
-  const d = { ...DATOS_POR_DEFECTO, ...datos };
+  const d = { ...DATOS_POR_DEFECTO, ...datos, ...VALORES_FIJOS };
   const c1 = color(d.colorPrincipal, DATOS_POR_DEFECTO.colorPrincipal);
   const c2 = color(d.colorSecundario, DATOS_POR_DEFECTO.colorSecundario);
   const linea = (contenido) => `<div style="margin:0;padding:0;">${contenido}</div>`;

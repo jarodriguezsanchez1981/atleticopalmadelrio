@@ -3,14 +3,14 @@ import { generarFirmaHtml, URL_ESCUDO, NOMBRE_CLUB } from '../utils/firmaEmail.j
 
 describe('firmaEmail · generarFirmaHtml', () => {
   it('incluye los datos, el club y el escudo por URL pública', () => {
-    const html = generarFirmaHtml({ nombre: 'Ana López', cargo: 'Coordinadora', telefono: '600 11 22 33', email: 'ana@club.es', web: 'www.club.es' });
+    const html = generarFirmaHtml({ nombre: 'Ana López', cargo: 'Coordinadora', telefono: '600 11 22 33', email: 'ana@club.es' });
     expect(html).toContain('Ana López');
     expect(html).toContain('Coordinadora');
     expect(html).toContain(NOMBRE_CLUB);
     expect(html).toContain(`src="${URL_ESCUDO}"`);
     expect(html).toContain('href="tel:600112233"');
     expect(html).toContain('href="mailto:ana@club.es"');
-    expect(html).toContain('href="https://www.club.es"');
+    expect(html).toContain('href="https://www.atleticopalmadelrio.com"');
   });
 
   it('escapa el texto escrito para que no se pueda inyectar HTML', () => {
@@ -28,25 +28,21 @@ describe('firmaEmail · generarFirmaHtml', () => {
 
   it('sin escudo ni aviso legal no los incluye', () => {
     const html = generarFirmaHtml({ nombre: 'A', mostrarEscudo: false, mostrarAviso: false });
-    expect(html).not.toContain('<img');
+    // Los iconos de las redes son imágenes; el escudo no debe salir.
+    expect(html).not.toContain(URL_ESCUDO);
     expect(html).not.toContain('RGPD');
   });
 
-  it('muestra el icono y el enlace solo de las redes rellenadas', () => {
-    const html = generarFirmaHtml({ nombre: 'A', instagram: '@palma', twitter: 'https://x.com/palma' });
-    // Instagram por nombre de usuario (sin la @) y Twitter por enlace completo.
-    expect(html).toContain('href="https://instagram.com/palma"');
-    expect(html).toContain('redes/instagram.png');
-    expect(html).toContain('alt="Instagram"');
-    expect(html).toContain('href="https://x.com/palma"');
-    expect(html).toContain('redes/twitter.png');
-    // Las no rellenadas no aparecen.
-    expect(html).not.toContain('redes/facebook.png');
-    expect(html).not.toContain('redes/youtube.png');
-  });
-
-  it('sin ninguna red social no añade la línea de iconos', () => {
-    const html = generarFirmaHtml({ nombre: 'A' });
-    expect(html).not.toContain('redes/');
+  it('añade siempre la web y las redes del club, aunque los datos traigan otras', () => {
+    const html = generarFirmaHtml({ nombre: 'A', web: 'www.otra.es', instagram: '@otra', facebook: '' });
+    expect(html).toContain('href="https://www.atleticopalmadelrio.com"');
+    expect(html).toContain('>www.atleticopalmadelrio.com<');
+    expect(html).not.toContain('otra');
+    expect(html).toContain('href="https://facebook.com/atleticopalmadelriocf"');
+    expect(html).toContain('href="https://instagram.com/atlpalmadelrio"');
+    expect(html).toContain('href="https://twitter.com/AtcoPalmadelRio"');
+    // Los canales de YouTube llevan la @ en el enlace.
+    expect(html).toContain('href="https://youtube.com/@atleticopalmadelrio"');
+    for (const red of ['facebook', 'instagram', 'twitter', 'youtube']) expect(html).toContain(`redes/${red}.png`);
   });
 });

@@ -23,7 +23,9 @@ function leerBorrador() {
 }
 
 const borrador = leerBorrador();
+// La web y las redes son fijas (VALORES_FIJOS): no se guardan en el borrador.
 const datos = reactive({ ...DATOS_POR_DEFECTO, ...(borrador?.datos || {}) });
+for (const campo of ['web', 'facebook', 'instagram', 'twitter', 'youtube']) delete datos[campo];
 // Sin retoques a mano, se regenera con la plantilla actual (así una mejora de
 // la plantilla llega también a quien ya tenía un borrador guardado).
 const html = ref(borrador?.editadoAMano && borrador.html ? borrador.html : generarFirmaHtml(datos));
@@ -58,7 +60,7 @@ function restablecer() {
 
 // Campos de texto de los datos personales; "Limpiar" los vacía sin tocar los
 // colores, las casillas ni el texto del aviso legal.
-const CAMPOS_DATOS = ['nombre', 'cargo', 'telefono', 'email', 'web', 'direccion', 'facebook', 'instagram', 'twitter', 'youtube'];
+const CAMPOS_DATOS = ['nombre', 'cargo', 'telefono', 'email', 'direccion'];
 
 function limpiar() {
   for (const campo of CAMPOS_DATOS) datos[campo] = '';
@@ -110,7 +112,8 @@ function descargarHtml() {
     <div>
       <h1 class="font-display text-xl text-club-green">Firma Email</h1>
       <p class="text-sm text-ink-tertiary">
-        Rellena tus datos y copia la firma para pegarla en Gmail, Outlook u otro correo. También puedes retocar el HTML.
+        Rellena tus datos y copia la firma para pegarla en Gmail, Outlook u otro correo. La web y las redes sociales del
+        club se añaden solas. También puedes retocar el HTML.
       </p>
     </div>
 
@@ -135,29 +138,9 @@ function descargarHtml() {
             <label class="text-xs font-medium text-ink-secondary" for="firma-email">Email</label>
             <InputText id="firma-email" v-model="datos.email" placeholder="nombre@atleticopalmadelrio.com" />
           </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-web">Web</label>
-            <InputText id="firma-web" v-model="datos.web" placeholder="www.atleticopalmadelrio.com" />
-          </div>
-          <div class="flex flex-col gap-1">
+          <div class="flex flex-col gap-1 sm:col-span-2">
             <label class="text-xs font-medium text-ink-secondary" for="firma-direccion">Dirección</label>
             <InputText id="firma-direccion" v-model="datos.direccion" />
-          </div>
-          <div class="flex flex-col gap-1 sm:col-span-2">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-facebook">Facebook</label>
-            <InputText id="firma-facebook" v-model="datos.facebook" placeholder="atleticopalmadelrio o enlace completo" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-instagram">Instagram</label>
-            <InputText id="firma-instagram" v-model="datos.instagram" placeholder="@atleticopalmadelrio" />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-twitter">Twitter / X</label>
-            <InputText id="firma-twitter" v-model="datos.twitter" placeholder="@atleticopalmario" />
-          </div>
-          <div class="flex flex-col gap-1 sm:col-span-2">
-            <label class="text-xs font-medium text-ink-secondary" for="firma-youtube">YouTube</label>
-            <InputText id="firma-youtube" v-model="datos.youtube" placeholder="@canal o enlace completo" />
           </div>
           <div class="flex flex-col gap-1">
             <label class="text-xs font-medium text-ink-secondary" for="firma-color1">Color principal</label>
