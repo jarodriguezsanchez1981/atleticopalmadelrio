@@ -17,7 +17,8 @@ const { esPalma } = require('./clasificacion.controller');
  * - el partido del PALMA no se pide: lo guarda "Finalizar Acta" con el acta
  *   que ya ha leído;
  * - una pausa entre peticiones y un máximo por ejecución; al primer error se
- *   para hasta el día siguiente (sin reintentos).
+ *   para (se reintenta a los 30 minutos, salvo sesión caducada; ver
+ *   utils/ligaRecuperacion.js).
  * Mientras queden jornadas o actas por copiar (p. ej. al empezar con la
  * temporada ya empezada) se repite cada 30 minutos hasta ponerse al día
  * (utils/ligaRecuperacion.js); después, solo la copia diaria.

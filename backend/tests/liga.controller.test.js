@@ -218,6 +218,22 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
       expect(log.log).toHaveBeenCalledWith(expect.stringContaining('al día'));
     });
 
+    it('tras un fallo: reintenta salvo sesión caducada, y como mucho 3 seguidos', () => {
+      const prev = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      const timeout = vi.spyOn(global, 'setTimeout').mockImplementation(() => ({ unref() {} }));
+      try {
+        expect(recuperacion.trasCopia({ error: 'RFAF ha devuelto la jornada vacía: la sesión de RFAF no es válida' }, log)).toBe(false);
+        expect(recuperacion.trasCopia({ error: 'timeout' }, log)).toBe(true);
+        // Ya hay una programada: no se duplica.
+        expect(recuperacion.trasCopia({ error: 'timeout' }, log)).toBe(false);
+        expect(timeout).toHaveBeenCalledTimes(1);
+      } finally {
+        timeout.mockRestore();
+        process.env.NODE_ENV = prev;
+      }
+    });
+
     it('si quedan, copia solo las nuevas; si RFAF falla, se para', async () => {
       vi.spyOn(ligaCjs, 'hayPendientes').mockResolvedValue(true);
       const actualizar = vi.spyOn(ligaCjs, 'actualizar').mockResolvedValue({ jornadas: [], actas: 0, error: 'sesión caducada' });
