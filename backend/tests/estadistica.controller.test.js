@@ -611,6 +611,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
 
     it('cuenta goles por tramo y titular / suplente (sin propia puerta), tarjetas y jugadores', async () => {
       LigaPartido.findAll.mockResolvedValue([partido(1, 'UNO C.F.', 'DOS C.F.', {
+        goles_local: 3,
+        goles_visitante: 1,
         goles: [
           { lado: 'local', minuto: 10, tipo: 'normal', titular: true },
           { lado: 'local', minuto: 80, tipo: 'penalti', titular: false },
@@ -633,6 +635,9 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       await promesa;
       const uno = res._json.equipos.find((e) => e.equipo === 'UNO C.F.');
       const dos = res._json.equipos.find((e) => e.equipo === 'DOS C.F.');
+      // GF / GC del resultado (con la propia puerta); G / E / P desde cada equipo.
+      expect(uno).toMatchObject({ victorias: 1, victorias_local: 1, empates: 0, derrotas: 0, goles_favor: 3, goles_contra: 1, goles_favor_local: 3 });
+      expect(dos).toMatchObject({ victorias: 0, derrotas: 1, derrotas_visitante: 1, goles_favor: 1, goles_contra: 3, goles_contra_visitante: 3 });
       expect(uno).toMatchObject({
         goles: 2, goles_local: 2, goles_titular: 1, goles_banquillo: 1, goles_1t1: 1, goles_2t3: 1,
         partidos_con_gol: 1, porcentaje_goles_partido: 100, tarjetas_amarillas: 1, amarillas_suplente: 1, amarillas_ganando: 1

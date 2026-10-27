@@ -12,7 +12,7 @@ import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
-import { METRICAS_GOLES, METRICAS_SANCIONES } from '../../utils/estadisticasMetricas';
+import { METRICAS_GOLES_RIVALES, METRICAS_SANCIONES } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, construirHojaSimple, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 
 /** Estadísticas Senior A → Rivales: goles, tarjetas y jugadores de cada equipo
@@ -78,8 +78,8 @@ const BLOQUES = [
   {
     clave: 'goles',
     titulo: 'Goles',
-    descripcion: 'Goles de cada rival en todos sus partidos de liga por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de sus goles marcados en casa / fuera. "% por partido": partidos en los que marca algún gol. Los goles en propia puerta no cuentan.',
-    metricas: METRICAS_GOLES,
+    descripcion: 'Goles de cada rival en todos sus partidos de liga por tramos de 15 minutos dentro de cada parte (el tiempo añadido se suma al último tramo de su parte) y según los marcara un titular o un suplente. En Local / Visitante, "% de sus goles" es la parte de sus goles marcados en casa / fuera. "% por partido": partidos en los que marca algún gol. Los goles en propia puerta no cuentan en Goles, pero sí en GF / GC, que salen del resultado. PG / PE / PP: partidos ganados, empatados y perdidos.',
+    metricas: METRICAS_GOLES_RIVALES,
     sortField: 'goles'
   },
   {

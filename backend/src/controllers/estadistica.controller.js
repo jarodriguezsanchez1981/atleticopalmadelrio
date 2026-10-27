@@ -444,7 +444,7 @@ async function golesContra(req, res, next) {
 // tablas Goles y Sanciones de los jugadores, en total y según el equipo jugara
 // en casa o fuera.
 const CONTADORES_RIVAL = [
-  'partidos', 'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', ...CAMPOS_GOLES_TRAMO,
+  'partidos', 'victorias', 'empates', 'derrotas', 'goles_favor', 'goles_contra', 'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', ...CAMPOS_GOLES_TRAMO,
   'tarjetas_amarillas', 'tarjetas_rojas', 'dobles_amarillas', ...CAMPOS_TARJETAS
 ];
 const CONTADORES_JUGADOR_RIVAL = ['convocatorias', 'partidos', 'titular', 'minutos', 'goles', 'tarjetas_amarillas', 'tarjetas_rojas'];
@@ -515,6 +515,18 @@ async function rivales(req, res, next) {
       jornadas.add(Number(p.jornada));
       const golesEn = { local: 0, visitante: 0 };
       for (const lado of LADOS) if (filas[lado]) sumar(filas[lado], 'partidos', 1, lado);
+      // Resultado del acta: ganados / empatados / perdidos y goles a favor y en
+      // contra (estos, con las propias puertas, como en la clasificación).
+      if (p.goles_local != null && p.goles_visitante != null) {
+        for (const lado of LADOS) {
+          if (!filas[lado]) continue;
+          const favor = Number(lado === 'local' ? p.goles_local : p.goles_visitante);
+          const contra = Number(lado === 'local' ? p.goles_visitante : p.goles_local);
+          sumar(filas[lado], favor > contra ? 'victorias' : favor < contra ? 'derrotas' : 'empates', 1, lado);
+          sumar(filas[lado], 'goles_favor', favor, lado);
+          sumar(filas[lado], 'goles_contra', contra, lado);
+        }
+      }
 
       for (const g of p.goles || []) {
         const fila = filas[g.lado];
