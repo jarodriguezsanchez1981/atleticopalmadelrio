@@ -21,6 +21,8 @@ import { suscribirseCambio, emitirCambio } from '../../utils/cambioBus';
 import CalendarioLista from '../../components/CalendarioLista.vue';
 import { useMediaQuery } from '../../composables/useMediaQuery';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
+import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
+import '../../assets/calendario.css';
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -124,15 +126,22 @@ async function fetchTorneos(fetchInfo, successCallback, failureCallback) {
       ev.extendedProps = { ...ev.extendedProps, esPrimeroGrupo };
       return ev;
     });
-    successCallback(eventos);
-    eventosLista.value = items.map(t => ({
-      id: t.id,
-      tipo: 'torneo',
-      titulo: t.nombre || t.equipo?.nombre || '',
-      inicio: formatoHora(t.fecha, t.hora),
-      lugar: t.lugar || null,
-      categoria: t.plantilla?.categoria || null
+    // Festivos nacionales, como en Calendario.
+    const festivos = eventosFestivosFullCalendar(fetchInfo.startStr, fetchInfo.endStr).map(f => ({
+      id: f.id,
+      title: f.title,
+      start: f.start,
+      allDay: true,
+      display: 'auto',
+      backgroundColor: '#FDE68A',
+      borderColor: '#D97706',
+      textColor: '#78350F',
+      classNames: ['fc-festivo-nacional'],
+      editable: false,
+      extendedProps: { ...f.extendedProps, tipo: 'festivo' }
     }));
+    successCallback([...eventos, ...festivos]);
+    eventosLista.value = itemsLista(items, fetchInfo.startStr, fetchInfo.endStr);
   } catch (err) {
     failureCallback(err);
   }
@@ -153,26 +162,53 @@ async function fetchTorneosMobile() {
     const desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const hasta = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
     const items = await torneosService.eventos({ desde, hasta });
-    eventosLista.value = items.map(t => ({
-      id: t.id,
-      tipo: 'torneo',
-      titulo: t.nombre || t.equipo?.nombre || '',
-      inicio: formatoHora(t.fecha, t.hora),
-      lugar: t.lugar || null,
-      categoria: t.plantilla?.categoria || null
-    }));
+    eventosLista.value = itemsLista(items, desde, hasta);
   } catch {}
+}
+
+/** Vista de lista (móvil): los torneos (con sus datos, para el detalle) y
+ * los festivos nacionales, como en Calendario. */
+function itemsLista(items, desde, hasta) {
+  return items.map(t => ({
+    ...t,
+    tipo: 'torneo',
+    titulo: t.nombre || t.equipo?.nombre || '',
+    inicio: formatoHora(t.fecha, t.hora),
+    lugar: t.lugar || null,
+    categoria: t.plantilla?.categoria || null
+  })).concat(eventosFestivosFullCalendar(desde, hasta).map(f => ({
+    id: f.id,
+    tipo: 'festivo',
+    titulo: f.title.replace('🎉 ', ''),
+    inicio: f.start,
+    lugar: null,
+    categoria: null
+  })));
 }
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/** Contenido de cada evento, igual que los torneos en Calendario: hora, casa
+ * (el torneo lo organiza el PALMA) o fuera, categoría y lugar / localidad. */
 function contenidoTorneo(arg) {
   const t = arg.event?.extendedProps;
+  if (t?.tipo === 'festivo') {
+    return {
+      html: `<div class="fc-evento-contenido"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${esc(arg.event?.title || '')}</span></div>`
+    };
+  }
   const d = arg.event?.start;
   const hora = d ? esc(d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })) : '';
   const cat = esc(t?.plantilla?.categoria?.alias || t?.plantilla?.categoria?.nombre || 'Torneo');
+  const esLocal = t?.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
+  const icono = esLocal
+    ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
+    : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+  const lugar = esLocal
+    ? (typeof t?.lugar === 'string' ? t.lugar : (t?.lugar?.nombre || ''))
+    : (t?.equipo?.localidad || '');
   const cab = t?.esPrimeroGrupo
     ? `<div class="fc-grupo-cabecera" style="background:#6D28D9;color:#fff;font-size:9px;font-weight:700;padding:1px 4px;margin:0 0 5px;border-radius:3px;letter-spacing:0.3px;display:flex;align-items:center;gap:3px;line-height:1.2;width:100%;"><i class="pi pi-trophy" style="font-size:9px"></i>TORNEO</div>`
     : '';
@@ -180,7 +216,9 @@ function contenidoTorneo(arg) {
     html: `<div class="fc-evento-contenido">` +
       cab +
       (hora ? `<span class="fc-partido-hora">${hora}</span>` : '') +
+      icono +
       `<span class="fc-partido-alias">${cat}</span>` +
+      (lugar ? `<span class="fc-partido-lugar">${esc(lugar)}</span>` : '') +
       `</div>`
   };
 }
@@ -273,6 +311,7 @@ function onDateClick(info) {
 
 function onEventClick(info) {
   const ext = info.event.extendedProps || {};
+  if (ext.tipo === 'festivo') return;
   if (ext.id != null) abrirDetalle(ext);
 }
 
@@ -331,6 +370,8 @@ const calendarOptions = {
     right: 'dayGridMonth,timeGridWeek,multiMonthYear'
   },
   buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', year: 'Año' },
+  slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+  eventDidMount: (info) => { if (info.event.extendedProps?.tipo !== 'festivo') info.el.classList.add('fc-grupo-torneo'); },
   events: fetchTorneos,
   eventContent: contenidoTorneo,
   eventClick: onEventClick,
@@ -346,24 +387,33 @@ const calendarOptions = {
 
 <template>
 <SectionGuard seccion="torneo">
-  <div class="space-y-6">
-    <div>
-      <h1 class="font-display text-xl text-club-green flex items-center gap-2 mb-3">
-        <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
-        Calendario de torneos
-      </h1>
-      <div class="bg-white rounded-xl p-4">
-        <FullCalendar v-if="!esMovil" ref="calendarRef" :options="calendarOptions" />
-        <CalendarioLista
-          v-else
-          :eventos="eventosLista"
-          @event-click="onEventClickMovil"
-          @date-click="onDateClickMovil"
-        />
-        <p v-if="auth.puedeVer('torneo') && auth.puedeEditar('torneo')" class="text-xs text-ink-tertiary mt-2">
-          Pincha en un día para añadir un torneo. Pincha en un evento para ver sus detalles, editarlo o eliminarlo.
+  <div>
+    <!-- Mismo aspecto que Calendario: cabecera, estilos (.calendario-club) y festivos. -->
+    <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+      <div>
+        <h1 class="font-display text-xl text-club-green flex items-center gap-2">
+          <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
+          Torneo
+        </h1>
+        <p class="text-sm text-ink-tertiary">
+          <template v-if="auth.puedeVer('torneo') && auth.puedeEditar('torneo')">
+            Pincha en un día para añadir un torneo. Pincha en un torneo para ver sus detalles, editarlo o eliminarlo.
+          </template>
+          <template v-else>Pincha en un torneo para ver sus detalles.</template>
         </p>
       </div>
+      <Button v-if="esMovil && auth.puedeVer('torneo') && auth.puedeEditar('torneo')" label="Nuevo" icon="pi pi-plus"
+              size="small" class="!bg-club-green !border-club-green hover:!bg-club-greenLight" @click="abrirNuevo()" />
+    </div>
+
+    <div class="bg-white rounded-xl p-4 calendario-club">
+      <FullCalendar v-if="!esMovil" ref="calendarRef" :options="calendarOptions" />
+      <CalendarioLista
+        v-else
+        :eventos="eventosLista"
+        @event-click="onEventClickMovil"
+        @date-click="onDateClickMovil"
+      />
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-lg">
