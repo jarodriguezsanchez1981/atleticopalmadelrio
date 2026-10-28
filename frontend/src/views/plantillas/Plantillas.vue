@@ -8,6 +8,9 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Checkbox from 'primevue/checkbox';
 import MultiSelect from 'primevue/multiselect';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
 import { useToast } from 'primevue/usetoast';
 import { plantillasService, categoriasService, temporadasService, divisionesService, coordinadoresService, jugadoresService, entrenadoresService, delegadosService, personalService, posicionesService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
@@ -104,6 +107,15 @@ async function crearPlantillaTemporada() {
 }
 
 /** Mientras haya una temporada marcada como actual, la tabla solo muestra sus plantillas. */
+// Pestañas Fútbol 7 / Fútbol 11: la tabla solo enseña las plantillas cuya
+// categoría es de ese tipo de fútbol (tipofutbol: 1 = Fútbol 7, 2 = Fútbol 11).
+const PESTANAS_TIPO_FUTBOL = [
+  { valor: 1, titulo: 'Fútbol 7' },
+  { valor: 2, titulo: 'Fútbol 11' }
+];
+const tipoFutbolPestana = ref(1);
+const filtroTipoFutbol = (p) => Number(p.categoria?.id_tipofutbol) === tipoFutbolPestana.value;
+
 const listParamsPlantillas = computed(() => {
   const actual = temporadas.value.find(t => t.actual);
   return actual ? { id_temporada: actual.id } : {};
@@ -494,8 +506,16 @@ function validarPlantilla(form) {
     formMaxWidth="max-w-4xl"
     :validateForm="validarPlantilla"
     :prepareEdit="prepareEdit"
+    :filtroItems="filtroTipoFutbol"
     @changed="onPlantillasChanged"
   >
+    <template #antesTabla>
+      <Tabs v-model:value="tipoFutbolPestana" class="mt-2">
+        <TabList>
+          <Tab v-for="t in PESTANAS_TIPO_FUTBOL" :key="t.valor" :value="t.valor">{{ t.titulo }}</Tab>
+        </TabList>
+      </Tabs>
+    </template>
     <template #acciones>
       <Button label="Crear plantilla temporada" icon="pi pi-sparkles" outlined
               class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"

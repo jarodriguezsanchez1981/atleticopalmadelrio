@@ -49,7 +49,10 @@ const props = defineProps({
   sortOrder: { type: Number, default: 1 },
   // Solo la cabecera (título, nº de registros y Nuevo): sin la tabla (ni las
   // tarjetas en móvil) ni el buscador.
-  ocultarTabla: { type: Boolean, default: false }
+  ocultarTabla: { type: Boolean, default: false },
+  // Filtro de las filas que se muestran (p. ej. la pestaña elegida): función
+  // (item) => true si sale. El nº de registros es el de las que salen.
+  filtroItems: { type: Function, default: null }
 });
 
 const emit = defineEmits(['changed', 'data-loaded', 'delete-error']);
@@ -59,6 +62,7 @@ const permisoEditar = computed(() => props.canEdit && auth.puedeEditar(props.sec
 const permisoEliminar = computed(() => props.canDelete && auth.puedeEliminar(props.seccion));
 
 const items = ref([]);
+const itemsVisibles = computed(() => (props.filtroItems ? items.value.filter(props.filtroItems) : items.value));
 const seleccionados = ref([]);
 const cargando = ref(false);
 const filtroGlobal = ref('');
@@ -641,7 +645,7 @@ watch(
           </h1>
           <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-club-green/10 text-club-green text-xs font-semibold">
             <i class="pi pi-database text-[11px]"></i>
-            {{ items.length }} {{ items.length === 1 ? 'registro' : 'registros' }}
+            {{ itemsVisibles.length }} {{ itemsVisibles.length === 1 ? 'registro' : 'registros' }}
           </span>
         </div>
 
@@ -665,11 +669,13 @@ watch(
         </div>
       </div>
       <div class="mt-3 h-px bg-fill-hover"></div>
+      <!-- Entre la cabecera y la tabla (p. ej. pestañas que filtran con filtroItems). -->
+      <slot name="antesTabla" />
     </div>
 
     <DataTable
       v-if="!esMovil && !ocultarTabla"
-      :value="items"
+      :value="itemsVisibles"
       v-model:selection="seleccionados"
       :dataKey="'id'"
       :sortField="sortField || undefined"
@@ -722,11 +728,11 @@ watch(
 
     <!-- Vista tarjetas móvil -->
     <div v-if="esMovil && !ocultarTabla" class="space-y-3">
-      <div v-if="!items.length && !cargando" class="text-center text-ink-tertiary py-8">
+      <div v-if="!itemsVisibles.length && !cargando" class="text-center text-ink-tertiary py-8">
         <i class="pi pi-inbox text-2xl block mb-2"></i>
         No hay registros todavía.
       </div>
-      <div v-for="item in items" :key="item.id" class="bg-white rounded-xl border border-line p-3">
+      <div v-for="item in itemsVisibles" :key="item.id" class="bg-white rounded-xl border border-line p-3">
         <div class="flex items-start justify-between gap-2 mb-2">
           <div class="flex-1 min-w-0">
             <div v-for="col in columnasVisibles" :key="col.field" class="mb-1">

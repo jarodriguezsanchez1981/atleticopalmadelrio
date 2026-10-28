@@ -192,6 +192,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 
 ### Plantillas
 - **CRUD de plantillas** con drag & drop de entrenadores, delegados y jugadores
+- **Pestañas Fútbol 7 / Fútbol 11**: la tabla muestra solo las plantillas cuya categoría es de ese tipo de fútbol
 - **Coordinador**: FK opcional a `coordinadores`, filtrada/validada por que `coordinador.id_tipofutbol` coincida con `categoria.id_tipofutbol`
 - **Dorsal visual**: camiseta con número asignado, detección de duplicados
 - **Posiciones por temporada**: cada jugador tiene una o varias posiciones dentro de su plantilla (`plantilla_jugador_posiciones`), no globales
