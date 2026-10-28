@@ -18,14 +18,21 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from './EventoFormCalendario.vue';
+import EquipacionPrenda from './EquipacionPrenda.vue';
+import ResultadoJugadoresPartido from './ResultadoJugadoresPartido.vue';
+import { golesPartido } from '../utils/resultadoPartido';
+import CalendarioLista from './CalendarioLista.vue';
 import { calendarioService, entrenamientosService, partidosService } from '../services';
+import { moverEvento, puedeMoverEvento } from '../utils/moverEvento';
+import { grupoDeEvento, ORDEN_GRUPOS } from '../utils/gruposCalendario';
 import { eventosFestivosFullCalendar } from '../utils/festivosEspana';
 import { tituloCalendario } from '../utils/tituloCalendario';
-import { generarPdfPartidos } from '../utils/pdfPartidos';
+import { generarPdfCalendario } from '../utils/pdfCalendario';
+import { escudoEquipo, cargarEscudos, adjuntarEscudos } from '../utils/escudosEquipos';
 import { generarPdfEntrenamientos } from '../utils/pdfEntrenamientos';
 import { useAuthStore } from '../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../utils/cambioBus';
-import * as XLSX from '@e965/xlsx';
+import { useMediaQuery } from '../composables/useMediaQuery';
 
 const props = defineProps({
   tipo: {
@@ -46,22 +53,8 @@ const formVisible = ref(false);
 const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
-
-const golesLocal = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
-  const partes = e.resultado.split('-');
-  if (partes.length !== 2) return '—';
-  return partes[0].trim();
-});
-
-const golesVisitante = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
-  const partes = e.resultado.split('-');
-  if (partes.length !== 2) return '—';
-  return partes[1].trim();
-});
+const esMovil = useMediaQuery('(max-width: 639px)');
+const eventosLista = ref([]);
 
 const nombreLocal = computed(() => {
   const e = eventoSeleccionado.value;
@@ -78,20 +71,40 @@ const nombreVisitante = computed(() => {
 const escudoLocal = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoLocal?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoLocal?.id) || '/escudo.png';
 });
 
 const escudoVisitante = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoVisitante?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoVisitante?.id) || '/escudo.png';
 });
+
+// Los escudos no vienen en los eventos: se piden al abrir el detalle.
+watch(eventoSeleccionado, (e) => {
+  if (e?.tipo === 'partido') cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
+});
+
+const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);
+const camisetaVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.camiseta || null);
+const calzonasLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.calzonas || null);
+const calzonasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.calzonas || null);
+const mediasLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.medias || null);
+const mediasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.medias || null);
 
 const lugarPartido = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '—';
   if (!e.es_local) return e.equipoLocal?.localidad || '—';
   return e.lugar || '—';
+});
+
+const tipoAdjunto = computed(() => {
+  const nombre = eventoSeleccionado.value?.adjunto_nombre || '';
+  const ext = nombre.split('.').pop()?.toLowerCase() || '';
+  if (['jpg', 'jpeg', 'png'].includes(ext)) return 'imagen';
+  if (ext === 'pdf') return 'pdf';
+  return 'otro';
 });
 const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
@@ -102,20 +115,21 @@ const toast = useToast();
 const auth = useAuthStore();
 
 const puedeCrear = computed(() => {
-  if (props.tipo === 'entrenamiento') return auth.puedeVer('entrenamientos') && auth.puedeEditar();
-  if (props.tipo === 'partido') return auth.puedeVer('partidos') && auth.puedeEditar();
-  return (auth.puedeVer('entrenamientos') || auth.puedeVer('partidos')) && auth.puedeEditar();
+  if (props.tipo === 'entrenamiento') return auth.puedeVer('entrenamientos') && auth.puedeEditar('entrenamientos');
+  if (props.tipo === 'partido') return auth.puedeVer('partidos') && auth.puedeEditar('partidos');
+  return (auth.puedeVer('entrenamientos') && auth.puedeEditar('entrenamientos'))
+    || (auth.puedeVer('partidos') && auth.puedeEditar('partidos'));
 });
 
 function puedeEditarEvento(seccion) {
-  return auth.puedeVer(seccion) && auth.puedeEditar();
+  return auth.puedeVer(seccion) && auth.puedeEditar(seccion);
 }
 
 function puedeEliminarEvento(seccion) {
-  return auth.puedeVer(seccion) && auth.puedeEliminar();
+  return auth.puedeVer(seccion) && auth.puedeEliminar(seccion);
 }
 
-const COLOR_ENTRENAMIENTO = '#0B3D2E';
+const COLOR_ENTRENAMIENTO = '#0F3D22';
 const COLOR_PARTIDO = '#7A1E2B';
 const COLOR_FESTIVO = '#D97706';
 
@@ -148,24 +162,51 @@ function escapeHtml(s) {
   }[c]));
 }
 
-/** Contenido HTML del evento: hora + icono local/visitante + alias + badge para partidos. */
+/** Contenido HTML del evento: hora + icono local/visitante + alias + lugar para partidos;
+ *  hora + lugar + alias para entrenamientos. */
 function contenidoEvento(arg) {
   const e = arg.event?.extendedProps;
   if (e?.tipo === 'partido') {
     const hora = escapeHtml(formatearHora(e.inicio));
-    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    // "*" = partido con el acta de RFAF ya finalizada.
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—') + (e.acta_finalizada ? ' *' : '');
     const icono = e.es_local
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
       : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
-    const badge = e.jornada
-      ? '<span class="fc-liga-badge">Liga</span>'
-      : '<span class="fc-amistoso-badge">Amistoso</span>';
+    const lugar = e.es_local
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipoLocal?.localidad || '');
+    const lugarHtml = lugar ? `<span class="fc-partido-lugar">${escapeHtml(lugar)}</span>` : '';
+    const cab = cabeceraGrupoHtml(e);
     return {
       html: `<div class="fc-evento-contenido">` +
+        cab +
         `<span class="fc-partido-hora">${hora}</span>` +
         icono +
         `<span class="fc-partido-alias">${alias}</span>` +
-        badge +
+        lugarHtml +
+        `</div>`
+    };
+  }
+  if (e?.tipo === 'torneo') {
+    const hora = escapeHtml(formatearHora(e.inicio));
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || 'Torneo');
+    const esLocal = e.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
+    const icono = esLocal
+      ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
+      : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+    const lugar = esLocal
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipo?.localidad || '');
+    const lugarHtml = lugar ? `<span class="fc-partido-lugar">${escapeHtml(lugar)}</span>` : '';
+    const cab = cabeceraGrupoHtml(e);
+    return {
+      html: `<div class="fc-evento-contenido">` +
+        cab +
+        `<span class="fc-partido-hora">${hora}</span>` +
+        icono +
+        `<span class="fc-partido-alias">${alias}</span>` +
+        lugarHtml +
         `</div>`
     };
   }
@@ -173,15 +214,41 @@ function contenidoEvento(arg) {
     const hora = escapeHtml(formatearHora(e.inicio));
     const lugar = escapeHtml(e.lugar || '—');
     const categoria = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    const cab = cabeceraGrupoHtml(e);
     return {
       html: `<div class="fc-evento-contenido">` +
+        cab +
         `<span class="fc-partido-hora">${hora}</span>` +
         `<span class="fc-partido-lugar">${lugar}</span>` +
         `<span class="fc-partido-alias">${categoria}</span>` +
         `</div>`
     };
   }
+  if (e?.tipo === 'festivo') {
+    return {
+      html: `<div class="fc-evento-contenido"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
+    };
+  }
   return { html: escapeHtml(arg.event?.title) };
+}
+
+const GRUPO_LABELS = {
+  // Liga separada en partidos en casa y fuera (mismos iconos que en los eventos).
+  LIGA_CASA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-home' },
+  LIGA_FUERA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
+  AMISTOSO: { label: 'AMISTOSO', color: '#D97706', icon: 'pi pi-handshake' },
+  TORNEO: { label: 'TORNEO', color: '#6D28D9', icon: 'pi pi-trophy' },
+  ENTRENAMIENTO_ESTADIO: { label: 'ENTRENAMIENTO ESTADIO', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO_ANEXO: { label: 'ENTRENAMIENTO ANEXO', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO: { label: 'ENTRENAMIENTO', color: '#2563EB', icon: 'pi pi-calendar' },
+  SUSPENDIDO: { label: 'SUSPENDIDO', color: '#DC2626', icon: 'pi pi-ban' }
+};
+
+function cabeceraGrupoHtml(e) {
+  if (!e.esPrimeroGrupo) return '';
+  const meta = GRUPO_LABELS[e.miGrupo];
+  if (!meta) return '';
+  return `<div class="fc-grupo-cabecera" style="background:${meta.color};color:#fff;font-size:9px;font-weight:700;padding:1px 4px;margin:0 0 5px;border-radius:3px;letter-spacing:0.3px;display:flex;align-items:center;gap:3px;line-height:1.2;width:100%;"><i class="${meta.icon}" style="font-size:9px"></i>${meta.label}</div>`;
 }
 
 async function fetchEventos(fetchInfo, successCallback, failureCallback) {
@@ -193,22 +260,63 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
       tipo: props.tipo || undefined
     });
 
-    const mapeados = eventos.map((e) => ({
-      id: e.id,
-      title: etiquetaEvento(e),
-      start: e.inicio,
-      color: e.tipo === 'partido' ? COLOR_PARTIDO : COLOR_ENTRENAMIENTO,
-      extendedProps: e
-    }));
+    const conGrupo = eventos.map((e) => {
+      const miGrupo = grupoDeEvento(e);
+      // Grupos del día en el orden de ORDEN_GRUPOS (utils/gruposCalendario.js).
+      const grupoOrden = ORDEN_GRUPOS[miGrupo];
+      const esLocalOrden = e.tipo === 'partido' ? (e.es_local ? 0 : 1) : 0;
+      return {
+        id: e.id,
+        title: etiquetaEvento(e),
+        editable: puedeMoverEvento(e, auth),
+        start: e.inicio,
+        color: e.tipo === 'partido' ? COLOR_PARTIDO : COLOR_ENTRENAMIENTO,
+        extendedProps: e,
+        miGrupo,
+        grupoOrden,
+        esLocalOrden
+      };
+    });
+
+    // Cabecera de grupo (LIGA casa/fuera, AMISTOSO, TORNEO, ENTRENAMIENTO): se marca sobre el primer evento
+    // de cada (día, tipo) según el mismo orden con el que FullCalendar los va a pintar
+    // (eventOrder: 'grupoOrden,start,esLocalOrden'), para que la cabecera caiga siempre
+    // en el evento que realmente se ve primero, incluso con varios partidos a la misma hora.
+    const ordenados = [...conGrupo].sort((a, b) => {
+      if (a.grupoOrden !== b.grupoOrden) return a.grupoOrden - b.grupoOrden;
+      const ta = a.start ? new Date(a.start).getTime() : Infinity;
+      const tb = b.start ? new Date(b.start).getTime() : Infinity;
+      if (ta !== tb) return ta - tb;
+      return a.esLocalOrden - b.esLocalOrden;
+    });
+    const primerPorGrupo = new Map();
+    for (const ev of ordenados) {
+      const diaKey = String(ev.start || '').slice(0, 10);
+      const key = `${diaKey}__${ev.miGrupo}`;
+      if (!primerPorGrupo.has(key)) primerPorGrupo.set(key, ev.id);
+    }
+
+    const mapeados = conGrupo.map((ev) => {
+      const diaKey = String(ev.start || '').slice(0, 10);
+      const key = `${diaKey}__${ev.miGrupo}`;
+      const esPrimeroGrupo = primerPorGrupo.get(key) === ev.id;
+      ev.extendedProps = { ...ev.extendedProps, esPrimeroGrupo, miGrupo: ev.miGrupo };
+      return ev;
+    });
 
     const festivos = props.showFestivos
       ? eventosFestivosFullCalendar(fetchInfo.startStr, fetchInfo.endStr).map((f) => ({
-          ...f,
+          id: f.id,
+          title: f.title,
+          start: f.start,
+          allDay: true,
           display: 'auto',
-          color: COLOR_FESTIVO,
           backgroundColor: '#FDE68A',
           borderColor: '#D97706',
-          textColor: '#78350F'
+          textColor: '#78350F',
+          classNames: ['fc-festivo-nacional'],
+      editable: false,
+          extendedProps: f.extendedProps
         }))
       : [];
 
@@ -241,15 +349,15 @@ function eliminarEvento() {
 
   if (e.tipo === 'entrenamiento' && e.recurrente) {
     confirm.require({
-      message: 'Este entrenamiento es recurrente. ¿Quieres eliminar solo esta sesión o todas las sesiones del entrenamiento?',
+      message: 'Este entrenamiento forma parte de una serie semanal para esta plantilla. ¿Quieres eliminar solo esta sesión o todas las sesiones de esta plantilla?',
       header: 'Eliminar entrenamiento',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Todas',
       rejectLabel: 'Solo esta',
       acceptClass: 'p-button-danger',
       rejectClass: 'p-button-secondary',
-      accept: () => eliminarEntrenamiento(id),
-      reject: () => eliminarSesionEntrenamiento(e, id)
+      accept: () => eliminarEntrenamiento(id, 'serie'),
+      reject: () => eliminarEntrenamiento(id, 'dia')
     });
     return;
   }
@@ -281,40 +389,27 @@ function eliminarEvento() {
   });
 }
 
-async function eliminarEntrenamiento(id) {
+/** alcance: 'dia' borra solo este registro; 'serie' borra además el resto de
+ * semanas de la misma serie recurrente (misma plantilla y misma fecha límite). */
+async function eliminarEntrenamiento(id, alcance) {
   try {
-    await entrenamientosService.eliminar(id);
+    const resultado = await entrenamientosService.eliminar(id, alcance);
     dialogVisible.value = false;
     await refrescar();
     emitirCambio();
+    if (alcance === 'serie' && resultado?.eliminados > 1) {
+      toast.add({
+        severity: 'info',
+        summary: 'Serie eliminada',
+        detail: `Se han eliminado ${resultado.eliminados} entrenamientos de esta plantilla.`,
+        life: 5000
+      });
+    }
   } catch (err) {
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: err.response?.data?.message || 'No se pudo eliminar el entrenamiento.',
-      life: 5000
-    });
-  }
-}
-
-async function eliminarSesionEntrenamiento(e, id) {
-  const baseId = e.base_id || id;
-  const semanalId = String(e.id || '').replace('entrenamiento-', '');
-  const service = entrenamientosService;
-  try {
-    if (semanalId && semanalId !== baseId) {
-      await service.eliminarSemanal(semanalId);
-    } else {
-      await service.eliminar(baseId);
-    }
-    dialogVisible.value = false;
-    await refrescar();
-    emitirCambio();
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: err.response?.data?.message || 'No se pudo eliminar la sesión.',
       life: 5000
     });
   }
@@ -332,6 +427,20 @@ function onEventClick(info) {
     inicio: info.event.extendedProps?.inicio || info.event.start
   };
   dialogVisible.value = true;
+}
+
+function onEventClickMovil(e) {
+  if (e.tipo === 'festivo') return;
+  eventoSeleccionado.value = { ...e, titulo: e.titulo || e.equipo?.nombre || '' };
+  dialogVisible.value = true;
+}
+
+function onDateClickMovil(dateStr) {
+  if (!dateStr) return;
+  formTipo.value = props.tipo || 'entrenamiento';
+  formRegistroId.value = null;
+  formFechaDefecto.value = dateStr;
+  formVisible.value = true;
 }
 
 function onDateClick(info) {
@@ -382,53 +491,6 @@ async function generarPdfSemana() {
   pdfDialogVisible.value = false;
 }
 
-async function exportarExcel() {
-  const semana = semanaDe(new Date());
-  if (!semana) return;
-  const hasta = new Date(semana.fin);
-  hasta.setHours(23, 59, 59, 999);
-  const desdeISO = semana.inicio.toISOString();
-  const hastaISO = hasta.toISOString();
-
-  let eventos = [];
-  let nombreHoja = 'Calendario';
-
-  if (props.tipo === 'entrenamiento') {
-    eventos = await entrenamientosService.listar({ desde: desdeISO, hasta: hastaISO });
-    nombreHoja = 'Entrenamientos';
-  } else if (props.tipo === 'partido') {
-    eventos = await partidosService.listar({ desde: desdeISO, hasta: hastaISO });
-    nombreHoja = 'Partidos';
-  }
-
-  if (!eventos.length) {
-    toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos en esta semana para exportar.', life: 3000 });
-    return;
-  }
-
-  const headers = ['Fecha', 'Categoría', 'Lugar', 'Tipo'];
-  const rows = eventos.map(e => {
-    const d = new Date(e.fecha || e.inicio);
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mi = String(d.getMinutes()).padStart(2, '0');
-    const ss = String(d.getSeconds()).padStart(2, '0');
-    return [
-      `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`,
-      e.categoria?.nombre || '—',
-      e.lugar || '—',
-      e.tipo === 'partido' ? 'Partido' : 'Entrenamiento'
-    ];
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, nombreHoja);
-  XLSX.writeFile(wb, `${nombreHoja.toLowerCase().replace(/\s+/g, '_')}.xlsx`);
-}
-
 async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   generandoPdf.value = true;
   try {
@@ -449,13 +511,19 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
     const mapeados = partidos
       .filter((p) => tipoFutbol == null || (p.categoria?.id_tipofutbol || p.plantilla?.categoria?.id_tipofutbol || 0) === tipoFutbol)
       .map((p) => ({
+        tipo: 'partido',
+        jornada: p.jornada || null,
         inicio: p.fecha,
         equipoLocal: p.equipoLocal || null,
         equipoVisitante: p.equipoVisitante || null,
         lugar: p.lugar || null,
         categoria: p.plantilla?.categoria || p.categoria || null
       }));
-    await generarPdfPartidos(mapeados, fechaTitulo, tipoFutbol);
+    // Los escudos no vienen en el listado de partidos: se piden aparte (base64) y
+    // se adjuntan a cada equipo antes de dibujar el PDF.
+    await adjuntarEscudos(mapeados);
+    // Mismo renderizador que el PDF de Calendario, con su propio encabezado y nombre de fichero.
+    await generarPdfCalendario(mapeados, fechaTitulo, tipoFutbol, { encabezado: 'Listado de Partidos', nombreFichero: 'partidos' });
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -468,8 +536,56 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   }
 }
 
+/** Al soltar un partido en otro día: se guarda el nuevo día (misma hora). Si el
+ * backend lo rechaza (p.ej. la plantilla ya tiene otro evento ese día), el
+ * partido vuelve a su sitio. */
+async function onEventDrop(info) {
+  try {
+    await moverEvento(info.event, info.oldEvent);
+    toast.add({ severity: 'success', summary: 'Partido movido', detail: `Movido al ${info.event.start.toLocaleDateString('es-ES')}.`, life: 3000 });
+    emitirCambio();
+    refrescar();
+  } catch (err) {
+    info.revert();
+    toast.add({
+      severity: 'error',
+      summary: 'No se pudo mover',
+      detail: err.response?.data?.message || err.message || 'No se pudo mover el partido.',
+      life: 5000
+    });
+  }
+}
+
 function refrescar() {
-  calendarRef.value?.getApi()?.refetchEvents();
+  const api = calendarRef.value?.getApi();
+  if (api) {
+    api.refetchEvents();
+  } else if (esMovil.value) {
+    fetchEventosMobile();
+  }
+}
+
+async function fetchEventosMobile() {
+  try {
+    const now = new Date();
+    const desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const hasta = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+    const eventos = await calendarioService.eventos({
+      desde,
+      hasta,
+      id_categoria: props.idCategoria || undefined,
+      tipo: props.tipo || undefined
+    });
+    const festivos = eventosFestivosFullCalendar(desde, hasta).map(f => ({
+      id: f.id,
+      tipo: 'festivo',
+      titulo: f.title.replace('🎉 ', ''),
+      inicio: f.start,
+      lugar: null,
+      categoria: null
+    }));
+    eventosLista.value = eventos.concat(festivos);
+  } catch {}
 }
 
 watch(
@@ -509,10 +625,15 @@ const calendarOptions = {
   eventContent: contenidoEvento,
   eventClick: onEventClick,
   dateClick: onDateClick,
-  editable: false,
+  // Los partidos se pueden arrastrar a otro día (con permiso de edición en
+  // Partidos, ver puedeMoverEvento); la duración no se cambia.
+  editable: true,
+  eventDurationEditable: false,
+  eventDrop: onEventDrop,
   selectable: false,
-  dayMaxEvents: 4,
-  fixedWeekCount: false
+  dayMaxEvents: false,
+  fixedWeekCount: false,
+  eventOrder: 'grupoOrden,start,esLocalOrden'
 };
 
 function formatearFecha(fecha) {
@@ -557,11 +678,14 @@ defineExpose({ refrescar });
 
 let unsubCambio = null;
 onMounted(() => {
-  unsubCambio = suscribirseCambio(() => refrescar());
+  unsubCambio = suscribirseCambio(() => { refrescar(); });
+  if (esMovil.value) fetchEventosMobile();
 });
 onBeforeUnmount(() => {
   if (unsubCambio) unsubCambio();
 });
+
+watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(); });
 </script>
 
 <template>
@@ -584,22 +708,21 @@ onBeforeUnmount(() => {
           :loading="generandoPdf"
           @click="abrirPdfSemana"
         />
-        <Button
-          v-if="tipo"
-          label="Excel"
-          icon="pi pi-file-export"
-          size="small"
-          text
-          @click="exportarExcel"
-        />
       </div>
     </div>
 
     <div class="bg-white rounded-xl  p-4 calendario-club" :style="{ '--fc-event-bg-color': colorPrincipal }">
-      <FullCalendar ref="calendarRef" :options="calendarOptions" />
+      <FullCalendar v-if="!esMovil" ref="calendarRef" :options="calendarOptions" />
+      <CalendarioLista
+        v-else
+        :eventos="eventosLista"
+        :id-categoria="idCategoria"
+        @event-click="onEventClickMovil"
+        @date-click="onDateClickMovil"
+      />
     </div>
 
-    <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-md">
+    <Dialog v-model:visible="dialogVisible" modal :class="['w-full', eventoSeleccionado?.tipo === 'partido' ? 'max-w-lg' : 'max-w-md']">
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -608,6 +731,9 @@ onBeforeUnmount(() => {
                 :class="eventoSeleccionado?.jornada ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
             <i :class="eventoSeleccionado?.jornada ? 'pi pi-star-fill' : 'pi pi-handshake'"></i>
             {{ eventoSeleccionado?.jornada ? 'Liga' : 'Amistoso' }}
+          </span>
+          <span v-if="eventoSeleccionado?.suspendido" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+            <i class="pi pi-ban"></i> Suspendido
           </span>
         </div>
       </template>
@@ -657,32 +783,62 @@ onBeforeUnmount(() => {
               <i class="pi pi-sync"></i> Recurrente
             </span>
           </div>
+          <div v-if="eventoSeleccionado.adjunto_url" class="space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <i class="pi pi-paperclip text-club-green"></i>
+              <a :href="eventoSeleccionado.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">
+                {{ eventoSeleccionado.adjunto_nombre || 'Ver adjunto' }}
+              </a>
+            </div>
+            <a
+              v-if="tipoAdjunto === 'imagen'"
+              :href="eventoSeleccionado.adjunto_url"
+              target="_blank"
+              rel="noopener"
+              class="block rounded-lg overflow-hidden border border-line"
+            >
+              <img :src="eventoSeleccionado.adjunto_url" :alt="eventoSeleccionado.adjunto_nombre || 'Adjunto'" class="w-full max-h-96 object-contain bg-ink-surface" />
+            </a>
+            <iframe
+              v-else-if="tipoAdjunto === 'pdf'"
+              :src="eventoSeleccionado.adjunto_url"
+              :title="eventoSeleccionado.adjunto_nombre || 'Adjunto'"
+              class="w-full h-96 rounded-lg border border-line"
+            ></iframe>
+          </div>
         </template>
 
-        <div
-          v-if="eventoSeleccionado.tipo === 'partido'"
-          class="flex flex-col gap-2 py-3"
-        >
-          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
-            <div class="flex justify-center">
-              <img :src="escudoLocal" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
+        <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">
+          <div class="flex flex-col items-center gap-2">
+            <img :src="escudoLocal" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
+            <div class="flex items-center gap-2">
+              <EquipacionPrenda tipo="camiseta" :color="camisetaLocal" :size="28" />
+              <EquipacionPrenda tipo="calzonas" :color="calzonasLocal" :size="28" />
+              <EquipacionPrenda tipo="medias" :color="mediasLocal" :size="28" />
             </div>
-            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreLocal }}</span>
-            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesLocal }}</span>
+            <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreLocal }}</span>
+            <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).local }}</span>
           </div>
-
-          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
-            <div class="flex justify-center">
-              <img :src="escudoVisitante" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
+          <div class="flex flex-col items-center gap-2">
+            <img :src="escudoVisitante" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
+            <div class="flex items-center gap-2">
+              <EquipacionPrenda tipo="camiseta" :color="camisetaVisitante" :size="28" />
+              <EquipacionPrenda tipo="calzonas" :color="calzonasVisitante" :size="28" />
+              <EquipacionPrenda tipo="medias" :color="mediasVisitante" :size="28" />
             </div>
-            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreVisitante }}</span>
-            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesVisitante }}</span>
+            <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreVisitante }}</span>
+            <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).visitante }}</span>
           </div>
         </div>
 
-        <div class="text-sm text-ink-secondary space-y-1.5">
+        <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" />
+
+        <div v-if="eventoSeleccionado.tipo !== 'partido'" class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
+          </p>
+          <p v-if="eventoSeleccionado.observaciones" class="whitespace-pre-line">
+            <i class="pi pi-comment mr-2"></i>{{ eventoSeleccionado.observaciones }}
           </p>
         </div>
 
@@ -782,7 +938,8 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 .calendario-club .fc-liga-badge,
-.calendario-club .fc-amistoso-badge {
+.calendario-club .fc-amistoso-badge,
+.calendario-club .fc-entrenamiento-badge {
   font-size: 0.6rem;
   font-weight: 600;
   padding: 1px 5px;
@@ -795,6 +952,10 @@ onBeforeUnmount(() => {
 .calendario-club .fc-amistoso-badge {
   background: rgb(217 119 6 / 15%);
   color: rgb(146 64 14);
+}
+.calendario-club .fc-entrenamiento-badge {
+  background: rgb(59 130 246 / 15%);
+  color: rgb(30 64 175);
 }
 .calendario-club .fc-partido-lugar {
   font-weight: 400;
@@ -849,8 +1010,9 @@ onBeforeUnmount(() => {
     font-size: 0.6rem;
   }
   .calendario-club .fc-liga-badge,
-  .calendario-club .fc-amistoso-badge {
-    font-size: 0.5rem;
+  .calendario-club .fc-amistoso-badge,
+  .calendario-club .fc-entrenamiento-badge {
+    font-size: 0.6rem;
     padding: 0 3px;
   }
 }

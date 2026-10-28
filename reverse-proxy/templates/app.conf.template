@@ -1,0 +1,113 @@
+# Plantilla de nginx para el reverse proxy con HTTPS (Let's Encrypt).
+# La imagen oficial nginx sustituye ${DOMAIN} automáticamente al arrancar
+# (docker-entrypoint envsubst sobre /etc/nginx/templates/*.template),
+# usando la variable de entorno DOMAIN del servicio "reverse-proxy".
+# El resto de variables ($host, $remote_addr, etc.) son de nginx, no de
+# entorno, y no se tocan porque no existe ninguna variable de entorno con
+# ese mismo nombre.
+
+server_tokens off;
+
+# DNS interno de Docker: junto con el proxy_pass por variable de más abajo,
+# hace que nginx vuelva a resolver "frontend" cada 10s en vez de quedarse con
+# la IP que tenía al arrancar (502 si el contenedor se recrea).
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+# Primer cortafuegos de carga, donde se ve la IP real del cliente (internet):
+# por IP, 20 peticiones/s con ráfagas de hasta 40 (sobra para un humano usando
+# la SPA, corta en seco una inundación desde una IP) y 30 conexiones simultáneas.
+# Un DDoS volumétrico de muchas IPs no se para aquí: eso es capa de AWS/CDN.
+limit_req_zone $binary_remote_addr zone=apr_req:10m rate=20r/s;
+limit_conn_zone $binary_remote_addr zone=apr_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+
+# Peticiones que no vienen con el dominio (p.ej. escáneres entrando por la IP):
+# se corta la conexión sin responder ni enseñar el certificado.
+server {
+    listen 80 default_server;
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+    return 444;
+}
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    # Certbot valida el dominio dejando un fichero aquí antes de emitir
+    # o renovar el certificado.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+
+    # Log a fichero (además de stdout) para que fail2ban en el host lea los
+    # intentos de login y banee IPs abusivas. El fichero va a un volumen del
+    # host (ver docker-compose) y se rota con logrotate (copytruncate).
+    access_log /var/log/apr/access.log;
+    access_log /dev/stdout;
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Mismo cortafuegos de carga que el frontend: cuerpo máximo y timeouts para
+    # que una conexión lenta no retenga un worker.
+    client_max_body_size 4m;
+    client_body_timeout 10s;
+    client_header_timeout 10s;
+    send_timeout 15s;
+
+    # Adjunto de un entrenamiento (PDF/imagen): cuerpo mayor que el general.
+    location ~ ^/api/entrenamientos/[0-9]+/adjunto$ {
+        limit_req zone=apr_req burst=40 nodelay;
+        limit_conn apr_conn 30;
+        client_max_body_size 8m;
+        set $frontend_upstream http://frontend:80;
+        proxy_pass $frontend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
+        proxy_pass_header Authorization;
+        proxy_buffer_size 16k;
+        proxy_buffers 8 16k;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    location / {
+        limit_req zone=apr_req burst=40 nodelay;
+        limit_conn apr_conn 30;
+        set $frontend_upstream http://frontend:80;
+        proxy_pass $frontend_upstream;
+        proxy_http_version 1.1;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
+        proxy_pass_header Authorization;
+        # Cabeceras de respuesta grandes (cookie de sesión + cabeceras de seguridad):
+        # con el búfer por defecto (4 KB) nginx devolvía 502 en el login.
+        proxy_buffer_size 16k;
+        proxy_buffers 8 16k;
+    }
+}

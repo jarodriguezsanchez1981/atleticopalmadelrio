@@ -1,0 +1,148 @@
+/** Plantilla de la firma de correo del club (sección Firma Email).
+ *
+ * Los clientes de correo (Gmail, Outlook…) ignoran las hojas de estilo y las
+ * clases: la firma se maqueta con tablas y estilos en línea, y el escudo se
+ * enlaza por URL pública (una versión pequeña, escudo-firma.png). */
+
+export const NOMBRE_CLUB = 'Atlético Palma del Río';
+export const URL_ESCUDO = 'https://intranet.atleticopalmadelrio.com/escudo-firma.png';
+/** Carpeta pública con los iconos de las redes sociales (facebook.png, etc.). */
+export const URL_REDES_BASE = 'https://intranet.atleticopalmadelrio.com/redes/';
+
+export const AVISO_LEGAL_POR_DEFECTO =
+  'Este mensaje y sus archivos adjuntos son confidenciales y se dirigen exclusivamente a su destinatario. ' +
+  'Si lo ha recibido por error, comuníquelo al remitente y elimínelo. Sus datos personales son tratados por ' +
+  `${NOMBRE_CLUB} para gestionar esta comunicación; puede ejercer sus derechos de acceso, rectificación, ` +
+  `supresión y demás reconocidos por el RGPD dirigiéndose por escrito a ${NOMBRE_CLUB}.`;
+
+/** Aviso de que el correo no se debe responder (correos que envía la web
+ * desde las cuentas de Correos, que nadie lee). */
+export const AVISO_NO_RESPONDER =
+  'Este correo se ha enviado de forma automática. Por favor, no responda a este mensaje.';
+
+/** Redes sociales que puede mostrar la firma. `base` se antepone al nombre de
+ * usuario; `conArroba`: el enlace lleva la @ (los canales de YouTube). */
+export const REDES = [
+  { clave: 'facebook', etiqueta: 'Facebook', base: 'https://facebook.com/' },
+  { clave: 'instagram', etiqueta: 'Instagram', base: 'https://instagram.com/' },
+  { clave: 'twitter', etiqueta: 'Twitter', base: 'https://twitter.com/' },
+  { clave: 'youtube', etiqueta: 'YouTube', base: 'https://youtube.com/', conArroba: true }
+];
+
+/** Web y redes del club: iguales en todas las firmas, se añaden siempre y no
+ * salen en el formulario. */
+export const VALORES_FIJOS = {
+  web: 'www.atleticopalmadelrio.com',
+  facebook: 'atleticopalmadelriocf',
+  instagram: 'atlpalmadelrio',
+  twitter: 'AtcoPalmadelRio',
+  youtube: '@atleticopalmadelrio'
+};
+
+export const DATOS_POR_DEFECTO = {
+  nombre: '',
+  cargo: '',
+  telefono: '',
+  email: '',
+  direccion: 'Palma del Río (Córdoba)',
+  colorPrincipal: '#0F3D22',
+  colorSecundario: '#7A1E2B',
+  mostrarEscudo: true,
+  mostrarAviso: true,
+  aviso: AVISO_LEGAL_POR_DEFECTO,
+  noResponder: false
+};
+
+export function escaparHtml(texto) {
+  return String(texto ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+/** Solo colores #rgb / #rrggbb (van dentro de atributos style). */
+function color(valor, porDefecto) {
+  return /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(String(valor || '')) ? valor : porDefecto;
+}
+
+/** Enlace web con protocolo (si se escribe "club.es" se enlaza https://club.es). */
+function urlWeb(web) {
+  const limpio = String(web || '').trim();
+  if (!limpio) return '';
+  return /^https?:\/\//i.test(limpio) ? limpio : `https://${limpio}`;
+}
+
+/** URL del perfil de una red social a partir de un enlace completo o de un
+ * nombre de usuario (acepta "@usuario" o "usuario"). */
+function urlRed(red, valor) {
+  const limpio = String(valor || '').trim();
+  if (!limpio) return '';
+  if (/^https?:\/\//i.test(limpio)) return limpio;
+  const usuario = limpio.replace(/^@/, '');
+  return red.base + (red.conArroba ? `@${usuario}` : usuario);
+}
+
+/** HTML de la firma a partir de los datos del formulario (con la web y las
+ * redes del club, VALORES_FIJOS, aunque los datos traigan otras). */
+export function generarFirmaHtml(datos = {}) {
+  const d = { ...DATOS_POR_DEFECTO, ...datos, ...VALORES_FIJOS };
+  const c1 = color(d.colorPrincipal, DATOS_POR_DEFECTO.colorPrincipal);
+  const c2 = color(d.colorSecundario, DATOS_POR_DEFECTO.colorSecundario);
+  const linea = (contenido) => `<div style="margin:0;padding:0;">${contenido}</div>`;
+  const lineas = [];
+
+  if (d.nombre) lineas.push(`<div style="margin:0;padding:0;font-size:16px;font-weight:bold;color:${c1};">${escaparHtml(d.nombre)}</div>`);
+  if (d.cargo) lineas.push(`<div style="margin:0 0 6px 0;padding:0;font-size:13px;font-weight:bold;color:${c2};">${escaparHtml(d.cargo)}</div>`);
+  lineas.push(`<div style="margin:0;padding:0;font-size:13px;font-weight:bold;color:#333333;">${escaparHtml(NOMBRE_CLUB)}</div>`);
+  if (d.telefono) {
+    const tel = String(d.telefono).replace(/[^\d+]/g, '');
+    lineas.push(linea(`Tel. <a href="tel:${escaparHtml(tel)}" style="color:#333333;text-decoration:none;">${escaparHtml(d.telefono)}</a>`));
+  }
+  if (d.email) {
+    lineas.push(linea(`<a href="mailto:${escaparHtml(d.email)}" style="color:${c1};text-decoration:none;">${escaparHtml(d.email)}</a>`));
+  }
+  if (d.web) {
+    lineas.push(linea(`<a href="${escaparHtml(urlWeb(d.web))}" style="color:${c1};text-decoration:none;">${escaparHtml(String(d.web).replace(/^https?:\/\//i, ''))}</a>`));
+  }
+  if (d.direccion) lineas.push(`<div style="margin:0;padding:0;color:#777777;">${escaparHtml(d.direccion)}</div>`);
+
+  // Redes sociales: una línea con los iconos (imágenes alojadas, que es lo que
+  // muestran de forma fiable los clientes de correo) de las redes rellenadas.
+  const iconosRedes = REDES
+    .filter((r) => String(d[r.clave] || '').trim())
+    .map((r) =>
+      `<a href="${escaparHtml(urlRed(r, d[r.clave]))}" style="text-decoration:none;display:inline-block;margin:0 6px 0 0;">` +
+      `<img src="${URL_REDES_BASE}${r.clave}.png" width="22" height="22" alt="${r.etiqueta}" ` +
+      `style="display:inline-block;border:0;width:22px;height:22px;vertical-align:middle;"></a>`
+    );
+  if (iconosRedes.length) {
+    lineas.push(`<div style="margin:8px 0 0 0;padding:0;line-height:1;">${iconosRedes.join('')}</div>`);
+  }
+
+  // Escudo centrado (en horizontal y vertical) en una celda de su mismo ancho,
+  // en una tabla propia para que el aviso legal, más ancho, no la estire.
+  const celdaEscudo = d.mostrarEscudo
+    ? `<td width="71" align="center" valign="middle" style="width:71px;padding:0 14px 0 0;text-align:center;vertical-align:middle;border-right:3px solid ${c1};">` +
+      `<img src="${URL_ESCUDO}" width="71" height="80" alt="${escaparHtml(NOMBRE_CLUB)}" style="display:block;margin:0 auto;border:0;width:71px;height:80px;">` +
+      '</td>'
+    : '';
+  const sangria = d.mostrarEscudo ? 'padding:0 0 0 14px;' : `padding:0 0 0 10px;border-left:3px solid ${c1};`;
+  const estiloTabla = 'border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;color:#333333;';
+  const bloque =
+    `<table cellpadding="0" cellspacing="0" border="0" style="${estiloTabla}">` +
+    `<tr>${celdaEscudo}<td valign="middle" style="${sangria}vertical-align:middle;">${lineas.join('')}</td></tr>` +
+    '</table>';
+  const noResponder = d.noResponder
+    ? `<tr><td style="padding:12px 0 0 0;font-size:12px;font-weight:bold;color:${c2};">${escaparHtml(AVISO_NO_RESPONDER)}</td></tr>`
+    : '';
+  const aviso = d.mostrarAviso && d.aviso
+    ? `<tr><td style="padding:12px 0 0 0;font-size:10px;line-height:1.4;color:#999999;max-width:560px;">${escaparHtml(d.aviso)}</td></tr>`
+    : '';
+
+  return (
+    `<table cellpadding="0" cellspacing="0" border="0" style="${estiloTabla}">` +
+    `<tr><td style="padding:0;">${bloque}</td></tr>` +
+    noResponder +
+    aviso +
+    '</table>'
+  );
+}

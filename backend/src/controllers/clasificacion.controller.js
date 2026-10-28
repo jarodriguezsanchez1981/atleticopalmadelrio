@@ -1,0 +1,299 @@
+const { UniqueConstraintError, Op } = require('sequelize');
+const { Clasificacion, Partido, Plantilla, Categoria, Temporada, Equipo, LigaPartido } = require('../models');
+const rfafActa = require('../utils/rfafActa');
+const { diaEspana, partesEspana } = require('../utils/horaEspana');
+
+/**
+ * Estadísticas → Clasificación: la clasificación de la liga jornada a jornada.
+ * Se copia sola de RFAF (NFG_VisClasificacion) el día siguiente al partido de
+ * cada jornada a las 10:00 (utils/clasificacionAutomatica.js) y se guarda en
+ * `clasificaciones` para no volver a pedirla a rfaf.es.
+ */
+
+// Hora española a partir de la cual se copia la clasificación el día siguiente al partido.
+const HORA_ACTUALIZACION = 10;
+
+/** Códigos de la competición de RFAF de una plantilla (en sus columnas
+ * codigo_primaria/codigo_grupo/codigo_competicion, que se rellenan al crear o
+ * editar la plantilla y cambian cada temporada; están en la URL de la
+ * clasificación en rfaf.es). null si le falta alguno: esa plantilla no tiene
+ * clasificación configurada. */
+function competicionDe(plantilla) {
+  const codPrimaria = plantilla?.codigo_primaria;
+  const codGrupo = plantilla?.codigo_grupo;
+  const codCompeticion = plantilla?.codigo_competicion;
+  return codPrimaria && codGrupo && codCompeticion ? { codPrimaria, codGrupo, codCompeticion } : null;
+}
+
+const CAMPOS_PALMA = ['posicion', 'puntos', 'jugados', 'ganados', 'empatados', 'perdidos', 'goles_favor', 'goles_contra'];
+
+// En RFAF también está "LA PALMA C.F." (otro club distinto): el nuestro se
+// reconoce porque lleva a la vez "PALMA DEL RIO" y "ATLETICO", en el orden que
+// sea ("PALMA DEL RIO ATLETICO C.F." o "ATLETICO PALMA DEL RIO C.F." según la
+// competición de RFAF).
+const esPalma = (nombre) => {
+  const n = String(nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+  return n.includes('PALMA DEL RIO') && n.includes('ATLETICO');
+};
+
+/** 'YYYY-MM-DD' + días. */
+function sumarDias(dia, dias) {
+  const [y, m, d] = dia.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + dias)).toISOString().slice(0, 10);
+}
+
+/** Día del partido tal y como está guardado (hora española en la BD). */
+const diaPartido = (fecha) => new Date(fecha).toISOString().slice(0, 10);
+
+const formatoDia = (dia) => dia.split('-').reverse().join('/');
+
+/** true si ya ha llegado el día `desde` a las 10:00 (hora española). */
+function haLlegado(desde) {
+  if (!desde) return false;
+  const ahora = new Date();
+  const hoy = diaEspana(ahora);
+  return hoy > desde || (hoy === desde && partesEspana(ahora).h >= HORA_ACTUALIZACION);
+}
+
+/**
+ * Siguiente jornada por guardar: la primera de la liga (1, 2, …) que todavía no
+ * está en la tabla. Se puede guardar desde el día siguiente a su partido a las
+ * 10:00; una jornada sin partido del PALMA (descansa), una semana después que
+ * la anterior. null si ya están todas.
+ */
+async function siguienteJornada(idPlantilla, guardadas) {
+  const partidos = await Partido.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['jornada', 'fecha'] }) || [];
+  const diaDeJornada = new Map();
+  for (const p of partidos) {
+    const j = Number(p.jornada);
+    if (j > 0 && p.fecha && !diaDeJornada.has(j)) diaDeJornada.set(j, diaPartido(p.fecha));
+  }
+  if (!diaDeJornada.size) return null;
+  const ultima = Math.max(...diaDeJornada.keys());
+  let desde = null;
+  for (let j = 1; j <= ultima; j++) {
+    if (diaDeJornada.has(j)) desde = sumarDias(diaDeJornada.get(j), 1);
+    else if (desde) desde = sumarDias(desde, 7);
+    if (!guardadas.has(j)) return { jornada: j, desde, disponible: haLlegado(desde) };
+  }
+  return null;
+}
+
+/** GET /estadisticas/clasificacion?id_plantilla= */
+const ULTIMOS_PARTIDOS = 5;
+
+/** Últimos resultados de cada equipo ('G' | 'E' | 'P', del más antiguo al
+ * último, como mucho ULTIMOS_PARTIDOS) a partir de cómo cambian sus ganados,
+ * empatados y perdidos de una jornada guardada a la siguiente (si descansa no
+ * cambian). `jornadas`: [{ jornada, equipos }] en orden. Devuelve un Map
+ * equipo (código o nombre) -> [{ jornada, resultado }]. */
+function ultimosResultados(jornadas) {
+  const clave = (e) => e.codigo_equipo || e.equipo;
+  const anterior = new Map();
+  const resultados = new Map();
+  for (const { jornada, equipos } of jornadas) {
+    for (const e of equipos) {
+      const antes = anterior.get(clave(e)) || { ganados: 0, empatados: 0, perdidos: 0 };
+      const lista = resultados.get(clave(e)) || [];
+      for (const [campo, letra] of [['ganados', 'G'], ['empatados', 'E'], ['perdidos', 'P']]) {
+        for (let i = 0; i < Math.max(0, Number(e[campo]) - Number(antes[campo])); i++) lista.push({ jornada, resultado: letra });
+      }
+      resultados.set(clave(e), lista.slice(-ULTIMOS_PARTIDOS));
+      anterior.set(clave(e), e);
+    }
+  }
+  return resultados;
+}
+
+/** "LOCAL 2 - 1 VISITANTE" (sin goles, "LOCAL - VISITANTE"). */
+function textoPartido(local, visitante, golesLocal, golesVisitante) {
+  const marcador = golesLocal != null && golesVisitante != null ? `${golesLocal} - ${golesVisitante}` : '-';
+  return `${local} ${marcador} ${visitante}`;
+}
+
+const PALMA_ID = 73;
+
+/** Resultado ('G' | 'E' | 'P') para un equipo con `propios` goles a favor y `ajenos` en contra. */
+const letra = (propios, ajenos) => (propios > ajenos ? 'G' : propios < ajenos ? 'P' : 'E');
+
+/** Goles de un resultado "2-1" → [2, 1]; null si no es válido. */
+function golesDe(resultado) {
+  const m = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(String(resultado || ''));
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+
+/** Últimos partidos de cada equipo de la tabla, sacados de los propios
+ * partidos cuando los hay (así la letra y el partido siempre cuadran, también
+ * con aplazados): de liga_partidos (toda la liga, solo Senior A) y, para el
+ * PALMA, de sus partidos. Si no, los de `porDiferencias` (de comparar
+ * jornadas guardadas), sin el partido. Solo hasta la jornada de la tabla. */
+async function ultimosConPartido(idPlantilla, ultima, porDiferencias) {
+  const hasta = ultima.jornada;
+  const [liga, propios] = await Promise.all([
+    LigaPartido.findAll({ where: { id_plantilla: idPlantilla, jornada: { [Op.lte]: hasta } }, raw: true }),
+    Partido.findAll({
+      where: { id_plantilla: idPlantilla, jornada: { [Op.gt]: 0, [Op.lte]: hasta } },
+      attributes: ['jornada', 'fecha', 'resultado', 'suspendido', 'id_equipo_local'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['nombre'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['nombre'] }
+      ]
+    })
+  ]);
+  const orden = (a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')) || a.jornada - b.jornada;
+  const jugadosLiga = (liga || []).filter((p) => p.goles_local != null && p.goles_visitante != null).sort(orden);
+  const mismoEquipo = (codigo, nombre, e) => (codigo && e.codigo_equipo ? String(codigo) === String(e.codigo_equipo)
+    : String(nombre || '').trim().toUpperCase() === String(e.equipo || '').trim().toUpperCase());
+  const recientes = (lista) => lista.slice(-ULTIMOS_PARTIDOS);
+
+  // Partidos del PALMA con resultado, en orden.
+  const delPalma = (propios || [])
+    .filter((p) => !p.suspendido && golesDe(p.resultado) && p.equipoLocal && p.equipoVisitante)
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+    .map((p) => {
+      const [gl, gv] = golesDe(p.resultado);
+      const enCasa = Number(p.id_equipo_local) === PALMA_ID;
+      return {
+        jornada: Number(p.jornada),
+        resultado: enCasa ? letra(gl, gv) : letra(gv, gl),
+        partido: textoPartido(p.equipoLocal.nombre, p.equipoVisitante.nombre, gl, gv)
+      };
+    });
+
+  return ultima.equipos.map((e) => {
+    const deLiga = jugadosLiga
+      .map((p) => {
+        const local = mismoEquipo(p.codigo_equipo_local, p.equipo_local, e);
+        if (!local && !mismoEquipo(p.codigo_equipo_visitante, p.equipo_visitante, e)) return null;
+        return {
+          jornada: p.jornada,
+          resultado: local ? letra(p.goles_local, p.goles_visitante) : letra(p.goles_visitante, p.goles_local),
+          partido: textoPartido(p.equipo_local, p.equipo_visitante, p.goles_local, p.goles_visitante)
+        };
+      })
+      .filter(Boolean);
+    let ultimos = porDiferencias.get(e.codigo_equipo || e.equipo) || [];
+    if (deLiga.length) ultimos = recientes(deLiga);
+    else if (e.es_palma && delPalma.length) ultimos = recientes(delPalma);
+    return { ...e, ultimos };
+  });
+}
+
+async function listar(req, res, next) {
+  try {
+    const idPlantilla = Number(req.query.id_plantilla);
+    if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+
+    const filas = await Clasificacion.findAll({
+      where: { id_plantilla: idPlantilla },
+      order: [['jornada', 'ASC'], ['posicion', 'ASC']],
+      raw: true
+    }) || [];
+    const porJornada = new Map();
+    for (const f of filas) {
+      if (!porJornada.has(f.jornada)) porJornada.set(f.jornada, { jornada: f.jornada, fecha: f.fecha, equipos: [] });
+      porJornada.get(f.jornada).equipos.push(f);
+    }
+    // Por jornada, solo la fila del PALMA y el número de equipos; la tabla
+    // completa, de la última jornada guardada.
+    const jornadas = [...porJornada.values()].map(({ jornada, fecha, equipos }) => {
+      const palma = equipos.find((e) => e.es_palma);
+      return {
+        jornada,
+        fecha,
+        total_equipos: equipos.length,
+        palma: palma ? Object.fromEntries(CAMPOS_PALMA.map((c) => [c, palma[c]])) : null
+      };
+    });
+    const ultima = [...porJornada.values()].pop() || null;
+    // Tabla de la última jornada: con los últimos partidos de cada equipo.
+    if (ultima) {
+      const ultimos = ultimosResultados([...porJornada.values()]);
+      ultima.equipos = await ultimosConPartido(idPlantilla, ultima, ultimos);
+    }
+    const siguiente = await siguienteJornada(idPlantilla, new Set(porJornada.keys()));
+    res.json({ jornadas, ultima, siguiente });
+  } catch (err) { next(err); }
+}
+
+/** Error de una actualización: se registra en el log y se deja para la
+ * siguiente (sin reintentos contra rfaf.es). */
+const fallo = (message) => Object.assign(new Error(message), { esperado: true });
+
+/**
+ * Guarda la siguiente jornada pendiente de la plantilla (con su categoría)
+ * leyéndola de RFAF: una petición. Devuelve { jornada, posicion, puntos,
+ * total_equipos }, o null si no hay ninguna disponible todavía.
+ */
+async function guardarSiguiente(plantilla) {
+  const competicion = competicionDe(plantilla);
+  if (!competicion) throw fallo(`La categoría ${plantilla.categoria?.nombre} no tiene configurada su clasificación de RFAF (faltan los códigos en la plantilla).`);
+  const idPlantilla = plantilla.id;
+
+  const guardadas = await Clasificacion.findAll({ where: { id_plantilla: idPlantilla }, attributes: ['jornada'], raw: true }) || [];
+  const siguiente = await siguienteJornada(idPlantilla, new Set(guardadas.map((g) => g.jornada)));
+  if (!siguiente?.disponible) return null;
+
+  const datos = await rfafActa.leerClasificacion(competicion, siguiente.jornada);
+  if (datos.jornada != null && Number(datos.jornada) !== siguiente.jornada) {
+    throw fallo(`RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${siguiente.jornada}.`);
+  }
+  // La fecha de RFAF manda (p. ej. una jornada aplazada o entre semana).
+  if (datos.fecha && diaEspana(new Date()) <= datos.fecha) {
+    throw fallo(`La jornada ${siguiente.jornada} se juega el ${formatoDia(datos.fecha)}: todavía no se guarda.`);
+  }
+  const equipos = (datos.equipos || []).map((e) => ({
+    ...e,
+    id_plantilla: idPlantilla,
+    jornada: siguiente.jornada,
+    fecha: datos.fecha || null,
+    es_palma: esPalma(e.equipo)
+  }));
+  const palma = equipos.find((e) => e.es_palma);
+  if (!palma) throw fallo('El PALMA no aparece en la clasificación de RFAF.');
+
+  try {
+    await Clasificacion.bulkCreate(equipos);
+  } catch (err) {
+    if (err instanceof UniqueConstraintError) throw fallo(`La jornada ${siguiente.jornada} ya está guardada.`);
+    throw err;
+  }
+  return { jornada: siguiente.jornada, posicion: palma.posicion, puntos: palma.puntos, total_equipos: equipos.length };
+}
+
+/**
+ * Pone al día la clasificación de todas las plantillas de la temporada actual
+ * con competición de RFAF: guarda una tras otra las jornadas ya disponibles.
+ * Al primer fallo de una plantilla se para (se vuelve a intentar en la
+ * siguiente actualización). Devuelve las jornadas guardadas.
+ */
+async function actualizarTodas(log = console) {
+  const plantillas = await Plantilla.findAll({
+    // Solo las plantillas de la temporada actual con su competición de RFAF
+    // configurada (los tres códigos en la plantilla).
+    where: {
+      codigo_primaria: { [Op.ne]: null },
+      codigo_grupo: { [Op.ne]: null },
+      codigo_competicion: { [Op.ne]: null }
+    },
+    include: [
+      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'] },
+      { model: Temporada, as: 'temporada', attributes: ['id', 'actual'], where: { actual: true } }
+    ]
+  }) || [];
+  const guardadas = [];
+  for (const plantilla of plantillas) {
+    try {
+      let r;
+      while ((r = await guardarSiguiente(plantilla))) {
+        guardadas.push({ id_plantilla: plantilla.id, ...r });
+        log.log(`📊 Clasificación ${plantilla.categoria.nombre} jornada ${r.jornada}: PALMA ${r.posicion}º de ${r.total_equipos} (${r.puntos} pts).`);
+      }
+    } catch (err) {
+      log.warn(`⚠️  Clasificación ${plantilla.categoria?.nombre}: ${err.message}`);
+    }
+  }
+  return guardadas;
+}
+
+module.exports = { listar, guardarSiguiente, actualizarTodas, siguienteJornada, esPalma, competicionDe, HORA_ACTUALIZACION };

@@ -3,14 +3,23 @@ import { ref, watch, computed } from 'vue';
 import Dialog from 'primevue/dialog';
 import Textarea from 'primevue/textarea';
 import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
+import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
+import TablaJugadoresPartido from './TablaJugadoresPartido.vue';
+import { CATEGORIA_CON_MINUTOS } from '../utils/minutos';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import {
   entrenamientosService, partidosService, plantillasService,
-  lugaresService, equiposService, calendarioService
+  lugaresService, equiposService, calendarioService, temporadasService,
+  jugadoresService, equiposJugadoresService
 } from '../services';
+import { filtrarPlantillasTemporadaActual } from '../utils/temporadaActual';
+
+const PALMA_ID = 73;
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -22,19 +31,71 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'saved']);
 
 const toast = useToast();
+const confirm = useConfirm();
 
 const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
 const plantillas = ref([]);
+const temporadas = ref([]);
 const lugares = ref([]);
 const equipos = ref([]);
+const jugadores = ref([]);
+const equiposJugadores = ref([]);
 const cargandoCatalogo = ref(false);
 const guardando = ref(false);
 
 const form = ref({});
 const partidosDelDia = ref([]);
-const partidosRecientes = ref([]);
 const entrenamientosDelDia = ref([]);
+/** Si el entrenamiento cargado pertenece a una serie semanal recurrente
+ * (tal y como estaba antes de tocarlo), para preguntar al guardar si el
+ * cambio se aplica solo a este día o a toda la serie de esta plantilla. */
+const esSerieRecurrente = ref(false);
+/** Si ya se ha indicado explícitamente una hora para el partido (no basta con
+ * el valor por defecto al elegir solo el día, que se muestra a medianoche). */
+const horaPartidoTocada = ref(false);
+
+// Adjunto de la sesión (PDF o imagen): fichero nuevo elegido pendiente de
+// subir, y si el usuario ha quitado el que ya tenía. El base64 solo se envía
+// al guardar, a su propia ruta (no va en el payload del entrenamiento).
+const TIPOS_ADJUNTO = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_ADJUNTO = 5 * 1024 * 1024;
+const adjuntoNuevo = ref(null);      // { dataUrl, nombre }
+const adjuntoQuitar = ref(false);
+const inputAdjunto = ref(null);
+
+function elegirAdjunto(evento) {
+  const fichero = evento.target.files?.[0];
+  evento.target.value = '';
+  if (!fichero) return;
+  if (!TIPOS_ADJUNTO.includes(fichero.type)) {
+    toast.add({ severity: 'warn', summary: 'Formato no admitido', detail: 'Solo se admiten ficheros PDF, JPG o PNG.', life: 4000 });
+    return;
+  }
+  if (fichero.size > MAX_ADJUNTO) {
+    toast.add({ severity: 'warn', summary: 'Fichero demasiado grande', detail: 'El máximo es 5 MB.', life: 4000 });
+    return;
+  }
+  const lector = new FileReader();
+  lector.onload = () => { adjuntoNuevo.value = { dataUrl: lector.result, nombre: fichero.name }; adjuntoQuitar.value = false; };
+  lector.onerror = () => toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo leer el fichero.', life: 4000 });
+  lector.readAsDataURL(fichero);
+}
+
+function quitarAdjunto() {
+  adjuntoNuevo.value = null;
+  adjuntoQuitar.value = true;
+}
+
+/** Sube o elimina el adjunto de la sesión tras guardar el entrenamiento. */
+async function guardarAdjunto(id) {
+  if (!id) return;
+  if (adjuntoNuevo.value) {
+    await entrenamientosService.subirAdjunto(id, adjuntoNuevo.value.dataUrl, adjuntoNuevo.value.nombre);
+  } else if (adjuntoQuitar.value && form.value.adjunto_nombre) {
+    await entrenamientosService.eliminarAdjunto(id);
+  }
+}
 
 function claveDia(fecha) {
   if (!fecha) return null;
@@ -50,19 +111,18 @@ function diaDePartido(p) {
 async function cargarPartidosDelDia() {
   if (props.tipo !== 'partido') {
     partidosDelDia.value = [];
-    partidosRecientes.value = [];
   } else {
     const dia = claveDia(form.value?.fecha);
-    const fechaRef = form.value?.fecha instanceof Date ? form.value.fecha : new Date(form.value?.fecha);
-    const limite = fechaRef && !Number.isNaN(fechaRef.getTime()) ? new Date(fechaRef.getTime() - 72 * 60 * 60 * 1000) : null;
-    const todos = await partidosService.listar();
+    // Solo los partidos de ese día (no todos los de la temporada).
+    const inicio = form.value?.fecha ? new Date(form.value.fecha) : null;
+    if (!dia || !inicio || Number.isNaN(inicio.getTime())) { partidosDelDia.value = []; return; }
+    inicio.setHours(0, 0, 0, 0);
+    const fin = new Date(inicio);
+    fin.setHours(23, 59, 59, 999);
+    const todos = await partidosService.listar({ desde: inicio.toISOString(), hasta: fin.toISOString() });
     partidosDelDia.value = todos.filter((p) =>
       dia && diaDePartido(p) === dia && String(p.id) !== String(props.registroId || '')
     );
-    partidosRecientes.value = todos.filter((p) => {
-      const f = p.fecha ? new Date(p.fecha) : null;
-      return f && limite && f >= limite && f <= fechaRef && String(p.id) !== String(props.registroId || '');
-    });
   }
 }
 
@@ -83,23 +143,41 @@ function resetForm() {
     fecha: props.fechaDefecto ? new Date(props.fechaDefecto) : null,
     id_lugar: null,
     hasta: null,
+    horario_reducido: false,
     id_equipo_local: null,
     id_equipo_visitante: null,
     incidencias: '',
+    observaciones: '',
+    jornada: null,
     resultado: '',
-    resultado_incidencias: ''
+    suspendido: false,
+    codigo_acta: '',
+    codigo_primaria: '',
+    jugadores_local: [],
+    jugadores_visitante: [],
+    adjunto_nombre: null,
+    adjunto_url: null
   };
+  horaPartidoTocada.value = false;
+  esSerieRecurrente.value = false;
+  adjuntoNuevo.value = null;
+  adjuntoQuitar.value = false;
 }
 
 async function cargarCatalogo() {
   cargandoCatalogo.value = true;
   try {
-    const promesas = [plantillasService.listar(), lugaresService.listar()];
-    if (props.tipo === 'partido') promesas.push(equiposService.listar());
-    const [pls, lugs, eqs] = await Promise.all(promesas);
+    const promesas = [plantillasService.listar(), temporadasService.listar(), lugaresService.listar()];
+    if (props.tipo === 'partido') {
+      promesas.push(equiposService.listar(), jugadoresService.listar({ basico: 1 }), equiposJugadoresService.listar().catch(() => []));
+    }
+    const [pls, temps, lugs, eqs, jugs, eqjugs] = await Promise.all(promesas);
     plantillas.value = pls;
+    temporadas.value = temps;
     lugares.value = lugs;
     if (eqs) equipos.value = eqs;
+    if (jugs) jugadores.value = jugs;
+    if (eqjugs) equiposJugadores.value = eqjugs;
   } finally {
     cargandoCatalogo.value = false;
   }
@@ -112,17 +190,46 @@ async function cargarRegistro() {
     const item = props.tipo === 'entrenamiento'
       ? await entrenamientosService.obtener(props.registroId)
       : await partidosService.obtener(props.registroId);
+    const jugadoresLocal = [];
+    const jugadoresVisitante = [];
+    (item.partidoJugadores || []).forEach((pj) => {
+      const entrada = {
+        id_jugador: pj.id_jugador ?? null,
+        id_equipo_jugador: pj.id_equipo_jugador ?? null,
+        dorsal: pj.dorsal ?? null,
+        tarjeta_amarilla: pj.tarjeta_amarilla || 0,
+        tarjeta_roja: pj.tarjeta_roja || 0,
+        goles: pj.goles || 0,
+        titular: pj.titular ?? null,
+        minuto_entrada: pj.minuto_entrada ?? null,
+        minuto_salida: pj.minuto_salida ?? null,
+        minutos: pj.minutos ?? null
+      };
+      if (pj.es_local) jugadoresLocal.push(entrada);
+      else jugadoresVisitante.push(entrada);
+    });
     form.value = {
       id_plantilla: item.id_plantilla ?? item.plantilla?.id ?? null,
       fecha: item.fecha ? new Date(item.fecha) : null,
       id_lugar: item.id_lugar ?? item.lugar?.id ?? null,
       hasta: item.hasta ? new Date(item.hasta) : null,
+      horario_reducido: !!item.horario_reducido,
+      adjunto_nombre: item.adjunto_nombre || null,
+      adjunto_url: item.adjunto_url || null,
       id_equipo_local: item.id_equipo_local ?? item.equipoLocal?.id ?? null,
       id_equipo_visitante: item.id_equipo_visitante ?? item.equipoVisitante?.id ?? null,
       incidencias: item.incidencias || '',
+      observaciones: item.observaciones || '',
+      jornada: item.jornada ?? null,
       resultado: item.resultado || '',
-      resultado_incidencias: item.resultado_incidencias || ''
+      suspendido: !!item.suspendido,
+      codigo_acta: item.codigo_acta || '',
+      codigo_primaria: item.codigo_primaria || '',
+      jugadores_local: jugadoresLocal,
+      jugadores_visitante: jugadoresVisitante
     };
+    if (props.tipo === 'partido') horaPartidoTocada.value = true;
+    esSerieRecurrente.value = props.tipo === 'entrenamiento' && !!item.recurrente && !!item.hasta;
   } catch {
     toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el registro.', life: 4000 });
     cerrar();
@@ -149,6 +256,9 @@ watch(
     if (props.tipo === 'entrenamiento' && !props.registroId && nueva && anterior) {
       form.value.id_lugar = null;
     }
+    if (props.tipo === 'partido' && !props.registroId && !horaEstablecida.value) {
+      form.value.id_lugar = null;
+    }
     cargarPartidosDelDia();
     cargarEntrenamientosDelDia();
   }
@@ -164,26 +274,28 @@ watch(
   }
 );
 
+const plantillasTemporadaActual = computed(() => filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value));
+
 const opcionesPlantilla = computed(() => {
   if (props.tipo === 'entrenamiento') {
     const ocupadas = new Set(
       entrenamientosDelDia.value.map((e) => e.id_plantilla ?? e.plantilla?.id ?? null).filter(Boolean)
     );
-    return plantillas.value
+    return plantillasTemporadaActual.value
       .filter((p) => !ocupadas.has(p.id))
       .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
   if (props.tipo !== 'partido') {
-    return plantillas.value
+    return plantillasTemporadaActual.value
       .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
-  const recientes = new Set(
-    partidosRecientes.value.map((p) => p.id_plantilla ?? p.plantilla?.id ?? null).filter(Boolean)
+  const ocupadasHoy = new Set(
+    partidosDelDia.value.map((p) => p.id_plantilla ?? p.plantilla?.id ?? null).filter(Boolean)
   );
-  return plantillas.value
-    .filter((p) => !recientes.has(p.id))
+  return plantillasTemporadaActual.value
+    .filter((p) => !ocupadasHoy.has(p.id))
     .map((p) => ({ label: `${p.categoria?.nombre || 'Plantilla'} · ${p.temporada?.nombre || ''}`, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 });
@@ -197,7 +309,7 @@ const opcionesLugar = computed(() => {
     ? lugares.value.filter((l) => (l.ids_tipos_futbol || []).includes(cat.id_tipofutbol))
     : lugares.value;
 
-  const ocupados = props.tipo === 'entrenamiento' ? lugaresOcupadosEntrenamiento.value : new Set();
+  const ocupados = props.tipo === 'entrenamiento' ? lugaresOcupadosEntrenamiento.value : lugaresOcupadosPartido.value;
   return filtradas
     .filter((l) => !ocupados.has(l.id))
     .map((l) => ({ label: l.nombre, value: l.id }))
@@ -207,16 +319,44 @@ const opcionesLugar = computed(() => {
 const lugaresOcupadosEntrenamiento = computed(() => {
   const set = new Set();
   if (props.tipo !== 'entrenamiento' || !form.value.fecha) return set;
+  // Horario reducido: no se comprueba el tiempo_entrenamiento de la categoría
+  // para filtrar lugares, así que ningún lugar se descarta por solape de horario.
+  if (form.value.horario_reducido) return set;
   const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
   if (Number.isNaN(inicio.getTime())) return set;
   const fin = inicio.getTime() + duracionEntrenamiento(form.value.id_plantilla) * 60000;
   entrenamientosDelDia.value.forEach((e) => {
+    if (e.horario_reducido) return;
     const eInicio = new Date(e.fecha);
     if (Number.isNaN(eInicio.getTime())) return;
     const eFin = eInicio.getTime() + ((e.plantilla?.categoria?.tiempoentrenamiento) || 60) * 60000;
     if (inicio.getTime() < eFin && eInicio.getTime() < fin && e.id_lugar != null) {
       set.add(e.id_lugar);
     }
+  });
+  return set;
+});
+
+/** Hora del partido establecida (no basta con haber elegido solo el día). */
+const horaEstablecida = computed(() => {
+  if (props.tipo !== 'partido') return true;
+  return !!form.value.fecha && horaPartidoTocada.value;
+});
+
+/** Lugares con otro partido que se solaparía en el tiempo según categoria.tiempopartido. */
+const lugaresOcupadosPartido = computed(() => {
+  const set = new Set();
+  if (props.tipo !== 'partido' || !horaEstablecida.value || !form.value.fecha) return set;
+  const inicio = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
+  if (Number.isNaN(inicio.getTime())) return set;
+  const fin = inicio.getTime() + duracionPlantilla(form.value.id_plantilla) * 60000;
+  partidosDelDia.value.forEach((p) => {
+    const pLugar = p.id_lugar ?? p.lugar?.id ?? null;
+    if (pLugar == null) return;
+    const pInicio = new Date(p.fecha).getTime();
+    if (Number.isNaN(pInicio)) return;
+    const pFin = pInicio + ((p.plantilla?.categoria?.tiempopartido) || 90) * 60000;
+    if (inicio.getTime() < pFin && pInicio < fin) set.add(pLugar);
   });
   return set;
 });
@@ -234,6 +374,25 @@ const equipoLocalSeleccionado = computed(() =>
 const esEquipoLocalPalma = computed(() =>
   equipoLocalSeleccionado.value?.nombre === NOMBRE_PALMA
 );
+
+const esEquipoVisitantePalma = computed(() =>
+  Number(form.value.id_equipo_visitante) === PALMA_ID
+);
+
+const plantillaSeleccionada = computed(() =>
+  plantillas.value.find((p) => p.id === form.value.id_plantilla)
+);
+
+/** Los jugadores del equipo rival (no PALMA) solo se pueden ver/convocar en la
+ * plantilla Senior A de la temporada 2026/2027; en el resto solo se gestionan
+ * los del PALMA DEL RIO ATLETICO C.F. */
+const permiteJugadoresRival = computed(() =>
+  plantillaSeleccionada.value?.categoria?.nombre === 'Senior A' &&
+  plantillaSeleccionada.value?.temporada?.nombre === '2026/2027'
+);
+
+const mostrarJugadoresLocal = computed(() => esEquipoLocalPalma.value || permiteJugadoresRival.value);
+const mostrarJugadoresVisitante = computed(() => esEquipoVisitantePalma.value || permiteJugadoresRival.value);
 
 const ubicacionEquipoLocal = computed(() => {
   const eq = equipoLocalSeleccionado.value;
@@ -273,14 +432,120 @@ function nombrePlantilla(idPl) {
   return plantillas.value.find((p) => p.id === idPl)?.categoria?.nombre || '?';
 }
 
-function plantillaJugoRecientemente() {
-  if (props.tipo !== 'partido' || form.value.id_plantilla == null || !form.value.fecha) return null;
-  const fecha = form.value.fecha instanceof Date ? form.value.fecha : new Date(form.value.fecha);
-  if (Number.isNaN(fecha.getTime())) return null;
-  return partidosRecientes.value.find((p) => {
-    const pPl = p.id_plantilla ?? p.plantilla?.id ?? null;
-    return pPl != null && String(pPl) === String(form.value.id_plantilla);
-  }) || null;
+// ---------- Jugadores convocados (solo tipo 'partido') ----------
+const nuevoJugadorLocal = ref(null);
+const nuevoJugadorVisitante = ref(null);
+const keySelectJugadorLocal = ref(0);
+const keySelectJugadorVisitante = ref(0);
+
+function jugadorInfo(id) {
+  return jugadores.value.find((j) => j.id === id);
+}
+
+/** Jugadores de una plantilla (para el lado PALMA). */
+function plantillaJugadores() {
+  const p = plantillas.value.find((pl) => pl.id === form.value.id_plantilla);
+  return (p?.jugadores || []).map((j) => ({ id: j.id, nombre: j.nombre, apellidos: j.apellidos, dorsal: j.PlantillaJugador?.dorsal ?? null }));
+}
+
+/** Opciones de jugadores de un lado según su equipo: PALMA -> plantilla, resto -> equipos_jugadores. */
+function jugadoresEquipoDe(lado) {
+  const idEquipo = lado === 'local' ? form.value.id_equipo_local : form.value.id_equipo_visitante;
+  if (Number(idEquipo) === PALMA_ID) {
+    return plantillaJugadores()
+      .map((j) => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id, tipo: 'jugador', dorsal: j.dorsal }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+  }
+  return equiposJugadores.value
+    .filter((ej) => Number(ej.id_equipo) === Number(idEquipo))
+    .map((ej) => ({ label: `${ej.nombre} ${ej.apellidos}`, value: ej.id, tipo: 'equipo_jugador' }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+}
+
+function valorJugadorConvocado(j) {
+  return j?.id_jugador ?? j?.id_equipo_jugador ?? null;
+}
+
+const opcionesJugadorLocalDisponibles = computed(() => {
+  const usados = new Set((form.value.jugadores_local || []).map(valorJugadorConvocado));
+  return jugadoresEquipoDe('local').filter((o) => !usados.has(o.value));
+});
+
+const opcionesJugadorVisitanteDisponibles = computed(() => {
+  const usados = new Set((form.value.jugadores_visitante || []).map(valorJugadorConvocado));
+  return jugadoresEquipoDe('visitante').filter((o) => !usados.has(o.value));
+});
+
+function addJugadorConvocado(lado) {
+  const nuevo = lado === 'local' ? nuevoJugadorLocal.value : nuevoJugadorVisitante.value;
+  if (!nuevo) return;
+  const opt = jugadoresEquipoDe(lado).find((o) => o.value === nuevo);
+  if (!opt) return;
+  agregarJugadoresConvocados(lado, [opt]);
+  if (lado === 'local') {
+    nuevoJugadorLocal.value = null;
+    keySelectJugadorLocal.value++;
+  } else {
+    nuevoJugadorVisitante.value = null;
+    keySelectJugadorVisitante.value++;
+  }
+}
+
+/** Añade las opciones indicadas al lado, saltándose las que ya estén. */
+function agregarJugadoresConvocados(lado, opciones) {
+  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
+  if (!form.value[campo]) form.value[campo] = [];
+  for (const opt of opciones) {
+    if (form.value[campo].some((j) => valorJugadorConvocado(j) === opt.value)) continue;
+    // El dorsal de la plantilla como punto de partida (se puede cambiar).
+    const entrada = { dorsal: opt.dorsal ?? null, tarjeta_amarilla: 0, tarjeta_roja: 0, goles: 0 };
+    if (opt.tipo === 'jugador') entrada.id_jugador = opt.value;
+    else entrada.id_equipo_jugador = opt.value;
+    form.value[campo].push(entrada);
+  }
+}
+
+/** Añade de una vez todos los jugadores del equipo de ese lado. */
+function addPlantillaCompleta(lado) {
+  agregarJugadoresConvocados(lado, jugadoresEquipoDe(lado));
+}
+
+function removeJugadorConvocado(lado, valor) {
+  const campo = lado === 'local' ? 'jugadores_local' : 'jugadores_visitante';
+  form.value[campo] = (form.value[campo] || []).filter((j) => valorJugadorConvocado(j) !== valor);
+}
+
+/** Los minutos jugados solo se llevan en los partidos de esta categoría. */
+const conMinutos = computed(() =>
+  plantillas.value.find((p) => p.id === form.value.id_plantilla)?.categoria?.nombre === CATEGORIA_CON_MINUTOS);
+
+/** Con datos del acta (titular conocido), los jugadores de un equipo se
+ * reparten en Titulares / Han entrado / No han jugado; sin ellos, null (una
+ * sola tabla, como al convocar a mano). */
+function gruposJugadores(lista) {
+  const jugadores = lista || [];
+  if (!jugadores.some((j) => j.titular === true || j.titular === false)) return null;
+  const haEntrado = (j) => j.titular === false && j.minuto_entrada != null;
+  return [
+    { clave: 'titulares', titulo: 'Titulares', vacio: 'Sin titulares.', filas: jugadores.filter((j) => j.titular === true) },
+    { clave: 'entran', titulo: 'Han entrado', vacio: 'No ha entrado nadie.', filas: jugadores.filter(haEntrado) },
+    { clave: 'no-juegan', titulo: 'No han jugado', vacio: 'Han jugado todos.', filas: jugadores.filter((j) => j.titular !== true && !haEntrado(j)) }
+  ];
+}
+
+/** Nombre legible de un jugador añadido en el formulario. */
+function nombreJugadorConvocado(entry) {
+  if (entry?.id_jugador) {
+    const dePlantilla = plantillaJugadores().find((j) => j.id === entry.id_jugador);
+    if (dePlantilla) return `${dePlantilla.nombre} ${dePlantilla.apellidos}`;
+    const j = jugadorInfo(entry.id_jugador);
+    return j ? `${j.nombre} ${j.apellidos}` : '—';
+  }
+  if (entry?.id_equipo_jugador) {
+    const ej = equiposJugadores.value.find((e) => e.id === entry.id_equipo_jugador);
+    return ej ? `${ej.nombre} ${ej.apellidos}` : '—';
+  }
+  return '—';
 }
 
 function entrenamientoEnConflicto() {
@@ -337,6 +602,7 @@ function onHoraInput(campo, value) {
   if (form.value[campo]) {
     form.value[campo] = combinarFechaHora(form.value[campo], value);
   }
+  if (campo === 'fecha' && props.tipo === 'partido') horaPartidoTocada.value = true;
 }
 
 function onFechaChange(campo, value) {
@@ -388,21 +654,30 @@ function validar() {
     });
     return false;
   }
-  const reciente = props.tipo === 'partido' ? plantillaJugoRecientemente() : null;
-  if (reciente) {
-    toast.add({
-      severity: 'error',
-      summary: 'Plantilla ocupada',
-      detail: 'Esta plantilla jugó hace menos de 72 horas.',
-      life: 5000
-    });
-    return false;
-  }
   return true;
 }
 
-async function guardar() {
+function guardar() {
   if (!validar()) return;
+  // Si es un entrenamiento existente que pertenece a una serie semanal,
+  // preguntar si el cambio se aplica solo a este día o a todos los
+  // entrenamientos de esta plantilla antes de guardar nada.
+  if (props.tipo === 'entrenamiento' && props.registroId && esSerieRecurrente.value) {
+    confirm.require({
+      message: 'Este entrenamiento forma parte de una serie semanal para esta plantilla. ¿Aplicar el cambio solo a este día o a todos los entrenamientos de esta plantilla?',
+      header: 'Entrenamiento recurrente',
+      icon: 'pi pi-question-circle',
+      acceptLabel: 'Todos los eventos de esta plantilla',
+      rejectLabel: 'Solo este día',
+      accept: () => guardarConAlcance('serie'),
+      reject: () => guardarConAlcance('dia')
+    });
+    return;
+  }
+  guardarConAlcance('dia');
+}
+
+async function guardarConAlcance(alcance) {
   guardando.value = true;
   try {
     const payload = {
@@ -412,21 +687,59 @@ async function guardar() {
     if (props.tipo === 'entrenamiento') {
       payload.id_lugar = form.value.id_lugar;
       payload.hasta = form.value.hasta ? form.value.hasta.toISOString() : null;
+      payload.recurrente = !!form.value.hasta;
+      payload.horario_reducido = !!form.value.horario_reducido;
+      payload.alcance = alcance;
     } else {
       payload.id_equipo_local = form.value.id_equipo_local;
       payload.id_equipo_visitante = form.value.id_equipo_visitante;
       payload.id_lugar = esEquipoLocalPalma.value ? form.value.id_lugar : null;
       payload.incidencias = form.value.incidencias;
-      payload.resultado = form.value.resultado;
-      payload.resultado_incidencias = form.value.resultado_incidencias || null;
+      payload.observaciones = form.value.observaciones || null;
+      payload.jornada = form.value.jornada || null;
+      payload.resultado = form.value.resultado || null;
+      payload.suspendido = !!form.value.suspendido;
+      payload.codigo_acta = form.value.codigo_acta || null;
+      payload.codigo_primaria = form.value.codigo_primaria || null;
+      payload.jugadores_local = mostrarJugadoresLocal.value ? (form.value.jugadores_local || []) : [];
+      payload.jugadores_visitante = mostrarJugadoresVisitante.value ? (form.value.jugadores_visitante || []) : [];
     }
     const service = props.tipo === 'entrenamiento' ? entrenamientosService : partidosService;
+    let resultado;
     if (props.registroId) {
-      await service.actualizar(props.registroId, payload);
+      resultado = await service.actualizar(props.registroId, payload);
       toast.add({ severity: 'success', summary: 'Actualizado', detail: 'Registro actualizado correctamente.', life: 3000 });
     } else {
-      await service.crear(payload);
+      resultado = await service.crear(payload);
       toast.add({ severity: 'success', summary: 'Creado', detail: 'Registro creado correctamente.', life: 3000 });
+    }
+    // El adjunto es de esta sesión: se guarda sobre el id de este registro (en
+    // una serie recurrente, solo sobre el que se está editando/creando).
+    if (props.tipo === 'entrenamiento') {
+      try {
+        await guardarAdjunto(props.registroId || resultado?.id);
+      } catch (errAdj) {
+        toast.add({ severity: 'warn', summary: 'Adjunto no guardado',
+          detail: errAdj.response?.data?.message || 'El entrenamiento se guardó, pero el adjunto no.', life: 6000 });
+      }
+    }
+    if (props.tipo === 'entrenamiento' && resultado?.generados > 1) {
+      let detalle = `Se han generado ${resultado.generados} entrenamientos semanales.`;
+      if (resultado.omitidos?.length) {
+        detalle += ` ${resultado.omitidos.length} semana(s) omitida(s) por tener ya otro evento.`;
+      }
+      toast.add({ severity: 'info', summary: 'Entrenamientos recurrentes', detail: detalle, life: 6000 });
+    }
+    if (props.tipo === 'entrenamiento' && (resultado?.propagados > 0 || resultado?.horaPropagada > 0)) {
+      const partes = [];
+      if (resultado.horaPropagada > 0) partes.push(`la hora en ${resultado.horaPropagada} sesión(es) siguientes`);
+      if (resultado.propagados > 0) partes.push(`el lugar en ${resultado.propagados} sesión(es)`);
+      toast.add({
+        severity: 'info',
+        summary: 'Serie actualizada',
+        detail: `Se ha actualizado también ${partes.join(' y ')} de esta serie.`,
+        life: 6000
+      });
     }
     cerrar();
     emit('saved');
@@ -441,10 +754,72 @@ async function guardar() {
     guardando.value = false;
   }
 }
+
+// ---------- Finalizar acta (RFAF) ----------
+const finalizandoActa = ref(false);
+
+/** Lee el acta oficial de RFAF (el backend hace una sola petición a rfaf.es)
+ * y deja en el partido el resultado y los jugadores del PALMA que han jugado,
+ * con sus goles y tarjetas. */
+function confirmarFinalizarActa() {
+  if (!props.registroId || !form.value.codigo_acta || !form.value.codigo_primaria) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Faltan códigos',
+      detail: 'Indica el código de acta y el código de primaria.',
+      life: 4000
+    });
+    return;
+  }
+  confirm.require({
+    message: 'Se leerá el acta de RFAF y se sustituirán el resultado y los jugadores del PALMA de este partido por los del acta. Los jugadores que no existan se crearán en la plantilla del partido. ¿Continuar?',
+    header: 'Finalizar acta',
+    icon: 'pi pi-flag',
+    acceptLabel: 'Finalizar',
+    rejectLabel: 'Cancelar',
+    accept: finalizarActa
+  });
+}
+
+async function finalizarActa() {
+  finalizandoActa.value = true;
+  try {
+    const r = await partidosService.finalizarActa(props.registroId, {
+      codigo_acta: form.value.codigo_acta,
+      codigo_primaria: form.value.codigo_primaria
+    });
+    const creados = r.creados?.length
+      ? ` Creados en Jugadores: ${r.creados.join(', ')}.`
+      : '';
+    toast.add({
+      severity: r.creados?.length ? 'info' : 'success',
+      summary: `Acta finalizada · ${r.resultado}`,
+      detail: `${r.actualizados?.length || 0} jugador(es) con sus goles y tarjetas.${creados}`,
+      life: 8000
+    });
+    // Los jugadores y plantillas se cargan al abrir el formulario: sin
+    // recargarlos, los recién creados se verían como "—" en la tabla.
+    if (r.creados?.length) {
+      const [jugs, pls] = await Promise.all([jugadoresService.listar({ basico: 1 }), plantillasService.listar()]);
+      jugadores.value = jugs;
+      plantillas.value = pls;
+    }
+    await cargarRegistro();
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo finalizar el acta.',
+      life: 6000
+    });
+  } finally {
+    finalizandoActa.value = false;
+  }
+}
 </script>
 
 <template>
-  <Dialog :visible="visible" modal class="w-full max-w-lg" @update:visible="cerrar">
+  <Dialog :visible="visible" modal :class="tipo === 'partido' ? 'w-full max-w-4xl' : 'w-full max-w-lg'" @update:visible="cerrar">
     <template #header>
       <div class="flex items-center gap-2">
         <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -493,6 +868,16 @@ async function guardar() {
                   class="w-full" placeholder="Selecciona un lugar"
                   showClear :loading="cargandoCatalogo" />
         </div>
+        <div class="flex items-start gap-2">
+          <Checkbox v-model="form.horario_reducido" :binary="true" inputId="horario_reducido" />
+          <label for="horario_reducido" class="text-sm">
+            <span class="font-medium text-ink-secondary">Horario reducido</span>
+            <p class="text-xs text-ink-tertiary">
+              No se tendrá en cuenta la duración habitual de la categoría al mostrar los lugares
+              disponibles (útil si esta sesión dura menos de lo normal).
+            </p>
+          </label>
+        </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Fecha límite (repetir)</label>
           <div class="flex gap-2">
@@ -510,6 +895,29 @@ async function guardar() {
               class="w-24"
               @update:modelValue="(v) => onHoraInput('hasta', v)"
             />
+          </div>
+        </div>
+
+        <!-- Adjunto de la sesión: planificación en PDF o imagen. -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Adjunto (planificación)</label>
+          <p class="text-xs text-ink-tertiary">PDF, JPG o PNG, hasta 5 MB. Es solo de esta sesión.</p>
+          <div v-if="adjuntoNuevo" class="flex items-center gap-2 text-sm">
+            <i class="pi pi-paperclip text-club-green" />
+            <span class="truncate">{{ adjuntoNuevo.nombre }}</span>
+            <span class="text-xs text-ink-tertiary">(sin guardar)</span>
+            <Button icon="pi pi-times" text severity="secondary" size="small" @click="adjuntoNuevo = null" />
+          </div>
+          <div v-else-if="form.adjunto_url && !adjuntoQuitar" class="flex items-center gap-2 text-sm">
+            <i class="pi pi-paperclip text-club-green" />
+            <a :href="form.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">{{ form.adjunto_nombre }}</a>
+            <Button icon="pi pi-trash" text severity="danger" size="small" @click="quitarAdjunto" />
+          </div>
+          <div class="flex items-center gap-2">
+            <input ref="inputAdjunto" type="file" accept=".pdf,image/png,image/jpeg" class="hidden" @change="elegirAdjunto" />
+            <Button :label="(form.adjunto_url && !adjuntoQuitar) || adjuntoNuevo ? 'Cambiar fichero' : 'Elegir fichero'"
+                    icon="pi pi-upload" text size="small" @click="inputAdjunto?.click()" />
+            <span v-if="adjuntoQuitar && form.adjunto_nombre" class="text-xs text-club-garnet">Se quitará al guardar</span>
           </div>
         </div>
       </template>
@@ -579,8 +987,11 @@ async function guardar() {
           <label class="text-sm font-medium text-ink-secondary">Lugar <span class="text-club-garnet">*</span></label>
           <Select v-model="form.id_lugar" :options="opcionesLugar" optionLabel="label" optionValue="value"
                   class="w-full" placeholder="Selecciona un lugar"
-                  showClear :loading="cargandoCatalogo" />
-          <p v-if="textoConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
+                  showClear :loading="cargandoCatalogo" :disabled="!horaEstablecida" />
+          <p v-if="!horaEstablecida" class="text-xs text-ink-tertiary">
+            Indica la hora del partido para poder elegir el lugar.
+          </p>
+          <p v-else-if="textoConflicto()" class="flex items-center gap-1.5 text-xs text-club-garnet">
             <i class="pi pi-exclamation-circle"></i> {{ textoConflicto() }}
           </p>
         </div>
@@ -592,17 +1003,85 @@ async function guardar() {
           </div>
         </div>
 
-        <div v-if="registroId" class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-ink-secondary">Resultado</label>
-          <div class="flex items-center gap-2">
-            <InputText v-model="form.resultado" placeholder="Marcador, p. ej. 2-1" class="flex-1" maxlength="30" />
-            <i class="pi pi-flag text-ink-tertiary"></i>
-          </div>
-          <p class="text-xs text-ink-tertiary">El resultado quedará guardado en el partido.</p>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Jornada</label>
+          <InputNumber v-model="form.jornada" :min="1" :minFractionDigits="0" :maxFractionDigits="0"
+                       placeholder="Vacío = amistoso" class="w-full" inputClass="w-full" />
         </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Resultado</label>
+          <InputText v-model="form.resultado" placeholder="2-1" class="w-full" />
+        </div>
+
+        <div class="flex items-center gap-2 sm:col-span-2">
+          <Checkbox v-model="form.suspendido" :binary="true" inputId="suspendido" />
+          <label for="suspendido" class="text-sm font-medium text-club-garnet">Partido suspendido</label>
+        </div>
+
+        <div class="flex flex-col gap-1.5 sm:col-span-2">
+          <label class="text-sm font-medium text-ink-secondary">Acta RFAF</label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <InputText v-model="form.codigo_acta" placeholder="Código de acta (CodActa)" class="w-full sm:flex-1" />
+            <InputText v-model="form.codigo_primaria" placeholder="Código de primaria" class="w-full sm:flex-1" />
+            <Button v-if="registroId && form.codigo_acta" type="button" label="Finalizar Acta" icon="pi pi-flag"
+                    outlined :loading="finalizandoActa" class="!text-club-green !border-club-green/50 whitespace-nowrap"
+                    @click="confirmarFinalizarActa" />
+          </div>
+        </div>
+
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Incidencias</label>
           <Textarea v-model="form.incidencias" rows="3" class="w-full" />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Observaciones</label>
+          <Textarea v-model="form.observaciones" rows="3" class="w-full" />
+        </div>
+
+        <div v-if="mostrarJugadoresLocal">
+          <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Local</h3>
+          <template v-if="gruposJugadores(form.jugadores_local)">
+            <div v-for="g in gruposJugadores(form.jugadores_local)" :key="g.clave" class="mb-3">
+              <h4 class="text-xs font-semibold text-ink-secondary mb-1">{{ g.titulo }} ({{ g.filas.length }})</h4>
+              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado" :conMinutos="conMinutos"
+                                     :vacio="g.vacio" @quitar="(v) => removeJugadorConvocado('local', v)" />
+            </div>
+          </template>
+          <TablaJugadoresPartido v-else :jugadores="form.jugadores_local || []" :nombre="nombreJugadorConvocado"
+                                 :clave="valorJugadorConvocado" :conMinutos="conMinutos" @quitar="(v) => removeJugadorConvocado('local', v)" />
+          <div class="flex gap-2 mt-2">
+            <Select :key="keySelectJugadorLocal" v-model="nuevoJugadorLocal" :options="opcionesJugadorLocalDisponibles"
+                    optionLabel="label" optionValue="value" placeholder="Seleccionar jugador local"
+                    class="flex-1" filter showClear />
+            <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
+                    @click="addJugadorConvocado('local')" />
+            <Button type="button" label="Plantilla completa" icon="pi pi-users" outlined class="!text-club-green !border-club-green/50"
+                    :disabled="!opcionesJugadorLocalDisponibles.length" @click="addPlantillaCompleta('local')" />
+          </div>
+        </div>
+
+        <div v-if="mostrarJugadoresVisitante">
+          <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores Equipo Visitante</h3>
+          <template v-if="gruposJugadores(form.jugadores_visitante)">
+            <div v-for="g in gruposJugadores(form.jugadores_visitante)" :key="g.clave" class="mb-3">
+              <h4 class="text-xs font-semibold text-ink-secondary mb-1">{{ g.titulo }} ({{ g.filas.length }})</h4>
+              <TablaJugadoresPartido :jugadores="g.filas" :nombre="nombreJugadorConvocado" :clave="valorJugadorConvocado" :conMinutos="conMinutos"
+                                     :vacio="g.vacio" @quitar="(v) => removeJugadorConvocado('visitante', v)" />
+            </div>
+          </template>
+          <TablaJugadoresPartido v-else :jugadores="form.jugadores_visitante || []" :nombre="nombreJugadorConvocado"
+                                 :clave="valorJugadorConvocado" :conMinutos="conMinutos" @quitar="(v) => removeJugadorConvocado('visitante', v)" />
+          <div class="flex gap-2 mt-2">
+            <Select :key="keySelectJugadorVisitante" v-model="nuevoJugadorVisitante" :options="opcionesJugadorVisitanteDisponibles"
+                    optionLabel="label" optionValue="value" placeholder="Seleccionar jugador visitante"
+                    class="flex-1" filter showClear />
+            <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
+                    @click="addJugadorConvocado('visitante')" />
+            <Button type="button" label="Plantilla completa" icon="pi pi-users" outlined class="!text-club-green !border-club-green/50"
+                    :disabled="!opcionesJugadorVisitanteDisponibles.length" @click="addPlantillaCompleta('visitante')" />
+          </div>
         </div>
       </template>
 

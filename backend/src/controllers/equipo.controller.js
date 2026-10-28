@@ -1,9 +1,17 @@
-const { Equipo } = require('../models');
+const { Op } = require('sequelize');
+const { Equipo, Partido, Plantilla, Categoria, Temporada } = require('../models');
 const { descargar } = require('./util.controller');
+const { reducirEscudo } = require('../utils/escudo.utils');
+const { esUrlImagen } = require('../utils/imagenes');
 
 async function listar(req, res, next) {
   try {
-    const equipos = await Equipo.findAll({ order: [['nombre', 'ASC']] });
+    // ?basico=1: sin el escudo (para desplegables).
+    const basico = req.query?.basico === '1';
+    const equipos = await Equipo.findAll({
+      ...(basico ? { attributes: { exclude: ['escudo'] } } : {}),
+      order: [['nombre', 'ASC']]
+    });
     res.json(equipos);
   } catch (err) { next(err); }
 }
@@ -22,11 +30,14 @@ async function crear(req, res, next) {
     if (!nombre) return res.status(400).json({ message: 'El nombre es obligatorio.' });
     const equipo = await Equipo.create({
       nombre,
-      escudo: req.body.escudo || null,
+      escudo: esUrlImagen(req.body.escudo) ? null : await reducirEscudo(req.body.escudo || null),
       direccion: req.body.direccion || null,
       codigopostal: req.body.codigopostal || null,
       localidad: req.body.localidad || null,
-      provincia: req.body.provincia || null
+      provincia: req.body.provincia || null,
+      camiseta: req.body.camiseta || null,
+      calzonas: req.body.calzonas || null,
+      medias: req.body.medias || null
     });
     res.status(201).json(equipo);
   } catch (err) { next(err); }
@@ -38,19 +49,58 @@ async function actualizar(req, res, next) {
     if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado.' });
     const { nombre } = req.body;
     if (nombre !== undefined) equipo.nombre = nombre;
-    if (req.body.escudo !== undefined) equipo.escudo = req.body.escudo || null;
+    // La URL de /api/imagenes es el escudo que ya tenía: no se toca.
+    if (req.body.escudo !== undefined && !esUrlImagen(req.body.escudo)) equipo.escudo = await reducirEscudo(req.body.escudo || null);
     if (req.body.direccion !== undefined) equipo.direccion = req.body.direccion || null;
     if (req.body.codigopostal !== undefined) equipo.codigopostal = req.body.codigopostal || null;
     if (req.body.localidad !== undefined) equipo.localidad = req.body.localidad || null;
     if (req.body.provincia !== undefined) equipo.provincia = req.body.provincia || null;
+    if (req.body.camiseta !== undefined) equipo.camiseta = req.body.camiseta || null;
+    if (req.body.calzonas !== undefined) equipo.calzonas = req.body.calzonas || null;
+    if (req.body.medias !== undefined) equipo.medias = req.body.medias || null;
     await equipo.save();
     res.json(equipo);
   } catch (err) { next(err); }
 }
 
+/** Busca los partidos (única FK real que bloquea el borrado de un equipo) que
+ * referencian este equipo como local o visitante, para poder explicar el
+ * motivo exacto si el borrado no es posible. */
+async function buscarPartidosBloqueantes(idEquipo) {
+  return Partido.findAll({
+    where: { [Op.or]: [{ id_equipo_local: idEquipo }, { id_equipo_visitante: idEquipo }] },
+    include: [{
+      model: Plantilla,
+      as: 'plantilla',
+      attributes: ['id'],
+      include: [
+        { model: Categoria, as: 'categoria', attributes: ['nombre'] },
+        { model: Temporada, as: 'temporada', attributes: ['nombre'] }
+      ]
+    }],
+    order: [['fecha', 'ASC']],
+    limit: 30
+  });
+}
+
 async function eliminar(req, res, next) {
   try {
-    const eliminado = await Equipo.destroy({ where: { id: req.params.id } });
+    const idEquipo = req.params.id;
+    const partidosVinculados = await buscarPartidosBloqueantes(idEquipo);
+    if (partidosVinculados.length) {
+      const detalle = partidosVinculados.map((p) => {
+        const rol = Number(p.id_equipo_local) === Number(idEquipo) ? 'local' : 'visitante';
+        const categoria = p.plantilla?.categoria?.nombre || '—';
+        const temporada = p.plantilla?.temporada?.nombre || '—';
+        const fecha = p.fecha ? new Date(p.fecha).toISOString().slice(0, 10) : '—';
+        return `${categoria} (${temporada}) · ${fecha} · como ${rol}`;
+      });
+      return res.status(409).json({
+        message: `No se puede eliminar: hay ${partidosVinculados.length} partido(s) que usan este equipo.`,
+        bloqueantes: [{ tabla: 'partidos', campo: 'id_equipo_local / id_equipo_visitante', cantidad: partidosVinculados.length, detalle }]
+      });
+    }
+    const eliminado = await Equipo.destroy({ where: { id: idEquipo } });
     if (!eliminado) return res.status(404).json({ message: 'Equipo no encontrado.' });
     res.status(204).send();
   } catch (err) { next(err); }
@@ -71,7 +121,7 @@ async function descargarEscudos(req, res, next) {
         lote.map(async (equipo) => {
           try {
             const { tipo, buffer } = await descargar(equipo.escudo);
-            const dataUrl = `data:${tipo};base64,${buffer.toString('base64')}`;
+            const dataUrl = await reducirEscudo(`data:${tipo};base64,${buffer.toString('base64')}`);
             await Equipo.update({ escudo: dataUrl }, { where: { id: equipo.id } });
           } catch { /* skip */ }
         })

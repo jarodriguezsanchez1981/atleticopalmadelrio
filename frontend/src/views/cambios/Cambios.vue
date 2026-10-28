@@ -11,7 +11,7 @@ const ENTIDADES = {
   delegados: 'Delegados', categorias: 'Categorías', jugadores: 'Jugadores',
   entrenadores: 'Entrenadores', entrenamientos: 'Entrenamientos',
   partidos: 'Partidos', equipos: 'Equipos', 'tipos-futbol': 'Tipos de fútbol',
-  patrocinadores: 'Patrocinadores', jornadas: 'Jornadas', sanciones: 'Sanciones',
+  jornadas: 'Jornadas', sanciones: 'Sanciones',
   plantillas: 'Plantillas', 'entrenamientos-jugadores': 'Entrenamientos-Jugadores',
   calendario: 'Calendario', resultados: 'Resultados', promociones: 'Promociones'
 };
@@ -49,6 +49,7 @@ const emptyItem = {};
 </script>
 
 <template>
+<SectionGuard seccion="cambios">
   <div>
     <h1 class="font-display text-xl text-club-green mb-1 flex items-center gap-2">
       <img src="/escudo.png" alt="" class="w-7 h-7 object-contain" />
@@ -60,13 +61,13 @@ const emptyItem = {};
 
     <CrudDataTable
       title="Cambios"
+    seccion="cambios"
       :columns="columns"
       :service="cambiosService"
       :emptyItem="emptyItem"
       :permisoCrear="false"
       :permisoEditar="false"
       :permisoEliminar="false"
-      :canExport="false"
     >
       <template #cell-accion="{ data }">
         <Tag :value="data.accion" :severity="ACCION_SEVERITY[data.accion] || 'secondary'" />
@@ -97,4 +98,5 @@ const emptyItem = {};
       </template>
     </CrudDataTable>
   </div>
+</SectionGuard>
 </template>

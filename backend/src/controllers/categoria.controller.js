@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { Categoria, TipoFutbol } = require('../models');
 
 const includes = [
@@ -32,7 +33,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, alias, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
+    const { nombre, alias, grupo, codigo_equipo_rfaf, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
     if (!nombre || !id_tipofutbol) {
       return res.status(400).json({ message: 'Nombre y tipo de fútbol son obligatorios.' });
     }
@@ -47,9 +48,14 @@ async function crear(req, res, next) {
     if (orden !== undefined && orden !== null && (!Number.isInteger(orden) || orden <= 0)) {
       return res.status(400).json({ message: 'El orden debe ser un número entero positivo.' });
     }
+    if (grupo !== undefined && grupo !== null && (!Number.isInteger(grupo) || grupo <= 0)) {
+      return res.status(400).json({ message: 'El grupo debe ser un número entero positivo.' });
+    }
     const categoria = await Categoria.create({
       nombre,
       alias: alias || null,
+      grupo: grupo || null,
+      codigo_equipo_rfaf: codigo_equipo_rfaf || null,
       id_tipofutbol,
       tiempopartido: tiempopartido || null,
       tiempoentrenamiento: tiempoentrenamiento || null,
@@ -64,9 +70,16 @@ async function actualizar(req, res, next) {
   try {
     const categoria = await Categoria.findOne({ where: { id: req.params.id } });
     if (!categoria) return res.status(404).json({ message: 'Categoría no encontrada.' });
-    const { nombre, alias, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
+    const { nombre, alias, grupo, codigo_equipo_rfaf, id_tipofutbol, tiempopartido, tiempoentrenamiento, orden } = req.body;
     if (nombre !== undefined) categoria.nombre = nombre;
     if (alias !== undefined) categoria.alias = alias || null;
+    if (grupo !== undefined) {
+      if (grupo !== null && (!Number.isInteger(grupo) || grupo <= 0)) {
+        return res.status(400).json({ message: 'El grupo debe ser un número entero positivo.' });
+      }
+      categoria.grupo = grupo || null;
+    }
+    if (codigo_equipo_rfaf !== undefined) categoria.codigo_equipo_rfaf = codigo_equipo_rfaf || null;
     if (id_tipofutbol !== undefined) {
       const tipoFutbol = await TipoFutbol.findOne({ where: { id: id_tipofutbol } });
       if (!tipoFutbol) return res.status(400).json({ message: 'El tipo de fútbol indicado no existe.' });
@@ -96,6 +109,21 @@ async function actualizar(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/** A partir de `desde`, suma 1 al orden de todas las categorías con orden >= desde
+ * (hace hueco para insertar/mover una categoría a esa posición). */
+async function reordenar(req, res, next) {
+  try {
+    const { desde } = req.body;
+    if (!Number.isInteger(desde) || desde <= 0) {
+      return res.status(400).json({ message: 'El número desde el que reordenar debe ser un entero positivo.' });
+    }
+    const where = { orden: { [Op.gte]: desde } };
+    const total = await Categoria.count({ where });
+    await Categoria.increment('orden', { by: 1, where });
+    res.json({ message: `Se ha incrementado el orden de ${total} categoría(s).`, afectadas: total });
+  } catch (err) { next(err); }
+}
+
 async function eliminar(req, res, next) {
   try {
     const eliminado = await Categoria.destroy({ where: { id: req.params.id } });
@@ -104,4 +132,4 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+module.exports = { listar, obtener, crear, actualizar, eliminar, reordenar };

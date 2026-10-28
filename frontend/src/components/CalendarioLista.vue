@@ -1,0 +1,331 @@
+<script setup>
+/**
+ * Vista de calendario en lista (para móvil): eventos de la semana agrupados por día y tipo.
+ */
+import { computed, ref, watch } from 'vue';
+import Button from 'primevue/button';
+import { useMediaQuery } from '../composables/useMediaQuery';
+import { grupoDeEvento, ORDEN_GRUPOS } from '../utils/gruposCalendario';
+
+const props = defineProps({
+  eventos: { type: Array, default: () => [] },
+  idCategoria: { type: [Number, String], default: null }
+});
+
+const emit = defineEmits(['event-click', 'date-click', 'semana-change']);
+
+const esMovil = useMediaQuery('(max-width: 639px)');
+const semanaOffset = ref(0);
+
+const GRUPOS = {
+  LIGA_CASA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-home' },
+  LIGA_FUERA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
+  AMISTOSO: { label: 'Amistoso', color: '#D97706', icon: 'pi pi-handshake' },
+  TORNEO: { label: 'Torneo', color: '#6D28D9', icon: 'pi pi-trophy' },
+  ENTRENAMIENTO_ESTADIO: { label: 'Entrenamiento Estadio', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO_ANEXO: { label: 'Entrenamiento Anexo', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO: { label: 'Entrenamiento', color: '#2563EB', icon: 'pi pi-calendar' },
+  FESTIVO: { label: 'Festivo', color: '#B45309', icon: 'pi pi-star' },
+  SUSPENDIDO: { label: 'Suspendido', color: '#DC2626', icon: 'pi pi-ban' }
+};
+
+function getLunes(fecha) {
+  const d = new Date(fecha);
+  const dia = d.getDay();
+  const diff = d.getDate() - dia + (dia === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function claveFecha(inicio) {
+  const d = new Date(inicio);
+  if (Number.isNaN(d.getTime())) return 'sin-fecha';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const inicioSemana = computed(() => {
+  const lunes = getLunes(new Date());
+  lunes.setDate(lunes.getDate() + semanaOffset.value * 7);
+  return lunes;
+});
+
+const finSemana = computed(() => {
+  const fin = new Date(inicioSemana.value);
+  fin.setDate(fin.getDate() + 6);
+  fin.setHours(23, 59, 59, 999);
+  return fin;
+});
+
+const rangoSemana = computed(() => {
+  const fmt = (d) => d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  return `${fmt(inicioSemana.value)} – ${fmt(finSemana.value)}`;
+});
+
+function semanaAnterior() { semanaOffset.value--; }
+function semanaSiguiente() { semanaOffset.value++; }
+function semanaActual() { semanaOffset.value = 0; }
+
+/** Avisa al padre del rango visible para que pueda cargar eventos fuera de su
+ * ventana inicial (la carga inicial solo cubre unos pocos meses). */
+watch(inicioSemana, () => {
+  emit('semana-change', { inicio: inicioSemana.value.toISOString(), fin: finSemana.value.toISOString() });
+});
+
+const grupoDe = grupoDeEvento;
+
+const dias = computed(() => {
+  // Los partidos suspendidos forman su propia sección, siempre la última del día.
+  const ordenGrupo = ORDEN_GRUPOS;
+  const claveInicio = claveFecha(inicioSemana.value);
+  const claveFin = claveFecha(finSemana.value);
+
+  const eventosFiltrados = props.eventos.filter((e) => {
+    const clave = claveFecha(e.inicio || e.fecha);
+    if (clave < claveInicio || clave > claveFin) return false;
+    if (e.tipo === 'festivo') return true;
+    if (props.idCategoria == null) return true;
+    return String(e.categoria?.id ?? e.plantilla?.categoria?.id ?? '') === String(props.idCategoria);
+  });
+
+  // Siempre se muestran los 7 días de la semana (aunque no tengan eventos), para
+  // que la vista de lista coincida con la semana completa de la vista de calendario.
+  const mapa = new Map();
+  for (let d = new Date(inicioSemana.value); d <= finSemana.value; d.setDate(d.getDate() + 1)) {
+    const clave = claveFecha(d);
+    mapa.set(clave, { clave, items: [] });
+  }
+  for (const e of eventosFiltrados) {
+    const clave = claveFecha(e.inicio || e.fecha);
+    if (!mapa.has(clave)) mapa.set(clave, { clave, items: [] });
+    mapa.get(clave).items.push(e);
+  }
+
+  return [...mapa.values()]
+    .sort((a, b) => a.clave.localeCompare(b.clave))
+    .map((g) => {
+      const grupos = new Map();
+      const itemsOrdenados = [...g.items].sort((a, b) => {
+        const porHora = new Date(a.inicio || a.fecha) - new Date(b.inicio || b.fecha);
+        if (porHora !== 0) return porHora;
+        // A igualdad de hora, los partidos en los que PALMA juega como local van primero.
+        const localA = a.tipo === 'partido' && a.es_local ? 0 : 1;
+        const localB = b.tipo === 'partido' && b.es_local ? 0 : 1;
+        return localA - localB;
+      });
+      for (const item of itemsOrdenados) {
+        const grp = grupoDe(item);
+        if (!grupos.has(grp)) grupos.set(grp, []);
+        grupos.get(grp).push(item);
+      }
+      return {
+        ...g,
+        fecha: new Date(`${g.clave}T12:00:00`),
+        grupos: [...grupos.entries()]
+          .sort((a, b) => (ordenGrupo[a[0]] ?? 9) - (ordenGrupo[b[0]] ?? 9))
+          .map(([grupo, items]) => ({ grupo, meta: GRUPOS[grupo] || GRUPOS.ENTRENAMIENTO, items }))
+      };
+    });
+});
+
+function formatearDia(fecha) {
+  const s = fecha.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatearHora(inicio) {
+  const d = new Date(inicio);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function nombreEvento(e) {
+  if (e.tipo === 'partido') return e.categoria?.alias || e.categoria?.nombre || '—';
+  if (e.tipo === 'torneo') return e.categoria?.alias || e.categoria?.nombre || e.nombre || 'Torneo';
+  if (e.tipo === 'festivo') return e.titulo || '';
+  return e.categoria?.alias || e.categoria?.nombre || '—';
+}
+
+function lugarEvento(e) {
+  if (e.tipo === 'partido') {
+    return e.es_local
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipoLocal?.localidad || '');
+  }
+  if (e.tipo === 'torneo') {
+    const esLocal = e.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
+    return esLocal ? '' : (e.equipo?.localidad || '');
+  }
+  if (e.tipo === 'festivo') return '';
+  return e.lugar || '';
+}
+</script>
+
+<template>
+  <div class="calendario-lista">
+    <div class="semana-nav">
+      <Button icon="pi pi-chevron-left" text rounded size="small" @click="semanaAnterior" />
+      <div class="semana-info">
+        <button class="semana-rango" @click="semanaActual">{{ rangoSemana }}</button>
+        <span v-if="semanaOffset !== 0" class="semana-hoy">Hoy</span>
+      </div>
+      <Button icon="pi pi-chevron-right" text rounded size="small" @click="semanaSiguiente" />
+    </div>
+
+    <div v-for="dia in dias" :key="dia.clave" class="dia">
+      <div
+        class="dia-cabecera"
+        :class="{ festivo: dia.grupos.some(g => g.grupo === 'FESTIVO') }"
+        @click="$emit('date-click', dia.clave)"
+      >
+        {{ formatearDia(dia.fecha) }}
+      </div>
+
+      <div v-if="!dia.grupos.length" class="dia-sin-eventos">
+        Sin eventos ese día.
+      </div>
+
+      <div v-for="g in dia.grupos" :key="g.grupo" class="grupo">
+        <div class="grupo-cabecera" :style="{ background: g.meta.color }">
+          <i :class="g.meta.icon"></i> {{ g.meta.label }}
+        </div>
+        <button
+          v-for="(e, i) in g.items"
+          :key="`${e.id}-${i}`"
+          type="button"
+          class="evento"
+          @click="$emit('event-click', e)"
+        >
+          <span class="hora">{{ formatearHora(e.inicio || e.fecha) }}</span>
+          <i v-if="e.tipo === 'partido'"
+             :class="e.es_local ? 'pi pi-home lv-icon lv-local' : 'pi pi-arrow-right-arrow-left lv-icon lv-visitante'"
+             v-tooltip.top="e.es_local ? 'Local' : 'Visitante'"></i>
+          <span class="nombre">{{ nombreEvento(e) }}</span>
+          <span v-if="lugarEvento(e)" class="lugar">{{ lugarEvento(e) }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.calendario-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dia-cabecera {
+  background: #D97706;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  text-transform: capitalize;
+}
+.dia-cabecera.festivo {
+  background: #B45309;
+}
+.grupo {
+  margin-bottom: 6px;
+}
+.grupo-cabecera {
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: 0.3px;
+  margin-bottom: 3px;
+}
+.evento {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 3px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.evento:active {
+  background: #F6F5F1;
+}
+.hora {
+  font-weight: 700;
+  color: #0F3D22;
+  min-width: 34px;
+}
+.lv-icon {
+  font-size: 0.7rem;
+}
+.lv-local {
+  color: rgb(16 185 129);
+}
+.lv-visitante {
+  color: rgb(79 70 229);
+}
+.nombre {
+  font-weight: 600;
+  color: #1E293B;
+  flex: 1;
+}
+.lugar {
+  color: #64748B;
+  font-size: 0.7rem;
+}
+.dia-sin-eventos {
+  color: #94A3B8;
+  font-size: 0.75rem;
+  font-style: italic;
+  padding: 4px 2px 2px;
+}
+.semana-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0F3D22;
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+}
+.semana-nav :deep(.p-button) {
+  color: #fff;
+}
+.semana-nav :deep(.p-button:hover) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.semana-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.semana-rango {
+  background: none;
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.semana-hoy {
+  font-size: 0.6rem;
+  background: #D97706;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+</style>

@@ -10,7 +10,7 @@ let unsubCambio = null;
 
 async function cargarOpciones() {
   const [eqs, cats] = await Promise.all([
-    equiposService.listar(),
+    equiposService.listar({ basico: 1 }),
     categoriasService.listar()
   ]);
   equipos.value = eqs;
@@ -52,8 +52,10 @@ function nombreCategoria(id) {
 </script>
 
 <template>
+<SectionGuard seccion="equipos_jugadores">
   <CrudDataTable
     title="Jugadores de Equipos"
+    seccion="equipos_jugadores"
     :columns="columns"
     :service="equiposJugadoresService"
     :emptyItem="emptyItem"
@@ -71,4 +73,5 @@ function nombreCategoria(id) {
       {{ data.categoria?.nombre || nombreCategoria(data.id_categoria) }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

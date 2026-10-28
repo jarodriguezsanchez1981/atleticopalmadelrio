@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import requireEditar from '../src/middlewares/requireEditar.js';
 
 describe('Permisos · requireEditar', () => {
-  function ejecutar(user) {
+  function ejecutar(user, ...secciones) {
     const req = { user };
     const res = {
       _status: 200,
@@ -12,47 +12,58 @@ describe('Permisos · requireEditar', () => {
     };
     let nextLlamado = false;
     const next = () => { nextLlamado = true; };
-    requireEditar()(req, res, next);
+    requireEditar(...secciones)(req, res, next);
     return { res, nextLlamado };
   }
 
-  it('permite el paso con visibilidad "editar"', () => {
-    const { nextLlamado } = ejecutar({ visibilidad: 'editar' });
-    expect(nextLlamado).toBe(true);
-  });
-
-  it('bloquea con visibilidad "leer" (403)', () => {
-    const { res, nextLlamado } = ejecutar({ visibilidad: 'leer' });
-    expect(nextLlamado).toBe(false);
-    expect(res._status).toBe(403);
-    expect(res._json.message).toBe('No tienes permisos para realizar esta acción.');
+  it('lanza un error si no se indica ninguna sección', () => {
+    expect(() => requireEditar()).toThrow();
   });
 
   it('bloquea sin usuario autenticado con 401', () => {
-    const { res, nextLlamado } = ejecutar(undefined);
+    const { res, nextLlamado } = ejecutar(undefined, 'jugadores');
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(401);
   });
 
-  it('acepta token antiguo con rol "editar" (compatibilidad)', () => {
-    const { nextLlamado } = ejecutar({ rol: 'editar' });
+  it('permite con permiso de editar en la sección pedida', () => {
+    const { nextLlamado } = ejecutar({
+      permisos: { jugadores: { ver: true, editar: true } }
+    }, 'jugadores');
     expect(nextLlamado).toBe(true);
   });
 
-  it('acepta token antiguo con roles: ["write"] (compatibilidad)', () => {
-    const { nextLlamado } = ejecutar({ roles: ['write'] });
-    expect(nextLlamado).toBe(true);
-  });
-
-  it('bloquea token antiguo con roles: ["read"]', () => {
-    const { res, nextLlamado } = ejecutar({ roles: ['read'] });
+  it('bloquea con permiso de ver pero no de editar en la sección pedida', () => {
+    const { res, nextLlamado } = ejecutar({
+      permisos: { jugadores: { ver: true, editar: false } }
+    }, 'jugadores');
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(403);
   });
 
-  it('bloquea sin visibilidad ni compatibilidad', () => {
-    const { res, nextLlamado } = ejecutar({ rol: 'coordinador' });
+  it('bloquea con permiso de editar en OTRA sección distinta a la pedida', () => {
+    // Regresión: un usuario con editar solo en "jugadores" no debe poder
+    // editar en "administracion" (ni en ninguna otra sección).
+    const { res, nextLlamado } = ejecutar({
+      permisos: { jugadores: { ver: true, editar: true } }
+    }, 'administracion');
     expect(nextLlamado).toBe(false);
     expect(res._status).toBe(403);
+  });
+
+  it('bloquea sin permisos en absoluto', () => {
+    const { res, nextLlamado } = ejecutar({ permisos: {} }, 'jugadores');
+    expect(nextLlamado).toBe(false);
+    expect(res._status).toBe(403);
+  });
+
+  it('permite si tiene editar en alguna de varias secciones aceptadas', () => {
+    const { nextLlamado } = ejecutar({
+      permisos: {
+        administracion: { ver: true, editar: false },
+        usuarios: { ver: true, editar: true }
+      }
+    }, 'administracion', 'usuarios');
+    expect(nextLlamado).toBe(true);
   });
 });

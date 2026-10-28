@@ -1,58 +1,53 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Plantilla, Categoria, Lugar } = require('../models');
+const { limiteConsulta } = require('../utils/limiteConsulta');
+const { Entrenamiento, Partido, Torneo, Plantilla, Categoria, Lugar } = require('../models');
+const { sumarDiasHoraEspana, diaEspana, partesEspana, desdeHoraEspana } = require('../utils/horaEspana');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
-
-const DURACION_ENTRENAMIENTO_DEFECTO = 60;
+const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
 
 const includes = [
   { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }] },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] }
 ];
 
+// Adjunto: PDF o imagen (el navegador los puede previsualizar). 5 MB por fichero.
+const TIPOS_ADJUNTO = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_ADJUNTO = 5 * 1024 * 1024;
+const DATA_URL_ADJUNTO = /^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,/i;
+
+/** data URL (de cualquier tipo, no solo imagen) -> { tipoMime, buffer }; null si no lo es. */
+function decodificarAdjunto(valor) {
+  const m = typeof valor === 'string' ? DATA_URL_ADJUNTO.exec(valor) : null;
+  if (!m) return null;
+  return { tipoMime: m[1].toLowerCase(), buffer: Buffer.from(valor.slice(m[0].length), 'base64') };
+}
+
 function serialize(entrenamiento) {
   const json = entrenamiento.toJSON ? entrenamiento.toJSON() : entrenamiento;
+  // El base64 no se devuelve nunca aquí (lo excluye el defaultScope); solo el
+  // nombre y la URL de descarga, versionada por updated_at para la caché.
+  if (json.adjunto_nombre) {
+    const v = json.updatedAt ? new Date(json.updatedAt).getTime() : '';
+    json.adjunto_url = `/api/entrenamientos/${json.id}/adjunto?v=${v}`;
+  }
+  delete json.adjunto;
   return json;
 }
 
+/** Fechas semanales desde fechaBase hasta el día de `hasta` (incluido), todas a
+ * la misma hora española que fechaBase (no se mueven con el cambio de horario). */
 function calcularFechasSemanal(fechaBase, hasta) {
-  const fechas = [];
   const base = new Date(fechaBase);
-  if (!hasta) {
-    fechas.push(new Date(base));
-    return fechas;
+  if (!hasta) return [base];
+  const ultimoDia = diaEspana(hasta);
+  const fechas = [];
+  for (let semana = 0; ; semana++) {
+    const f = sumarDiasHoraEspana(base, 7 * semana);
+    if (diaEspana(f) > ultimoDia) break;
+    fechas.push(f);
   }
-  const fin = new Date(hasta);
-  const aDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  for (let f = new Date(base); aDia(new Date(f)) <= aDia(fin); f = new Date(f.getTime() + 7 * 24 * 60 * 60 * 1000)) {
-    fechas.push(new Date(f));
-  }
-  if (!fechas.length) fechas.push(new Date(base));
+  if (!fechas.length) fechas.push(base);
   return fechas;
-}
-
-function seSolapanEntrenamientos(entrenamiento, inicioNuevo, finNuevo) {
-  const inicioEx = new Date(entrenamiento.fecha).getTime();
-  const finEx = inicioEx + (entrenamiento.plantilla?.categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO) * 60000;
-  return inicioNuevo < finEx && inicioEx < finNuevo;
-}
-
-async function existeEntrenamientoMismoHorario(idPlantilla, fecha, minutosNuevo, omitirId = null) {
-  if (!idPlantilla || !fecha) return false;
-  const inicio = new Date(fecha);
-  if (Number.isNaN(inicio.getTime())) return false;
-  const finNuevo = inicio.getTime() + (minutosNuevo || DURACION_ENTRENAMIENTO_DEFECTO) * 60000;
-  const margen = DURACION_ENTRENAMIENTO_DEFECTO * 60000;
-  const where = {
-    id_plantilla: idPlantilla,
-    fecha: { [Op.gte]: new Date(inicio.getTime() - margen), [Op.lte]: new Date(finNuevo) }
-  };
-  if (omitirId) where.id = { [Op.ne]: omitirId };
-  const entrenamientos = await Entrenamiento.findAll({
-    where,
-    include: [{ model: Plantilla, as: 'plantilla', attributes: ['id'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempoentrenamiento'] }] }]
-  });
-  if (omitirId) return entrenamientos.some((e) => String(e.id) !== String(omitirId) && seSolapanEntrenamientos(e, inicio.getTime(), finNuevo));
-  return entrenamientos.some((e) => seSolapanEntrenamientos(e, inicio.getTime(), finNuevo));
 }
 
 async function listar(req, res, next) {
@@ -69,7 +64,9 @@ async function listar(req, res, next) {
     const entrenamientos = await Entrenamiento.findAll({
       where,
       include: includesConCategoria(includes, categoriaDelUsuario(req)),
-      order: [['fecha', 'ASC']]
+      order: [['fecha', 'ASC']],
+      // ?limite=N: solo los N primeros por fecha (p. ej. los próximos del Dashboard).
+      limit: limiteConsulta(req.query.limite)
     });
     res.json(entrenamientos.map(serialize));
   } catch (err) { next(err); }
@@ -85,17 +82,19 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, recurrente, incidencias, hasta } = req.body;
+    const { id_plantilla, fecha, id_lugar, recurrente, incidencias, hasta, horario_reducido } = req.body;
     if (!id_plantilla || !fecha || !id_lugar) {
       return res.status(400).json({ message: 'Plantilla, fecha y lugar son obligatorios.' });
     }
-    const plantilla = await Plantilla.findOne({ where: { id: id_plantilla }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempoentrenamiento'] }] });
-    const minutosEntrenamiento = plantilla?.categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO;
-    if (await existeEntrenamientoMismoHorario(id_plantilla, fecha, minutosEntrenamiento)) {
-      return res.status(409).json({ message: 'Esta plantilla ya tiene un entrenamiento a esa hora.' });
+    const conflicto = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: null, esEntrenamiento: true
+    });
+    if (conflicto) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
     }
     const esRecurrente = recurrente ? 1 : 0;
     const hastaFecha = recurrente && hasta ? hasta : null;
+    const esHorarioReducido = horario_reducido ? 1 : 0;
 
     const entrenamiento = await Entrenamiento.create({
       id_plantilla,
@@ -103,11 +102,42 @@ async function crear(req, res, next) {
       hasta: hastaFecha,
       id_lugar,
       id_usuario: req.user?.id || null,
-      recurrente: esRecurrente
+      recurrente: esRecurrente,
+      horario_reducido: esHorarioReducido
     });
 
+    // Recurrente con fecha límite: generar un entrenamiento independiente por cada
+    // semana (mismo día de la semana, misma hora y lugar) hasta esa fecha.
+    let generados = 1;
+    const omitidos = [];
+    if (esRecurrente && hastaFecha) {
+      const siguientesFechas = calcularFechasSemanal(fecha, hastaFecha).slice(1);
+      for (const f of siguientesFechas) {
+        const conflictoSemana = await otroTipoDeEventoMismoDia({
+          models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha: f, tipoActual: null, esEntrenamiento: true
+        });
+        if (conflictoSemana) {
+          omitidos.push({ fecha: f, motivo: conflictoSemana });
+          continue;
+        }
+        await Entrenamiento.create({
+          id_plantilla,
+          fecha: f,
+          hasta: hastaFecha,
+          id_lugar,
+          id_usuario: req.user?.id || null,
+          recurrente: 1,
+          horario_reducido: esHorarioReducido
+        });
+        generados++;
+      }
+    }
+
     const completo = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
-    res.status(201).json(serialize(completo));
+    const respuesta = serialize(completo);
+    respuesta.generados = generados;
+    respuesta.omitidos = omitidos;
+    res.status(201).json(respuesta);
   } catch (err) { next(err); }
 }
 
@@ -115,36 +145,199 @@ async function actualizar(req, res, next) {
   try {
     const entrenamiento = await Entrenamiento.findByPk(req.params.id);
     if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, recurrente, hasta } = req.body;
+    const { id_plantilla, fecha, id_lugar, recurrente, hasta, alcance, horario_reducido } = req.body;
     if (id_plantilla !== undefined || fecha !== undefined) {
       const plantillaFinal = id_plantilla !== undefined ? id_plantilla : entrenamiento.id_plantilla;
       const fechaFinal = fecha !== undefined ? fecha : entrenamiento.fecha;
-      const plantilla = await Plantilla.findOne({ where: { id: plantillaFinal }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempoentrenamiento'] }] });
-      const minutosEntrenamiento = plantilla?.categoria?.tiempoentrenamiento || DURACION_ENTRENAMIENTO_DEFECTO;
-      if (await existeEntrenamientoMismoHorario(plantillaFinal, fechaFinal, minutosEntrenamiento, entrenamiento.id)) {
-        return res.status(409).json({ message: 'Esta plantilla ya tiene un entrenamiento a esa hora.' });
+      const conflicto = await otroTipoDeEventoMismoDia({
+        models: { Entrenamiento, Partido, Torneo }, idPlantilla: plantillaFinal, fecha: fechaFinal,
+        tipoActual: null, esEntrenamiento: true, excluirEntrenamientoId: entrenamiento.id
+      });
+      if (conflicto) {
+        return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflicto} ese día.` });
       }
     }
+    const serieIdPlantilla = entrenamiento.id_plantilla;
+    const serieRecurrente = entrenamiento.recurrente;
+    const serieHasta = entrenamiento.hasta;
+    const fechaOriginal = new Date(entrenamiento.fecha);
+
     if (id_plantilla !== undefined) entrenamiento.id_plantilla = id_plantilla;
     if (fecha !== undefined) entrenamiento.fecha = fecha;
     if (id_lugar !== undefined) entrenamiento.id_lugar = id_lugar;
     if (recurrente !== undefined) entrenamiento.recurrente = recurrente ? 1 : 0;
+    if (horario_reducido !== undefined) entrenamiento.horario_reducido = horario_reducido ? 1 : 0;
     if (recurrente !== undefined || fecha !== undefined || hasta !== undefined) {
       entrenamiento.hasta = recurrente && hasta ? hasta : null;
     }
     await entrenamiento.save();
 
+    // El lugar es un dato de la serie, no de una sesión concreta: si este
+    // entrenamiento pertenece a una serie recurrente (misma plantilla y misma
+    // fecha límite), propagar el cambio de lugar al resto de sus semanas, pero
+    // solo si el usuario eligió explícitamente aplicar el cambio a "todos los
+    // eventos de esta plantilla" (alcance: 'serie'); si edita "solo este día"
+    // (alcance: 'dia', o no se indica) el cambio se queda en este registro.
+    let propagados = 0;
+    if (id_lugar !== undefined && alcance === 'serie' && serieRecurrente && serieHasta) {
+      const [afectados] = await Entrenamiento.update(
+        { id_lugar },
+        {
+          where: {
+            id_plantilla: serieIdPlantilla,
+            recurrente: 1,
+            hasta: serieHasta,
+            id: { [Op.ne]: entrenamiento.id }
+          }
+        }
+      );
+      propagados = afectados;
+    }
+
+    // La hora también es de la serie: con "todos los eventos", las sesiones del
+    // mismo día de la semana desde esta en adelante pasan a la nueva hora
+    // española, cada una en su propio día.
+    let horaPropagada = 0;
+    if (fecha !== undefined && alcance === 'serie' && serieRecurrente && serieHasta) {
+      const nueva = partesEspana(entrenamiento.fecha);
+      const diaSemana = (d) => { const p = partesEspana(d); return new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay(); };
+      const diaSerie = diaSemana(fechaOriginal);
+      const siguientes = await Entrenamiento.findAll({
+        where: {
+          id_plantilla: serieIdPlantilla,
+          recurrente: 1,
+          hasta: serieHasta,
+          id: { [Op.ne]: entrenamiento.id },
+          fecha: { [Op.gt]: fechaOriginal }
+        }
+      });
+      for (const sesion of siguientes) {
+        if (diaSemana(sesion.fecha) !== diaSerie) continue;
+        const p = partesEspana(sesion.fecha);
+        const nuevaFecha = desdeHoraEspana(p.y, p.m, p.d, nueva.h, nueva.mi);
+        if (nuevaFecha.getTime() === new Date(sesion.fecha).getTime()) continue;
+        sesion.fecha = nuevaFecha;
+        await sesion.save();
+        horaPropagada += 1;
+      }
+    }
+
+    // Si tras la edición queda recurrente con fecha límite, generar (o completar)
+    // la serie semanal; el chequeo de conflicto evita duplicar semanas ya creadas.
+    let generados = 0;
+    const omitidos = [];
+    if (entrenamiento.recurrente && entrenamiento.hasta) {
+      const siguientesFechas = calcularFechasSemanal(entrenamiento.fecha, entrenamiento.hasta).slice(1);
+      for (const f of siguientesFechas) {
+        const conflictoSemana = await otroTipoDeEventoMismoDia({
+          models: { Entrenamiento, Partido, Torneo }, idPlantilla: entrenamiento.id_plantilla, fecha: f, tipoActual: null, esEntrenamiento: true
+        });
+        if (conflictoSemana) {
+          if (conflictoSemana !== 'entrenamiento') omitidos.push({ fecha: f, motivo: conflictoSemana });
+          continue;
+        }
+        await Entrenamiento.create({
+          id_plantilla: entrenamiento.id_plantilla,
+          fecha: f,
+          hasta: entrenamiento.hasta,
+          id_lugar: entrenamiento.id_lugar,
+          id_usuario: req.user?.id || null,
+          recurrente: 1,
+          horario_reducido: entrenamiento.horario_reducido
+        });
+        generados++;
+      }
+    }
+
     const actualizado = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
-    res.json(serialize(actualizado));
+    const respuesta = serialize(actualizado);
+    respuesta.generados = generados;
+    respuesta.omitidos = omitidos;
+    respuesta.propagados = propagados;
+    respuesta.horaPropagada = horaPropagada;
+    res.json(respuesta);
   } catch (err) { next(err); }
 }
 
 async function eliminar(req, res, next) {
   try {
+    // alcance=serie: además de este registro, borrar el resto de semanas de su
+    // misma serie recurrente (misma plantilla y misma fecha límite).
+    if (req.query.alcance === 'serie') {
+      const entrenamiento = await Entrenamiento.findByPk(req.params.id);
+      if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+      if (entrenamiento.recurrente && entrenamiento.hasta) {
+        const eliminados = await Entrenamiento.destroy({
+          where: { id_plantilla: entrenamiento.id_plantilla, recurrente: 1, hasta: entrenamiento.hasta }
+        });
+        return res.status(200).json({ eliminados });
+      }
+    }
     const eliminado = await Entrenamiento.destroy({ where: { id: req.params.id } });
     if (!eliminado) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
     res.status(204).send();
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+/** PUT /:id/adjunto { adjunto: dataURL, adjunto_nombre }: guarda (o sustituye)
+ * el fichero de la sesión. El base64 llega en el cuerpo (parser con límite
+ * ampliado en app.js). Solo PDF o imagen, hasta 5 MB. */
+async function subirAdjunto(req, res, next) {
+  try {
+    const entrenamiento = await Entrenamiento.findByPk(req.params.id);
+    if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+
+    const { adjunto, adjunto_nombre } = req.body || {};
+    const decodificado = decodificarAdjunto(adjunto);
+    if (!decodificado) return res.status(400).json({ message: 'El fichero no es válido.' });
+    if (!TIPOS_ADJUNTO.includes(decodificado.tipoMime)) {
+      return res.status(400).json({ message: 'Solo se admiten ficheros PDF, JPG o PNG.' });
+    }
+    if (decodificado.buffer.length > MAX_ADJUNTO) {
+      return res.status(400).json({ message: 'El fichero supera el máximo de 5 MB.' });
+    }
+    const nombre = String(adjunto_nombre || 'adjunto').slice(0, 255);
+    await entrenamiento.update({ adjunto, adjunto_nombre: nombre });
+
+    const completo = await Entrenamiento.findByPk(entrenamiento.id, { include: includes });
+    res.json(serialize(completo));
+  } catch (err) { next(err); }
+}
+
+/** DELETE /:id/adjunto: quita el fichero de la sesión. */
+async function eliminarAdjunto(req, res, next) {
+  try {
+    const entrenamiento = await Entrenamiento.findByPk(req.params.id);
+    if (!entrenamiento) return res.status(404).json({ message: 'Entrenamiento no encontrado.' });
+    await entrenamiento.update({ adjunto: null, adjunto_nombre: null });
+    res.json({ message: 'Adjunto eliminado.' });
+  } catch (err) { next(err); }
+}
+
+/** GET /:id/adjunto: devuelve el fichero para verlo o descargarlo. */
+async function descargarAdjunto(req, res, next) {
+  try {
+    const entrenamiento = await Entrenamiento.scope('conAdjunto').findByPk(req.params.id, {
+      attributes: ['id', 'adjunto', 'adjunto_nombre']
+    });
+    const fichero = decodificarAdjunto(entrenamiento?.adjunto);
+    if (!fichero) return res.status(404).json({ message: 'Este entrenamiento no tiene adjunto.' });
+
+    const nombre = (entrenamiento.adjunto_nombre || 'adjunto').replace(/[\r\n"]/g, '');
+    // Las cabeceras HTTP solo admiten ASCII: fallback ASCII para filename y el nombre
+    // real (con acentos) en filename* (RFC 5987), que entienden los navegadores.
+    const nombreAscii = nombre.replace(/[^\x20-\x7E]/g, '_');
+    res.set({
+      'Content-Type': fichero.tipoMime,
+      'Content-Disposition': `inline; filename="${nombreAscii}"; filename*=UTF-8''${encodeURIComponent(nombre)}`,
+      'Cache-Control': 'private, max-age=31536000, immutable',
+      // Aislado en un origen opaco (sandbox sin allow-same-origin): el visor de PDF de
+      // Firefox (pdf.js) necesita scripts para dibujarse, pero al no tener acceso al mismo
+      // origen no puede leer la sesión ni tocar la intranet.
+      'Content-Security-Policy': "default-src 'none'; img-src 'self' blob: data:; style-src 'unsafe-inline'; sandbox allow-scripts"
+    });
+    res.send(fichero.buffer);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, subirAdjunto, eliminarAdjunto, descargarAdjunto };

@@ -34,6 +34,14 @@ describe('Middleware errorHandler', () => {
     expect(res._status).toBe(409);
   });
 
+  it('responde 400 ante un JSON mal formado', () => {
+    const err = { type: 'entity.parse.failed', status: 400, message: 'Unexpected token' };
+    const res = mockRes();
+    errorHandler(err, {}, res, () => {});
+    expect(res._status).toBe(400);
+    expect(res._json.message).toContain('JSON');
+  });
+
   it('maneja errores de validación de Sequelize (400)', () => {
     const err = { name: 'SequelizeValidationError', errors: [{ message: 'inválido' }] };
     const res = mockRes();

@@ -14,6 +14,7 @@ export function createModelMock() {
     findOrCreate: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    increment: vi.fn(),
     destroy: vi.fn(),
     save: vi.fn(),
     scope: vi.fn(),
@@ -40,6 +41,7 @@ export function createModelsMock() {
     TipoFutbol: createModelMock(),
     Titulo: createModelMock(),
     Division: createModelMock(),
+    Posicion: createModelMock(),
     Delegado: createModelMock(),
     Categoria: createModelMock(),
     Jugador: createModelMock(),
@@ -47,18 +49,44 @@ export function createModelsMock() {
     Entrenamiento: createModelMock(),
     Partido: createModelMock(),
     Equipo: createModelMock(),
-    Resultado: createModelMock(),
     Patrocinador: createModelMock(),
     Plantilla: createModelMock(),
     PlantillaJugador: createModelMock(),
     PlantillaEntrenador: createModelMock(),
     PlantillaDelegado: createModelMock(),
+    Personal: createModelMock(),
+    PlantillaPersonal: createModelMock(),
+    TipoPersonal: createModelMock(),
+    Clasificacion: createModelMock(),
     Jornada: createModelMock(),
+    PartidoJugador: createModelMock(),
+    PartidoTarjeta: createModelMock(),
+    PartidoGol: createModelMock(),
+    PartidoGolContra: createModelMock(),
+    PartidoTarjetaContra: createModelMock(),
+    LigaPartido: createModelMock(),
+    LigaJugador: createModelMock(),
+    LigaGol: createModelMock(),
+    LigaTarjeta: createModelMock(),
     Sancion: createModelMock(),
+    Torneo: createModelMock(),
     Cambio: createModelMock(),
+    InformeSeguridad: createModelMock(),
+    UsuarioCodigoRecuperacion: createModelMock(),
     EquipoJugador: createModelMock(),
-    Promocion: createModelMock()
+    Promocion: createModelMock(),
+    Material: createModelMock(),
+    Coordinador: createModelMock(),
+    CuentaCorreo: createModelMock(),
+    UsuarioSeccion: createModelMock(),
+    Convocatoria: createModelMock(),
+    ConvocatoriaJugador: createModelMock(),
+    ConvocatoriaSinJugador: createModelMock(),
+    ConvocatoriaPromocion: createModelMock()
   };
+  // La instancia Sequelize: en los tests, transaction() ejecuta el callback con
+  // un objeto de transacción falso (no hay BD real).
+  models.sequelize = { transaction: vi.fn(async (cb) => cb({})) };
   return models;
 }
 
@@ -76,6 +104,7 @@ export const Lugar = models.Lugar;
 export const TipoFutbol = models.TipoFutbol;
 export const Titulo = models.Titulo;
 export const Division = models.Division;
+export const Posicion = models.Posicion;
 export const Delegado = models.Delegado;
 export const Categoria = models.Categoria;
 export const Jugador = models.Jugador;
@@ -83,17 +112,40 @@ export const Entrenador = models.Entrenador;
 export const Entrenamiento = models.Entrenamiento;
 export const Partido = models.Partido;
 export const Equipo = models.Equipo;
-export const Resultado = models.Resultado;
 export const Patrocinador = models.Patrocinador;
 export const Plantilla = models.Plantilla;
 export const PlantillaJugador = models.PlantillaJugador;
 export const PlantillaEntrenador = models.PlantillaEntrenador;
 export const PlantillaDelegado = models.PlantillaDelegado;
+export const Personal = models.Personal;
+export const PlantillaPersonal = models.PlantillaPersonal;
+export const TipoPersonal = models.TipoPersonal;
+export const Clasificacion = models.Clasificacion;
 export const Jornada = models.Jornada;
+export const PartidoJugador = models.PartidoJugador;
+export const PartidoTarjeta = models.PartidoTarjeta;
+export const PartidoGol = models.PartidoGol;
+export const PartidoGolContra = models.PartidoGolContra;
+export const PartidoTarjetaContra = models.PartidoTarjetaContra;
+export const LigaPartido = models.LigaPartido;
+export const LigaJugador = models.LigaJugador;
+export const LigaGol = models.LigaGol;
+export const LigaTarjeta = models.LigaTarjeta;
 export const Sancion = models.Sancion;
+export const Torneo = models.Torneo;
 export const Cambio = models.Cambio;
+export const InformeSeguridad = models.InformeSeguridad;
+export const UsuarioCodigoRecuperacion = models.UsuarioCodigoRecuperacion;
 export const EquipoJugador = models.EquipoJugador;
 export const Promocion = models.Promocion;
+export const Material = models.Material;
+export const Coordinador = models.Coordinador;
+export const CuentaCorreo = models.CuentaCorreo;
+export const UsuarioSeccion = models.UsuarioSeccion;
+export const Convocatoria = models.Convocatoria;
+export const ConvocatoriaJugador = models.ConvocatoriaJugador;
+export const ConvocatoriaSinJugador = models.ConvocatoriaSinJugador;
+export const ConvocatoriaPromocion = models.ConvocatoriaPromocion;
 
 /**
  * Mocks de las utilidades de password y JWT que cargan los controladores
@@ -110,9 +162,23 @@ export function createPasswordUtilsMock() {
 export function createJwtUtilsMock() {
   return {
     signToken: vi.fn(),
-    verifyToken: vi.fn()
+    verifyToken: vi.fn(),
+    DURACION_SESION_SEG: 3600
+  };
+}
+
+export function createMailerMock() {
+  return {
+    enviarEmail: vi.fn(),
+    enviarDesde: vi.fn(),
+    conFirma: vi.fn((html, firma) => (html && firma ? `${html}<br><br>${firma}` : html)),
+    enviarConConfig: vi.fn(),
+    verificarConfig: vi.fn(),
+    mailConfigurado: vi.fn(),
+    resolverConfig: vi.fn()
   };
 }
 
 export const passwordUtils = createPasswordUtilsMock();
 export const jwtUtils = createJwtUtilsMock();
+export const mailer = createMailerMock();

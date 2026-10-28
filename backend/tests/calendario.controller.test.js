@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Op } from 'sequelize';
-import { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada } from './helpers/models.js';
+import { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Jornada, Torneo } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/calendario.controller.js';
@@ -10,6 +10,8 @@ describe('Calendario · calendario.controller', () => {
     Entrenamiento.findAll.mockReset();
     Partido.findAll.mockReset();
     Jornada.findAll.mockReset();
+    Torneo.findAll.mockReset();
+    Torneo.findAll.mockResolvedValue([]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -47,7 +49,6 @@ describe('Calendario · calendario.controller', () => {
     id_lugar: 2,
     id_equipo_local: 73,
     id_equipo_visitante: 5,
-    resultado: '2-1',
     equipoLocal: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.', escudo: null, localidad: 'Palma' },
     equipoVisitante: { id: 5, nombre: 'Rival FC', escudo: null, localidad: 'Rival City' },
     lugar: { id: 2, nombre: 'Municipal' },
@@ -88,7 +89,9 @@ describe('Calendario · calendario.controller', () => {
       incidencias: null,
       plantilla: { id: 10, id_categoria: 3, id_temporada: 1, categoria: { id: 3, nombre: 'Alevín' }, temporada: { id: 1, nombre: '2025/26' } },
       categoria: { id: 3, nombre: 'Alevín' },
-      recurrente: false
+      recurrente: false,
+      adjunto_nombre: null,
+      adjunto_url: null
     });
     expect(res._json[1].id).toBe('partido-4');
     expect(res._json[1].titulo).toBe('PALMA DEL RIO ATLETICO C.F. vs Rival FC');
@@ -116,6 +119,18 @@ describe('Calendario · calendario.controller', () => {
 
     expect(res._json[0].titulo).toBe('Rival FC vs PALMA DEL RIO ATLETICO C.F.');
     expect(res._json[0].es_local).toBe(false);
+  });
+
+  it('un entrenador solo ve los torneos de su categoría (y un coordinador, todos)', async () => {
+    let r = llamar(ctrl.eventos, { query: { tipo: 'torneo' }, user: { id: 20, rol: 'entrenador', id_categoria: 30, secciones: ['calendario'] } });
+    await r.promesa;
+    const plantilla = Torneo.findAll.mock.calls[0][0].include.find((i) => i.as === 'plantilla');
+    expect(plantilla).toMatchObject({ required: true, where: { id_categoria: 30 } });
+
+    Torneo.findAll.mockClear();
+    r = llamar(ctrl.eventos, { query: { tipo: 'torneo' }, user: { id: 1, rol: 'coordinador', secciones: ['calendario'] } });
+    await r.promesa;
+    expect(Torneo.findAll.mock.calls[0][0].include.find((i) => i.as === 'plantilla').where).toBeUndefined();
   });
 
   it('solo consulta entrenamientos si tipo=entrenamiento', async () => {
@@ -158,6 +173,17 @@ describe('Calendario · calendario.controller', () => {
     expect(res._json[1].jornada).toBeNull();
   });
 
+  it('etiqueta como Liga (con su número) un partido con jornada asignada', async () => {
+    const partidoDeLiga = { ...partido, jornada: 3 };
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.findAll.mockResolvedValue([partidoDeLiga]);
+    const { promesa, res } = llamar(ctrl.eventos);
+
+    await promesa;
+
+    expect(res._json[0].jornada).toBe(3);
+  });
+
   it('propaga el filtro por plantilla al entrenamiento base', async () => {
     Jornada.findAll.mockResolvedValue([]);
     Entrenamiento.findAll.mockResolvedValue([]);
@@ -178,5 +204,44 @@ describe('Calendario · calendario.controller', () => {
 
     const entrenamientoArgs = Entrenamiento.findAll.mock.calls[0][0];
     expect(entrenamientoArgs.where.fecha).toEqual({ [Op.gte]: new Date('2026-01-01'), [Op.lte]: new Date('2026-12-31') });
+  });
+
+  it('no pide el escudo de los equipos en los eventos', async () => {
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.eventos);
+
+    await promesa;
+
+    const includes = [...Partido.findAll.mock.calls[0][0].include, ...Torneo.findAll.mock.calls[0][0].include];
+    const deEquipos = includes.filter((i) => i.model === Equipo);
+    expect(deEquipos.length).toBe(3);
+    deEquipos.forEach((i) => expect(i.attributes).not.toContain('escudo'));
+  });
+
+  it('escudos devuelve un mapa id → escudo solo de los ids válidos', async () => {
+    Equipo.findAll.mockReset();
+    Equipo.findAll.mockResolvedValue([{ id: 5, escudo: 'data:image/png;base64,AAA' }, { id: 73, escudo: null }]);
+    const { promesa, res } = llamar(ctrl.escudos, { query: { ids: '5,73,5,abc,-1' } });
+
+    await promesa;
+
+    expect(Equipo.findAll.mock.calls[0][0].where).toEqual({ id: [5, 73] });
+    expect(res._json).toEqual({ 5: 'data:image/png;base64,AAA', 73: null });
+  });
+
+  it('escudos limita el número de equipos por petición y no consulta sin ids', async () => {
+    Equipo.findAll.mockReset();
+    Equipo.findAll.mockResolvedValue([]);
+    const muchos = Array.from({ length: 200 }, (_, i) => i + 1).join(',');
+    const { promesa } = llamar(ctrl.escudos, { query: { ids: muchos } });
+    await promesa;
+    expect(Equipo.findAll.mock.calls[0][0].where.id.length).toBe(ctrl.MAX_ESCUDOS_POR_PETICION);
+
+    Equipo.findAll.mockReset();
+    const vacio = llamar(ctrl.escudos, { query: {} });
+    await vacio.promesa;
+    expect(Equipo.findAll).not.toHaveBeenCalled();
+    expect(vacio.res._json).toEqual({});
   });
 });

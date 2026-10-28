@@ -7,8 +7,14 @@ export function mockReqRes(overrides = {}) {
     _status: 200,
     _json: null,
     _sent: false,
+    _headers: {},
     status(code) {
       this._status = code;
+      return this;
+    },
+    set(campo, valor) {
+      if (campo && typeof campo === 'object') Object.assign(this._headers, campo);
+      else this._headers[campo] = valor;
       return this;
     },
     json(payload) {
@@ -19,6 +25,15 @@ export function mockReqRes(overrides = {}) {
     send(payload) {
       this._sent = true;
       this._payload = payload;
+      return this;
+    },
+    _cookies: {},
+    cookie(nombre, valor, opciones) {
+      this._cookies[nombre] = { valor, opciones };
+      return this;
+    },
+    clearCookie(nombre, opciones) {
+      this._cookies[nombre] = { valor: null, opciones };
       return this;
     }
   };

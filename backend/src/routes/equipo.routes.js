@@ -11,8 +11,8 @@ router.use(authenticate, authorize('equipos'));
 router.get('/', ctrl.listar);
 router.get('/descargar-escudos', ctrl.descargarEscudos);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('equipos'), ctrl.crear);
+router.put('/:id', requireEditar('equipos'), ctrl.actualizar);
+router.delete('/:id', requireEditar('equipos'), ctrl.eliminar);
 
 module.exports = router;

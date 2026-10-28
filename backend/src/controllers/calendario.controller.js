@@ -1,11 +1,11 @@
 const { Op } = require('sequelize');
-const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Resultado, Jornada } = require('../models');
+const { Entrenamiento, Partido, Plantilla, Categoria, Lugar, Equipo, Torneo } = require('../models');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 
 /**
  * Endpoint de SOLO LECTURA. Devuelve entrenamientos y partidos normalizados como eventos
- * para FullCalendar.
- * Solo se muestran partidos que tengan una jornada asociada (misma plantilla y fecha).
+ * para FullCalendar. Un partido con jornada asignada se etiqueta como Liga (con su número
+ * de jornada); sin jornada, como Amistoso.
  */
 async function eventos(req, res, next) {
   try {
@@ -16,6 +16,7 @@ async function eventos(req, res, next) {
 
     const incluirEntrenamientos = !tipo || tipo === 'entrenamiento';
     const incluirPartidos = !tipo || tipo === 'partido';
+    const incluirTorneos = !tipo || tipo === 'torneo';
 
     const includesPlantilla = [
       {
@@ -32,7 +33,6 @@ async function eventos(req, res, next) {
 
     // ---- Consultas ----
     const promesas = [];
-    let jornadas = [];
 
     if (incluirEntrenamientos) {
       const whereEntrenamiento = {};
@@ -54,27 +54,9 @@ async function eventos(req, res, next) {
       promesas.push(Promise.resolve([]));
     }
 
-    // Para partidos: buscar jornadas para clasificar Liga/Amistoso
+    // Para partidos: el número de jornada (para clasificar Liga/Amistoso) vive
+    // directamente en partidos.jornada; un partido sin jornada es un amistoso.
     if (incluirPartidos) {
-      const whereJornada = {};
-      if (id_plantilla) whereJornada.id_plantilla = id_plantilla;
-      if (fechaDesde || fechaHasta) {
-        whereJornada.fecha = {};
-        if (fechaDesde) whereJornada.fecha[Op.gte] = fechaDesde;
-        if (fechaHasta) whereJornada.fecha[Op.lte] = fechaHasta;
-      }
-
-      // Consultar todas las jornadas del rango (para clasificar Liga/Amistoso)
-      jornadas = await Jornada.findAll({
-        where: whereJornada,
-        attributes: ['id_plantilla', 'fecha', 'jornada', 'id_equipo_local', 'id_equipo_visitante'],
-        include: [
-          { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-          { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] }
-        ]
-      });
-      jornadas = jornadas.map(j => j.toJSON());
-
       const wherePartido = {};
       if (id_plantilla) wherePartido.id_plantilla = id_plantilla;
       if (fechaDesde || fechaHasta) {
@@ -82,18 +64,42 @@ async function eventos(req, res, next) {
         if (fechaDesde) wherePartido.fecha[Op.gte] = fechaDesde;
         if (fechaHasta) wherePartido.fecha[Op.lte] = fechaHasta;
       }
+      // Sin 'escudo': es una imagen base64 (de decenas a cientos de KB) que se
+      // repetía en cada partido y llevaba la respuesta a varios MB (e incluso a
+      // agotar la memoria sin filtro de fechas). Se piden aparte en /escudos.
       const includesPartido = [
         ...plantillaFiltrada,
-        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'localidad'] },
-        { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'localidad', 'camiseta', 'calzonas', 'medias'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'localidad', 'camiseta', 'calzonas', 'medias'] }
       ];
       promesas.push(Partido.findAll({ where: wherePartido, include: includesPartido }));
     } else {
       promesas.push(Promise.resolve([]));
     }
 
-    const [entrenamientos, partidos] = await Promise.all(promesas);
+    // ---- Torneos ----
+    if (incluirTorneos) {
+      const whereTorneo = {};
+      if (id_plantilla) whereTorneo.id_plantilla = id_plantilla;
+      if (fechaDesde || fechaHasta) {
+        whereTorneo.fecha = {};
+        if (fechaDesde) whereTorneo.fecha[Op.gte] = fechaDesde;
+        if (fechaHasta) whereTorneo.fecha[Op.lte] = fechaHasta;
+      }
+      promesas.push(Torneo.findAll({
+        where: whereTorneo,
+        // Un entrenador solo ve los torneos en los que juega su plantilla.
+        include: includesConCategoria([
+          { model: Plantilla, as: 'plantilla', attributes: ['id', 'id_categoria', 'id_temporada'], include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] }] },
+          { model: Equipo, as: 'equipo', attributes: ['id', 'nombre', 'localidad'] }
+        ], categoriaDelUsuario(req)),
+        order: [['fecha', 'ASC'], ['hora', 'ASC']]
+      }));
+    } else {
+      promesas.push(Promise.resolve([]));
+    }
+
+    const [entrenamientos, partidos, torneos] = await Promise.all(promesas);
 
     // ---- Eventos ----
     const eventosEntrenamiento = entrenamientos.map((e) => {
@@ -108,19 +114,15 @@ async function eventos(req, res, next) {
         incidencias: null,
         plantilla: e.plantilla,
         categoria: e.plantilla?.categoria,
-        recurrente: e.recurrente ? true : false
+        recurrente: e.recurrente ? true : false,
+        adjunto_nombre: e.adjunto_nombre || null,
+        adjunto_url: e.adjunto_nombre ? `/api/entrenamientos/${e.id}/adjunto?v=${e.updatedAt ? new Date(e.updatedAt).getTime() : ''}` : null
       };
     });
 
     const PALMA_ID = 73;
 
     const eventosPartido = partidos.map((p) => {
-      // Buscar jornada correspondiente a este partido
-      const jornadaMatch = jornadas.find(j =>
-        j.id_plantilla === p.id_plantilla &&
-        new Date(j.fecha).toISOString().split('T')[0] === new Date(p.fecha).toISOString().split('T')[0]
-      );
-
       // PALMA es local cuando su id coincide con el equipo local del partido
       const esLocal = (p.equipoLocal?.id ?? p.id_equipo_local) === PALMA_ID;
 
@@ -131,6 +133,7 @@ async function eventos(req, res, next) {
       return {
         id: `partido-${p.id}`,
         tipo: 'partido',
+        base_id: p.id,
         titulo,
         inicio: p.fecha,
         lugar: p.lugar?.nombre ?? null,
@@ -139,15 +142,58 @@ async function eventos(req, res, next) {
         equipoLocal: p.equipoLocal,
         equipoVisitante: p.equipoVisitante,
         incidencias: p.incidencias,
+        observaciones: p.observaciones || null,
         plantilla: p.plantilla,
         categoria: p.plantilla?.categoria,
-        resultado: p.resultado || p.Resultados?.[0]?.resultado || null,
-        jornada: jornadaMatch ? jornadaMatch.jornada : null
+        resultado: p.resultado || null,
+        jornada: p.jornada || null,
+        suspendido: p.suspendido ? true : false,
+        acta_finalizada: !!p.acta_finalizada_at
       };
     });
 
-    res.json([...eventosEntrenamiento, ...eventosPartido]);
+    const eventosTorneo = torneos.map((t) => {
+      const fecha = String(t.fecha || '').slice(0, 10);
+      const hora = String(t.hora || '').slice(0, 5);
+      const inicio = fecha ? `${fecha}T${hora || '00:00'}:00` : null;
+      return {
+        id: `torneo-${t.id}`,
+        tipo: 'torneo',
+        base_id: t.id,
+        titulo: `${t.nombre || t.equipo?.nombre || ''} · Torneo`,
+        inicio,
+        lugar: null,
+        plantilla: t.plantilla,
+        categoria: t.plantilla?.categoria,
+        equipo: t.equipo,
+        nombre: t.nombre,
+        es_torneo: true
+      };
+    });
+
+    res.json([...eventosEntrenamiento, ...eventosPartido, ...eventosTorneo]);
   } catch (err) { next(err); }
 }
 
-module.exports = { eventos };
+const MAX_ESCUDOS_POR_PETICION = 50;
+
+/**
+ * Escudos de los equipos indicados: GET /api/calendario/escudos?ids=1,2,3
+ * Devuelve { [id]: escudo }. El calendario los pide solo cuando los va a
+ * pintar (detalle de un partido, PDF) y el frontend los cachea por equipo.
+ */
+async function escudos(req, res, next) {
+  try {
+    const ids = [...new Set(
+      String(req.query.ids || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0)
+    )].slice(0, MAX_ESCUDOS_POR_PETICION);
+    if (!ids.length) return res.json({});
+
+    const equipos = await Equipo.findAll({ where: { id: ids }, attributes: ['id', 'escudo'] });
+    const mapa = {};
+    equipos.forEach((e) => { mapa[e.id] = e.escudo || null; });
+    res.json(mapa);
+  } catch (err) { next(err); }
+}
+
+module.exports = { eventos, escudos, MAX_ESCUDOS_POR_PETICION };

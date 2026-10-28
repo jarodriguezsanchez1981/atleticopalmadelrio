@@ -1,7 +1,49 @@
-.env.*
+
 node_modules/
 dist/
 *.log
 .DS_Store
 backend/.env
 frontend/dist/
+certbot/
+scripts/.venv/
+scripts/debug_*.html
+
+# Secretos de despliegue: usar el propio fichero local, nunca commitearlo
+# (ver .env.development.example / .env.production.example)
+/.env
+/.env.local
+/.env.development
+/.env.production
+
+# Volcados de BD con datos reales / PII: nunca deben ir al repo.
+# database/init.sql se mantiene versionado pero SOLO con esquema (sin datos);
+# los volcados con datos reales van a backups/, que está ignorado.
+backups/
+database/init.sql.bak
+database/init.sql.orig
+database/init 2.sql
+
+# Config local de Claude Code (hooks/permisos personales, no se comparte)
+.claude/settings.local.json
+.claude/docker-rebuild-state.txt
+.claude/scheduled_tasks.lock
+
+# Certificados TLS (Let's Encrypt) y retos ACME: se generan en el propio
+# servidor con reverse-proxy/init-letsencrypt.sh, nunca van al repo.
+reverse-proxy/certbot/
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs del reverse-proxy (fail2ban), no se commitean
+reverse-proxy/logs/
+
+# Datos en caliente de fail2ban (base de datos de baneos y config autogenerada
+# por la imagen). La config versionada vive en data/jail.d y data/filter.d.
+reverse-proxy/fail2ban/data/fail2ban.sqlite3
+reverse-proxy/fail2ban/data/*.sqlite3
+reverse-proxy/fail2ban/data/action.d/
+reverse-proxy/fail2ban/data/fail2ban.d/
+reverse-proxy/fail2ban/data/jail.local

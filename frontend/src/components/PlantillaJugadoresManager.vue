@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../utils/estiloTabla';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import InputNumber from 'primevue/inputnumber';
@@ -39,7 +40,7 @@ function formatearJugador(j) {
     id_jugador: j.id_jugador || j.id,
     nombre: j.nombre,
     apellidos: j.apellidos,
-    nombreCompleto: `${j.apellidos}, ${j.nombre}`,
+    nombreCompleto: `${j.nombre} ${j.apellidos}`,
     dorsal: jp.dorsal,
     talla: jp.talla
   };
@@ -99,7 +100,7 @@ async function guardarJugador() {
 function getNombreCompleto(jugador) {
   const j = props.jugadores.find(x => x.id === jugador.id_jugador);
   if (!j) return '';
-  return `${j.apellidos}, ${j.nombre}`;
+  return `${j.nombre} ${j.apellidos}`;
 }
 </script>
 
@@ -111,8 +112,8 @@ function getNombreCompleto(jugador) {
         <Button label="Añadir jugador" icon="pi pi-plus" class="p-button-sm" @click="abrirNuevo" />
       </div>
 
-      <DataTable v-if="value.length" :value="value" :paginator="true" :rows="5" :rowsPerPageOptions="[5, 10, 20]" 
-                 responsiveLayout="scroll" class="ar-datatable">
+      <DataTable v-if="value.length" v-bind="estiloTabla" class="ar-dt-compacta" :value="value" :paginator="true" :rows="5" :rowsPerPageOptions="[5, 10, 20]"
+                 responsiveLayout="scroll">
         <Column field="nombreCompleto" header="Jugador">
           <template #body="slotProps">
             {{ getNombreCompleto(slotProps.data) }}

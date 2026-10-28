@@ -14,20 +14,24 @@ import App from './App.vue';
 import router from './router';
 import { useAuthStore } from './stores/auth.store';
 import { localeEs } from './utils/localeEs';
+import SectionGuard from './components/SectionGuard.vue';
 
 const ClubPreset = definePreset(Aura, {
+  primitive: {
+    borderRadius: { none: '0', xs: '3px', sm: '6px', md: '8px', lg: '10px', xl: '14px' }
+  },
   semantic: {
     primary: {
-      50: '#f0f4f2', 100: '#dbe8e2', 200: '#b8d1c6',
-      300: '#8fb5a6', 400: '#5e927c', 500: '#0B3D2E',
-      600: '#0a3729', 700: '#083023', 800: '#06281d',
-      900: '#031b13', 950: '#020f0a'
+      50: '#F1F3F2', 100: '#DDE4E0', 200: '#BCC9C1',
+      300: '#8CA295', 400: '#527360', 500: '#0F3D22',
+      600: '#0D361E', 700: '#0B2C18', 800: '#082213',
+      900: '#06170D', 950: '#040F08'
     },
     surface: {
       0: '#ffffff',
       50: '#fafafa',
       100: '#f4f4f5',
-      200: '#e4e4e7',
+      200: '#e7e7e9',
       300: '#d4d4d8',
       400: '#a1a1aa',
       500: '#71717a',
@@ -41,6 +45,8 @@ const ClubPreset = definePreset(Aura, {
 });
 
 const app = createApp(App);
+
+app.component('SectionGuard', SectionGuard);
 
 app.use(createPinia());
 app.use(PrimeVue, {

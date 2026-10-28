@@ -1,0 +1,230 @@
+<script setup>
+import { ref, computed, watch } from 'vue';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import ColumnGroup from 'primevue/columngroup';
+import Row from 'primevue/row';
+import { estiloTabla } from '../utils/estiloTabla';
+
+/** Tabla de la sección Estadísticas con las columnas agrupadas en Total, Local
+ * y Visitante (el PALMA en casa / fuera): cada métrica sale en los tres grupos
+ * (campo, campo_local, campo_visitante), salvo las de `soloLados`. Con grupos de
+ * cabecera PrimeVue no deja reordenar columnas, así que se hace aquí: se
+ * arrastra el título de un grupo para mover el grupo, o el de una columna para
+ * moverla (en los tres grupos a la vez). */
+const props = defineProps({
+  filas: { type: Array, default: () => [] },
+  // [{ campo, titulo, descripcion?: 'nombre completo (tooltip)', calculo?: 'fórmula (tooltip)', porcentaje?: true, decimal?: true, unDecimal?: true, soloLados?: true, subgrupo?: 'Amarillas' }]
+  // Las métricas seguidas con el mismo `subgrupo` van bajo un título común
+  // dentro de cada grupo (una fila más de cabecera).
+  metricas: { type: Array, required: true },
+  sortField: { type: String, default: null },
+  cargando: { type: Boolean, default: false },
+  textoVacio: { type: String, default: '' },
+  // Primera columna (fija) y clave de cada fila: el jugador, o p.ej. el equipo.
+  columnaNombre: { type: Object, default: () => ({ campo: 'jugador', titulo: 'Jugador' }) },
+  dataKey: { type: String, default: 'id_jugador' },
+  // Solo uno de los grupos ('total' | 'local' | 'visitante'): la tabla es la de
+  // ese grupo, sin la fila de títulos de grupo (y sortField se refiere a él).
+  soloGrupo: { type: String, default: null },
+  // Filas desplegables: función (fila) => true si la fila tiene detalle; el
+  // detalle se pinta con el slot #detalle="{ data }".
+  expandible: { type: Function, default: null }
+});
+
+// Filas desplegadas, por su dataKey.
+const filasAbiertas = ref({});
+function alternarFila(data) {
+  const clave = data[props.dataKey];
+  const abiertas = { ...filasAbiertas.value };
+  if (abiertas[clave]) delete abiertas[clave];
+  else abiertas[clave] = true;
+  filasAbiertas.value = abiertas;
+}
+
+const GRUPOS = {
+  total: { titulo: 'Total', sufijo: '' },
+  local: { titulo: 'Local', sufijo: '_local' },
+  visitante: { titulo: 'Visitante', sufijo: '_visitante' }
+};
+
+const ordenGrupos = ref(props.soloGrupo ? [props.soloGrupo] : Object.keys(GRUPOS));
+const ordenMetricas = ref(props.metricas.map((m) => m.campo));
+watch(() => props.metricas, (m) => { ordenMetricas.value = m.map((x) => x.campo); });
+
+const conSubgrupos = computed(() => props.metricas.some((m) => m.subgrupo));
+// Filas de cabecera: grupos (si hay varios), (subgrupos y) columnas.
+const niveles = computed(() => (conSubgrupos.value ? 2 : 1) + (props.soloGrupo ? 0 : 1));
+// Filas que ocupa el título de una columna que no está en un subgrupo.
+const filasColumna = computed(() => (conSubgrupos.value ? 2 : 1));
+const campoOrden = computed(() => (props.sortField && props.soloGrupo
+  ? `${props.sortField}${GRUPOS[props.soloGrupo].sufijo}`
+  : props.sortField));
+
+const grupos = computed(() => ordenGrupos.value.map((clave) => {
+  const columnas = ordenMetricas.value
+    .map((campo) => props.metricas.find((m) => m.campo === campo))
+    .filter((m) => m && (clave !== 'total' || !m.soloLados))
+    .map((m, i, lista) => ({
+      ...m,
+      field: `${m.campo}${GRUPOS[clave].sufijo}`,
+      inicioGrupo: i === 0,
+      // Primera de un subgrupo (no la primera del grupo): lleva una línea más fina.
+      inicioSubgrupo: i > 0 && !!m.subgrupo && lista[i - 1].subgrupo !== m.subgrupo
+    }));
+  // Tramos de la fila intermedia: una columna suelta o un subgrupo de varias.
+  const tramos = [];
+  for (const c of columnas) {
+    const ultimo = tramos[tramos.length - 1];
+    if (c.subgrupo && ultimo?.subgrupo === c.subgrupo) ultimo.columnas.push(c);
+    else tramos.push(c.subgrupo ? { subgrupo: c.subgrupo, columnas: [c] } : { columna: c });
+  }
+  return { clave, titulo: GRUPOS[clave].titulo, columnas, tramos };
+}));
+
+function claseSeparador(c) {
+  if (c.inicioGrupo) return ` ${SEPARADOR}`;
+  return c.inicioSubgrupo ? ` ${SEPARADOR_SUBGRUPO}` : '';
+}
+
+/** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
+function formatoPorcentaje(valor) {
+  return valor == null ? '—' : `${Number(valor).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
+}
+
+/** 67.5 -> "67,5", 90 -> "90" (minutos por partido / gol / tarjeta); sin datos, "—". */
+function formatoUnDecimal(valor) {
+  return valor == null ? '—' : Number(valor).toLocaleString('es-ES', { maximumFractionDigits: 1 });
+}
+
+/** 1.67 -> "1,67" (medias); sin datos para calcularla, "—". */
+function formatoDecimal(valor) {
+  return valor == null ? '—' : Number(valor).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Arrastrar y soltar: grupo sobre grupo, subgrupo sobre subgrupo y columna
+// sobre columna del mismo subgrupo (o de ninguno).
+const arrastrando = ref(null);
+
+function mover(lista, desde, hasta) {
+  const copia = [...lista];
+  const i = copia.indexOf(desde);
+  const j = copia.indexOf(hasta);
+  if (i < 0 || j < 0 || i === j) return lista;
+  copia.splice(i, 1);
+  copia.splice(j, 0, desde);
+  return copia;
+}
+
+/** Mueve todas las columnas del subgrupo `desde` delante (o detrás) del subgrupo `hasta`. */
+function moverSubgrupo(desde, hasta) {
+  const subgrupo = (campo) => props.metricas.find((m) => m.campo === campo)?.subgrupo;
+  const orden = ordenMetricas.value;
+  const iDesde = orden.findIndex((c) => subgrupo(c) === desde);
+  const iHasta = orden.findIndex((c) => subgrupo(c) === hasta);
+  if (desde === hasta || iDesde < 0 || iHasta < 0) return orden;
+  const bloque = orden.filter((c) => subgrupo(c) === desde);
+  const resto = orden.filter((c) => subgrupo(c) !== desde);
+  let destino = resto.findIndex((c) => subgrupo(c) === hasta);
+  if (iDesde < iHasta) destino = resto.findLastIndex((c) => subgrupo(c) === hasta) + 1;
+  return [...resto.slice(0, destino), ...bloque, ...resto.slice(destino)];
+}
+
+/** Tooltip de una métrica: su nombre completo y, en % y medias, el cálculo. */
+function ayuda(c) {
+  const calculo = c.calculo ? `Cálculo: ${c.calculo.replace(/\s*\n\s*/g, ' ')}` : '';
+  return [c.descripcion || (calculo ? c.titulo.replace(/\s*\n\s*/g, ' ') : ''), calculo].filter(Boolean).join(' · ');
+}
+
+function arrastrable(tipo, clave, descripcion = '') {
+  return {
+    headerCell: {
+      draggable: 'true',
+      title: descripcion ? `${descripcion} · Arrastra para mover` : 'Arrastra para mover',
+      onDragstart: (e) => {
+        arrastrando.value = { tipo, clave };
+        e.dataTransfer.effectAllowed = 'move';
+      },
+      onDragover: (e) => {
+        if (arrastrando.value?.tipo === tipo) e.preventDefault();
+      },
+      onDrop: (e) => {
+        e.preventDefault();
+        const origen = arrastrando.value;
+        arrastrando.value = null;
+        if (!origen || origen.tipo !== tipo) return;
+        if (tipo === 'grupo') ordenGrupos.value = mover(ordenGrupos.value, origen.clave, clave);
+        else if (tipo === 'subgrupo') ordenMetricas.value = moverSubgrupo(origen.clave, clave);
+        else ordenMetricas.value = mover(ordenMetricas.value, origen.clave, clave);
+      },
+      onDragend: () => { arrastrando.value = null; }
+    }
+  };
+}
+
+// Línea que separa cada grupo (y, más fina, cada subgrupo) del anterior.
+const SEPARADOR = 'ar-dt-inicio-grupo';
+const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
+</script>
+
+<template>
+  <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea ar-dt-agrupada" :value="filas" :loading="cargando"
+             :dataKey="dataKey" :sortField="campoOrden" :sortOrder="-1" v-model:expandedRows="filasAbiertas">
+    <ColumnGroup type="header">
+      <Row v-if="!soloGrupo">
+        <Column :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
+        <Column v-for="g in grupos" :key="g.clave" :header="g.titulo" :colspan="g.columnas.length"
+                :headerClass="`ar-dt-titulo-grupo ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
+      </Row>
+      <Row>
+        <Column v-if="soloGrupo" :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
+        <template v-for="g in grupos" :key="g.clave">
+          <template v-for="t in g.tramos" :key="t.columna?.field || `${g.clave}-${t.subgrupo}`">
+            <Column v-if="t.columna" :header="t.columna.titulo" :field="t.columna.field" sortable :rowspan="filasColumna"
+                    :headerClass="`text-center ar-dt-grupo-${g.clave}${claseSeparador(t.columna)}`"
+                    :pt="arrastrable(`metrica-${t.columna.subgrupo || ''}`, t.columna.campo, ayuda(t.columna))" />
+            <Column v-else :header="t.subgrupo" :colspan="t.columnas.length"
+                    :headerClass="`ar-dt-titulo-grupo ar-dt-grupo-${g.clave}${claseSeparador(t.columnas[0])}`"
+                    :pt="arrastrable('subgrupo', t.subgrupo, t.columnas[0].descripcionSubgrupo)" />
+          </template>
+        </template>
+      </Row>
+      <Row v-if="conSubgrupos">
+        <template v-for="g in grupos" :key="g.clave">
+          <template v-for="t in g.tramos.filter((x) => x.subgrupo)" :key="`${g.clave}-${t.subgrupo}`">
+            <Column v-for="c in t.columnas" :key="c.field" :header="c.titulo" :field="c.field" sortable
+                    :headerClass="`text-center ar-dt-grupo-${g.clave}${claseSeparador(c)}`"
+                    :pt="arrastrable(`metrica-${c.subgrupo}`, c.campo, ayuda(c))" />
+          </template>
+        </template>
+      </Row>
+    </ColumnGroup>
+
+    <!-- El nombre en una sola línea: la columna no se estrecha al ensanchar la tabla. -->
+    <Column :field="columnaNombre.campo" bodyClass="whitespace-nowrap">
+      <template v-if="expandible" #body="{ data }">
+        <button v-if="expandible(data)" type="button" class="inline-flex items-center gap-1.5 text-left hover:text-club-green"
+                :aria-expanded="!!filasAbiertas[data[dataKey]]" @click="alternarFila(data)">
+          <i :class="['pi text-xs', filasAbiertas[data[dataKey]] ? 'pi-chevron-down' : 'pi-chevron-right']" aria-hidden="true" />
+          {{ data[columnaNombre.campo] }}
+        </button>
+        <span v-else class="pl-[1.125rem]">{{ data[columnaNombre.campo] }}</span>
+      </template>
+    </Column>
+    <template v-for="g in grupos" :key="g.clave">
+      <Column v-for="c in g.columnas" :key="c.field" :field="c.field" :bodyClass="`text-center${claseSeparador(c)}`">
+        <template v-if="c.porcentaje" #body="{ data }">{{ formatoPorcentaje(data[c.field]) }}</template>
+        <template v-else-if="c.decimal" #body="{ data }">{{ formatoDecimal(data[c.field]) }}</template>
+        <template v-else-if="c.unDecimal" #body="{ data }">{{ formatoUnDecimal(data[c.field]) }}</template>
+      </Column>
+    </template>
+
+    <template v-if="expandible" #expansion="{ data }">
+      <slot name="detalle" :data="data" />
+    </template>
+
+    <template #empty>
+      <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
+    </template>
+  </DataTable>
+</template>

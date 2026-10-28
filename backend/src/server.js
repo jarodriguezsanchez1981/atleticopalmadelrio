@@ -1,8 +1,10 @@
 const app = require('./app');
-const { sequelize, Usuario, Seccion } = require('./models');
+const { sequelize, Usuario, Seccion, UsuarioSeccion } = require('./models');
 const { hashPassword, isPasswordValid } = require('./utils/password.utils');
 const { ensureSecciones } = require('./utils/secciones.seed');
 const { ensureTiposFutbol } = require('./utils/tipofutbol.seed');
+const { migrate } = require('./utils/migrate');
+const clasificacionAutomatica = require('./utils/clasificacionAutomatica');
 
 const PORT = process.env.PORT || 4000;
 const MAX_RETRIES = 30;
@@ -25,6 +27,14 @@ function validateSecrets() {
     const dbPass = process.env.DB_PASSWORD || '';
     if (!dbPass || dbPass === 'apr_pass') {
       console.error('❌ DB_PASSWORD usa el valor por defecto. Define una contraseña segura en producción.');
+      process.exit(1);
+    }
+    // AES_SECRET_KEY cifra el DNI y el secreto TOTP. Si falta o tiene mal
+    // formato, el backend arrancaría igual y fallaría en la primera operación
+    // de cifrado (2FA/DNI); mejor abortar al inicio con un mensaje claro.
+    const aesKey = process.env.AES_SECRET_KEY || '';
+    if (!/^[0-9a-fA-F]{64}$/.test(aesKey)) {
+      console.error('❌ AES_SECRET_KEY debe ser una cadena hexadecimal de 64 caracteres (32 bytes / AES-256).');
       process.exit(1);
     }
   }
@@ -72,10 +82,18 @@ async function seedAdminIfNeeded() {
     console.log(`ℹ️  Usuario admin "${usuario}" ya existe.`);
   }
 
-  // Admin siempre tiene todas las secciones (incluida "Administración")
+  // Admin siempre tiene todas las secciones (incluida "Administración"),
+  // con ver y editar completos. setSecciones() solo asocia las filas nuevas
+  // con los valores por defecto de la tabla puente (puede_editar=0), así que
+  // hay que forzarlo explícitamente para que también cubra secciones nuevas
+  // que se añadan más adelante (p.ej. al crear una sección nueva).
   const secciones = await Seccion.findAll();
   if (secciones.length) {
     await user.setSecciones(secciones.map((s) => s.id));
+    await UsuarioSeccion.update(
+      { puede_ver: true, puede_editar: true },
+      { where: { id_usuario: user.id } }
+    );
   }
 }
 
@@ -83,6 +101,14 @@ async function start() {
   try {
     validateSecrets();
     await waitForDb();
+
+    // Migraciones: aplica database/migrations/*.sql pendientes.
+    // El resto de la estructura la crea database/init.sql en despliegues nuevos.
+    try {
+      await migrate();
+    } catch (err) {
+      console.warn('⚠️  Migraciones: no se pudieron aplicar (continuando):', err.message);
+    }
 
     // La BD se gestiona con database/schema.sql + init.sql. NO se usa
     // sequelize.sync: con atributos unique:true Sequelize emite ALTERs
@@ -95,6 +121,8 @@ async function start() {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 API de la intranet escuchando en el puerto ${PORT}`);
     });
+    // Clasificación de RFAF: cada día a las 10:00 (y al arrancar, lo pendiente).
+    clasificacionAutomatica.iniciar();
   } catch (err) {
     console.error('❌ No se pudo iniciar el servidor:', err);
     process.exit(1);

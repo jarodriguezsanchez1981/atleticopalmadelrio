@@ -6,8 +6,10 @@ import { validarDNI } from '../../utils/dni';
 
 const opcionesTipo = [
   { label: 'Campo', value: 'campo' },
-  { label: 'Equipo', value: 'equipo' }
+  { label: 'Equipo', value: 'equipo' },
+  { label: 'Ambos', value: 'ambos' }
 ];
+const ETIQUETA_TIPO = { campo: 'Campo', equipo: 'Equipo', ambos: 'Ambos' };
 
 const columns = computed(() => [
   { field: 'foto', header: 'Foto', type: 'image' },
@@ -24,15 +26,17 @@ const emptyItem = { foto: null, nombre: '', apellidos: '', dni: '', email: '', t
 </script>
 
 <template>
+<SectionGuard seccion="delegados">
   <CrudDataTable
     title="Delegados"
+    seccion="delegados"
     :columns="columns"
     :service="delegadosService"
     :emptyItem="emptyItem"
-    :canExport="true"
   >
     <template #cell-tipo="{ data }">
-      {{ data.tipo === 'equipo' ? 'Equipo' : 'Campo' }}
+      {{ ETIQUETA_TIPO[data.tipo] || 'Campo' }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

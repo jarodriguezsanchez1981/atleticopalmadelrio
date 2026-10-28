@@ -4,9 +4,10 @@
  * columns: [{ field, header, type: 'text'|'textarea'|'date'|'select'|'multiselect'|'password',
  *             options?: [{label,value}], required?: bool }]
  */
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, watch, toRaw } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import { estiloTabla } from '../utils/estiloTabla';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
@@ -18,14 +19,13 @@ import Password from 'primevue/password';
 import DatePicker from 'primevue/datepicker';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
-import ProgressBar from 'primevue/progressbar';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { mapaFestivosAnio, nombreFestivoNacional } from '../utils/festivosEspana';
 import { emitirCambio } from '../utils/cambioBus';
 import { useAuthStore } from '../stores/auth.store';
-import * as XLSX from '@e965/xlsx';
+import { useMediaQuery } from '../composables/useMediaQuery';
 
 const auth = useAuthStore();
 
@@ -41,17 +41,28 @@ const props = defineProps({
   detailMaxWidth: { type: String, default: 'max-w-lg' },
   formMaxWidth: { type: String, default: 'max-w-lg' },
   prepareEdit: { type: Function, default: null },
-  canExport: { type: Boolean, default: false },
-  validateForm: { type: Function, default: null }
+  validateForm: { type: Function, default: null },
+  seccion: { type: String, default: null },
+  // Orden inicial de la tabla (también en la vista de móvil): campo y
+  // 1 = ascendente, -1 = descendente.
+  sortField: { type: String, default: null },
+  sortOrder: { type: Number, default: 1 },
+  // Solo la cabecera (título, nº de registros y Nuevo): sin la tabla (ni las
+  // tarjetas en móvil) ni el buscador.
+  ocultarTabla: { type: Boolean, default: false },
+  // Filtro de las filas que se muestran (p. ej. la pestaña elegida): función
+  // (item) => true si sale. El nº de registros es el de las que salen.
+  filtroItems: { type: Function, default: null }
 });
 
-const emit = defineEmits(['changed', 'data-loaded']);
+const emit = defineEmits(['changed', 'data-loaded', 'delete-error']);
 
-const permisoCrear = computed(() => props.canCreate && auth.puedeCrear());
-const permisoEditar = computed(() => props.canEdit && auth.puedeEditar());
-const permisoEliminar = computed(() => props.canDelete && auth.puedeEliminar());
+const permisoCrear = computed(() => props.canCreate && auth.puedeCrear(props.seccion));
+const permisoEditar = computed(() => props.canEdit && auth.puedeEditar(props.seccion));
+const permisoEliminar = computed(() => props.canDelete && auth.puedeEliminar(props.seccion));
 
 const items = ref([]);
+const itemsVisibles = computed(() => (props.filtroItems ? items.value.filter(props.filtroItems) : items.value));
 const seleccionados = ref([]);
 const cargando = ref(false);
 const filtroGlobal = ref('');
@@ -63,12 +74,7 @@ const detalle = ref(null);
 const datePickerRefs = {};
 const timeDrafts = reactive({});
 
-const importDialogVisible = ref(false);
-const importando = ref(false);
-const importProgress = ref(0);
-const importInputRef = ref(null);
-const importPreview = ref([]);
-const importErrores = ref([]);
+const esMovil = useMediaQuery('(max-width: 639px)');
 
 const columnas = ref([]);
 const storageKey = `ar_col_order_${props.title}`;
@@ -85,7 +91,7 @@ function restaurarOrden() {
       }
     }
   } catch { /* ignora errores de localStorage */ }
-  columnas.value = orden;
+  columnas.value = orden.filter((c) => c.enTabla !== false);
 }
 
 function guardarOrden() {
@@ -312,8 +318,16 @@ watch(form, () => {
   }
 });
 
+/** Copia independiente (también de objetos y listas anidados): el formulario
+ * no debe compartir objetos con emptyItem ni con la fila de la tabla, o lo que
+ * se marque en un alta (p.ej. los permisos de un usuario) aparecería ya marcado
+ * en la siguiente. */
+function copiaProfunda(valor) {
+  return structuredClone(toRaw(valor));
+}
+
 function prepareFormData(item) {
-  const data = { ...props.emptyItem, ...item };
+  const data = { ...copiaProfunda(props.emptyItem), ...copiaProfunda(item) };
   for (const col of props.columns) {
     if (col.type === 'date') {
       data[col.field] = toDateValue(data[col.field]);
@@ -335,7 +349,7 @@ function prepareFormData(item) {
 function payloadFromForm() {
   const payload = { ...form };
   // Quitar relaciones anidadas del include de Sequelize
-  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'delegados', 'titulo', 'titulos', 'secciones', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
+  ['categoria', 'categorias', 'lugar', 'temporada', 'entrenador', 'entrenadores', 'delegado', 'delegados', 'titulo', 'titulos', 'secciones', 'posiciones', 'personal', 'created_at', 'updated_at', 'asistencias', 'semanales', 'tiposFutbol'].forEach((k) => {
     delete payload[k];
   });
   // `usuario` solo se elimina cuando es la relación anidada (objeto);
@@ -345,7 +359,8 @@ function payloadFromForm() {
   }
   for (const col of props.columns) {
     if (col.type === 'date' && payload[col.field] instanceof Date) {
-      payload[col.field] = payload[col.field].toISOString();
+      const d = payload[col.field];
+      payload[col.field] = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
     if (col.type === 'password' && !payload[col.field]) {
       delete payload[col.field];
@@ -359,6 +374,14 @@ async function cargar() {
   try {
     const data = await props.service.listar(props.listParams);
     items.value = data.map(item => ({ ...item }));
+    if (props.sortField) {
+      const campo = props.sortField;
+      items.value.sort((a, b) => {
+        const va = a[campo] ?? 0;
+        const vb = b[campo] ?? 0;
+        return (va > vb ? 1 : va < vb ? -1 : 0) * props.sortOrder;
+      });
+    }
     emit('changed');
     emit('data-loaded', items.value);
   } catch {
@@ -394,66 +417,6 @@ function abrirNuevo() {
   Object.assign(form, prepareFormData(props.emptyItem));
   editando.value = false;
   dialogVisible.value = true;
-}
-
-/* ---------- Importación Excel ---------- */
-
-function abrirImport() {
-  importPreview.value = [];
-  importErrores.value = [];
-  importProgress.value = 0;
-  importDialogVisible.value = true;
-}
-
-function onImportFile(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  importando.value = true;
-  importProgress.value = 10;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      importPreview.value = rows;
-      importProgress.value = 100;
-    } catch {
-      toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo leer el archivo Excel.', life: 4000 });
-      importPreview.value = [];
-    } finally {
-      importando.value = false;
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-async function confirmarImport() {
-  if (!importPreview.value.length) return;
-  importando.value = true;
-  importProgress.value = 30;
-  try {
-    const res = await props.service.importar(importPreview.value);
-    importProgress.value = 100;
-    toast.add({
-      severity: 'success',
-      summary: 'Importación completada',
-      detail: `${res.insertados} filas importadas${res.errores.length ? `, ${res.errores.length} errores` : ''}.`,
-      life: 5000
-    });
-    importDialogVisible.value = false;
-    await cargar();
-    emit('changed');
-  } catch (err) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error de importación',
-      detail: err.response?.data?.message || 'No se pudo completar la importación.',
-      life: 5000
-    });
-  } finally {
-    importando.value = false;
-  }
 }
 
 function abrirEdicion(item) {
@@ -592,6 +555,7 @@ function confirmarEliminar(item) {
       try {
         await props.service.eliminar(item.id);
         toast.add({ severity: 'success', summary: 'Eliminado', detail: 'Registro eliminado.', life: 3000 });
+        emit('delete-error', null);
         await cargar();
         emitirCambio();
       } catch (err) {
@@ -601,6 +565,7 @@ function confirmarEliminar(item) {
           detail: err.response?.data?.message || 'No se pudo eliminar el registro.',
           life: 5000
         });
+        emit('delete-error', err.response?.data || { message: err.message });
       }
     }
   });
@@ -646,36 +611,14 @@ function eliminarSeleccionados() {
   });
 }
 
-function exportarExcel() {
-  const headers = columnas.value.map(c => c.header);
-  const rows = items.value.map(item => {
-    return columnas.value.map(col => {
-      if (col.field === 'id') return item.id;
-      if (typeof col.format === 'function') return col.format(item[col.field], item) ?? '';
-      if (col.type === 'select' && col.options) {
-        const opts = typeof col.options === 'function' ? col.options(form) : col.options;
-        const opt = opts?.find(o => o.value === item[col.field]);
-        return opt ? opt.label : item[col.field] ?? '';
-      }
-      if (col.type === 'date' && item[col.field]) {
-        const d = toDateValue(item[col.field]);
-        if (!d) return '';
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const yyyy = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mi = String(d.getMinutes()).padStart(2, '0');
-        const ss = String(d.getSeconds()).padStart(2, '0');
-        return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
-      }
-      return item[col.field] ?? '';
-    });
-  });
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, props.title);
-  XLSX.writeFile(wb, `${props.title.toLowerCase().replace(/\s+/g, '_')}.xlsx`);
+function valorCelda(col, data) {
+  const slot = col.field;
+  if (typeof col.format === 'function') return col.format(data[col.field], data);
+  if (col.type === 'image') return data[col.field] ? '' : '—';
+  return data[col.field] ?? '—';
 }
+
+const columnasVisibles = computed(() => columnas.value.filter(c => c.type !== 'image').slice(0, 3));
 
 defineExpose({ cargar });
 onMounted(() => {
@@ -702,11 +645,11 @@ watch(
           </h1>
           <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-club-green/10 text-club-green text-xs font-semibold">
             <i class="pi pi-database text-[11px]"></i>
-            {{ items.length }} {{ items.length === 1 ? 'registro' : 'registros' }}
+            {{ itemsVisibles.length }} {{ itemsVisibles.length === 1 ? 'registro' : 'registros' }}
           </span>
         </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
+        <div :class="esMovil ? 'flex flex-col gap-2 w-full' : 'flex items-center gap-2 flex-wrap'">
           <Button
             v-if="permisoEliminar && seleccionados.length"
             :label="`Eliminar seleccionados (${seleccionados.length})`"
@@ -716,28 +659,27 @@ watch(
             class="!text-club-garnet !border-club-garnet/50 hover:!bg-club-garnet/5"
             @click="eliminarSeleccionados"
           />
-          <IconField>
+          <IconField v-if="!ocultarTabla">
             <InputIcon class="pi pi-search" />
             <InputText v-model="filtroGlobal" placeholder="Buscar..." class="!py-2" />
           </IconField>
           <slot name="acciones" />
-          <Button v-if="canExport" label="Exportar" icon="pi pi-file-export" outlined
-                  class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
-                  @click="exportarExcel" />
-          <Button v-if="permisoCrear" label="Importar" icon="pi pi-file-import" outlined
-                  class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
-                  @click="abrirImport" />
           <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight !" />
+                  :class="esMovil ? 'fab-movil !fixed !bottom-6 !right-6 !z-50 !rounded-full !w-14 !h-14 !shadow-lg' : '!bg-club-green !border-club-green hover:!bg-club-greenLight !'" />
         </div>
       </div>
       <div class="mt-3 h-px bg-fill-hover"></div>
+      <!-- Entre la cabecera y la tabla (p. ej. pestañas que filtran con filtroItems). -->
+      <slot name="antesTabla" />
     </div>
 
     <DataTable
-      :value="items"
+      v-if="!esMovil && !ocultarTabla"
+      :value="itemsVisibles"
       v-model:selection="seleccionados"
       :dataKey="'id'"
+      :sortField="sortField || undefined"
+      :sortOrder="sortField ? sortOrder : undefined"
       :loading="cargando"
       :globalFilterFields="columns.map(c => c.field)"
       :filters="{ global: { value: filtroGlobal, matchMode: 'contains' } }"
@@ -745,14 +687,8 @@ watch(
       scrollable="scroll"
       @column-reorder="onColumnReorder"
       paginator :rows="10" :rowsPerPageOptions="[10, 20, 50]"
-      rowHover stripedRows
-      class="ar-datatable bg-white rounded-xl overflow-x-auto border border-line"
-      :pt="{
-        header: { class: 'ar-dt-header !bg-white' },
-        rowgroupfooter: { class: '!bg-club-cream' },
-        footer: { class: '!bg-club-cream' },
-        paginator: { class: 'ar-dt-paginator !bg-white' }
-      }"
+      v-bind="estiloTabla"
+      class="ar-dt-compacta"
     >
       <Column v-if="permisoEliminar" selectionMode="multiple" headerStyle="width: 3rem" frozen :reorderableColumn="false" />
       <Column v-for="col in columnas" :key="col.field" :field="col.field" :header="col.header" sortable>
@@ -790,11 +726,43 @@ watch(
       </template>
     </DataTable>
 
+    <!-- Vista tarjetas móvil -->
+    <div v-if="esMovil && !ocultarTabla" class="space-y-3">
+      <div v-if="!itemsVisibles.length && !cargando" class="text-center text-ink-tertiary py-8">
+        <i class="pi pi-inbox text-2xl block mb-2"></i>
+        No hay registros todavía.
+      </div>
+      <div v-for="item in itemsVisibles" :key="item.id" class="bg-white rounded-xl border border-line p-3">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="flex-1 min-w-0">
+            <div v-for="col in columnasVisibles" :key="col.field" class="mb-1">
+              <span class="text-[0.65rem] text-ink-tertiary uppercase tracking-wide">{{ col.header }}</span>
+              <div class="text-sm font-medium text-ink-primary truncate">
+                <slot :name="`cell-${col.field}`" :data="item">
+                  <img v-if="col.type === 'image' && item[col.field]" :src="item[col.field]" alt="" class="ar-foto-mini" />
+                  <template v-else>{{ valorCelda(col, item) }}</template>
+                </slot>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-1 shrink-0">
+            <Button icon="pi pi-eye" text rounded severity="secondary" size="small"
+                    class="!w-8 !h-8" @click="abrirDetalle(item)" />
+            <Button v-if="permisoEditar" icon="pi pi-pencil" text rounded severity="secondary" size="small"
+                    class="!w-8 !h-8" @click="abrirEdicion(item)" />
+            <Button v-if="permisoEliminar" icon="pi pi-trash" text rounded severity="danger" size="small"
+                    class="!w-8 !h-8" @click="confirmarEliminar(item)" />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Alta / edición -->
     <Dialog
       v-model:visible="dialogVisible"
       modal
-      :class="['w-full', formMaxWidth]"
+      :class="['w-full', esMovil ? '' : formMaxWidth]"
+      :style="esMovil ? { width: '100%', height: '100%', maxWidth: '100%', margin: 0 } : {}"
       :pt="{ header: { class: 'items-center' } }"
     >
       <template #header>
@@ -807,12 +775,16 @@ watch(
       </template>
 
       <form @submit.prevent="guardar" class="space-y-4 pt-1">
-        <div v-for="col in columns.filter(c => !c.soloTabla && c.enForm !== false)" :key="col.field" class="flex flex-col gap-1.5">
+        <template v-for="col in columns.filter(c => !c.soloTabla && c.enForm !== false)" :key="col.field">
+        <div class="flex flex-col gap-1.5">
           <label :for="col.field" class="text-sm font-medium text-ink-secondary">
             {{ col.header }} <span v-if="col.required" class="text-club-garnet">*</span>
           </label>
 
           <InputText v-if="col.type === 'text' && !col.readonly" :id="col.field" v-model="form[col.field]" class="w-full" />
+
+          <Textarea v-else-if="col.type === 'textarea'" :id="col.field" v-model="form[col.field]"
+                    rows="3" class="w-full" />
 
           <Password
             v-else-if="col.type === 'password'"
@@ -873,6 +845,8 @@ watch(
             class="w-full"
           />
         </div>
+        <slot :name="`form-after-${col.field}`" :form="form" />
+        </template>
 
         <slot name="form-extra" :form="form" />
 
@@ -885,7 +859,8 @@ watch(
     </Dialog>
 
     <!-- Detalle (lupa) -->
-    <Dialog v-model:visible="detalleVisible" modal :class="['w-full', detailMaxWidth]">
+    <Dialog v-model:visible="detalleVisible" modal :class="['w-full', esMovil ? '' : detailMaxWidth]"
+            :style="esMovil ? { width: '100%', height: '100%', maxWidth: '100%', margin: 0 } : {}">
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -921,136 +896,10 @@ watch(
       </div>
     </Dialog>
 
-    <!-- Diálogo de importación Excel -->
-    <Dialog v-model:visible="importDialogVisible" modal header="Importar desde Excel"
-            :style="{ width: '42rem' }" :closable="!importando">
-      <div class="space-y-4">
-        <p class="text-sm text-ink-secondary">
-          Selecciona un archivo <strong>.xlsx</strong> cuyas columnas
-          coincidan con los campos de la tabla (sin la columna <code>id</code>).
-          Las filas se insertarán una a una; las que falten validación se
-          reportarán como error pero no detienen el resto.
-        </p>
-
-        <input ref="importInputRef" type="file" accept=".xlsx,.xls"
-               class="hidden"
-               @change="onImportFile" />
-
-        <div v-if="!importPreview.length" class="flex justify-center">
-          <Button label="Seleccionar archivo" icon="pi pi-upload"
-                  :loading="importando"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
-                  @click="importInputRef?.click()" />
-        </div>
-
-        <div v-else class="space-y-3">
-          <div class="text-sm font-medium text-ink-primary">
-            {{ importPreview.length }} filas detectadas
-          </div>
-          <DataTable :value="importPreview.slice(0, 10)" class="ar-datatable text-sm" scrollable scrollHeight="200px">
-            <Column v-for="key of Object.keys(importPreview[0] || {})" :key="key"
-                    :field="key" :header="key" />
-          </DataTable>
-          <p v-if="importPreview.length > 10" class="text-xs text-ink-tertiary">
-            Mostrando las 10 primeras filas de {{ importPreview.length }}.
-          </p>
-        </div>
-
-        <ProgressBar v-if="importando" :value="importProgress" />
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <Button label="Cancelar" text @click="importDialogVisible = false" :disabled="importando" />
-          <Button v-if="importPreview.length" label="Importar" icon="pi pi-check"
-                  :loading="importando"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
-                  @click="confirmarImport" />
-        </div>
-      </template>
-    </Dialog>
   </div>
 </template>
 
 <style>
-/* ===== DataTable escandinavo ===== */
-.ar-datatable .p-datatable-header {
-  border-bottom: 1px solid rgb(0 0 0 / 10%);
-  padding: 0.75rem 1rem;
-}
-.ar-datatable .p-datatable-thead > tr > th,
-.ar-datatable .p-datatable-thead > tr > td {
-  background: rgb(0 0 0 / 3%) !important;
-  border-color: rgb(0 0 0 / 10%) !important;
-  color: rgb(0 0 0 / 64%) !important;
-  font-size: 0.72rem;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: 0;
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
-}
-.ar-datatable .p-datatable-tbody > tr {
-  transition: background-color 0.12s ease;
-}
-.ar-datatable .p-datatable-tbody > tr > td {
-  border-color: rgb(0 0 0 / 6%) !important;
-  padding-top: 0.45rem;
-  padding-bottom: 0.45rem;
-  color: rgb(0 0 0 / 90%);
-  font-size: 0.86rem;
-}
-.ar-datatable .p-datatable-tbody > tr:hover {
-  background: rgb(0 0 0 / 3%) !important;
-}
-.ar-datatable .p-datatable-tbody > tr.ar-dt-row-selected,
-.ar-datatable .p-datatable-tbody > tr.p-highlight {
-  background: rgb(0 0 0 / 5%) !important;
-}
-.ar-datatable .p-paginator {
-  border-top: 1px solid rgb(0 0 0 / 10%);
-  padding: 0.6rem 1rem;
-  justify-content: flex-end;
-  gap: 0.15rem;
-}
-.ar-datatable .p-paginator .p-paginator-current {
-  margin-right: auto;
-  color: rgb(0 0 0 / 44%);
-  font-size: 0.8rem;
-}
-.ar-datatable .p-paginator .p-paginator-page,
-.ar-datatable .p-paginator .p-paginator-first,
-.ar-datatable .p-paginator .p-paginator-prev,
-.ar-datatable .p-paginator .p-paginator-next,
-.ar-datatable .p-paginator .p-paginator-last {
-  min-width: 2rem;
-  height: 2rem;
-  border-radius: 0.375rem;
-  color: rgb(0 0 0 / 64%);
-  font-size: 0.85rem;
-}
-.ar-datatable .p-paginator .p-paginator-page.p-highlight {
-  background: #0B3D2E !important;
-  color: #fff !important;
-}
-.ar-datatable .p-datatable-footer {
-  border-top: 1px solid rgb(0 0 0 / 10%);
-}
-.ar-dt-acciones {
-  text-align: right;
-}
-.ar-dt-btn {
-  color: rgb(0 0 0 / 44%) !important;
-}
-.ar-dt-btn:hover {
-  background: rgb(0 0 0 / 5%) !important;
-  color: rgb(0 0 0 / 90%) !important;
-}
-.ar-dt-btn.p-button-danger:hover {
-  background: #fef2f2 !important;
-  color: #b91c1c !important;
-}
-
 /* Foto */
 .ar-foto-mini {
   width: 2.5rem;
@@ -1104,5 +953,16 @@ watch(
 .p-datepicker-panel .p-datepicker-day-selected.dp-festivo-es,
 .p-datepicker-panel .p-datepicker-day-selected .dp-festivo-es {
   box-shadow: inset 0 0 0 2px #9a3412;
+}
+
+.fab-movil {
+  background: #0F3D22 !important;
+  border: none !important;
+  color: #fff !important;
+  width: 56px !important;
+  height: 56px !important;
+}
+.fab-movil .p-button-icon {
+  font-size: 1.25rem;
 }
 </style>

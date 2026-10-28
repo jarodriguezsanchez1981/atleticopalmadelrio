@@ -1,0 +1,12 @@
+# Rotación del log de acceso del reverse-proxy que lee fail2ban.
+# copytruncate: copia y vacía el fichero en sitio, sin tener que avisar a nginx
+# (el contenedor sigue escribiendo en el mismo inodo).
+/home/ubuntu/atleticopalmadelrio/reverse-proxy/logs/access.log {
+    weekly
+    rotate 4
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}

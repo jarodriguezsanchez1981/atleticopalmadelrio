@@ -4,13 +4,25 @@ const sequelize = require('../config/db');
 const Partido = sequelize.define('Partido', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   id_plantilla: { type: DataTypes.INTEGER, allowNull: false },
+  id_jornada: { type: DataTypes.INTEGER, allowNull: true },
+  jornada: { type: DataTypes.INTEGER, allowNull: true },
   fecha: { type: DataTypes.DATE, allowNull: false },
   id_lugar: { type: DataTypes.INTEGER, allowNull: true },
   id_equipo_local: { type: DataTypes.INTEGER, allowNull: false },
   id_equipo_visitante: { type: DataTypes.INTEGER, allowNull: false },
   id_usuario: { type: DataTypes.INTEGER, allowNull: true },
   incidencias: { type: DataTypes.TEXT, allowNull: true },
-  resultado: { type: DataTypes.STRING(50), allowNull: true }
+  observaciones: { type: DataTypes.TEXT, allowNull: true },
+  resultado: { type: DataTypes.STRING(255), allowNull: true },
+  // Goles de penalti a favor / en contra del PALMA (Finalizar Acta).
+  goles_penalti_favor: { type: DataTypes.INTEGER, allowNull: true },
+  goles_penalti_contra: { type: DataTypes.INTEGER, allowNull: true },
+  suspendido: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  codigo_acta: { type: DataTypes.STRING(50), allowNull: true },
+  acta_finalizada_at: { type: DataTypes.DATE, allowNull: true },
+  // El acta se finalizó guardando también los goles y tarjetas del rival.
+  acta_rival: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  codigo_primaria: { type: DataTypes.STRING(50), allowNull: true }
 }, {
   tableName: 'partidos'
 });

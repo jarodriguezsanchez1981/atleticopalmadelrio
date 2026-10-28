@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Equipo } from './helpers/models.js';
+import { Equipo, Partido } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/equipo.controller.js';
@@ -10,6 +10,8 @@ describe('Sección Equipos · equipo.controller', () => {
     Equipo.findOne.mockReset();
     Equipo.create.mockReset();
     Equipo.destroy.mockReset();
+    Partido.findAll.mockReset();
+    Partido.findAll.mockResolvedValue([]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -67,7 +69,8 @@ describe('Sección Equipos · equipo.controller', () => {
     await promesa;
 
     expect(Equipo.create).toHaveBeenCalledWith({
-      nombre: 'Senior', escudo: null, direccion: null, codigopostal: null, localidad: null, provincia: null
+      nombre: 'Senior', escudo: null, direccion: null, codigopostal: null, localidad: null, provincia: null,
+      camiseta: null, calzonas: null, medias: null
     });
     expect(res._status).toBe(201);
     expect(res._json).toEqual(creado);
@@ -76,13 +79,15 @@ describe('Sección Equipos · equipo.controller', () => {
   it('crear guarda escudo, dirección, código postal, localidad y provincia si se envían', async () => {
     const creado = {
       id: 9, nombre: 'Senior',
-      escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1', codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba'
+      escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1', codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba',
+      camiseta: 'Blanca', calzonas: 'Negras', medias: 'Blancas'
     };
     Equipo.create.mockResolvedValue(creado);
     const { promesa, res } = llamar(ctrl.crear, {
       body: {
         nombre: 'Senior', escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1',
-        codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba'
+        codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba',
+        camiseta: 'Blanca', calzonas: 'Negras', medias: 'Blancas'
       }
     });
 
@@ -90,9 +95,25 @@ describe('Sección Equipos · equipo.controller', () => {
 
     expect(Equipo.create).toHaveBeenCalledWith({
       nombre: 'Senior', escudo: 'data:image/png;base64,xxx', direccion: 'Calle 1',
-      codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba'
+      codigopostal: '14001', localidad: 'Córdoba', provincia: 'Córdoba',
+      camiseta: 'Blanca', calzonas: 'Negras', medias: 'Blancas'
     });
     expect(res._status).toBe(201);
+  });
+
+  it('listar con ?basico=1 no trae el escudo', async () => {
+    Equipo.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { basico: '1' } });
+    await promesa;
+    expect(Equipo.findAll).toHaveBeenCalledWith({ attributes: { exclude: ['escudo'] }, order: [['nombre', 'ASC']] });
+  });
+
+  it('actualizar no cambia el escudo si llega su propia URL de /api/imagenes', async () => {
+    const equipo = { id: 1, nombre: 'X', escudo: 'data:image/png;base64,AAAA', save: vi.fn().mockResolvedValue() };
+    Equipo.findOne.mockResolvedValue(equipo);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { escudo: '/api/imagenes/equipos/1?v=abc' } });
+    await promesa;
+    expect(equipo.escudo).toBe('data:image/png;base64,AAAA');
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -158,5 +179,36 @@ describe('Sección Equipos · equipo.controller', () => {
     await promesa;
 
     expect(res._status).toBe(404);
+  });
+
+  it('eliminar rechaza con el detalle de los partidos que usan el equipo', async () => {
+    Partido.findAll.mockResolvedValue([
+      {
+        id: 10, id_equipo_local: 73, id_equipo_visitante: 5, fecha: '2026-09-13',
+        plantilla: { categoria: { nombre: 'Alevin A' }, temporada: { nombre: '2026/2027' } }
+      },
+      {
+        id: 11, id_equipo_local: 5, id_equipo_visitante: 73, fecha: '2026-09-20',
+        plantilla: { categoria: { nombre: 'Benjamin A' }, temporada: { nombre: '2026/2027' } }
+      }
+    ]);
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '5' } });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('No se puede eliminar: hay 2 partido(s) que usan este equipo.');
+    expect(res._json.bloqueantes).toEqual([
+      {
+        tabla: 'partidos',
+        campo: 'id_equipo_local / id_equipo_visitante',
+        cantidad: 2,
+        detalle: [
+          'Alevin A (2026/2027) · 2026-09-13 · como visitante',
+          'Benjamin A (2026/2027) · 2026-09-20 · como local'
+        ]
+      }
+    ]);
+    expect(Equipo.destroy).not.toHaveBeenCalled();
   });
 });

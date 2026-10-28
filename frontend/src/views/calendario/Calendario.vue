@@ -2,7 +2,7 @@
 /**
  * Calendario solo lectura: entrenamientos, partidos y festivos nacionales ES.
  */
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -10,6 +10,7 @@ import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
@@ -17,12 +18,22 @@ import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import EventoFormCalendario from '../../components/EventoFormCalendario.vue';
-import { calendarioService, categoriasService, entrenamientosService, partidosService } from '../../services';
+import TorneoFormCalendario from '../../components/TorneoFormCalendario.vue';
+import EquipacionPrenda from '../../components/EquipacionPrenda.vue';
+import ResultadoJugadoresPartido from '../../components/ResultadoJugadoresPartido.vue';
+import { golesPartido } from '../../utils/resultadoPartido';
+import CalendarioLista from '../../components/CalendarioLista.vue';
+import { calendarioService, categoriasService, entrenamientosService, partidosService, torneosService } from '../../services';
+import { moverEvento, puedeMoverEvento } from '../../utils/moverEvento';
+import { grupoDeEvento, ORDEN_GRUPOS } from '../../utils/gruposCalendario';
 import { eventosFestivosFullCalendar } from '../../utils/festivosEspana';
+import '../../assets/calendario.css';
 import { tituloCalendario } from '../../utils/tituloCalendario';
 import { generarPdfCalendario } from '../../utils/pdfCalendario';
+import { escudoEquipo, cargarEscudos, adjuntarEscudos } from '../../utils/escudosEquipos';
 import { useAuthStore } from '../../stores/auth.store';
 import { emitirCambio, suscribirseCambio } from '../../utils/cambioBus';
+import { useMediaQuery } from '../../composables/useMediaQuery';
 
 const categorias = ref([]);
 const filtroCategoria = ref(null);
@@ -34,14 +45,28 @@ const formVisible = ref(false);
 const formTipo = ref('entrenamiento');
 const formRegistroId = ref(null);
 const formFechaDefecto = ref(null);
+const torneoFormVisible = ref(false);
+const torneoFormRegistroId = ref(null);
 const confirm = useConfirm();
 const toast = useToast();
 const auth = useAuthStore();
+
+const esMovil = useMediaQuery('(max-width: 639px)');
+const eventosLista = ref([]);
 
 const generandoPdf = ref(false);
 const pdfDialogVisible = ref(false);
 const pdfSemana = ref(new Date());
 const pdfTipoFutbol = ref(null);
+const pdfTipos = ref(['liga', 'partido', 'amistoso', 'torneo', 'entrenamiento']);
+
+const OPCIONES_TIPO_EVENTO = [
+  { label: 'Liga', value: 'liga' },
+  { label: 'Partido', value: 'partido' },
+  { label: 'Amistoso', value: 'amistoso' },
+  { label: 'Torneo', value: 'torneo' },
+  { label: 'Entrenamiento', value: 'entrenamiento' }
+];
 
 const OPCIONES_TIPO_FUTBOL = [
   { label: 'Todos (Futbol 7 y Futbol 11)', value: null },
@@ -61,6 +86,7 @@ function semanaDe(fecha) {
 function abrirPdfSemana() {
   pdfSemana.value = new Date();
   pdfTipoFutbol.value = null;
+  pdfTipos.value = ['liga', 'partido', 'amistoso', 'torneo', 'entrenamiento'];
   pdfDialogVisible.value = true;
 }
 
@@ -85,7 +111,22 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
       toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos en esta semana.', life: 3000 });
       return;
     }
-    await generarPdfCalendario(eventos, fechaTitulo, tipoFutbol);
+    const sel = pdfTipos.value;
+    const filtrados = eventos.filter((e) => {
+      if (e.tipo === 'entrenamiento') return sel.includes('entrenamiento');
+      if (e.tipo === 'torneo') return sel.includes('torneo');
+      if (e.tipo === 'partido') {
+        if (e.jornada) return sel.includes('partido') || sel.includes('liga');
+        return sel.includes('partido') || sel.includes('amistoso');
+      }
+      return true;
+    });
+    if (!filtrados.length) {
+      toast.add({ severity: 'warn', summary: 'Sin datos', detail: 'No hay eventos de los tipos elegidos.', life: 3000 });
+      return;
+    }
+    await adjuntarEscudos(filtrados);
+    await generarPdfCalendario(filtrados, fechaTitulo, tipoFutbol);
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -98,27 +139,15 @@ async function genarPdfRango(inicio, fin, tipoFutbol = null) {
   }
 }
 
+const puedeCrearEvento = computed(() =>
+  auth.puedeVer('entrenamientos') || auth.puedeVer('partidos') || auth.puedeVer('torneo')
+);
+
 const opcionesCategoria = computed(() => [
   { label: 'Todas las categorías', value: null },
   ...categorias.value.map(c => ({ label: c.nombre, value: c.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 ]);
-
-const golesLocal = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
-  const partes = e.resultado.split('-');
-  if (partes.length !== 2) return '—';
-  return partes[0].trim();
-});
-
-const golesVisitante = computed(() => {
-  const e = eventoSeleccionado.value;
-  if (!e || e.tipo !== 'partido' || !e.resultado) return '—';
-  const partes = e.resultado.split('-');
-  if (partes.length !== 2) return '—';
-  return partes[1].trim();
-});
 
 const nombreLocal = computed(() => {
   const e = eventoSeleccionado.value;
@@ -135,13 +164,33 @@ const nombreVisitante = computed(() => {
 const escudoLocal = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoLocal?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoLocal?.id) || '/escudo.png';
 });
 
 const escudoVisitante = computed(() => {
   const e = eventoSeleccionado.value;
   if (!e) return '/escudo.png';
-  return e.equipoVisitante?.escudo || '/escudo.png';
+  return escudoEquipo(e.equipoVisitante?.id) || '/escudo.png';
+});
+
+// Los escudos no vienen en los eventos: se piden al abrir el detalle.
+watch(eventoSeleccionado, (e) => {
+  if (e?.tipo === 'partido') cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
+});
+
+const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);
+const camisetaVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.camiseta || null);
+const calzonasLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.calzonas || null);
+const calzonasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.calzonas || null);
+const mediasLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.medias || null);
+const mediasVisitante = computed(() => eventoSeleccionado.value?.equipoVisitante?.medias || null);
+
+const tipoAdjunto = computed(() => {
+  const nombre = eventoSeleccionado.value?.adjunto_nombre || '';
+  const ext = nombre.split('.').pop()?.toLowerCase() || '';
+  if (['jpg', 'jpeg', 'png'].includes(ext)) return 'imagen';
+  if (ext === 'pdf') return 'pdf';
+  return 'otro';
 });
 
 const lugarPartido = computed(() => {
@@ -151,8 +200,9 @@ const lugarPartido = computed(() => {
   return e.lugar || '—';
 });
 
-const COLOR_ENTRENAMIENTO = '#0B3D2E';
+const COLOR_ENTRENAMIENTO = '#0F3D22';
 const COLOR_PARTIDO = '#7A1E2B';
+const COLOR_TORNEO = '#6D28D9';
 const COLOR_FESTIVO = '#D97706';
 
 async function fetchEventos(fetchInfo, successCallback, failureCallback) {
@@ -163,27 +213,85 @@ async function fetchEventos(fetchInfo, successCallback, failureCallback) {
       id_categoria: filtroCategoria.value || undefined
     });
 
-    const mapeados = eventos.map(e => ({
-      id: e.id,
-      title: e.titulo,
-      start: e.inicio,
-      color: e.tipo === 'partido' ? COLOR_PARTIDO : COLOR_ENTRENAMIENTO,
-      extendedProps: e
-    }));
+    const conGrupo = eventos.map(e => {
+      const miGrupo = grupoDeEvento(e);
+      // Grupos del día en el orden de ORDEN_GRUPOS (utils/gruposCalendario.js).
+      const grupoOrden = ORDEN_GRUPOS[miGrupo];
+      const esLocalOrden = e.tipo === 'partido' ? (e.es_local ? 0 : 1) : 0;
+      return {
+        id: e.id,
+        title: e.titulo,
+        editable: puedeMoverEvento(e, auth),
+        start: e.inicio,
+        color: e.tipo === 'partido' ? COLOR_PARTIDO : (e.tipo === 'torneo' ? COLOR_TORNEO : COLOR_ENTRENAMIENTO),
+        extendedProps: e,
+        miGrupo,
+        grupoOrden,
+        esLocalOrden
+      };
+    });
+
+    // Cabecera de grupo (LIGA casa/fuera, AMISTOSO, TORNEO, ENTRENAMIENTO): se marca sobre el primer evento
+    // de cada (día, tipo) según el mismo orden con el que FullCalendar los va a pintar
+    // (eventOrder: 'grupoOrden,start,esLocalOrden'), para que la cabecera caiga siempre
+    // en el evento que realmente se ve primero, incluso con varios partidos a la misma hora.
+    const ordenados = [...conGrupo].sort((a, b) => {
+      if (a.grupoOrden !== b.grupoOrden) return a.grupoOrden - b.grupoOrden;
+      const ta = a.start ? new Date(a.start).getTime() : Infinity;
+      const tb = b.start ? new Date(b.start).getTime() : Infinity;
+      if (ta !== tb) return ta - tb;
+      return a.esLocalOrden - b.esLocalOrden;
+    });
+    const primerPorGrupo = new Map();
+    for (const ev of ordenados) {
+      const diaKey = String(ev.start || '').slice(0, 10);
+      const key = `${diaKey}__${ev.miGrupo}`;
+      if (!primerPorGrupo.has(key)) primerPorGrupo.set(key, ev.id);
+    }
+
+    const mapeados = conGrupo.map(ev => {
+      const diaKey = String(ev.start || '').slice(0, 10);
+      const key = `${diaKey}__${ev.miGrupo}`;
+      const esPrimeroGrupo = primerPorGrupo.get(key) === ev.id;
+      ev.extendedProps = { ...ev.extendedProps, esPrimeroGrupo, miGrupo: ev.miGrupo };
+      return ev;
+    });
 
     const festivos = eventosFestivosFullCalendar(fetchInfo.startStr, fetchInfo.endStr).map(f => ({
-      ...f,
+      id: f.id,
+      title: f.title,
+      start: f.start,
+      allDay: true,
       display: 'auto',
-      color: COLOR_FESTIVO,
       backgroundColor: '#FDE68A',
       borderColor: '#D97706',
-      textColor: '#78350F'
+      textColor: '#78350F',
+      classNames: ['fc-festivo-nacional'],
+      editable: false,
+      extendedProps: f.extendedProps
     }));
 
     successCallback([...mapeados, ...festivos]);
+    eventosLista.value = eventos.map((e, idx) => {
+      const m = mapeados[idx];
+      return { ...e, esPrimeroGrupo: m?.extendedProps?.esPrimeroGrupo, miGrupo: m?.miGrupo };
+    }).concat(festivos.map(f => ({
+      id: f.id,
+      tipo: 'festivo',
+      titulo: f.title.replace('🎉 ', ''),
+      inicio: f.start,
+      lugar: null,
+      categoria: null
+    })));
   } catch (err) {
     failureCallback(err);
   }
+}
+
+function seccionDeEvento(tipo) {
+  if (tipo === 'partido') return 'partidos';
+  if (tipo === 'torneo') return 'torneo';
+  return 'entrenamientos';
 }
 
 function onEventClick(info) {
@@ -200,6 +308,21 @@ function onDateClick(info) {
   formFechaDefecto.value = info?.dateStr || info?.startStr;
 }
 
+function onEventClickMovil(evento) {
+  eventoSeleccionado.value = evento;
+  dialogVisible.value = true;
+}
+
+function onDateClickMovil(clave) {
+  elegirTipoVisible.value = true;
+  formFechaDefecto.value = clave;
+}
+
+function abrirNuevoEvento() {
+  formFechaDefecto.value = null;
+  elegirTipoVisible.value = true;
+}
+
 function idDeEvento(e) {
   if (e.tipo === 'partido') return String(e.id || '').replace('partido-', '');
   return e.base_id;
@@ -207,6 +330,11 @@ function idDeEvento(e) {
 
 function nuevoDeTipo(tipo) {
   elegirTipoVisible.value = false;
+  if (tipo === 'torneo') {
+    torneoFormRegistroId.value = null;
+    torneoFormVisible.value = true;
+    return;
+  }
   formTipo.value = tipo;
   formRegistroId.value = null;
   formVisible.value = true;
@@ -215,6 +343,12 @@ function nuevoDeTipo(tipo) {
 function editarEvento() {
   const e = eventoSeleccionado.value;
   if (!e) return;
+  if (e.tipo === 'torneo') {
+    torneoFormRegistroId.value = idDeEvento(e);
+    dialogVisible.value = false;
+    torneoFormVisible.value = true;
+    return;
+  }
   formTipo.value = e.tipo === 'partido' ? 'partido' : 'entrenamiento';
   formRegistroId.value = idDeEvento(e);
   formFechaDefecto.value = null;
@@ -225,7 +359,26 @@ function editarEvento() {
 function eliminarEvento() {
   const e = eventoSeleccionado.value;
   if (!e) return;
-  const service = e.tipo === 'partido' ? partidosService : entrenamientosService;
+  const service = e.tipo === 'partido' ? partidosService : (e.tipo === 'torneo' ? torneosService : entrenamientosService);
+
+  // Igual que en Entrenamientos: si es de una serie semanal, se pregunta si
+  // borrar solo esta sesión o todas las de la serie de esa plantilla.
+  if (e.tipo === 'entrenamiento' && e.recurrente) {
+    const id = idDeEvento(e);
+    confirm.require({
+      message: 'Este entrenamiento forma parte de una serie semanal para esta plantilla. ¿Quieres eliminar solo esta sesión o todas las sesiones de esta plantilla?',
+      header: 'Eliminar entrenamiento',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Todas',
+      rejectLabel: 'Solo esta',
+      acceptClass: 'p-button-danger',
+      rejectClass: 'p-button-secondary',
+      accept: () => eliminarEntrenamiento(id, 'serie'),
+      reject: () => eliminarEntrenamiento(id, 'dia')
+    });
+    return;
+  }
+
   confirm.require({
     message: '¿Seguro que quieres eliminar este evento? Esta acción no se puede deshacer.',
     header: 'Confirmar eliminación',
@@ -251,8 +404,108 @@ function eliminarEvento() {
   });
 }
 
+/** alcance: 'dia' borra solo este registro; 'serie' borra además el resto de
+ * semanas de la misma serie recurrente (misma plantilla y misma fecha límite). */
+async function eliminarEntrenamiento(id, alcance) {
+  try {
+    const resultado = await entrenamientosService.eliminar(id, alcance);
+    dialogVisible.value = false;
+    refrescar();
+    emitirCambio();
+    if (alcance === 'serie' && resultado?.eliminados > 1) {
+      toast.add({
+        severity: 'info',
+        summary: 'Serie eliminada',
+        detail: `Se han eliminado ${resultado.eliminados} entrenamientos de esta plantilla.`,
+        life: 5000
+      });
+    }
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.response?.data?.message || 'No se pudo eliminar el entrenamiento.',
+      life: 5000
+    });
+  }
+}
+
+/** Al soltar un partido en otro día: se guarda el nuevo día (misma hora). Si el
+ * backend lo rechaza (p.ej. la plantilla ya tiene otro evento ese día), el
+ * partido vuelve a su sitio. */
+async function onEventDrop(info) {
+  try {
+    await moverEvento(info.event, info.oldEvent);
+    toast.add({ severity: 'success', summary: 'Partido movido', detail: `Movido al ${info.event.start.toLocaleDateString('es-ES')}.`, life: 3000 });
+    emitirCambio();
+    refrescar();
+  } catch (err) {
+    info.revert();
+    toast.add({
+      severity: 'error',
+      summary: 'No se pudo mover',
+      detail: err.response?.data?.message || err.message || 'No se pudo mover el partido.',
+      life: 5000
+    });
+  }
+}
+
 function refrescar() {
-  calendarRef.value?.getApi().refetchEvents();
+  const api = calendarRef.value?.getApi();
+  if (api) {
+    api.refetchEvents();
+  } else if (esMovil.value) {
+    fetchEventosMobile();
+  }
+}
+
+/** Ventana actualmente cargada en eventosLista, para saber cuándo hace falta recargar. */
+const rangoMovilCargado = ref({ desde: null, hasta: null });
+let fetchMovilSeq = 0;
+
+async function fetchEventosMobile(centroFecha) {
+  const seq = ++fetchMovilSeq;
+  try {
+    const base = centroFecha ? new Date(centroFecha) : new Date();
+    const desde = new Date(base.getFullYear(), base.getMonth() - 1, 1).toISOString();
+    const hasta = new Date(base.getFullYear(), base.getMonth() + 3, 0).toISOString();
+    const eventos = await calendarioService.eventos({
+      desde,
+      hasta,
+      id_categoria: filtroCategoria.value || undefined
+    });
+    if (seq !== fetchMovilSeq) return; // ya se lanzó una petición más reciente, descartar esta
+    const festivos = eventosFestivosFullCalendar(desde, hasta).map(f => ({
+      id: f.id,
+      tipo: 'festivo',
+      titulo: f.title.replace('🎉 ', ''),
+      inicio: f.start,
+      lugar: null,
+      categoria: null
+    }));
+    eventosLista.value = eventos.concat(festivos);
+    rangoMovilCargado.value = { desde, hasta };
+  } catch {}
+}
+
+/** La vista de lista móvil solo carga inicialmente unos meses; si el usuario navega
+ * a una semana fuera de esa ventana (con los botones anterior/siguiente), se recarga
+ * centrada en la nueva semana. Debounce para colapsar clics rápidos seguidos, y las
+ * comprobaciones se encolan tras la petición en curso (en vez de lanzarse en paralelo)
+ * para que una respuesta más lenta no pueda pisar a una más rápida y perder el rango
+ * correcto que el usuario realmente está viendo. */
+let semanaChangeTimer = null;
+let fetchMovilPromise = Promise.resolve();
+function onSemanaChangeMovil({ inicio, fin }) {
+  clearTimeout(semanaChangeTimer);
+  semanaChangeTimer = setTimeout(() => {
+    fetchMovilPromise = fetchMovilPromise.then(() => {
+      const { desde, hasta } = rangoMovilCargado.value;
+      if (!desde || new Date(inicio) < new Date(desde) || new Date(fin) > new Date(hasta)) {
+        return fetchEventosMobile(inicio);
+      }
+    });
+  }, 300);
 }
 
 function onFormSaved() {
@@ -292,19 +545,46 @@ function contenidoEvento(arg) {
   const e = arg.event?.extendedProps;
   if (e?.tipo === 'partido') {
     const hora = escapeHtml(formatearHora(e.inicio));
-    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    // "*" = partido con el acta de RFAF ya finalizada.
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—') + (e.acta_finalizada ? ' *' : '');
     const icono = e.es_local
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
       : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
-    const badge = e.jornada
-      ? '<span class="fc-liga-badge">Liga</span>'
-      : '<span class="fc-amistoso-badge">Amistoso</span>';
+
+    const lugar = e.es_local
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipoLocal?.localidad || '');
+    const lugarHtml = lugar ? `<span class="fc-partido-lugar">${escapeHtml(lugar)}</span>` : '';
+    const cab = cabeceraGrupoHtml(e);
     return {
       html: `<div class="fc-evento-contenido">` +
+        cab +
         `<span class="fc-partido-hora">${hora}</span>` +
         icono +
         `<span class="fc-partido-alias">${alias}</span>` +
-        badge +
+        lugarHtml +
+        `</div>`
+    };
+  }
+  if (e?.tipo === 'torneo') {
+    const hora = escapeHtml(formatearHora(e.inicio));
+    const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || 'Torneo');
+    const esLocal = e.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
+    const icono = esLocal
+      ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
+      : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+    const lugar = esLocal
+      ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
+      : (e.equipo?.localidad || '');
+    const lugarHtml = lugar ? `<span class="fc-partido-lugar">${escapeHtml(lugar)}</span>` : '';
+    const cab = cabeceraGrupoHtml(e);
+    return {
+      html: `<div class="fc-evento-contenido">` +
+        cab +
+        `<span class="fc-partido-hora">${hora}</span>` +
+        icono +
+        `<span class="fc-partido-alias">${alias}</span>` +
+        lugarHtml +
         `</div>`
     };
   }
@@ -312,15 +592,51 @@ function contenidoEvento(arg) {
     const hora = escapeHtml(formatearHora(e.inicio));
     const lugar = escapeHtml(e.lugar || '—');
     const categoria = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—');
+    const cab = cabeceraGrupoHtml(e);
     return {
       html: `<div class="fc-evento-contenido">` +
+        cab +
         `<span class="fc-partido-hora">${hora}</span>` +
         `<span class="fc-partido-lugar">${lugar}</span>` +
         `<span class="fc-partido-alias">${categoria}</span>` +
         `</div>`
     };
   }
+  if (e?.tipo === 'festivo') {
+    return {
+      html: `<div class="fc-evento-contenido"><i class="pi pi-star-fill" style="font-size:10px"></i><span>${escapeHtml(e.titulo || arg.event?.title || '')}</span></div>`
+    };
+  }
   return { html: escapeHtml(arg.event?.title) };
+}
+
+function cabeceraGrupoHtml(e) {
+  if (!e.esPrimeroGrupo) return '';
+  const meta = GRUPO_LABELS[e.miGrupo];
+  if (!meta) return '';
+  return `<div class="fc-grupo-cabecera" style="background:${meta.color};color:#fff;font-size:9px;font-weight:700;padding:1px 4px;margin:0 0 5px;border-radius:3px;letter-spacing:0.3px;display:flex;align-items:center;gap:3px;line-height:1.2;width:100%;"><i class="${meta.icon}" style="font-size:9px"></i>${meta.label}</div>`;
+}
+
+const GRUPO_LABELS = {
+  // Liga separada en partidos en casa y fuera (mismos iconos que en los eventos).
+  LIGA_CASA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-home' },
+  LIGA_FUERA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
+  AMISTOSO: { label: 'AMISTOSO', color: '#D97706', icon: 'pi pi-handshake' },
+  TORNEO: { label: 'TORNEO', color: '#6D28D9', icon: 'pi pi-trophy' },
+  ENTRENAMIENTO_ESTADIO: { label: 'ENTRENAMIENTO ESTADIO', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO_ANEXO: { label: 'ENTRENAMIENTO ANEXO', color: '#2563EB', icon: 'pi pi-calendar' },
+  ENTRENAMIENTO: { label: 'ENTRENAMIENTO', color: '#2563EB', icon: 'pi pi-calendar' },
+  SUSPENDIDO: { label: 'SUSPENDIDO', color: '#DC2626', icon: 'pi pi-ban' }
+};
+
+const cabecerasInsertadas = new WeakSet();
+
+function agruparEventosDidMount(info) {
+  const grupo = info.event.extendedProps?.tipo === 'partido'
+    ? (info.event.extendedProps?.jornada ? 'LIGA' : 'AMISTOSO')
+    : (info.event.extendedProps?.tipo === 'torneo' ? 'TORNEO' : 'ENTRENAMIENTO');
+  const el = info.el;
+  el.classList.add(`fc-grupo-${grupo.toLowerCase()}`);
 }
 
 let unsubCambio = null;
@@ -361,20 +677,30 @@ const calendarOptions = {
   },
   events: fetchEventos,
   eventContent: contenidoEvento,
+  eventDidMount: agruparEventosDidMount,
   eventClick: onEventClick,
   dateClick: onDateClick,
-  editable: false,
+  // Los partidos se pueden arrastrar a otro día (con permiso de edición en
+  // Partidos, ver puedeMoverEvento); la duración no se cambia.
+  editable: true,
+  eventDurationEditable: false,
+  eventDrop: onEventDrop,
   selectable: false,
-  dayMaxEvents: 4,
-  fixedWeekCount: false
+  dayMaxEvents: false,
+  fixedWeekCount: false,
+  eventOrder: 'grupoOrden,start,esLocalOrden'
 };
 
 onMounted(async () => {
   categorias.value = await categoriasService.listar();
+  if (esMovil.value) fetchEventosMobile();
 });
+
+watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(); });
 </script>
 
 <template>
+<SectionGuard seccion="calendario">
   <div>
     <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
       <div>
@@ -404,14 +730,30 @@ onMounted(async () => {
           :loading="generandoPdf"
           @click="abrirPdfSemana"
         />
+        <Button
+          v-if="esMovil && puedeCrearEvento"
+          label="Nuevo"
+          icon="pi pi-plus"
+          size="small"
+          class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+          @click="abrirNuevoEvento"
+        />
       </div>
     </div>
 
     <div class="bg-white rounded-xl  p-4 calendario-club">
-      <FullCalendar ref="calendarRef" :options="calendarOptions" />
+      <FullCalendar v-if="!esMovil" ref="calendarRef" :options="calendarOptions" />
+      <CalendarioLista
+        v-else
+        :eventos="eventosLista"
+        :id-categoria="filtroCategoria"
+        @event-click="onEventClickMovil"
+        @date-click="onDateClickMovil"
+        @semana-change="onSemanaChangeMovil"
+      />
     </div>
 
-    <Dialog v-model:visible="dialogVisible" modal class="w-full max-w-md">
+    <Dialog v-model:visible="dialogVisible" modal :class="['w-full', eventoSeleccionado?.tipo === 'partido' ? 'max-w-lg' : 'max-w-md']">
       <template #header>
         <div class="flex items-center gap-2">
           <img src="/escudo.png" alt="" class="w-8 h-8 object-contain" />
@@ -420,6 +762,15 @@ onMounted(async () => {
                 :class="eventoSeleccionado?.jornada ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
             <i :class="eventoSeleccionado?.jornada ? 'pi pi-star-fill' : 'pi pi-handshake'"></i>
             {{ eventoSeleccionado?.jornada ? 'Liga' : 'Amistoso' }}
+          </span>
+          <span v-else-if="eventoSeleccionado?.tipo === 'torneo'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+            <i class="pi pi-trophy"></i> Torneo
+          </span>
+          <span v-else-if="eventoSeleccionado?.tipo === 'entrenamiento'" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+            <i class="pi pi-calendar"></i> Entrenamiento
+          </span>
+          <span v-if="eventoSeleccionado?.suspendido" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+            <i class="pi pi-ban"></i> Suspendido
           </span>
         </div>
       </template>
@@ -469,32 +820,87 @@ onMounted(async () => {
               <i class="pi pi-sync"></i> Recurrente
             </span>
           </div>
+          <div v-if="eventoSeleccionado.adjunto_url" class="space-y-2">
+            <div class="flex items-center gap-2 text-sm">
+              <i class="pi pi-paperclip text-club-green"></i>
+              <a :href="eventoSeleccionado.adjunto_url" target="_blank" rel="noopener" class="text-club-green underline truncate">
+                {{ eventoSeleccionado.adjunto_nombre || 'Ver adjunto' }}
+              </a>
+            </div>
+            <a
+              v-if="tipoAdjunto === 'imagen'"
+              :href="eventoSeleccionado.adjunto_url"
+              target="_blank"
+              rel="noopener"
+              class="block rounded-lg overflow-hidden border border-line"
+            >
+              <img :src="eventoSeleccionado.adjunto_url" :alt="eventoSeleccionado.adjunto_nombre || 'Adjunto'" class="w-full max-h-96 object-contain bg-ink-surface" />
+            </a>
+            <iframe
+              v-else-if="tipoAdjunto === 'pdf'"
+              :src="eventoSeleccionado.adjunto_url"
+              :title="eventoSeleccionado.adjunto_nombre || 'Adjunto'"
+              class="w-full h-96 rounded-lg border border-line"
+            ></iframe>
+          </div>
         </template>
 
-        <div
-          v-if="eventoSeleccionado.tipo === 'partido'"
-          class="flex flex-col gap-2 py-3"
-        >
-          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
-            <div class="flex justify-center">
-              <img :src="escudoLocal" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
+        <template v-if="eventoSeleccionado.tipo === 'torneo'">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2 border-b border-line">
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
+              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
             </div>
-            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreLocal }}</span>
-            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesLocal }}</span>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
+              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Localidad</p>
+              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.equipo?.localidad || '—' }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-ink-tertiary font-medium">Categoría</p>
+              <p class="text-sm text-ink-secondary">{{ eventoSeleccionado.categoria?.nombre || '—' }}</p>
+            </div>
           </div>
+          <div class="py-2 text-center">
+            <p class="text-xs text-ink-tertiary font-medium">Nombre</p>
+            <p class="text-base font-semibold text-ink-primary">{{ eventoSeleccionado.nombre || '—' }}</p>
+          </div>
+        </template>
 
-          <div class="grid grid-cols-[44px_1fr_36px] sm:grid-cols-[80px_1fr_60px] items-center gap-2 sm:gap-3">
-            <div class="flex justify-center">
-              <img :src="escudoVisitante" alt="Escudo" class="w-10 h-10 sm:w-16 sm:h-16 object-contain" />
+        <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">
+          <div class="flex flex-col items-center gap-2">
+            <img :src="escudoLocal" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
+            <div class="flex items-center gap-2">
+              <EquipacionPrenda tipo="camiseta" :color="camisetaLocal" :size="28" />
+              <EquipacionPrenda tipo="calzonas" :color="calzonasLocal" :size="28" />
+              <EquipacionPrenda tipo="medias" :color="mediasLocal" :size="28" />
             </div>
-            <span class="text-xs sm:text-sm font-medium text-ink-secondary text-left truncate">{{ nombreVisitante }}</span>
-            <span class="text-center text-base sm:text-lg font-bold text-club-green">{{ golesVisitante }}</span>
+            <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreLocal }}</span>
+            <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).local }}</span>
+          </div>
+          <div class="flex flex-col items-center gap-2">
+            <img :src="escudoVisitante" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
+            <div class="flex items-center gap-2">
+              <EquipacionPrenda tipo="camiseta" :color="camisetaVisitante" :size="28" />
+              <EquipacionPrenda tipo="calzonas" :color="calzonasVisitante" :size="28" />
+              <EquipacionPrenda tipo="medias" :color="mediasVisitante" :size="28" />
+            </div>
+            <span class="text-sm font-medium text-ink-secondary text-center">{{ nombreVisitante }}</span>
+            <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).visitante }}</span>
           </div>
         </div>
 
-        <div class="text-sm text-ink-secondary space-y-1.5">
+        <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" />
+
+        <div v-if="eventoSeleccionado.tipo !== 'partido'" class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
             <i class="pi pi-exclamation-circle mr-2"></i>{{ eventoSeleccionado.incidencias }}
+          </p>
+          <p v-if="eventoSeleccionado.observaciones" class="whitespace-pre-line">
+            <i class="pi pi-comment mr-2"></i>{{ eventoSeleccionado.observaciones }}
           </p>
         </div>
 
@@ -503,7 +909,7 @@ onMounted(async () => {
           class="flex justify-end gap-2 pt-2 border-t border-line"
         >
           <Button
-            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos') && auth.puedeEditar()"
+            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEditar(seccionDeEvento(eventoSeleccionado.tipo))"
             label="Editar"
             icon="pi pi-pencil"
             text
@@ -511,7 +917,7 @@ onMounted(async () => {
             @click="editarEvento"
           />
           <Button
-            v-if="auth.puedeVer(eventoSeleccionado.tipo === 'partido' ? 'partidos' : 'entrenamientos') && auth.puedeEliminar()"
+            v-if="auth.puedeVer(seccionDeEvento(eventoSeleccionado.tipo)) && auth.puedeEliminar(seccionDeEvento(eventoSeleccionado.tipo))"
             label="Eliminar"
             icon="pi pi-trash"
             text
@@ -535,6 +941,8 @@ onMounted(async () => {
                 class="!justify-start" @click="nuevoDeTipo('entrenamiento')" />
         <Button v-if="auth.puedeVer('partidos')" label="Partido" icon="pi pi-flag" text
                 class="!justify-start" @click="nuevoDeTipo('partido')" />
+        <Button v-if="auth.puedeVer('torneo')" label="Torneo" icon="pi pi-trophy" text
+                class="!justify-start" @click="nuevoDeTipo('torneo')" />
       </div>
     </Dialog>
 
@@ -542,6 +950,13 @@ onMounted(async () => {
       v-model:visible="formVisible"
       :tipo="formTipo"
       :registroId="formRegistroId"
+      :fechaDefecto="formFechaDefecto"
+      @saved="onFormSaved"
+    />
+
+    <TorneoFormCalendario
+      v-model:visible="torneoFormVisible"
+      :registroId="torneoFormRegistroId"
       :fechaDefecto="formFechaDefecto"
       @saved="onFormSaved"
     />
@@ -566,6 +981,11 @@ onMounted(async () => {
           </span>
         </p>
         <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-ink-secondary">Tipos de evento</label>
+          <MultiSelect v-model="pdfTipos" :options="OPCIONES_TIPO_EVENTO" optionLabel="label" optionValue="value"
+                       display="chip" placeholder="Elige los tipos" class="w-full" />
+        </div>
+        <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-ink-secondary">Tipo de fútbol</label>
           <Select v-model="pdfTipoFutbol" :options="OPCIONES_TIPO_FUTBOL" optionLabel="label" optionValue="value"
                   placeholder="Elige el tipo de fútbol" class="w-full" />
@@ -580,107 +1000,5 @@ onMounted(async () => {
 
     <ConfirmDialog />
   </div>
+  </SectionGuard>
 </template>
-
-<style>
-.calendario-club .fc-festivo-nacional,
-.calendario-club .fc-event[style*="215, 119, 6"],
-.calendario-club .fc-daygrid-event {
-  border-radius: 4px;
-}
-.calendario-club .fc-toolbar-title {
-  font-size: 1.15rem;
-  font-weight: 600;
-}
-.calendario-club .fc-partido-hora {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
-}
-.calendario-club .fc-lv-icon {
-  font-size: 0.65rem;
-  vertical-align: middle;
-}
-.calendario-club .fc-lv-local {
-  color: rgb(16 185 129);
-}
-.calendario-club .fc-lv-visitante {
-  color: rgb(79 70 229);
-}
-.calendario-club .fc-partido-alias {
-  font-weight: 500;
-}
-.calendario-club .fc-liga-badge,
-.calendario-club .fc-amistoso-badge {
-  font-size: 0.6rem;
-  font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-.calendario-club .fc-liga-badge {
-  background: rgb(16 185 129 / 15%);
-  color: rgb(6 95 70);
-}
-.calendario-club .fc-amistoso-badge {
-  background: rgb(217 119 6 / 15%);
-  color: rgb(146 64 14);
-}
-.calendario-club .fc-partido-lugar {
-  font-weight: 400;
-  opacity: 0.7;
-}
-.calendario-club .fc-col-header-cell-cushion,
-.calendario-club .fc-daygrid-day-number {
-  text-transform: capitalize;
-}
-.calendario-club .fc-evento-contenido {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  line-height: 1.2;
-}
-@media (max-width: 639px) {
-  .calendario-club .fc-toolbar {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .calendario-club .fc-toolbar-chunk {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-  .calendario-club .fc-toolbar-title {
-    font-size: 0.95rem !important;
-    order: -1;
-    width: 100%;
-    text-align: center;
-    padding: 4px 0;
-  }
-  .calendario-club .fc-button {
-    padding: 4px 8px !important;
-    font-size: 0.7rem !important;
-  }
-  .calendario-club .fc-daygrid-day {
-    min-width: 0;
-  }
-  .calendario-club .fc-col-header-cell {
-    padding: 4px 0;
-    font-size: 0.7rem;
-  }
-  .calendario-club .fc-event {
-    padding: 1px 2px;
-  }
-  .calendario-club .fc-partido-hora {
-    font-size: 0.6rem;
-  }
-  .calendario-club .fc-partido-alias {
-    font-size: 0.6rem;
-  }
-  .calendario-club .fc-liga-badge,
-  .calendario-club .fc-amistoso-badge {
-    font-size: 0.5rem;
-    padding: 0 3px;
-  }
-}
-</style>

@@ -5,35 +5,46 @@
  */
 const models = require('../models');
 const { Op } = require('sequelize');
+const { reducirEscudo } = require('../utils/escudo.utils');
 
 const RECURSOS = {
   temporadas: { modelo: 'Temporada', campos: ['nombre'] },
   titulos: { modelo: 'Titulo', campos: ['nombre'] },
   divisiones: { modelo: 'Division', campos: ['nombre'] },
+  posiciones: { modelo: 'Posicion', campos: ['nombre', 'alias'] },
   'tipos-futbol': { modelo: 'TipoFutbol', campos: ['nombre'] },
   lugares: { modelo: 'Lugar', campos: ['nombre', 'escudo', 'direccion', 'codigopostal', 'localidad', 'provincia'] },
-  delegados: { modelo: 'Delegado', campos: ['nombre', 'apellidos', 'dni', 'foto', 'tipo'] },
+  delegados: { modelo: 'Delegado', campos: ['nombre', 'apellidos', 'dni', 'email', 'foto', 'tipo'] },
   categorias: { modelo: 'Categoria', campos: ['nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento', 'orden'] },
-  equipos: { modelo: 'Equipo', campos: ['nombre', 'escudo', 'direccion', 'codigopostal', 'localidad', 'provincia'] },
+  equipos: { modelo: 'Equipo', campos: ['nombre', 'escudo', 'direccion', 'codigopostal', 'localidad', 'provincia', 'camiseta', 'calzonas', 'medias'] },
   incidencias: { modelo: 'Incidencia', campos: ['id_categoria', 'id_jugador', 'id_entrenador', 'id_delegado', 'id_usuario', 'incidencias', 'fecha'] },
   jugadores: { modelo: 'Jugador', campos: ['nombre', 'apellidos', 'dni', 'fecha_nacimiento', 'foto'] },
-  entrenadores: { modelo: 'Entrenador', campos: ['nombre', 'apellidos', 'dni', 'foto'] },
-  patrocinadores: { modelo: 'Patrocinador', campos: ['nombre', 'imagen', 'tipo'] },
-  jornadas: { modelo: 'Jornada', campos: ['id_plantilla', 'id_equipo_local', 'id_equipo_visitante', 'jornada', 'fecha', 'hora'] },
+  entrenadores: { modelo: 'Entrenador', campos: ['nombre', 'apellidos', 'dni', 'email', 'foto'] },
+  jornadas: { modelo: 'Partido', campos: ['id_plantilla', 'id_equipo_local', 'id_equipo_visitante', 'jornada', 'fecha', 'hora'] },
   sanciones: { modelo: 'Sancion', campos: ['id_partido', 'id_jugador'] },
   plantillas: { modelo: 'Plantilla', campos: ['id_categoria', 'id_temporada', 'id_division', 'id_jugador', 'id_entrenador', 'id_delegado'] },
   promociones: { modelo: 'Promocion', campos: ['id_plantilla', 'id_categoria', 'id_jugador'] }
 };
 
-/** Mapeo de columnas legibles a campos de BD para jornadas */
+/** Mapeo de columnas legibles a campos de BD para jornadas (claves ya normalizadas) */
 const JORNADAS_COLUMN_MAP = {
-  'Plantilla': 'id_plantilla',
-  'Local': 'id_equipo_local',
-  'Visitante': 'id_equipo_visitante',
-  'Jornada': 'jornada',
-  'Fecha': 'fecha',
-  'Hora': 'hora'
+  plantilla: 'id_plantilla',
+  jornada: 'jornada',
+  fecha: 'fecha',
+  equipolocal: 'id_equipo_local',
+  local: 'id_equipo_local',
+  equipovisitante: 'id_equipo_visitante',
+  visitante: 'id_equipo_visitante'
 };
+
+/** Normaliza un nombre de columna: sin acentos, sin espacios/guiones/guion bajo, en minúsculas.
+ * Así "Equipo Local", "equipo_local" y "EquipoLocal" resuelven a la misma clave. */
+function normalizarColumna(nombre) {
+  return String(nombre)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase();
+}
 
 /**
  * Busca una plantilla por su nombre (formato "Categoria / Temporada")
@@ -62,58 +73,59 @@ async function buscarPlantillaPorNombre(nombre) {
 }
 
 /**
- * Busca un equipo por su nombre; si no existe lo crea
+ * Busca un equipo por su nombre; si no existe lo crea.
+ * Devuelve { id, creado } para poder avisar cuando se ha dado de alta uno nuevo.
  */
 async function buscarEquipoPorNombre(nombre) {
-  if (!nombre) return null;
+  if (!nombre) return { id: null, creado: false };
   const Equipo = models.Equipo;
-  const nombreLimpio = nombre.trim();
+  const nombreLimpio = String(nombre).trim();
   let equipo = await Equipo.findOne({ where: { nombre: { [Op.like]: nombreLimpio } } });
+  let creado = false;
   if (!equipo) {
     // Crear equipo nuevo con datos mínimos
     equipo = await Equipo.create({ nombre: nombreLimpio });
+    creado = true;
   }
-  return equipo?.id || null;
+  return { id: equipo?.id || null, creado };
 }
 
 /**
- * Convierte fecha de DD/MM/YYYY o DD-MM-YYYY a YYYY-MM-DD
+ * Convierte el nº de serie de fecha de Excel (días desde 1899-12-30) a YYYY-MM-DD.
+ * Es el formato en el que llega una celda con formato de fecha cuando el xlsx
+ * se lee sin `cellDates`, p. ej. 46292 → "2026-09-27".
+ */
+function excelSerialAFecha(serial) {
+  const utcDays = Math.floor(serial - 25569);
+  const d = new Date(utcDays * 86400 * 1000);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Convierte fecha de DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD o nº de serie de Excel a YYYY-MM-DD
  */
 function convertirFecha(fechaStr) {
-  if (!fechaStr) return null;
+  if (fechaStr == null || fechaStr === '') return null;
+  // Nº de serie de Excel (columna con formato de fecha exportada como número)
+  if (typeof fechaStr === 'number' || /^\d+$/.test(String(fechaStr).trim())) {
+    const serial = Number(fechaStr);
+    if (serial > 0) return excelSerialAFecha(serial);
+  }
   const str = String(fechaStr).trim();
   // Intentar DD/MM/YYYY
   let match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (match) {
     return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
   }
-  // Intentar YYYY-MM-DD
-  match = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  // Intentar YYYY-MM-DD (admite hora ISO detrás, p. ej. "2026-09-13T00:00:00.000Z")
+  match = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if (match) {
     return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
   }
   return str; // Devolver como está si no coincide
-}
-
-/**
- * Convierte hora de HH:MM a HH:MM:SS
- */
-function convertirHora(horaStr) {
-  if (!horaStr) return null;
-  const str = String(horaStr).trim();
-  // HH:MM
-  if (/^\d{1,2}:\d{2}$/.test(str)) {
-    return str + ':00';
-  }
-  // HH:MM:SS
-  if (/^\d{1,2}:\d{2}:\d{2}$/.test(str)) {
-    return str;
-  }
-  // Solo horas (0, 1, 2, etc.)
-  if (/^\d+$/.test(str)) {
-    return str.padStart(2, '0') + ':00:00';
-  }
-  return str;
 }
 
 async function importar(req, res, next) {
@@ -140,6 +152,7 @@ async function importar(req, res, next) {
         continue;
       }
       try {
+        if (cfg.modelo === 'Equipo' && limpia.escudo) limpia.escudo = await reducirEscudo(limpia.escudo);
         await Modelo.create(limpia);
         insertados++;
       } catch (err) {
@@ -157,6 +170,8 @@ async function importar(req, res, next) {
 async function importarJornadas(filas, res) {
   let insertados = 0;
   const errores = [];
+  const avisos = [];
+  const equiposAvisados = new Set();
 
   for (let i = 0; i < filas.length; i++) {
     const fila = filas[i];
@@ -164,19 +179,24 @@ async function importarJornadas(filas, res) {
 
     try {
       const datos = {};
-      for (const [columna, valor] of Object.entries(fila)) {
+      for (const [columnaOriginal, valor] of Object.entries(fila)) {
+        const columna = normalizarColumna(columnaOriginal);
         const campo = JORNADAS_COLUMN_MAP[columna];
         if (!campo) continue;
         if (campo === 'id_plantilla') {
           datos[campo] = await buscarPlantillaPorNombre(valor);
           if (!datos[campo]) throw new Error(`Plantilla no encontrada: "${valor}"`);
         } else if (campo === 'id_equipo_local' || campo === 'id_equipo_visitante') {
-          datos[campo] = await buscarEquipoPorNombre(valor);
+          const { id, creado } = await buscarEquipoPorNombre(valor);
+          datos[campo] = id;
           if (!datos[campo]) throw new Error(`Equipo no encontrado: "${valor}"`);
+          const nombreLimpio = String(valor).trim();
+          if (creado && !equiposAvisados.has(nombreLimpio.toLowerCase())) {
+            equiposAvisados.add(nombreLimpio.toLowerCase());
+            avisos.push(`Se ha añadido el equipo "${nombreLimpio}" en Equipos.`);
+          }
         } else if (campo === 'fecha') {
           datos[campo] = convertirFecha(valor);
-        } else if (campo === 'hora') {
-          datos[campo] = convertirHora(valor);
         } else {
           datos[campo] = valor;
         }
@@ -195,18 +215,19 @@ async function importarJornadas(filas, res) {
       }
 
       // VALIDAR: Solo 1 jornada por plantilla por fecha
-      const duplicada = await models.Jornada.findOne({ where: { id_plantilla: datos.id_plantilla, fecha: datos.fecha } });
+      const diaInicio = new Date(`${datos.fecha}T00:00:00`);
+      const diaFin = new Date(`${datos.fecha}T23:59:59.999`);
+      const duplicada = await models.Partido.findOne({
+        where: { id_plantilla: datos.id_plantilla, jornada: { [Op.not]: null }, fecha: { [Op.between]: [diaInicio, diaFin] } }
+      });
       if (duplicada) {
         errores.push({ fila: filaNum, mensaje: `Esta plantilla ya tiene una jornada programada para el ${datos.fecha}.` });
         continue;
       }
 
-      // Crear jornada
-      await models.Jornada.create(datos);
-
-      // Crear partido correspondiente
+      const horaSql = datos.hora ? String(datos.hora).slice(0, 8) : '00:00:00';
       await models.Partido.create({
-        id_plantilla: datos.id_plantilla, fecha: datos.fecha, id_lugar: null,
+        id_plantilla: datos.id_plantilla, jornada: datos.jornada, fecha: `${datos.fecha}T${horaSql}`, id_lugar: null,
         id_equipo_local: datos.id_equipo_local, id_equipo_visitante: datos.id_equipo_visitante,
         id_usuario: 1, incidencias: null
       });
@@ -217,7 +238,7 @@ async function importarJornadas(filas, res) {
     }
   }
 
-  res.json({ insertados, errores });
+  res.json({ insertados, errores, avisos });
 }
 
 module.exports = { importar, RECURSOS };

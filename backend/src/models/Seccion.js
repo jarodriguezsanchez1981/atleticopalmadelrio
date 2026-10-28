@@ -6,7 +6,8 @@ const Seccion = sequelize.define('Seccion', {
   clave: { type: DataTypes.STRING(50), allowNull: false, unique: true },
   nombre: { type: DataTypes.STRING(100), allowNull: false, unique: true },
   icono: { type: DataTypes.STRING(50), allowNull: true },
-  orden: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }
+  orden: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  grupo: { type: DataTypes.STRING(30), allowNull: true }
 }, {
   tableName: 'secciones',
   timestamps: false

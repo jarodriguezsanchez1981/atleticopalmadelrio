@@ -4,33 +4,38 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Scandinavian neutral foundation: alpha-black ink ladder on white
+        // Neutral corporativo: tinta grafito sobre blanco
         ink: {
-          primary: 'rgb(0 0 0 / 90%)',
-          secondary: 'rgb(0 0 0 / 64%)',
-          tertiary: 'rgb(0 0 0 / 44%)',
+          primary: 'rgb(28 28 30 / 94%)',
+          secondary: 'rgb(28 28 30 / 68%)',
+          tertiary: 'rgb(28 28 30 / 48%)',
         },
         line: {
-          DEFAULT: 'rgb(0 0 0 / 10%)',
-          strong: 'rgb(0 0 0 / 18%)',
+          DEFAULT: 'rgb(0 0 0 / 8%)',
+          strong: 'rgb(0 0 0 / 16%)',
         },
         fill: {
-          hover: 'rgb(0 0 0 / 5%)',
-          pressed: 'rgb(0 0 0 / 9%)',
+          hover: 'rgb(0 0 0 / 4%)',
+          pressed: 'rgb(0 0 0 / 8%)',
           surface: 'rgb(0 0 0 / 3%)',
         },
-        // Single brand accent: club green for primary actions only
+        // Identidad: un único color de marca, #0F3D22 (tintas/sombras derivadas para hover/foco)
         club: {
-          green: '#0B3D2E',
-          greenLight: '#156B4F',
-          garnet: '#8E2A3D',
-          gold: '#B08D57',
-          cream: '#FAFAFA',
+          green: '#0F3D22',
+          greenLight: '#446853',
+          greenDark: '#0A2B18',
+          garnet: '#7A2436',
+          cream: '#F7F8FA',
         }
       },
       fontFamily: {
-        display: ['"Inter"', 'sans-serif'],
+        display: ['"Manrope"', 'sans-serif'],
         body: ['"Inter"', 'sans-serif']
+      },
+      boxShadow: {
+        card: '0 1px 2px rgb(16 24 40 / 0.04), 0 2px 6px rgb(16 24 40 / 0.05)',
+        elevated: '0 4px 12px rgb(16 24 40 / 0.06), 0 12px 32px rgb(16 24 40 / 0.08)',
+        panel: '1px 0 0 0 rgb(0 0 0 / 6%), 4px 0 16px rgb(16 24 40 / 0.03)'
       }
     }
   },

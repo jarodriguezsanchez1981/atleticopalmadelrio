@@ -1,4 +1,4 @@
-const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Patrocinador, Jornada, Sancion, Plantilla, Promocion } = require('../models');
+const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Jornada, Sancion, Plantilla, Promocion, Torneo } = require('../models');
 
 const ENTITY_MAP = {
   usuarios: { model: Usuario, label: 'Usuarios' },
@@ -6,6 +6,7 @@ const ENTITY_MAP = {
   lugares: { model: Lugar, label: 'Lugares' },
   titulos: { model: Titulo, label: 'Títulos' },
   divisiones: { model: Division, label: 'Divisiones' },
+  posiciones: { model: Posicion, label: 'Posiciones' },
   delegados: { model: Delegado, label: 'Delegados' },
   categorias: { model: Categoria, label: 'Categorías' },
   jugadores: { model: Jugador, label: 'Jugadores' },
@@ -14,15 +15,22 @@ const ENTITY_MAP = {
   partidos: { model: Partido, label: 'Partidos' },
   equipos: { model: Equipo, label: 'Equipos' },
   'tipos-futbol': { model: TipoFutbol, label: 'Tipos de fútbol' },
-  patrocinadores: { model: Patrocinador, label: 'Patrocinadores' },
   jornadas: { model: Jornada, label: 'Jornadas' },
   sanciones: { model: Sancion, label: 'Sanciones' },
   plantillas: { model: Plantilla, label: 'Plantillas' },
   'entrenamientos-jugadores': { model: null, label: 'Entrenamientos-Jugadores' },
-  promociones: { model: Promocion, label: 'Promociones' }
+  promociones: { model: Promocion, label: 'Promociones' },
+  torneos: { model: Torneo, label: 'Torneos' }
 };
 
-const SENSITIVE_KEYS = ['password', 'token', 'jwt', 'secret', 'AES_SECRET_KEY'];
+// Credenciales y datos personales que no se guardan en el historial de
+// cambios (RGPD: minimización); el historial solo necesita saber qué cambió.
+const SENSITIVE_KEYS = [
+  'password', 'smtp_password', 'token', 'jwt', 'secret', 'AES_SECRET_KEY',
+  'dni', 'dni_encrypted', 'dni_hash', 'fecha_nacimiento', 'telefono', 'email', 'foto',
+  // El base64 del adjunto de un entrenamiento no se guarda en el historial (pesa mucho).
+  'adjunto'
+];
 
 function extractEntity(url) {
   const match = url.match(/\/api\/([\w-]+)/);
@@ -41,10 +49,15 @@ function methodToAccion(method) {
   return null;
 }
 
+/** Copia de `data` sin las claves sensibles, también en objetos y listas
+ * anidados (p.ej. una plantilla con sus jugadores). */
 function sanitize(data) {
-  if (!data || typeof data !== 'object') return data;
-  const clean = Array.isArray(data) ? [...data] : { ...data };
-  for (const key of SENSITIVE_KEYS) delete clean[key];
+  if (Array.isArray(data)) return data.map(sanitize);
+  if (!data || typeof data !== 'object' || data instanceof Date) return data;
+  const clean = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!SENSITIVE_KEYS.includes(key)) clean[key] = sanitize(value);
+  }
   return clean;
 }
 
@@ -107,3 +120,5 @@ function auditMiddleware(req, res, next) {
 }
 
 module.exports = auditMiddleware;
+module.exports.sanitize = sanitize;
+module.exports.SENSITIVE_KEYS = SENSITIVE_KEYS;

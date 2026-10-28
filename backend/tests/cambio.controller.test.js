@@ -58,4 +58,90 @@ describe('Sección Cambios · cambio.controller', () => {
     expect(res._status).toBe(404);
     expect(res._json).toEqual({ message: 'Cambio no encontrado.' });
   });
+
+  it('obtener devuelve el cambio con usuario', async () => {
+    const cambio = { id: 1, entidad: 'usuarios', accion: 'crear', usuario: { id: 1, usuario: 'admin' } };
+    Cambio.findByPk.mockResolvedValue(cambio);
+    const { promesa, res } = llamar(ctrl.obtener, { params: { id: '1' } });
+
+    await promesa;
+
+    expect(res._json).toBe(cambio);
+    expect(Cambio.findByPk).toHaveBeenCalledWith('1', expect.objectContaining({
+      include: [expect.objectContaining({ as: 'usuario' })]
+    }));
+  });
+
+  it('listar respeta límite por defecto (200)', async () => {
+    Cambio.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar);
+
+    await promesa;
+
+    const arg = Cambio.findAll.mock.calls[0][0];
+    expect(arg.limit).toBe(200);
+  });
+
+  it('listar respeta límite válido (< 500)', async () => {
+    Cambio.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { limit: '100' } });
+
+    await promesa;
+
+    const arg = Cambio.findAll.mock.calls[0][0];
+    expect(arg.limit).toBe(100);
+  });
+
+  it('listar filtra por id_usuario', async () => {
+    Cambio.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { id_usuario: '3' } });
+
+    await promesa;
+
+    const arg = Cambio.findAll.mock.calls[0][0];
+    expect(arg.where.id_usuario).toBe('3');
+  });
+
+  it('listar usa offset correcto', async () => {
+    Cambio.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { offset: '50' } });
+
+    await promesa;
+
+    const arg = Cambio.findAll.mock.calls[0][0];
+    expect(arg.offset).toBe(50);
+  });
+
+  it('listar offset por defecto es 0', async () => {
+    Cambio.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar);
+
+    await promesa;
+
+    const arg = Cambio.findAll.mock.calls[0][0];
+    expect(arg.offset).toBe(0);
+  });
+
+  it('listar filtra por entidad y acción combinados', async () => {
+    Cambio.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, {
+      query: { entidad: 'jugadores', accion: 'eliminar', limit: '50' }
+    });
+
+    await promesa;
+
+    const arg = Cambio.findAll.mock.calls[0][0];
+    expect(arg.where).toEqual({ entidad: 'jugadores', accion: 'eliminar' });
+    expect(arg.limit).toBe(50);
+  });
+
+  it('listar con limit NaN usa 200 por defecto', async () => {
+    Cambio.findAll.mockResolvedValue([]);
+    const { promesa } = llamar(ctrl.listar, { query: { limit: 'abc' } });
+
+    await promesa;
+
+    const arg = Cambio.findAll.mock.calls[0][0];
+    expect(arg.limit).toBe(200);
+  });
 });

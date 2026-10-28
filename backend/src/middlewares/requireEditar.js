@@ -1,19 +1,19 @@
 /**
- * Middleware factory: permite crear/editar/eliminar a usuarios con
- * `visibilidad` = 'editar'. Los usuarios con `visibilidad` = 'leer' solo
- * pueden leer.
- * Compatibilidad: si el token antiguo trae `rol: 'editar'` o `roles: ['write']`,
- * se acepta como editable (tokens viejos hasta que se re-logueen).
+ * Middleware factory: exige permiso de edición sobre la(s) sección(es)
+ * indicada(s), no sobre cualquier sección del usuario.
+ * Uso: router.use(authorize('jugadores')); ... router.post('/', requireEditar('jugadores'), ctrl.crear)
  */
-function requireEditar() {
+function requireEditar(...secciones) {
+  if (secciones.length === 0) {
+    throw new Error('requireEditar() necesita al menos una sección, p.ej. requireEditar("jugadores").');
+  }
+
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'No autenticado.' });
     }
-    const tieneEditar =
-      req.user.visibilidad === 'editar' ||
-      req.user.rol === 'editar' ||
-      (Array.isArray(req.user.roles) && req.user.roles.includes('write'));
+    const permisos = req.user.permisos || {};
+    const tieneEditar = secciones.some((s) => permisos[s]?.editar === true);
     if (!tieneEditar) {
       return res.status(403).json({ message: 'No tienes permisos para realizar esta acción.' });
     }

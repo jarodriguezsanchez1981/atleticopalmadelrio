@@ -1,5 +1,42 @@
-const { Jornada, Equipo, Plantilla, Categoria, Temporada, Partido } = require('../models');
+const { Op } = require('sequelize');
+const { filasPlanas } = require('../utils/filasPlanas');
+const { Partido, PartidoJugador, Equipo, Plantilla, Categoria, Temporada, Jugador, EquipoJugador, Sancion, Entrenamiento, Torneo } = require('../models');
+const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
+const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
+const { partesEspana, desdeHoraEspana } = require('../utils/horaEspana');
+
+const PALMA_ID = 73;
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/** Combina la fecha (YYYY-MM-DD) y hora española (HH:mm[:ss], opcional) en el
+ * instante UTC que guarda partidos.fecha. La hora que teclea el usuario es hora
+ * española, así que se convierte a UTC (como hace el formulario de Partidos con
+ * `toISOString`); así la hora coincide con el Calendario y el PDF. Sin hora, se
+ * guarda medianoche UTC (el valor centinela de "no se indicó hora"). */
+function fechaHoraPartido(fecha, hora) {
+  const dia = String(fecha).slice(0, 10);
+  if (!hora) return `${dia}T00:00:00Z`;
+  const [anio, mes, d] = dia.split('-').map(Number);
+  const [h, mi, s = 0] = String(hora).slice(0, 8).split(':').map(Number);
+  return desdeHoraEspana(anio, mes, d, h, mi, s).toISOString();
+}
+
+/** Descompone partidos.fecha (instante UTC) en fecha (YYYY-MM-DD) y hora, ambas
+ * en hora española (igual que el Calendario). Hora null si se guardó medianoche
+ * UTC exacta (= no se indicó hora). */
+function splitFechaHora(fechaCompleta) {
+  const d = new Date(fechaCompleta);
+  if (Number.isNaN(d.getTime())) return { fecha: null, hora: null };
+  // "Sin hora" se guarda como medianoche UTC exacta; el resto son instantes
+  // reales que se muestran en hora española.
+  const sinHora = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  const p = partesEspana(d);
+  const fecha = `${p.y}-${pad2(p.m)}-${pad2(p.d)}`;
+  const hora = sinHora ? null : `${pad2(p.h)}:${pad2(p.mi)}:${pad2(p.s)}`;
+  return { fecha, hora };
+}
 
 const includes = [
   {
@@ -10,47 +47,117 @@ const includes = [
       { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
     ]
   },
+  { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
+  { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] },
   {
-    model: Equipo,
-    as: 'equipoLocal',
-    attributes: ['id', 'nombre', 'escudo', 'localidad']
-  },
-  {
-    model: Equipo,
-    as: 'equipoVisitante',
-    attributes: ['id', 'nombre', 'escudo', 'localidad']
+    model: PartidoJugador,
+    as: 'partidoJugadores',
+    attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles',
+      'titular', 'minuto_entrada', 'minuto_salida', 'minutos', 'dorsal'],
+    include: [
+      { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
+      { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }
+    ]
   }
 ];
+
+// Listado: sin los jugadores de cada partido (el detalle sí los trae).
+const includesListado = includes.filter((inc) => inc.as !== 'partidoJugadores');
+
+/** Detalle: incluye escudo de los equipos para la vista de detalle. */
+const includesDetalle = [
+  {
+    model: Plantilla,
+    as: 'plantilla',
+    include: [
+      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias'] },
+      { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] }
+    ]
+  },
+  { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo'] },
+  { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo'] },
+  includes[3]
+];
+
+/** Serializa un partido con jornada asignada con la misma forma que antes
+ * devolvía la (ya retirada) tabla jornadas: fecha y hora separadas. */
+function serializeJornada(item) {
+  if (!item) return item;
+  const json = item.toJSON ? item.toJSON() : item;
+  const { fecha, hora } = splitFechaHora(json.fecha);
+  json.fecha = fecha;
+  json.hora = hora;
+  return json;
+}
+
+/**
+ * Crea/actualiza sanciones para los jugadores del PALMA DEL RIO ATLETICO C.F.
+ * (id 73) que tengan tarjetas en el partido.
+ */
+async function sincronizarSanciones(partido, jugadoresLocal, jugadoresVisitante) {
+  const esPalmaLocal = Number(partido.id_equipo_local) === PALMA_ID;
+  const esPalmaVisitante = Number(partido.id_equipo_visitante) === PALMA_ID;
+
+  const palmaJugadores = [];
+  if (esPalmaLocal) {
+    (jugadoresLocal || []).forEach((j) => palmaJugadores.push({
+      id_jugador: j.id_jugador, amarilla: Number(j.tarjeta_amarilla) || 0, roja: Number(j.tarjeta_roja) || 0
+    }));
+  }
+  if (esPalmaVisitante) {
+    (jugadoresVisitante || []).forEach((j) => palmaJugadores.push({
+      id_jugador: j.id_jugador, amarilla: Number(j.tarjeta_amarilla) || 0, roja: Number(j.tarjeta_roja) || 0
+    }));
+  }
+
+  for (const pj of palmaJugadores) {
+    const existente = await Sancion.findOne({ where: { id_partido: partido.id, id_jugador: pj.id_jugador } });
+    if (pj.amarilla <= 0 && pj.roja <= 0) {
+      if (existente) await existente.destroy();
+      continue;
+    }
+    if (existente) {
+      existente.amarilla = pj.amarilla;
+      existente.roja = pj.roja;
+      await existente.save();
+    } else {
+      await Sancion.create({ id_partido: partido.id, id_jugador: pj.id_jugador, amarilla: pj.amarilla, roja: pj.roja });
+    }
+  }
+}
 
 async function listar(req, res, next) {
   try {
     const { id_plantilla, jornada } = req.query;
-    const where = {};
+    const where = { jornada: { [Op.not]: null } };
     if (id_plantilla) where.id_plantilla = id_plantilla;
     if (jornada) where.jornada = jornada;
-    const items = await Jornada.findAll({
+    const items = await Partido.findAll({
       where,
-      include: includesConCategoria(includes, categoriaDelUsuario(req)),
+      include: includesConCategoria(includesListado, categoriaDelUsuario(req)),
+      // Objetos planos (ver utils/filasPlanas.js): el listado solo tiene relaciones 1 a 1.
+      raw: true,
+      nest: true,
       order: [['fecha', 'ASC'], ['jornada', 'ASC']]
     });
-    res.json(items);
+    res.json(filasPlanas(items, ['suspendido']).map(serializeJornada));
   } catch (err) { next(err); }
 }
 
 async function obtener(req, res, next) {
   try {
-    const item = await Jornada.findOne({
-      where: { id: req.params.id },
-      include: includes
+    const item = await Partido.findOne({
+      where: { id: req.params.id, jornada: { [Op.not]: null } },
+      include: includesDetalle
     });
     if (!item) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
-    res.json(item);
+    res.json(serializeJornada(item));
   } catch (err) { next(err); }
 }
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora } = req.body;
+    const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora, incidencias, jugadores_local, jugadores_visitante } = req.body;
     if (!id_plantilla || !id_equipo_local || !id_equipo_visitante || !jornada || !fecha) {
       return res.status(400).json({ message: 'Plantilla, equipo local, equipo visitante, jornada y fecha son obligatorios.' });
     }
@@ -68,32 +175,44 @@ async function crear(req, res, next) {
     }
 
     // VALIDAR: Solo 1 jornada por plantilla por fecha
-    const duplicada = await Jornada.findOne({ where: { id_plantilla, fecha } });
+    const diaInicio = new Date(`${String(fecha).slice(0, 10)}T00:00:00`);
+    const diaFin = new Date(`${String(fecha).slice(0, 10)}T23:59:59.999`);
+    const duplicada = await Partido.findOne({
+      where: { id_plantilla, jornada: { [Op.not]: null }, fecha: { [Op.between]: [diaInicio, diaFin] } }
+    });
     if (duplicada) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene una jornada programada para esa fecha.' });
     }
 
-    const creado = await Jornada.create({
-      id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora: hora || null
+    // Una jornada cuenta como "partido" de liga a efectos de exclusividad
+    // diaria: la plantilla no puede tener además un torneo o un partido suelto
+    // ese mismo día (un entrenamiento sí).
+    const conflictoTipo = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'jornada', esLiga: true
     });
+    if (conflictoTipo) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+    }
 
-    // Crear partido correspondiente para esta jornada
     const idUsuario = req.user?.id;
-    await Partido.create({
-      id_plantilla, fecha, id_lugar: null, id_equipo_local, id_equipo_visitante,
-      id_usuario: idUsuario, incidencias: null
+    const creado = await Partido.create({
+      id_plantilla, jornada, fecha: fechaHoraPartido(fecha, hora), id_lugar: null,
+      id_equipo_local, id_equipo_visitante, id_usuario: idUsuario, incidencias: incidencias || null
     });
 
-    const respuesta = await Jornada.findOne({ where: { id: creado.id }, include: includes });
-    res.status(201).json(respuesta);
+    await guardarJugadores(creado.id, jugadores_local, jugadores_visitante);
+    await sincronizarSanciones(creado, jugadores_local, jugadores_visitante);
+
+    const respuesta = await Partido.findOne({ where: { id: creado.id }, include: includes });
+    res.status(201).json(serializeJornada(respuesta));
   } catch (err) { next(err); }
 }
 
 async function actualizar(req, res, next) {
   try {
-    const item = await Jornada.findOne({ where: { id: req.params.id } });
+    const item = await Partido.findOne({ where: { id: req.params.id, jornada: { [Op.not]: null } } });
     if (!item) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
-    const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora } = req.body;
+    const { id_plantilla, id_equipo_local, id_equipo_visitante, jornada, fecha, hora, incidencias, jugadores_local, jugadores_visitante } = req.body;
     if (id_equipo_local && id_equipo_visitante && id_equipo_local === id_equipo_visitante) {
       return res.status(400).json({ message: 'El equipo local y el visitante no pueden ser el mismo.' });
     }
@@ -118,33 +237,61 @@ async function actualizar(req, res, next) {
       }
       item.jornada = jornada;
     }
-    if (fecha !== undefined) {
-      item.fecha = fecha;
+    if (fecha !== undefined || hora !== undefined) {
+      const actual = splitFechaHora(item.fecha);
+      const fechaFinal = fecha !== undefined ? fecha : actual.fecha;
+      const horaFinal = hora !== undefined ? hora : actual.hora;
+      item.fecha = fechaHoraPartido(fechaFinal, horaFinal);
     }
-    if (hora !== undefined) {
-      item.hora = hora || null;
+    if (incidencias !== undefined) {
+      item.incidencias = incidencias || null;
+    }
+
+    if (id_plantilla !== undefined || fecha !== undefined) {
+      const conflictoTipo = await otroTipoDeEventoMismoDia({
+        models: { Entrenamiento, Partido, Torneo },
+        idPlantilla: item.id_plantilla,
+        fecha: item.fecha,
+        tipoActual: 'jornada',
+        excluirPartidoId: item.id,
+        esLiga: true
+      });
+      if (conflictoTipo) {
+        return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+      }
     }
     await item.save();
-    const actualizado = await Jornada.findOne({ where: { id: item.id }, include: includes });
-    res.json(actualizado);
+
+    if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
+      await guardarJugadores(item.id, jugadores_local, jugadores_visitante);
+      await sincronizarSanciones(item, jugadores_local, jugadores_visitante);
+    }
+    const actualizado = await Partido.findOne({ where: { id: item.id }, include: includes });
+    res.json(serializeJornada(actualizado));
   } catch (err) { next(err); }
 }
 
 async function eliminar(req, res, next) {
   try {
-    const jornadaId = req.params.id;
-
-    // Obtener la jornada para saber id_plantilla y fecha
-    const jornada = await Jornada.findOne({ where: { id: jornadaId } });
-    if (!jornada) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
-
-    // Eliminar partidos de esta jornada (misma plantilla + fecha)
-    await Partido.destroy({ where: { id_plantilla: jornada.id_plantilla, fecha: jornada.fecha } });
-
-    // Eliminar la jornada
-    await jornada.destroy();
+    const eliminado = await Partido.destroy({ where: { id: req.params.id, jornada: { [Op.not]: null } } });
+    if (!eliminado) return res.status(404).json({ message: 'Registro de calendario no encontrado.' });
     res.status(204).send();
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+async function listarNumeros(req, res, next) {
+  try {
+    const { id_plantilla } = req.query;
+    const where = { jornada: { [Op.not]: null } };
+    if (id_plantilla) where.id_plantilla = id_plantilla;
+    const items = await Partido.findAll({
+      where,
+      attributes: ['jornada'],
+      group: ['jornada'],
+      order: [['jornada', 'ASC']]
+    });
+    res.json(items.map(i => i.jornada).filter(Boolean));
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, listarNumeros };

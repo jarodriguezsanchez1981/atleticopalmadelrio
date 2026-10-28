@@ -4,7 +4,9 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+# npm ci instala exactamente las versiones del package-lock.json (reproducible
+# y honra los parches de seguridad fijados); npm install podía resolver otras.
+RUN npm ci
 
 COPY . .
 
@@ -14,9 +16,10 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # ---- Serve stage ----
-FROM nginx:1.27-alpine
+FROM nginx:alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY security-headers.conf /etc/nginx/security-headers.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80

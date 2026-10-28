@@ -1,13 +1,17 @@
 import { Module } from 'node:module';
 import path from 'node:path';
-import { models, passwordUtils, jwtUtils } from './helpers/models.js';
+import { models, passwordUtils, jwtUtils, mailer } from './helpers/models.js';
 
 const root = process.cwd();
+
+// Clave AES de prueba (64 hex): el DNI se busca por su hash cifrado (dniCrypto.mixin).
+process.env.AES_SECRET_KEY = process.env.AES_SECRET_KEY || '0'.repeat(64);
 
 const intercepts = {
   [path.resolve(root, 'src', 'models', 'index.js')]: models,
   [path.resolve(root, 'src', 'utils', 'password.utils.js')]: passwordUtils,
-  [path.resolve(root, 'src', 'utils', 'jwt.utils.js')]: jwtUtils
+  [path.resolve(root, 'src', 'utils', 'jwt.utils.js')]: jwtUtils,
+  [path.resolve(root, 'src', 'utils', 'mailer.js')]: mailer
 };
 
 const originalLoad = Module._load;

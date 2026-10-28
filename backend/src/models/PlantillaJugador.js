@@ -7,6 +7,8 @@ const PlantillaJugador = sequelize.define('PlantillaJugador', {
   id_jugador: { type: DataTypes.INTEGER, allowNull: false },
   dorsal: { type: DataTypes.INTEGER, allowNull: true },
   talla: { type: DataTypes.STRING(10), allowNull: true },
+  // Otro nombre del jugador (solo Senior A): el que sale en sus estadísticas.
+  alias: { type: DataTypes.STRING(100), allowNull: true },
   titular: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   promocion: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
 }, {

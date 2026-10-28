@@ -10,8 +10,8 @@ router.use(authenticate, authorize('lugares'));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
-router.post('/', requireEditar(), ctrl.crear);
-router.put('/:id', requireEditar(), ctrl.actualizar);
-router.delete('/:id', requireEditar(), ctrl.eliminar);
+router.post('/', requireEditar('lugares'), ctrl.crear);
+router.put('/:id', requireEditar('lugares'), ctrl.actualizar);
+router.delete('/:id', requireEditar('lugares'), ctrl.eliminar);
 
 module.exports = router;

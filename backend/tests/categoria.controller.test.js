@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Op } from 'sequelize';
 import { Categoria, TipoFutbol } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
@@ -10,6 +11,8 @@ describe('Sección Categorías · categoria.controller', () => {
     Categoria.findOne.mockReset();
     Categoria.create.mockReset();
     Categoria.destroy.mockReset();
+    Categoria.increment.mockReset();
+    Categoria.count.mockReset();
     TipoFutbol.findOne.mockReset();
   });
 
@@ -87,7 +90,7 @@ describe('Sección Categorías · categoria.controller', () => {
 
     expect(TipoFutbol.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_tipofutbol: 1,
+      nombre: 'Alevín', alias: null, grupo: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
       tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
@@ -105,7 +108,58 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: 'Ali', id_tipofutbol: 1,
+      nombre: 'Alevín', alias: 'Ali', grupo: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
+      tiempopartido: null, tiempoentrenamiento: null, orden: null
+    });
+    expect(res._status).toBe(201);
+  });
+
+  it('crear guarda el grupo numérico', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    Categoria.create.mockResolvedValue({ id: 8 });
+    Categoria.findOne.mockResolvedValue({ id: 8, grupo: 4 });
+    const { promesa } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín A', grupo: 4, id_tipofutbol: 1 }
+    });
+
+    await promesa;
+
+    expect(Categoria.create).toHaveBeenCalledWith(expect.objectContaining({ grupo: 4 }));
+  });
+
+  it('crear rechaza un grupo que no sea un entero positivo', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    const { promesa, res } = llamar(ctrl.crear, { body: { nombre: 'Alevín A', grupo: 'Alevín', id_tipofutbol: 1 } });
+    await promesa;
+    expect(res._status).toBe(400);
+    expect(Categoria.create).not.toHaveBeenCalled();
+  });
+
+  it('actualizar cambia y vacía el grupo', async () => {
+    const categoria = { id: 8, grupo: 4, save: vi.fn().mockResolvedValue() };
+    Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce({ id: 8 });
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: 5 } });
+    await promesa;
+    expect(categoria.grupo).toBe(5);
+
+    Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce({ id: 8 });
+    const otra = llamar(ctrl.actualizar, { params: { id: '8' }, body: { grupo: null } });
+    await otra.promesa;
+    expect(categoria.grupo).toBeNull();
+  });
+
+  it('crear guarda codigo_equipo_rfaf si se envía', async () => {
+    TipoFutbol.findOne.mockResolvedValue({ id: 1 });
+    Categoria.create.mockResolvedValue({ id: 8 });
+    Categoria.findOne.mockResolvedValue({ id: 8, codigo_equipo_rfaf: '48466133' });
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { nombre: 'Alevín', codigo_equipo_rfaf: '48466133', id_tipofutbol: 1 }
+    });
+
+    await promesa;
+
+    expect(Categoria.create).toHaveBeenCalledWith({
+      nombre: 'Alevín', alias: null, grupo: null, codigo_equipo_rfaf: '48466133', id_tipofutbol: 1,
       tiempopartido: null, tiempoentrenamiento: null, orden: null
     });
     expect(res._status).toBe(201);
@@ -122,7 +176,7 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(Categoria.create).toHaveBeenCalledWith({
-      nombre: 'Alevín', alias: null, id_tipofutbol: 1,
+      nombre: 'Alevín', alias: null, grupo: null, codigo_equipo_rfaf: null, id_tipofutbol: 1,
       tiempopartido: 90, tiempoentrenamiento: 60, orden: null
     });
     expect(res._status).toBe(201);
@@ -223,6 +277,18 @@ describe('Sección Categorías · categoria.controller', () => {
     expect(categoria.save).toHaveBeenCalled();
   });
 
+  it('actualizar guarda y limpia codigo_equipo_rfaf', async () => {
+    const categoria = { id: 1, nombre: 'Alevín', codigo_equipo_rfaf: null, save: vi.fn().mockResolvedValue() };
+    const actualizada = { id: 1, nombre: 'Alevín', codigo_equipo_rfaf: '48466133' };
+    Categoria.findOne.mockResolvedValueOnce(categoria).mockResolvedValueOnce(actualizada);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { codigo_equipo_rfaf: '48466133' } });
+
+    await promesa;
+
+    expect(categoria.codigo_equipo_rfaf).toBe('48466133');
+    expect(categoria.save).toHaveBeenCalled();
+  });
+
   it('actualizar valida el tipo de fútbol al cambiarlo', async () => {
     const categoria = { id: 1, nombre: 'Alevín', save: vi.fn().mockResolvedValue() };
     Categoria.findOne.mockResolvedValue(categoria);
@@ -259,5 +325,41 @@ describe('Sección Categorías · categoria.controller', () => {
     await promesa;
 
     expect(res._status).toBe(404);
+  });
+
+  describe('reordenar', () => {
+    it('rechaza un "desde" que no sea un entero positivo', async () => {
+      const { promesa, res } = llamar(ctrl.reordenar, { body: { desde: 0 } });
+
+      await promesa;
+
+      expect(res._status).toBe(400);
+      expect(res._json.message).toBe('El número desde el que reordenar debe ser un entero positivo.');
+      expect(Categoria.increment).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un "desde" que falte en el cuerpo', async () => {
+      const { promesa, res } = llamar(ctrl.reordenar, { body: {} });
+
+      await promesa;
+
+      expect(res._status).toBe(400);
+      expect(Categoria.increment).not.toHaveBeenCalled();
+    });
+
+    it('suma 1 al orden de las categorías con orden >= desde', async () => {
+      Categoria.count.mockResolvedValue(15);
+      Categoria.increment.mockResolvedValue([[{ id: 1 }, { id: 2 }]]);
+      const { promesa, res } = llamar(ctrl.reordenar, { body: { desde: 5 } });
+
+      await promesa;
+
+      expect(Categoria.count).toHaveBeenCalledWith({ where: { orden: { [Op.gte]: 5 } } });
+      expect(Categoria.increment).toHaveBeenCalledWith('orden', {
+        by: 1,
+        where: { orden: { [Op.gte]: 5 } }
+      });
+      expect(res._json).toEqual({ message: 'Se ha incrementado el orden de 15 categoría(s).', afectadas: 15 });
+    });
   });
 });

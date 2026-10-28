@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Op } from 'sequelize';
 import { Temporada } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
@@ -10,6 +11,8 @@ describe('Sección Temporadas · temporada.controller', () => {
     Temporada.findOne.mockReset();
     Temporada.create.mockReset();
     Temporada.destroy.mockReset();
+    Temporada.update.mockReset();
+    Temporada.update.mockResolvedValue([0]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -66,9 +69,25 @@ describe('Sección Temporadas · temporada.controller', () => {
 
     await promesa;
 
-    expect(Temporada.create).toHaveBeenCalledWith({ nombre: '2026/27' });
+    expect(Temporada.create).toHaveBeenCalledWith({ nombre: '2026/27', actual: false });
+    expect(Temporada.update).not.toHaveBeenCalled();
     expect(res._status).toBe(201);
     expect(res._json).toEqual(creada);
+  });
+
+  it('crear con actual=true desmarca las demás temporadas como actuales', async () => {
+    const creada = { id: 5, nombre: '2026/27' };
+    Temporada.create.mockResolvedValue(creada);
+    const { promesa, res } = llamar(ctrl.crear, { body: { nombre: '2026/27', actual: true } });
+
+    await promesa;
+
+    expect(Temporada.create).toHaveBeenCalledWith({ nombre: '2026/27', actual: true });
+    expect(Temporada.update).toHaveBeenCalledWith(
+      { actual: false },
+      { where: { id: { [Op.ne]: 5 } } }
+    );
+    expect(res._status).toBe(201);
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -81,7 +100,7 @@ describe('Sección Temporadas · temporada.controller', () => {
   });
 
   it('actualizar guarda los cambios', async () => {
-    const temporada = { id: 1, nombre: 'Viejo', save: vi.fn().mockResolvedValue() };
+    const temporada = { id: 1, nombre: 'Viejo', actual: false, save: vi.fn().mockResolvedValue() };
     Temporada.findOne.mockResolvedValue(temporada);
     const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { nombre: 'Nuevo' } });
 
@@ -89,7 +108,33 @@ describe('Sección Temporadas · temporada.controller', () => {
 
     expect(temporada.nombre).toBe('Nuevo');
     expect(temporada.save).toHaveBeenCalled();
+    expect(Temporada.update).not.toHaveBeenCalled();
     expect(res._json).toEqual(temporada);
+  });
+
+  it('actualizar con actual=true desmarca las demás temporadas como actuales', async () => {
+    const temporada = { id: 1, nombre: '2025/26', actual: false, save: vi.fn().mockResolvedValue() };
+    Temporada.findOne.mockResolvedValue(temporada);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { actual: true } });
+
+    await promesa;
+
+    expect(temporada.actual).toBe(true);
+    expect(Temporada.update).toHaveBeenCalledWith(
+      { actual: false },
+      { where: { id: { [Op.ne]: 1 } } }
+    );
+  });
+
+  it('actualizar con actual=false no desmarca otras temporadas', async () => {
+    const temporada = { id: 1, nombre: '2025/26', actual: true, save: vi.fn().mockResolvedValue() };
+    Temporada.findOne.mockResolvedValue(temporada);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { actual: false } });
+
+    await promesa;
+
+    expect(temporada.actual).toBe(false);
+    expect(Temporada.update).not.toHaveBeenCalled();
   });
 
   it('eliminar elimina y responde 204', async () => {

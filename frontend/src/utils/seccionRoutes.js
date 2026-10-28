@@ -1,0 +1,49 @@
+/**
+ * La ruta de cada sección no vive en la base de datos (solo clave/nombre/
+ * icono/orden/grupo), así que aquí se mantiene el único mapeo clave -> URL
+ * que necesita el menú lateral dinámico (MainLayout.vue) para saber a dónde
+ * enlaza cada una.
+ */
+export const RUTA_POR_SECCION = {
+  dashboard: '/dashboard',
+  calendario: '/calendario',
+  entrenamientos: '/entrenamientos',
+  partidos: '/partidos',
+  convocatorias: '/convocatorias',
+  temporadas: '/temporadas',
+  titulos: '/titulos',
+  division: '/division',
+  posicion: '/posicion',
+  lugares: '/lugares',
+  material: '/material',
+  delegados: '/delegados',
+  personal: '/personal',
+  tipo_personal: '/tipo-personal',
+  coordinadores: '/coordinadores',
+  categorias: '/categorias',
+  equipos: '/equipos',
+  jugadores: '/jugadores',
+  plantillas: '/plantillas',
+  entrenadores: '/entrenadores',
+  administracion: '/administracion',
+  categoria_calendario: '/categoria-calendario',
+  torneo: '/torneo',
+  sanciones: '/sanciones',
+  estadisticas_convocatorias: '/estadisticas/convocatorias',
+  estadisticas_tiempo: '/estadisticas/tiempo',
+  estadisticas_goles: '/estadisticas/goles',
+  estadisticas_sanciones: '/estadisticas/sanciones',
+  estadisticas_clasificacion: '/estadisticas/clasificacion',
+  estadisticas_rivales: '/estadisticas/rivales',
+  estadisticas_cat_convocatorias: '/estadisticas-categoria/convocatorias',
+  estadisticas_cat_goles: '/estadisticas-categoria/goles',
+  estadisticas_cat_sanciones: '/estadisticas-categoria/sanciones',
+  estadisticas_cat_clasificacion: '/estadisticas-categoria/clasificacion',
+  informes: '/informes',
+  invitacion_torneo: '/notificaciones/invitacion-torneo',
+  nota_prensa: '/notificaciones/nota-prensa',
+  nota_informativa: '/notificaciones/nota-informativa',
+  cambios: '/cambios',
+  firma_email: '/firma-email',
+  promociones: '/promociones'
+};

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { crudService, authService, calendarioService, utilService } from '../services/index.js';
+import { crudService, authService, calendarioService, utilService, cuentasCorreoService } from '../services/index.js';
 
 vi.mock('../services/api.js', () => ({
   default: {
@@ -53,6 +53,31 @@ describe('Servicios CRUD', () => {
     const res = await authService.login('admin', 'Admin#2026');
     expect(api.post).toHaveBeenCalledWith('/auth/login', { usuario: 'admin', password: 'Admin#2026' });
     expect(res.token).toBe('abc');
+  });
+
+  it('authService.recuperarPassword envía el identificador', async () => {
+    api.post.mockResolvedValue({ data: { message: 'ok' } });
+    await authService.recuperarPassword('ana');
+    expect(api.post).toHaveBeenCalledWith('/auth/recuperar-password', { identificador: 'ana' });
+  });
+
+  it('authService.validarTokenReset pasa el token como parámetro', async () => {
+    api.get.mockResolvedValue({ data: { valido: true } });
+    const res = await authService.validarTokenReset('tok123');
+    expect(api.get).toHaveBeenCalledWith('/auth/restablecer-password/validar', { params: { token: 'tok123' } });
+    expect(res.valido).toBe(true);
+  });
+
+  it('authService.restablecerPassword envía token y contraseñas', async () => {
+    api.post.mockResolvedValue({ data: { message: 'ok' } });
+    await authService.restablecerPassword('tok123', 'Nueva#2026', 'Nueva#2026');
+    expect(api.post).toHaveBeenCalledWith('/auth/restablecer-password', { token: 'tok123', password: 'Nueva#2026', confirmacion: 'Nueva#2026' });
+  });
+
+  it('cuentasCorreoService.probar envía el destino', async () => {
+    api.post.mockResolvedValue({ data: { message: 'ok' } });
+    await cuentasCorreoService.probar(7, 'test@club.es');
+    expect(api.post).toHaveBeenCalledWith('/cuentas-correo/7/probar', { destino: 'test@club.es' });
   });
 
   it('calendarioService.eventos pasa parámetros', async () => {

@@ -38,8 +38,10 @@ function nombreTipos(data) {
 </script>
 
 <template>
+<SectionGuard seccion="lugares">
   <CrudDataTable
     title="Lugares"
+    seccion="lugares"
     :columns="columns"
     :service="lugaresService"
     :emptyItem="emptyItem"
@@ -51,4 +53,5 @@ function nombreTipos(data) {
       {{ nombreTipos(data) }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

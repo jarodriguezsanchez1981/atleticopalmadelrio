@@ -1,15 +1,56 @@
 const { Op } = require('sequelize');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Resultado } = require('../models');
+const { filasPlanas } = require('../utils/filasPlanas');
+const { limiteConsulta } = require('../utils/limiteConsulta');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Promocion, Entrenador, Delegado } = require('../models');
+const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
+const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
+const rfafActa = require('../utils/rfafActa');
+const { minutosJugados } = require('../utils/minutosActa');
+const liga = require('./liga.controller');
 
 const DURACION_PARTIDO_DEFECTO = 90;
 const PALMA_ID = 73;
+const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
+// Solo en los partidos de esta categoría se calculan los minutos jugados
+// (Finalizar Acta); ver también frontend/src/utils/minutos.js.
+const CATEGORIA_CON_MINUTOS = 'Senior A';
+const MINUTOS_PARTIDO = 90;
+// En Fútbol 7 los cambios son libres: el acta no refleja titulares/cambios útiles.
+const TIPO_FUTBOL_7 = 1;
 
-/** Guarda (upsert) las incidencias del resultado en la tabla resultados. */
-async function guardarResultadoIncidencias(idPartido, incidencias) {
-  await Resultado.destroy({ where: { id_partido: idPartido } });
-  if (incidencias == null || incidencias === '') return;
-  await Resultado.create({ id_partido: idPartido, resultado: '', incidencias: incidencias || null });
+/** Crea/actualiza sanciones para los jugadores del PALMA DEL RIO ATLETICO C.F.
+ * (id 73) que tengan tarjetas en el partido. */
+async function sincronizarSanciones(partido, jugadoresLocal, jugadoresVisitante) {
+  const esPalmaLocal = Number(partido.id_equipo_local) === PALMA_ID;
+  const esPalmaVisitante = Number(partido.id_equipo_visitante) === PALMA_ID;
+
+  const palmaJugadores = [];
+  if (esPalmaLocal) {
+    (jugadoresLocal || []).forEach((j) => palmaJugadores.push({
+      id_jugador: j.id_jugador, amarilla: Number(j.tarjeta_amarilla) || 0, roja: Number(j.tarjeta_roja) || 0
+    }));
+  }
+  if (esPalmaVisitante) {
+    (jugadoresVisitante || []).forEach((j) => palmaJugadores.push({
+      id_jugador: j.id_jugador, amarilla: Number(j.tarjeta_amarilla) || 0, roja: Number(j.tarjeta_roja) || 0
+    }));
+  }
+
+  for (const pj of palmaJugadores) {
+    const existente = await Sancion.findOne({ where: { id_partido: partido.id, id_jugador: pj.id_jugador } });
+    if (pj.amarilla <= 0 && pj.roja <= 0) {
+      if (existente) await existente.destroy();
+      continue;
+    }
+    if (existente) {
+      existente.amarilla = pj.amarilla;
+      existente.roja = pj.roja;
+      await existente.save();
+    } else {
+      await Sancion.create({ id_partido: partido.id, id_jugador: pj.id_jugador, amarilla: pj.amarilla, roja: pj.roja });
+    }
+  }
 }
 
 const includesBase = [
@@ -17,21 +58,29 @@ const includesBase = [
     model: Plantilla,
     as: 'plantilla',
     attributes: ['id', 'id_categoria', 'id_temporada'],
-    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento'] }]
+    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'alias', 'id_tipofutbol', 'tiempopartido', 'tiempoentrenamiento', 'orden'] }]
   },
   { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
-  { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad', 'provincia'] },
-  { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo', 'direccion', 'localidad', 'provincia'] },
-  { model: Resultado, as: 'Resultados', attributes: ['id', 'resultado', 'incidencias'] }
+  { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'localidad'] },
+  { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'localidad'] },
+  {
+    model: PartidoJugador,
+    as: 'partidoJugadores',
+    attributes: ['id_jugador', 'id_equipo_jugador', 'es_local', 'tarjeta_amarilla', 'tarjeta_roja', 'goles',
+      'titular', 'minuto_entrada', 'minuto_salida', 'minutos', 'dorsal'],
+    include: [
+      { model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos', 'foto'] },
+      { model: EquipoJugador, as: 'equipoJugador', attributes: ['id', 'nombre', 'apellidos'] }
+    ]
+  }
 ];
 
+// Listado: sin los jugadores de cada partido (con ellos pesaba varios MB);
+// el detalle (obtener) sí los trae.
+const includesListado = includesBase.filter((inc) => inc.as !== 'partidoJugadores');
+
 function serialize(partido) {
-  const json = partido.toJSON ? partido.toJSON() : partido;
-  const res = Array.isArray(json.Resultados) ? json.Resultados[0] : null;
-  if (res) {
-    json.resultado_incidencias = res.incidencias;
-  }
-  return json;
+  return partido.toJSON ? partido.toJSON() : partido;
 }
 
 async function listar(req, res, next) {
@@ -50,10 +99,15 @@ async function listar(req, res, next) {
 
     const partidos = await Partido.findAll({
       where,
-      include: includesConCategoria(includesBase, categoriaDelUsuario(req)),
-      order: [['fecha', 'ASC']]
+      include: includesConCategoria(includesListado, categoriaDelUsuario(req)),
+      // Objetos planos (ver utils/filasPlanas.js): el listado solo tiene relaciones 1 a 1.
+      raw: true,
+      nest: true,
+      order: [['fecha', 'ASC']],
+      // ?limite=N: solo los N primeros por fecha (p. ej. los próximos del Dashboard).
+      limit: limiteConsulta(req.query.limite)
     });
-    res.json(partidos.map(serialize));
+    res.json(filasPlanas(partidos, ['suspendido']));
   } catch (err) { next(err); }
 }
 
@@ -72,25 +126,34 @@ function ctrlDia(fecha) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function horaDe(fecha) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`;
+}
+
+/** Mantiene en sincronía la jornada vinculada (por id_jornada) cuando se edita un
+ * partido directamente: si no se propaga, la jornada se queda apuntando a la
+ * fecha/equipos antiguos y desaparece de "Jornadas". Un partido sin id_jornada
+ * es un amistoso, no tiene jornada que sincronizar. */
+async function sincronizarJornadaVinculada(partido) {
+  if (!partido.id_jornada) return;
+  const jornada = await Jornada.findByPk(partido.id_jornada);
+  if (!jornada) return;
+  jornada.id_plantilla = partido.id_plantilla;
+  jornada.fecha = ctrlDia(partido.fecha);
+  jornada.hora = horaDe(partido.fecha);
+  jornada.id_equipo_local = partido.id_equipo_local;
+  jornada.id_equipo_visitante = partido.id_equipo_visitante;
+  await jornada.save();
+}
+
 async function existePartidoDia(idPlantilla, fecha, omitirId = null) {
   const dia = ctrlDia(fecha);
   if (!idPlantilla || !dia) return false;
   const inicio = new Date(`${dia}T00:00:00`);
   const fin = new Date(`${dia}T23:59:59.999`);
   const where = { id_plantilla: idPlantilla, fecha: { [Op.gte]: inicio, [Op.lte]: fin } };
-  if (omitirId) where.id = { [Op.ne]: omitirId };
-  const contados = await Partido.count({ where });
-  return contados > 0;
-}
-
-const HORAS_DESCANSO_ENTRE_PARTIDOS = 72;
-
-async function existePartidoReciente(idPlantilla, fecha, omitirId = null) {
-  if (!idPlantilla || !fecha) return false;
-  const d = new Date(fecha);
-  if (Number.isNaN(d.getTime())) return false;
-  const inicio = new Date(d.getTime() - HORAS_DESCANSO_ENTRE_PARTIDOS * 60 * 60 * 1000);
-  const where = { id_plantilla: idPlantilla, fecha: { [Op.gte]: inicio, [Op.lte]: d } };
   if (omitirId) where.id = { [Op.ne]: omitirId };
   const contados = await Partido.count({ where });
   return contados > 0;
@@ -121,18 +184,25 @@ async function existePartidoLugar(idLugar, fecha, minutosNuevo, omitirId = null)
 
 async function crear(req, res, next) {
   try {
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, resultado_incidencias, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, jornada, resultado, suspendido, codigo_acta, codigo_primaria, incidencias, observaciones, jugadores_local, jugadores_visitante } = req.body;
     if (!id_plantilla || !fecha || !id_equipo_local || !id_equipo_visitante) {
       return res.status(400).json({ message: 'Plantilla, fecha, equipo local y equipo visitante son obligatorios.' });
     }
     if (id_equipo_local === id_equipo_visitante) {
       return res.status(400).json({ message: 'El equipo local y el visitante no pueden ser el mismo.' });
     }
+    if (jornada != null && (!Number.isInteger(jornada) || jornada <= 0)) {
+      return res.status(400).json({ message: 'La jornada debe ser un número entero positivo.' });
+    }
     if (await existePartidoDia(id_plantilla, fecha)) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
     }
-    if (await existePartidoReciente(id_plantilla, fecha)) {
-      return res.status(409).json({ message: 'Esta plantilla jugó hace menos de 72 horas.' });
+    const conflictoTipo = await otroTipoDeEventoMismoDia({
+      models: { Entrenamiento, Partido, Torneo }, idPlantilla: id_plantilla, fecha, tipoActual: 'partido',
+      esLiga: jornada != null
+    });
+    if (conflictoTipo) {
+      return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
     }
     if (id_lugar && id_equipo_local === PALMA_ID) {
       const plantilla = await Plantilla.findOne({ where: { id: id_plantilla }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });
@@ -149,9 +219,17 @@ async function crear(req, res, next) {
       id_equipo_visitante,
       id_usuario: req.user?.id || null,
       incidencias: incidencias || null,
-      resultado: resultado || null
+      observaciones: observaciones || null,
+      jornada: jornada || null,
+      resultado: resultado || null,
+      suspendido: suspendido ? 1 : 0,
+      codigo_acta: codigo_acta || null,
+      codigo_primaria: codigo_primaria || null
     });
-    await guardarResultadoIncidencias(partido.id, resultado_incidencias);
+    if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
+      await guardarJugadores(partido.id, jugadores_local, jugadores_visitante);
+      await sincronizarSanciones(partido, jugadores_local, jugadores_visitante);
+    }
     const creado = await Partido.findByPk(partido.id, { include: includesBase });
     res.status(201).json(serialize(creado));
   } catch (err) { next(err); }
@@ -161,7 +239,10 @@ async function actualizar(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, resultado, resultado_incidencias, incidencias } = req.body;
+    const { id_plantilla, fecha, id_lugar, id_equipo_local, id_equipo_visitante, jornada, resultado, suspendido, codigo_acta, codigo_primaria, incidencias, observaciones, jugadores_local, jugadores_visitante } = req.body;
+    if (jornada != null && (!Number.isInteger(jornada) || jornada <= 0)) {
+      return res.status(400).json({ message: 'La jornada debe ser un número entero positivo.' });
+    }
 
     const idPlantillaFinal = id_plantilla !== undefined ? id_plantilla : partido.id_plantilla;
     const fechaFinal = fecha !== undefined ? fecha : partido.fecha;
@@ -179,8 +260,14 @@ async function actualizar(req, res, next) {
     if (cambiaCatOFecha && (await existePartidoDia(idPlantillaFinal, fechaFinal, partido.id))) {
       return res.status(409).json({ message: 'Esta plantilla ya tiene un partido ese día.' });
     }
-    if (cambiaCatOFecha && (await existePartidoReciente(idPlantillaFinal, fechaFinal, partido.id))) {
-      return res.status(409).json({ message: 'Esta plantilla jugó hace menos de 72 horas.' });
+    if (cambiaCatOFecha) {
+      const conflictoTipo = await otroTipoDeEventoMismoDia({
+        models: { Entrenamiento, Partido, Torneo }, idPlantilla: idPlantillaFinal, fecha: fechaFinal, tipoActual: 'partido',
+        esLiga: (jornada !== undefined ? jornada : partido.jornada) != null
+      });
+      if (conflictoTipo) {
+        return res.status(409).json({ message: `Esta plantilla ya tiene un ${conflictoTipo} ese día.` });
+      }
     }
     if (idLugarFinal && idLocalFinal === PALMA_ID && cambiaUbicacion) {
       const plantilla = await Plantilla.findOne({ where: { id: idPlantillaFinal }, include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'tiempopartido'] }] });
@@ -198,10 +285,19 @@ async function actualizar(req, res, next) {
     }
     if (id_equipo_visitante !== undefined) partido.id_equipo_visitante = id_equipo_visitante;
     if (incidencias !== undefined) partido.incidencias = incidencias;
+    if (observaciones !== undefined) partido.observaciones = observaciones || null;
+    if (jornada !== undefined) partido.jornada = jornada || null;
     if (resultado !== undefined) partido.resultado = resultado || null;
+    if (suspendido !== undefined) partido.suspendido = suspendido ? 1 : 0;
+    if (codigo_acta !== undefined) partido.codigo_acta = codigo_acta || null;
+    if (codigo_primaria !== undefined) partido.codigo_primaria = codigo_primaria || null;
     await partido.save();
-    if (resultado_incidencias !== undefined) {
-      await guardarResultadoIncidencias(partido.id, resultado_incidencias);
+    if (id_plantilla !== undefined || fecha !== undefined || id_equipo_local !== undefined || id_equipo_visitante !== undefined) {
+      await sincronizarJornadaVinculada(partido);
+    }
+    if (jugadores_local !== undefined || jugadores_visitante !== undefined) {
+      await guardarJugadores(partido.id, jugadores_local, jugadores_visitante);
+      await sincronizarSanciones(partido, jugadores_local, jugadores_visitante);
     }
     const actualizado = await Partido.findByPk(partido.id, { include: includesBase });
     res.json(serialize(actualizado));
@@ -216,4 +312,342 @@ async function eliminar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar };
+/** Pone al día entrenadores y delegados del PALMA con el cuerpo técnico del
+ * acta: a quien ya existe (por nombre) y no tiene foto se le pone la del acta;
+ * a quien no existe se le crea con sus datos (los delegados, con su tipo:
+ * 'campo', 'equipo' o 'ambos' si aparece en los dos roles). */
+async function sincronizarCuerpoTecnico(cuerpoTecnico = []) {
+  const claveBD = (apellidos, nombre) => rfafActa.normalizarNombre(`${apellidos} ${nombre}`);
+  const rolDe = (t) => (t.rol || '').toUpperCase();
+  // El acta pone "No Presenta" cuando no hay esa persona: no se crea ni se toca.
+  const esNoPresenta = (nombre) => rfafActa.normalizarNombre(nombre) === 'NO PRESENTA';
+
+  // Entrenadores (rol con "ENTRENADOR": entrenador, 2º entrenador…).
+  const entrenadoresActa = cuerpoTecnico.filter((t) => t.nombre && !esNoPresenta(t.nombre) && rolDe(t).includes('ENTRENADOR'));
+  if (entrenadoresActa.length) {
+    const existentes = await Entrenador.findAll({ attributes: ['id', 'nombre', 'apellidos', 'foto'] }) || [];
+    const porNombre = new Map();
+    for (const e of existentes) { const k = claveBD(e.apellidos, e.nombre); if (!porNombre.has(k)) porNombre.set(k, e); }
+    const vistos = new Set();
+    for (const t of entrenadoresActa) {
+      const k = rfafActa.normalizarNombre(t.nombre);
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      const e = porNombre.get(k);
+      if (e) {
+        if (t.foto && (e.foto == null || e.foto === '')) {
+          await Entrenador.update({ foto: t.foto }, { where: { id: e.id, [Op.or]: [{ foto: null }, { foto: '' }] } });
+        }
+      } else {
+        await Entrenador.create({ ...rfafActa.nombreDesdeActa(t.nombre), ...(t.foto ? { foto: t.foto } : {}) });
+      }
+    }
+  }
+
+  // Delegados (rol que empieza por "DEL"): una persona puede ser de campo y de
+  // equipo a la vez (tipo 'ambos').
+  const delegadosActa = cuerpoTecnico.filter((t) => t.nombre && !esNoPresenta(t.nombre) && rolDe(t).startsWith('DEL'));
+  if (delegadosActa.length) {
+    const porPersona = new Map();
+    for (const t of delegadosActa) {
+      const k = rfafActa.normalizarNombre(t.nombre);
+      if (!porPersona.has(k)) porPersona.set(k, { nombre: t.nombre, foto: null, campo: false, equipo: false });
+      const p = porPersona.get(k);
+      if (t.foto && !p.foto) p.foto = t.foto;
+      if (rolDe(t).includes('CAMPO')) p.campo = true;
+      if (rolDe(t).includes('EQUIPO')) p.equipo = true;
+    }
+    const existentes = await Delegado.findAll({ attributes: ['id', 'nombre', 'apellidos', 'foto'] }) || [];
+    const porNombre = new Map();
+    for (const d of existentes) { const k = claveBD(d.apellidos, d.nombre); if (!porNombre.has(k)) porNombre.set(k, d); }
+    for (const p of porPersona.values()) {
+      const tipo = p.campo && p.equipo ? 'ambos' : (p.equipo ? 'equipo' : 'campo');
+      const d = porNombre.get(rfafActa.normalizarNombre(p.nombre));
+      if (d) {
+        if (p.foto && (d.foto == null || d.foto === '')) {
+          await Delegado.update({ foto: p.foto }, { where: { id: d.id, [Op.or]: [{ foto: null }, { foto: '' }] } });
+        }
+      } else {
+        await Delegado.create({ ...rfafActa.nombreDesdeActa(p.nombre), tipo, ...(p.foto ? { foto: p.foto } : {}) });
+      }
+    }
+  }
+}
+
+/** Finaliza el partido con el acta oficial de RFAF (una sola petición a
+ * rfaf.es, ver scripts/rfaf_acta.py): guarda el resultado y deja como jugadores
+ * del PALMA DEL RIO ATLETICO C.F. en partido_jugadores exactamente los que
+ * aparecen en el acta, con sus goles, tarjetas y minutos jugados (según las
+ * sustituciones, sobre 90 minutos; solo en Senior A), y una sanción en Sanciones
+ * por cada uno con tarjeta amarilla o roja. Cada jugador del acta se busca por
+ * nombre primero en la plantilla del partido y luego en todos los jugadores;
+ * si no existe, se crea en Jugadores y se añade a la plantilla del partido con
+ * su dorsal del acta (devuelto en "creados"). */
+async function finalizarActa(req, res, next) {
+  try {
+    const partido = await Partido.findByPk(req.params.id);
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
+
+    const codigo_acta = req.body?.codigo_acta || partido.codigo_acta || null;
+    const codigo_primaria = req.body?.codigo_primaria || partido.codigo_primaria || null;
+    if (!codigo_acta || !codigo_primaria) {
+      return res.status(400).json({ message: 'Este partido no tiene código de acta y/o código de primaria.' });
+    }
+
+    const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
+    if (!esLocal && Number(partido.id_equipo_visitante) !== PALMA_ID) {
+      return res.status(400).json({ message: `En este partido no juega ${NOMBRE_PALMA}.` });
+    }
+
+    let acta;
+    try {
+      acta = await rfafActa.leerActa(codigo_primaria, codigo_acta);
+    } catch (err) {
+      return res.status(err.status || 502).json({ message: err.message });
+    }
+    const equipoActa = esLocal ? acta.local : acta.visitante;
+    const plantillaPartido = await Plantilla.findOne({
+      where: { id: partido.id_plantilla },
+      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol', 'orden'] }]
+    });
+    // Los minutos se cuentan sobre los 90 del partido (categoria.tiempopartido
+    // es el hueco que ocupa en el calendario, no la duración del juego).
+    const duracion = MINUTOS_PARTIDO;
+    const conMinutos = plantillaPartido?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
+    // Fútbol 7: sin titulares, cambios ni minutos (todos los del acta han jugado).
+    const conCambios = Number(plantillaPartido?.categoria?.id_tipofutbol) !== TIPO_FUTBOL_7;
+
+    const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
+    const jugadoresPlantilla = await Jugador.findAll({
+      where: { id: rosterPlantilla.map((pj) => pj.id_jugador) },
+      attributes: ['id', 'nombre', 'apellidos']
+    });
+    const clave = (j) => rfafActa.normalizarNombre(`${j.apellidos} ${j.nombre}`);
+    const porNombre = new Map(jugadoresPlantilla.map((j) => [clave(j), j]));
+    let todosPorNombre = null;
+
+    const filas = [];
+    const filasConNombre = [];
+    const actualizados = [];
+    const creados = [];
+    const idsCreados = new Set();
+    for (const rfaf of equipoActa.jugadores) {
+      const nombreActa = rfafActa.normalizarNombre(rfaf.nombre);
+      let jugador = porNombre.get(nombreActa);
+      if (!jugador) {
+        // Puede estar en otra plantilla (p.ej. promocionado): no se duplica.
+        if (!todosPorNombre) {
+          const todos = await Jugador.findAll({ attributes: ['id', 'nombre', 'apellidos'] });
+          todosPorNombre = new Map();
+          for (const j of todos) if (!todosPorNombre.has(clave(j))) todosPorNombre.set(clave(j), j);
+        }
+        jugador = todosPorNombre.get(nombreActa);
+      }
+      if (!jugador) {
+        jugador = await Jugador.create({ ...rfafActa.nombreDesdeActa(rfaf.nombre), ...(rfaf.foto ? { foto: rfaf.foto } : {}) });
+        await PlantillaJugador.create({ id_plantilla: partido.id_plantilla, id_jugador: jugador.id, dorsal: rfaf.dorsal ?? null });
+        idsCreados.add(jugador.id);
+        todosPorNombre.set(nombreActa, jugador);
+        creados.push(`${jugador.nombre} ${jugador.apellidos}`);
+      } else if (rfaf.foto) {
+        // La foto del acta solo a quien no tiene: la que ya tenga no se cambia.
+        await Jugador.update({ foto: rfaf.foto }, {
+          where: { id: jugador.id, [Op.or]: [{ foto: null }, { foto: '' }] }
+        });
+      }
+      filasConNombre.push({ rfaf, id: jugador.id });
+      if (filas.some((f) => f.id_jugador === jugador.id)) continue;
+      filas.push({
+        id_partido: partido.id,
+        id_jugador: jugador.id,
+        es_local: esLocal,
+        dorsal: rfaf.dorsal ?? null,
+        tarjeta_amarilla: rfaf.tarjeta_amarilla,
+        tarjeta_roja: rfaf.tarjeta_roja,
+        goles: rfaf.goles,
+        titular: conCambios ? !!rfaf.titular : null,
+        minuto_entrada: conCambios ? rfaf.minuto_entrada ?? null : null,
+        minuto_salida: conCambios ? rfaf.minuto_salida ?? null : null,
+        minutos: conCambios && conMinutos ? minutosJugados(rfaf, duracion) : null
+      });
+      actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
+    }
+
+    // Dorsal del acta en la plantilla del partido, a los jugadores que aún no
+    // tienen (no se cambia el que ya tengan puesto). Los de promoción no, ni
+    // los que están también en otra plantilla de la temporada (p.ej. uno de
+    // Benjamín C que juega con el Benjamín B): su dorsal es el de su propia
+    // plantilla. En el partido sí queda siempre el del acta.
+    // Plantillas de los jugadores en las demás plantillas de la temporada.
+    let idsOtras = null;
+    const ordenCategoria = new Map(); // id_plantilla -> orden de su categoría
+    const enOtrasPlantillas = async (idsJugador) => {
+      if (!idsJugador.length || !plantillaPartido?.id_temporada) return [];
+      if (!idsOtras) {
+        const otras = await Plantilla.findAll({
+          where: { id_temporada: plantillaPartido.id_temporada, id: { [Op.ne]: partido.id_plantilla } },
+          attributes: ['id'],
+          include: [{ model: Categoria, as: 'categoria', attributes: ['orden'] }]
+        }) || [];
+        idsOtras = new Set(otras.map((p) => p.id));
+        for (const p of otras) ordenCategoria.set(p.id, p.categoria?.orden);
+      }
+      if (!idsOtras.size) return [];
+      const filasOtras = await PlantillaJugador.findAll({ where: { id_plantilla: [...idsOtras], id_jugador: idsJugador } }) || [];
+      return filasOtras.filter((f) => idsOtras.has(f.id_plantilla));
+    };
+
+    const sinDorsal = rosterPlantilla.filter((pj) => pj.dorsal == null && !pj.promocion);
+    const enOtraPlantilla = new Set((await enOtrasPlantillas(sinDorsal.map((pj) => pj.id_jugador))).map((f) => f.id_jugador));
+    for (const pj of sinDorsal) {
+      if (enOtraPlantilla.has(pj.id_jugador)) continue;
+      const delActa = filasConNombre.find((f) => f.id === pj.id_jugador && f.rfaf.dorsal != null);
+      if (delActa) await PlantillaJugador.update({ dorsal: delActa.rfaf.dorsal }, { where: { id: pj.id } });
+    }
+
+    // Promociones: los del acta que no están en la plantilla del partido sino
+    // en otra de la temporada de categoría igual o inferior juegan
+    // promocionados (como al convocarlos en Convocatorias); si ya lo estaban
+    // desde esa plantilla, se deja como está. Jugar con una inferior no lo es.
+    const enRoster = new Set(rosterPlantilla.map((pj) => pj.id_jugador));
+    const deFuera = [...new Set(filasConNombre.map((f) => f.id))].filter((id) => !enRoster.has(id) && !idsCreados.has(id));
+    const ordenPartido = plantillaPartido?.categoria?.orden;
+    for (const f of await enOtrasPlantillas(deFuera)) {
+      const ordenOrigen = ordenCategoria.get(f.id_plantilla);
+      if (ordenOrigen == null || ordenPartido == null || Number(ordenOrigen) > Number(ordenPartido)) continue;
+      await Promocion.findOrCreate({
+        where: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador },
+        defaults: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador, id_categoria: plantillaPartido.id_categoria }
+      });
+    }
+
+    // Tarjetas del PALMA con su minuto y el marcador justo antes (los goles
+    // del mismo minuto no cuentan: el acta no dice qué fue antes).
+    const ladoPalma = esLocal ? 'local' : 'visitante';
+    const golesActa = Array.isArray(acta.goles) ? acta.goles : [];
+    const idPorNombre = new Map();
+    for (const { rfaf, id } of filasConNombre) idPorNombre.set(rfafActa.normalizarNombre(rfaf.nombre), id);
+    const tarjetas = (equipoActa.tarjetas || [])
+      .map((t) => {
+        const idJugador = idPorNombre.get(rfafActa.normalizarNombre(t.nombre));
+        if (!idJugador) return null;
+        const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
+        return {
+          id_partido: partido.id,
+          id_jugador: idJugador,
+          tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
+          minuto: t.minuto ?? null,
+          goles_favor: antes.filter((g) => g.equipo === ladoPalma).length,
+          goles_contra: antes.filter((g) => g.equipo !== ladoPalma).length
+        };
+      })
+      .filter(Boolean);
+    await PartidoTarjeta.destroy({ where: { id_partido: partido.id } });
+    if (tarjetas.length) await PartidoTarjeta.bulkCreate(tarjetas);
+
+    // Goles de los jugadores del PALMA con su minuto (los de propia puerta no
+    // son del jugador: suman al rival).
+    const golesPalma = golesActa
+      .filter((g) => g.equipo === ladoPalma && g.tipo !== 'propia' && g.nombre)
+      .map((g) => {
+        const idJugador = idPorNombre.get(rfafActa.normalizarNombre(g.nombre));
+        return idJugador
+          ? { id_partido: partido.id, id_jugador: idJugador, minuto: g.minuto ?? null, tipo: g.tipo === 'penalti' ? 'penalti' : 'normal' }
+          : null;
+      })
+      .filter(Boolean);
+    await PartidoGol.destroy({ where: { id_partido: partido.id } });
+    if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
+
+    // Goles del rival con su minuto (para saber en qué periodo nos marcan). El
+    // acta ya asigna cada gol al equipo al que suma (`equipo`), contando la
+    // propia puerta: un gol en contra es, sin más, el que no suma al PALMA
+    // (incluye las propias puertas del PALMA, marcadas con `propia`; las del
+    // rival suman a favor, no aquí). `titular`: si quien marca era titular o
+    // suplente en el rival (Estadísticas Rivales).
+    const rivalActa = esLocal ? acta.visitante : acta.local;
+    const jugadoresRival = Array.isArray(rivalActa?.jugadores) ? rivalActa.jugadores : [];
+    const posicionRival = (nombre) => {
+      const n = rfafActa.normalizarNombre(nombre || '');
+      return jugadoresRival.findIndex((j) => rfafActa.normalizarNombre(j.nombre) === n);
+    };
+    const golesContra = golesActa
+      .filter((g) => g.equipo !== ladoPalma)
+      .map((g) => {
+        const propia = g.tipo === 'propia';
+        const i = propia ? -1 : posicionRival(g.nombre);
+        return {
+          id_partido: partido.id,
+          minuto: g.minuto ?? null,
+          tipo: g.tipo === 'penalti' ? 'penalti' : 'normal',
+          titular: i >= 0 ? !!jugadoresRival[i].titular : null,
+          propia
+        };
+      });
+    await PartidoGolContra.destroy({ where: { id_partido: partido.id } });
+    if (golesContra.length) await PartidoGolContra.bulkCreate(golesContra);
+
+    // Tarjetas de los jugadores del rival con su minuto, si era titular o
+    // suplente y el marcador justo antes visto desde el rival. Sin nombres:
+    // num_jugador (posición en el acta) solo sirve para las dobles amarillas.
+    const ladoRival = esLocal ? 'visitante' : 'local';
+    const tarjetasContra = (rivalActa?.tarjetas || [])
+      .map((t) => {
+        const i = posicionRival(t.nombre);
+        if (i < 0) return null;
+        const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
+        return {
+          id_partido: partido.id,
+          num_jugador: i,
+          tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
+          minuto: t.minuto ?? null,
+          titular: !!jugadoresRival[i].titular,
+          goles_favor: antes.filter((g) => g.equipo === ladoRival).length,
+          goles_contra: antes.filter((g) => g.equipo !== ladoRival).length
+        };
+      })
+      .filter(Boolean);
+    await PartidoTarjetaContra.destroy({ where: { id_partido: partido.id } });
+    if (tarjetasContra.length) await PartidoTarjetaContra.bulkCreate(tarjetasContra);
+
+    // Cuerpo técnico del PALMA en el acta: entrenadores y delegados. A quien ya
+    // está en su sección y no tiene foto, se le pone la del acta; a quien no
+    // está, se le crea con sus datos (y, en delegados, con su tipo).
+    await sincronizarCuerpoTecnico(equipoActa.cuerpo_tecnico || []);
+
+    // Se sustituyen solo los jugadores del PALMA; los del rival no se tocan.
+    await PartidoJugador.destroy({
+      where: { id_partido: partido.id, es_local: esLocal, id_jugador: { [Op.ne]: null } }
+    });
+    if (filas.length) await PartidoJugador.bulkCreate(filas);
+
+    // Sanciones: una por jugador con tarjeta (las del resto, también las de
+    // jugadores que ya no están en el partido, se quitan).
+    await Sancion.destroy({
+      where: { id_partido: partido.id, id_jugador: { [Op.notIn]: filas.map((f) => f.id_jugador) } }
+    });
+    await sincronizarSanciones(partido, esLocal ? filas : [], esLocal ? [] : filas);
+
+    partido.codigo_acta = codigo_acta;
+    partido.codigo_primaria = codigo_primaria;
+    partido.resultado = acta.resultado;
+    // Penaltis marcados por cada lado (los de propia puerta no son penalti).
+    partido.goles_penalti_favor = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo === ladoPalma).length;
+    partido.goles_penalti_contra = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo !== ladoPalma).length;
+    partido.acta_finalizada_at = new Date();
+    partido.acta_rival = true;
+    await partido.save();
+
+    // El acta también va a la liga (Estadísticas Rivales), sin pedir nada más
+    // a RFAF. Si falla, el partido queda finalizado igual.
+    try {
+      await liga.guardarActaDelPalma({ partido, plantilla: plantillaPartido, codigoActa: codigo_acta, acta });
+    } catch (err) {
+      console.warn('⚠️  No se pudo guardar el acta en la liga:', err.message);
+    }
+
+    res.json({ resultado: acta.resultado, actualizados, creados });
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, finalizarActa };

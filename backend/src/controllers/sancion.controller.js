@@ -1,10 +1,10 @@
-const { Sancion, Partido, Jugador, Categoria, Equipo, Lugar } = require('../models');
+const { Sancion, Partido, Jugador, Categoria, Equipo, Lugar, PartidoTarjeta } = require('../models');
 
 const includes = [
   {
     model: Partido,
     as: 'partido',
-    attributes: ['id', 'fecha', 'id_lugar', 'id_equipo_local', 'id_equipo_visitante'],
+    attributes: ['id', 'fecha', 'jornada', 'resultado', 'id_plantilla', 'id_lugar', 'id_equipo_local', 'id_equipo_visitante'],
     include: [
       { model: Lugar, as: 'lugar', attributes: ['id', 'nombre'] },
       { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
@@ -29,7 +29,23 @@ async function listar(req, res, next) {
       include: includes,
       order: [['id', 'ASC']]
     });
-    res.json(registros);
+    // Minutos de cada tarjeta (Finalizar Acta los guarda en partido_tarjetas):
+    // minutos_amarilla / minutos_roja, vacíos si el acta no los tiene.
+    const idsPartido = [...new Set(registros.map((r) => r.id_partido).filter(Boolean))];
+    const tarjetas = idsPartido.length
+      ? await PartidoTarjeta.findAll({ where: { id_partido: idsPartido }, attributes: ['id_partido', 'id_jugador', 'tipo', 'minuto'] }) || []
+      : [];
+    const minutos = new Map();
+    for (const t of tarjetas) {
+      const clave = `${t.id_partido}-${t.id_jugador}`;
+      if (!minutos.has(clave)) minutos.set(clave, { amarilla: [], roja: [] });
+      if (t.minuto != null) minutos.get(clave)[t.tipo === 'roja' ? 'roja' : 'amarilla'].push(Number(t.minuto));
+    }
+    res.json(registros.map((r) => {
+      const datos = r.toJSON ? r.toJSON() : r;
+      const m = minutos.get(`${datos.id_partido}-${datos.id_jugador}`) || { amarilla: [], roja: [] };
+      return { ...datos, minutos_amarilla: m.amarilla.sort((a, b) => a - b), minutos_roja: m.roja.sort((a, b) => a - b) };
+    }));
   } catch (err) { next(err); }
 }
 

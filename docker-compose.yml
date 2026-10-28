@@ -1,22 +1,42 @@
 services:
 
   db:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: apr_mysql
     restart: unless-stopped
+    # Binary log activo: cada cambio (no solo el volcado diario) queda
+    # registrado, para poder restaurar point-in-time junto con el servicio
+    # binlog-backup. Purga sola a los 30 días (mismo plazo que DB_DUMP_RETENTION).
+    # (En 8.4 el formato de binlog ya es ROW de forma fija, no hace falta fijarlo.)
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-expire-logs-seconds=2592000
+      - --sync-binlog=1
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
       MYSQL_DATABASE: ${DB_NAME:-atletico_palma_intranet}
       MYSQL_USER: ${DB_USER:-apr_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-apr_pass}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
       TZ: Europe/Madrid
     ports:
       - "127.0.0.1:${DB_PORT:-3306}:3306"
+    # Solo las capacidades que necesita el entrypoint de la imagen oficial
+    # (arranca como root, ajusta el datadir y baja a usuario mysql).
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - apr_mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -24,15 +44,56 @@ services:
     networks:
       - apr_net
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: apr_cloudflared
+  # Copia diaria cifrada con age (clave pública backup-key.pub; la privada no
+  # está en el servidor). Ver scripts/db-backup.sh, que explica cómo restaurar.
+  backup:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.db-backup
+    container_name: apr_mysql_backup
     restart: unless-stopped
-    command: tunnel run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
-      - nginx
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-apr_user}
+      DB_PASS: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
+      DB_NAME: ${DB_NAME:-atletico_palma_intranet}
+      AGE_RECIPIENTS_FILE: /run/backup-key.pub
+      # Destino en S3 (vacío = no se sube). En el EC2: s3://<bucket>/intranet,
+      # con el rol de IAM de la instancia (solo s3:PutObject).
+      BACKUP_S3_URI: ${BACKUP_S3_URI:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Diario a las 03:00 UTC; conserva 30 días de copias
+      BACKUP_HOUR_UTC: 3
+      RETENTION_DAYS: 30
+    volumes:
+      - ./backups:/backups
+      - ./backup-key.pub:/run/backup-key.pub:ro
+    cap_drop:
+      - ALL
+    networks:
+      - apr_net
+
+  binlog-backup:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.binlog-backup
+    container_name: apr_mysql_binlog_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
+      DB_HOST: db
+      DB_PORT: 3306
+    volumes:
+      - ./backups/binlogs:/backups
+    cap_drop:
+      - ALL
     networks:
       - apr_net
 
@@ -48,19 +109,28 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 4000
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://intranetatleticopalmadelrio.com,https://intranetatleticopalmadelrio.com,https://localhost}
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
       DB_USER: ${DB_USER:-apr_user}
-      DB_PASSWORD: ${DB_PASSWORD:-apr_pass}
-      JWT_SECRET: ${JWT_SECRET:-7d7857fcd1c3e70182cb1d6de060b3e8639500193c5402f8a2ee5f4e6c056d0f}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
-      AES_SECRET_KEY: ${AES_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en tu .env (ver .env.production.example)}
+      AES_SECRET_KEY: ${AES_SECRET_KEY:?Define AES_SECRET_KEY en tu .env (32 bytes hex, ver .env.production.example)}
       BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-12}
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_USER: ${SEED_ADMIN_USER:-admin}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin#2026}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Define SEED_ADMIN_PASSWORD en tu .env}
+      # JSESSIONID de una sesión de rfaf.es abierta en un navegador para el
+      # botón "Finalizar Acta" (desde la IP del EC2 RFAF no crea sesiones).
+      # Caduca: cuando falle, poner una nueva y recrear el backend.
+      RFAF_COOKIE: ${RFAF_COOKIE:-}
+    volumes:
+      # migrate.js busca database/migrations en la raíz del contenedor
+      # (../../../database/migrations desde backend/src/utils); sin este
+      # mount, database/migrations/*.sql nunca se aplican en Docker.
+      - ./database/migrations:/database/migrations:ro
     expose:
       - "4000"
     cap_drop:
@@ -85,7 +155,7 @@ services:
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
       DB_USER: ${DB_USER:-apr_user}
-      DB_PASSWORD: ${DB_PASSWORD:-apr_pass}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
     cap_drop:
       - ALL
     networks:
@@ -101,33 +171,100 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    expose:
-      - "80"
-    networks:
-      - apr_net
-
-  nginx:
-    image: nginx:alpine
-    container_name: apr_nginx
-    restart: unless-stopped
-    depends_on:
-      - frontend
-      - backend
+    # Solo en localhost por defecto: en el servidor se entra por el reverse
+    # proxy HTTPS. Para probar desde otro dispositivo de la red local,
+    # FRONTEND_BIND=0.0.0.0 en el env file.
     ports:
-      - "${NGINX_HTTP_PORT:-80}:80"
-      - "${NGINX_HTTPS_PORT:-443}:443"
-    volumes:
-      - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8080}:80"
     cap_drop:
       - ALL
     cap_add:
-      - NET_BIND_SERVICE
       - CHOWN
       - SETGID
       - SETUID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
     networks:
       - apr_net
+
+  # HTTPS público con Let's Encrypt, sin depender de Cloudflare: este nginx
+  # atiende 80/443 y reenvía todo a "frontend" (que ya hace de proxy interno
+  # hacia el backend). Ver reverse-proxy/init-letsencrypt.sh para el primer
+  # certificado; luego el servicio "certbot" los renueva solo.
+  reverse-proxy:
+    image: nginx:alpine
+    container_name: apr_reverse_proxy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DOMAIN: ${DOMAIN:-intranet.atleticopalmadelrio.com}
+    volumes:
+      - ./reverse-proxy/templates:/etc/nginx/templates:ro
+      - ./reverse-proxy/certbot/conf:/etc/letsencrypt:ro
+      - ./reverse-proxy/certbot/www:/var/www/certbot:ro
+      # Log de acceso en fichero para fail2ban (lee los intentos de login).
+      - ./reverse-proxy/logs:/var/log/apr
+    networks:
+      - apr_net
+
+  certbot:
+    image: certbot/certbot
+    container_name: apr_certbot
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./reverse-proxy/certbot/conf:/etc/letsencrypt
+      - ./reverse-proxy/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - apr_net
+
+  # fail2ban: banea por el cortafuegos del host (iptables) las IPs con abuso
+  # sostenido de login/2FA (leyendo el access.log del reverse-proxy) y de SSH.
+  # Como el reverse-proxy es un contenedor, el baneo del login se inserta en la
+  # cadena DOCKER-USER (por donde pasa el tráfico 80/443 hacia el contenedor);
+  # el de SSH va a INPUT. Necesita la red del host y NET_ADMIN para tocar el
+  # cortafuegos del host, así que solo tiene sentido en el EC2 (Linux): va en el
+  # profile "seguridad" para no arrancar en el `docker compose up` de desarrollo.
+  # Arrancar en el EC2 con:  docker compose --env-file .env.development --profile seguridad up -d fail2ban
+  fail2ban:
+    image: crazymax/fail2ban:1.1.0
+    container_name: apr_fail2ban
+    restart: unless-stopped
+    profiles:
+      - seguridad
+    # Red del host: para que su iptables actúe sobre el cortafuegos del host.
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: Europe/Madrid
+      F2B_DB_PURGE_AGE: 7d
+    volumes:
+      # Config (jail.d/filter.d) y base de datos de baneos de fail2ban.
+      - ./reverse-proxy/fail2ban/data:/data
+      # Log de acceso del reverse-proxy (login/2FA) en solo lectura.
+      - ./reverse-proxy/logs:/var/log/apr:ro
+      # Log de autenticación del host para el jail sshd (solo lectura).
+      - /var/log/auth.log:/var/log/auth.log:ro
 
 volumes:
   apr_mysql_data:

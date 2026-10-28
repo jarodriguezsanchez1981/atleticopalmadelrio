@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Plantilla, Categoria, Temporada, Division, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, Promocion } from './helpers/models.js';
+import { Plantilla, Categoria, Temporada, Division, Coordinador, Jugador, Entrenador, Delegado, PlantillaJugador, PlantillaEntrenador, PlantillaDelegado, PlantillaPersonal, Personal, Promocion, PartidoJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/plantilla.controller.js';
@@ -14,6 +14,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Categoria.findOne.mockReset();
     Temporada.findOne.mockReset();
     Division.findOne.mockReset();
+    Coordinador.findOne.mockReset();
     Jugador.findOne.mockReset();
     Entrenador.findOne.mockReset();
     Delegado.findOne.mockReset();
@@ -29,6 +30,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     Promocion.findOrCreate.mockReset();
     Promocion.destroy.mockReset();
     Promocion.bulkCreate.mockReset();
+    PartidoJugador.findAll.mockReset();
+    PartidoJugador.findAll.mockResolvedValue([]);
   });
 
   function llamar(fn, overrides = {}) {
@@ -54,6 +57,31 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(res._json).toEqual([{ id: 1, id_categoria: 1 }]);
   });
 
+  it('listar trae entrenadores y delegados en una consulta aparte (sin multiplicar filas)', async () => {
+    Plantilla.findAll
+      .mockResolvedValueOnce([{ id: 1, jugadores: [{ id: 9 }] }])
+      .mockResolvedValueOnce([{ id: 1, entrenadores: [{ id: 4 }], delegados: [{ id: 6 }] }]);
+    const { promesa, res } = llamar(ctrl.listar);
+    await promesa;
+    const [primera, segunda] = Plantilla.findAll.mock.calls.map((c) => c[0]);
+    expect(primera.include.map((i) => i.as)).toEqual(expect.arrayContaining(['jugadores']));
+    expect(primera.include.map((i) => i.as)).not.toContain('entrenadores');
+    expect(segunda).toMatchObject({ where: { id: [1] }, attributes: ['id'] });
+    expect(segunda.include.map((i) => i.as)).toEqual(['entrenadores', 'delegados', 'personal']);
+    expect(res._json[0]).toMatchObject({ id: 1, jugadores: [{ id: 9 }], entrenadores: [{ id: 4 }], delegados: [{ id: 6 }] });
+  });
+
+  it('listar con ?basico=1 no trae personas ni hace más consultas', async () => {
+    Plantilla.findAll.mockResolvedValue([{ id: 1 }]);
+    const { promesa } = llamar(ctrl.listar, { query: { basico: '1' } });
+    await promesa;
+    expect(Plantilla.findAll).toHaveBeenCalledTimes(1);
+    const ases = Plantilla.findAll.mock.calls[0][0].include.map((i) => i.as);
+    expect(ases).not.toContain('jugadores');
+    expect(ases).not.toContain('entrenadores');
+    expect(ases).not.toContain('delegados');
+  });
+
   it('listar filtra por categoría y temporada', async () => {
     Plantilla.findAll.mockResolvedValue([]);
     const { promesa } = llamar(ctrl.listar, { query: { id_categoria: '2', id_temporada: '3' } });
@@ -75,6 +103,32 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(res._json.message).toBe('Plantilla no encontrada.');
   });
 
+  it('obtener calcula "veces convocado" solo con categorías de orden superior', async () => {
+    const jugador5 = { id: 5, PlantillaJugador: { setDataValue: vi.fn() } };
+    const jugador6 = { id: 6, PlantillaJugador: { setDataValue: vi.fn() } };
+    const plantilla = {
+      id: 1,
+      categoria: { id: 1, orden: 5 },
+      jugadores: [jugador5, jugador6]
+    };
+    Plantilla.findOne.mockResolvedValue(plantilla);
+    PartidoJugador.findAll.mockResolvedValue([
+      // jugador 5: convocado dos veces por categorías superiores (orden 6 y 7)
+      { id_jugador: 5, partido: { plantilla: { categoria: { orden: 6 } } } },
+      { id_jugador: 5, partido: { plantilla: { categoria: { orden: 7 } } } },
+      // jugador 5: convocado también en su propia categoría (orden 5) -> no cuenta
+      { id_jugador: 5, partido: { plantilla: { categoria: { orden: 5 } } } },
+      // jugador 6: convocado en una categoría inferior (orden 3) -> no cuenta
+      { id_jugador: 6, partido: { plantilla: { categoria: { orden: 3 } } } }
+    ]);
+
+    const { promesa } = llamar(ctrl.obtener, { params: { id: '1' } });
+    await promesa;
+
+    expect(jugador5.PlantillaJugador.setDataValue).toHaveBeenCalledWith('veces_convocado_superior', 2);
+    expect(jugador6.PlantillaJugador.setDataValue).toHaveBeenCalledWith('veces_convocado_superior', 0);
+  });
+
   it('crear exige categoría y temporada', async () => {
     const { promesa, res } = llamar(ctrl.crear, { body: {} });
 
@@ -87,7 +141,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
   it('crear permite plantilla sin jugadores, entrenadores ni delegados', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
     const completa = { id: 11, id_categoria: 1, id_temporada: 1 };
     Plantilla.findOne
       .mockResolvedValueOnce(null)       // única temporada: sin conflictos
@@ -103,10 +157,216 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(Plantilla.create).toHaveBeenCalledWith({
       id_categoria: 1,
       id_temporada: 1,
-      id_division: null
+      id_division: null,
+      id_coordinador: null,
+      codigo_competicion: null,
+      codigo_grupo: null,
+      codigo_temporada: null,
+      codigo_equipo: null,
+      codigo_primaria: '1000120'
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(11);
+  });
+
+  it('crear no pone codigo_primaria por defecto si la temporada no es 2026/2027', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 3, nombre: '2027/2028' });
+    Plantilla.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 13, id_categoria: 1, id_temporada: 3 });
+    Plantilla.create.mockResolvedValue({ id: 13 });
+
+    const { promesa } = llamar(ctrl.crear, { body: { id_categoria: 1, id_temporada: 3 } });
+
+    await promesa;
+
+    expect(Plantilla.create).toHaveBeenCalledWith(expect.objectContaining({ codigo_primaria: null }));
+  });
+
+  it('crear valida que el coordinador exista', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
+    Coordinador.findOne.mockResolvedValue(null);
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_categoria: 1, id_temporada: 1, id_coordinador: 99 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El coordinador indicado no existe.');
+    expect(Plantilla.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza un coordinador cuyo tipo de fútbol no coincide con el de la categoría', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1, id_tipofutbol: 1 }); // categoría Fútbol 7
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue({ id: 4, tiposFutbol: [{ id: 2 }] }); // coordinador Fútbol 11
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_categoria: 1, id_temporada: 1, id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El coordinador indicado no coincide con el tipo de fútbol de la categoría.');
+    expect(Plantilla.create).not.toHaveBeenCalled();
+  });
+
+  it('crear guarda id_coordinador cuando se indica uno válido', async () => {
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
+    Coordinador.findOne.mockResolvedValue({ id: 4 });
+    Plantilla.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 12, id_categoria: 1, id_temporada: 1, id_coordinador: 4 });
+    Plantilla.create.mockResolvedValue({ id: 12 });
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: { id_categoria: 1, id_temporada: 1, id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(Plantilla.create).toHaveBeenCalledWith({
+      id_categoria: 1,
+      id_temporada: 1,
+      id_division: null,
+      id_coordinador: 4,
+      codigo_competicion: null,
+      codigo_grupo: null,
+      codigo_temporada: null,
+      codigo_equipo: null,
+      codigo_primaria: '1000120'
+    });
+    expect(res._status).toBe(201);
+  });
+
+  it('crear guarda los códigos de competición/grupo/temporada/equipo de la RFAF cuando se indican', async () => {
+    mockReferenciasOk();
+    Plantilla.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 13, id_categoria: 1, id_temporada: 1 });
+    Plantilla.create.mockResolvedValue({ id: 13 });
+
+    const { promesa } = llamar(ctrl.crear, {
+      body: { id_categoria: 1, id_temporada: 1, codigo_competicion: 'C1', codigo_grupo: 'G2', codigo_temporada: 'T3', codigo_equipo: 'E4' }
+    });
+
+    await promesa;
+
+    expect(Plantilla.create).toHaveBeenCalledWith(expect.objectContaining({
+      codigo_competicion: 'C1',
+      codigo_grupo: 'G2',
+      codigo_temporada: 'T3',
+      codigo_equipo: 'E4'
+    }));
+  });
+
+  describe('Personal (solo Senior A)', () => {
+    function preparar(nombreCategoria) {
+      const plantilla = { id: 1, id_categoria: 20, id_temporada: 1, save: vi.fn().mockResolvedValue() };
+      Plantilla.findOne
+        .mockResolvedValueOnce(plantilla)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 1, jugadores: [], entrenadores: [], delegados: [], personal: [] });
+      mockReferenciasOk();
+      Categoria.findOne.mockResolvedValue({ id: 20, nombre: nombreCategoria });
+      Personal.count.mockReset();
+      Personal.count.mockResolvedValue(2);
+      PlantillaPersonal.destroy.mockReset();
+      PlantillaPersonal.bulkCreate.mockReset();
+    }
+
+    it('en Senior A guarda el personal indicado (sin repetidos)', async () => {
+      preparar('Senior A');
+      const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { ids_personal: [3, 3, 4] } });
+      await promesa;
+      expect(PlantillaPersonal.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
+      expect(PlantillaPersonal.bulkCreate).toHaveBeenCalledWith(
+        [{ id_plantilla: 1, id_personal: 3 }, { id_plantilla: 1, id_personal: 4 }], { ignoreDuplicates: true });
+    });
+
+    it('en Senior A, si no llega ids_personal, no se toca', async () => {
+      preparar('Senior A');
+      const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { codigo_grupo: 'G1' } });
+      await promesa;
+      expect(PlantillaPersonal.destroy).not.toHaveBeenCalled();
+    });
+
+    it('en otra categoría no se guarda personal (y se quita el que tuviera)', async () => {
+      preparar('Senior B');
+      const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { ids_personal: [3, 4] } });
+      await promesa;
+      expect(PlantillaPersonal.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
+      expect(PlantillaPersonal.bulkCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('actualizar guarda los códigos de competición/grupo/temporada/equipo de la RFAF cuando se indican', async () => {
+    const plantilla = {
+      id: 1, id_categoria: 1, id_temporada: 1, id_division: null, id_coordinador: null,
+      codigo_competicion: null, codigo_grupo: null, codigo_temporada: null, codigo_equipo: null, save: vi.fn().mockResolvedValue()
+    };
+    const actualizada = { id: 1, jugadores: [], entrenadores: [], delegados: [] };
+    Plantilla.findOne
+      .mockResolvedValueOnce(plantilla)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(actualizada);
+    mockReferenciasOk();
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { codigo_competicion: 'C1', codigo_grupo: 'G2', codigo_temporada: 'T3', codigo_equipo: 'E4' }
+    });
+
+    await promesa;
+
+    expect(plantilla.codigo_competicion).toBe('C1');
+    expect(plantilla.codigo_grupo).toBe('G2');
+    expect(plantilla.codigo_temporada).toBe('T3');
+    expect(plantilla.codigo_equipo).toBe('E4');
+    expect(plantilla.save).toHaveBeenCalled();
+  });
+
+  it('actualizar rechaza un coordinador cuyo tipo de fútbol no coincide con el de la categoría', async () => {
+    const plantilla = { id: 1, id_categoria: 1, id_temporada: 1, id_division: null, id_coordinador: null, save: vi.fn().mockResolvedValue() };
+    Plantilla.findOne.mockResolvedValueOnce(plantilla);
+    Categoria.findOne.mockResolvedValue({ id: 1, id_tipofutbol: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue({ id: 4, tiposFutbol: [{ id: 2 }] });
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(400);
+    expect(res._json.message).toBe('El coordinador indicado no coincide con el tipo de fútbol de la categoría.');
+    expect(plantilla.save).not.toHaveBeenCalled();
+  });
+
+  it('actualizar guarda id_coordinador cuando se indica uno válido', async () => {
+    const plantilla = { id: 1, id_categoria: 1, id_temporada: 1, id_division: null, id_coordinador: null, save: vi.fn().mockResolvedValue() };
+    const actualizada = { id: 1, jugadores: [], entrenadores: [], delegados: [] };
+    Plantilla.findOne
+      .mockResolvedValueOnce(plantilla)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(actualizada);
+    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Coordinador.findOne.mockResolvedValue({ id: 4 });
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' }, body: { id_coordinador: 4 }
+    });
+
+    await promesa;
+
+    expect(plantilla.id_coordinador).toBe(4);
+    expect(plantilla.save).toHaveBeenCalled();
+    expect(res._status).toBe(200);
   });
 
   it('crear valida que la categoría exista', async () => {
@@ -150,7 +410,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
   it('crear registra una categoría nueva con jugadores, entrenadores y delegados', async () => {
     Categoria.findOne.mockResolvedValue({ id: 1 });
-    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Temporada.findOne.mockResolvedValue({ id: 1, nombre: '2026/2027' });
     Jugador.findOne.mockResolvedValue({ id: 5 });
     Entrenador.findOne.mockResolvedValue({ id: 6 });
     Delegado.findOne.mockResolvedValue({ id: 7 });
@@ -175,7 +435,13 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(Plantilla.create).toHaveBeenCalledWith({
       id_categoria: 1,
       id_temporada: 1,
-      id_division: null
+      id_division: null,
+      id_coordinador: null,
+      codigo_competicion: null,
+      codigo_grupo: null,
+      codigo_temporada: null,
+      codigo_equipo: null,
+      codigo_primaria: '1000120'
     });
     expect(res._status).toBe(201);
     expect(res._json.id).toBe(10);
@@ -253,21 +519,23 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
     await promesa;
 
-    expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 10 } });
+    // Crear no borra promociones existentes: solo añade las marcadas.
+    expect(Promocion.destroy).not.toHaveBeenCalled();
     expect(Promocion.bulkCreate).toHaveBeenCalledWith(
       [{ id_plantilla: 10, id_categoria: 2, id_jugador: 5 }],
       { ignoreDuplicates: true }
     );
   });
 
-  it('actualizar elimina la promoción al desmarcar a todos los jugadores', async () => {
+  it('actualizar elimina la promoción solo del jugador que se desmarca', async () => {
     const plantilla = { id: 1, id_categoria: 1, id_temporada: 1, id_division: null, save: vi.fn().mockResolvedValue() };
     const actualizada = { id: 1, jugadores: [], entrenadores: [], delegados: [] };
     Plantilla.findOne
       .mockResolvedValueOnce(plantilla)    // buscar fila
       .mockResolvedValueOnce(null)         // duplicado categoría: ninguno
       .mockResolvedValueOnce(actualizada); // fila completa tras save
-    Categoria.findOne.mockResolvedValue({ id: 1 });
+    Categoria.findOne.mockResolvedValue({ id: 1, orden: 5 });
+    PlantillaJugador.findAll.mockResolvedValueOnce([{ id_jugador: 5 }]); // el 5 estaba marcado
     Temporada.findOne.mockResolvedValue({ id: 1 });
     Jugador.count.mockResolvedValue(1);
     PlantillaJugador.destroy.mockResolvedValue(0);
@@ -281,7 +549,30 @@ describe('Sección Plantillas · plantilla.controller', () => {
 
     await promesa;
 
-    expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
+    expect(Promocion.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1, id_categoria: 1, id_jugador: [5] } });
+    expect(Promocion.bulkCreate).not.toHaveBeenCalled();
+  });
+
+  it('actualizar no borra las promociones que no vienen de la casilla (convocatorias, partidos)', async () => {
+    const plantilla = { id: 23, id_categoria: 1, id_temporada: 1, id_division: null, save: vi.fn().mockResolvedValue() };
+    Plantilla.findOne
+      .mockResolvedValueOnce(plantilla)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 23, jugadores: [], entrenadores: [], delegados: [] });
+    Categoria.findOne.mockResolvedValue({ id: 1, orden: 4 });
+    Temporada.findOne.mockResolvedValue({ id: 1 });
+    Jugador.count.mockResolvedValue(2);
+    PlantillaJugador.findAll.mockResolvedValueOnce([]); // nadie marcado antes
+    PlantillaJugador.destroy.mockResolvedValue(0);
+    PlantillaJugador.bulkCreate.mockResolvedValue([]);
+
+    const { promesa } = llamar(ctrl.actualizar, {
+      params: { id: '23' },
+      body: { jugadores: [{ id_jugador: 639, promocion: false }, { id_jugador: 1015, promocion: false }] }
+    });
+    await promesa;
+
+    expect(Promocion.destroy).not.toHaveBeenCalled();
     expect(Promocion.bulkCreate).not.toHaveBeenCalled();
   });
 
@@ -320,7 +611,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     PlantillaJugador.bulkCreate.mockResolvedValue([]);
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' },
-      body: { jugadores: [{ id_jugador: 5, dorsal: 10, talla: 'M' }, { id_jugador: 6, dorsal: 7, talla: 'L' }] }
+      body: { jugadores: [{ id_jugador: 5, dorsal: 10, talla: 'M', alias: '  Pepe  ' }, { id_jugador: 6, dorsal: 7, talla: 'L', alias: '' }] }
     });
 
     await promesa;
@@ -328,8 +619,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(PlantillaJugador.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
     expect(PlantillaJugador.bulkCreate).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ id_plantilla: 1, id_jugador: 5, dorsal: 10, talla: 'M', titular: false }),
-        expect.objectContaining({ id_plantilla: 1, id_jugador: 6, dorsal: 7, talla: 'L', titular: false })
+        expect.objectContaining({ id_plantilla: 1, id_jugador: 5, dorsal: 10, talla: 'M', alias: 'Pepe', titular: false }),
+        expect.objectContaining({ id_plantilla: 1, id_jugador: 6, dorsal: 7, talla: 'L', alias: null, titular: false })
       ]),
       { ignoreDuplicates: true }
     );
@@ -381,8 +672,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     await promesa;
 
     expect(Plantilla.bulkCreate).toHaveBeenCalledWith([
-      { id_categoria: 1, id_temporada: 1, id_division: null },
-      { id_categoria: 2, id_temporada: 1, id_division: null }
+      { id_categoria: 1, id_temporada: 1, id_division: null, codigo_primaria: null },
+      { id_categoria: 2, id_temporada: 1, id_division: null, codigo_primaria: null }
     ]);
     expect(res._status).toBe(201);
     expect(res._json.creadas).toBe(2);

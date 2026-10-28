@@ -44,12 +44,13 @@ function nombresTitulos(data) {
 </script>
 
 <template>
+<SectionGuard seccion="entrenadores">
   <CrudDataTable
     title="Entrenadores"
+    seccion="entrenadores"
     :columns="columns"
     :service="entrenadoresService"
     :emptyItem="emptyItem"
-    :canExport="true"
   >
     <template #cell-ids_titulos="{ data }">
       {{ nombresTitulos(data) }}
@@ -58,4 +59,5 @@ function nombresTitulos(data) {
       {{ nombresTitulos(data) }}
     </template>
   </CrudDataTable>
+</SectionGuard>
 </template>

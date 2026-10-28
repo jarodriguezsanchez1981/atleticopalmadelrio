@@ -5,7 +5,7 @@ const ESCUDO_CLUB = '/escudo.png';
 const NOMBRE_CLUB = 'ATLÉTICO PALMA DEL RÍO';
 const NOMBRE_PALMA = 'PALMA DEL RIO ATLETICO C.F.';
 
-const VERDE = '#0B3D2E';
+const VERDE = '#0F3D22';
 const GRANATE = '#7A1E2B';
 const GRIS = '#64748B';
 
@@ -13,8 +13,8 @@ const anchoA4 = 210;
 const altoA4 = 297;
 const margen = 14;
 
-// Columnas: Lugar | Hora | Categoría | Local | Visitante
-const ANCHO_COLUMNAS = [26, 16, 26, 57, 57];
+// Columnas: Tipo | Lugar | Hora | Categoría | Equipo (rival)
+const ANCHO_COLUMNAS = [18, 22, 14, 24, 84];
 const ALTO_FILA = 10;
 
 function aDate(inicio) {
@@ -137,12 +137,18 @@ function dibujarCabecera(doc, headers, anchos, y) {
   doc.setTextColor(255, 255, 255);
   let x = margen;
   headers.forEach((h, i) => {
-    const align = i <= 1 ? 'left' : 'center';
-    const offset = i <= 1 ? 1.5 : anchos[i] / 2;
-    doc.text(h, x + offset, y + 4.2, { align });
+    const offset = anchos[i] / 2;
+    doc.text(h, x + offset, y + 4.2, { align: 'center' });
     x += anchos[i];
   });
   return y + 8;
+}
+
+function etiquetaTipo(e) {
+  if (e.tipo === 'entrenamiento') return 'Entrenamiento';
+  if (e.tipo === 'torneo') return 'Torneo';
+  if (e.tipo === 'partido' && e.jornada) return 'Liga';
+  return 'Amistoso';
 }
 
 /**
@@ -151,23 +157,26 @@ function dibujarCabecera(doc, headers, anchos, y) {
  * @param {Array} eventos  Eventos normalizados del calendario (con `tipo`).
  * @param {string} titulo  Texto del rango de fechas (ej: "22/09/2026 al 28/09/2026").
  * @param {number|null} tipoFutbol 1 = solo Futbol 7, 2 = solo Futbol 11, null/undefined = ambos.
+ * @param {{encabezado?: string, nombreFichero?: string}} opciones  Encabezado y nombre
+ *   del fichero (por defecto "Calendario"/"calendario"); Partidos reutiliza este mismo
+ *   renderizador con "Listado de Partidos"/"partidos".
  */
-export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = null) {
+export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = null, opciones = {}) {
+  const { encabezado = 'Calendario', nombreFichero = 'calendario' } = opciones;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const filtrar = (e) => tipoFutbol == null || (e.categoria?.id_tipofutbol || 0) === tipoFutbol;
   const todos = eventos
     .filter(filtrar)
-    .map((e) => ({ ...e, _tipo: e.tipo === 'partido' ? 'partido' : 'entrenamiento' }))
+    .map((e) => ({ ...e, _tipo: e.tipo || 'partido' }))
     .sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
 
-  // Precarga de escudos (solo partidos)
+  // Precarga de escudos (partidos y torneos)
   const fuentes = new Set([ESCUDO_CLUB]);
   todos.forEach((e) => {
-    if (e._tipo === 'partido') {
-      if (e.equipoLocal?.escudo) fuentes.add(e.equipoLocal.escudo);
-      if (e.equipoVisitante?.escudo) fuentes.add(e.equipoVisitante.escudo);
-    }
+    if (e.equipoLocal?.escudo) fuentes.add(e.equipoLocal.escudo);
+    if (e.equipoVisitante?.escudo) fuentes.add(e.equipoVisitante.escudo);
+    if (e.equipo?.escudo) fuentes.add(e.equipo.escudo);
   });
   const imagenes = {};
   await Promise.all([...fuentes].map(async (src) => {
@@ -183,7 +192,7 @@ export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = nu
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(VERDE);
-  doc.text('Calendario', anchoA4 / 2, y + escudoHeader / 2 + 2, { align: 'center' });
+  doc.text(encabezado, anchoA4 / 2, y + escudoHeader / 2 + 2, { align: 'center' });
   y += escudoHeader + 6;
 
   if (titulo) {
@@ -194,7 +203,7 @@ export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = nu
     y += 6;
   }
 
-  // ---- Agrupar por fecha (partidos y entrenamientos mezclados) ----
+  // ---- Agrupar por fecha ----
   for (const grupo of agruparPorFecha(todos)) {
     const fechaTexto = formatearFechaLarga(aDate(grupo.items[0].inicio));
     if (y + 20 > altoA4 - 16) {
@@ -202,23 +211,25 @@ export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = nu
       y = 14;
     }
     y = dibujarBannerFecha(doc, fechaTexto, y);
-    y = dibujarCabecera(doc, ['Lugar', 'Hora', 'Categoría', 'Local', 'Visitante'], ANCHO_COLUMNAS, y);
+    y = dibujarCabecera(doc, ['Tipo', 'Lugar', 'Hora', 'Categoría', 'Equipo'], ANCHO_COLUMNAS, y);
 
     let fila = 0;
     for (const item of grupo.items) {
       if (y + ALTO_FILA > altoA4 - 16) {
         doc.addPage();
         y = 14;
-        y = dibujarCabecera(doc, ['Lugar', 'Hora', 'Categoría', 'Local', 'Visitante'], ANCHO_COLUMNAS, y);
+        y = dibujarCabecera(doc, ['Tipo', 'Lugar', 'Hora', 'Categoría', 'Equipo'], ANCHO_COLUMNAS, y);
       }
       if (fila % 2 === 1) {
         doc.setFillColor(245, 247, 249);
         doc.rect(margen, y - 0.5, anchoA4 - 2 * margen, ALTO_FILA, 'F');
       }
-      if (item._tipo === 'partido') {
-        y = dibujarFilaPartido(doc, item, imagenes, escudoClub, y);
-      } else {
+      if (item._tipo === 'torneo') {
+        y = dibujarFilaTorneo(doc, item, imagenes, escudoClub, y);
+      } else if (item._tipo === 'entrenamiento') {
         y = dibujarFilaEntrenamiento(doc, item, y);
+      } else {
+        y = dibujarFilaPartido(doc, item, imagenes, escudoClub, y);
       }
       fila++;
     }
@@ -232,108 +243,153 @@ export async function generarPdfCalendario(eventos, titulo = '', tipoFutbol = nu
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(GRIS);
-    doc.text(`${NOMBRE_CLUB} · Calendario`, margen, altoA4 - 8);
+    doc.text(`${NOMBRE_CLUB} · ${encabezado}`, margen, altoA4 - 8);
     doc.text(`Página ${p} de ${totalPaginas}`, anchoA4 - margen, altoA4 - 8, { align: 'right' });
   }
 
-  doc.save(`calendario-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`${nombreFichero}-${new Date().toISOString().slice(0, 10)}.pdf`);
   return doc;
 }
 
 function dibujarFilaPartido(doc, p, imagenes, escudoClub, y) {
   const inicio = aDate(p.inicio);
-  const cat = p.categoria?.nombre || '—';
+  const cat = p.categoria?.alias || p.categoria?.nombre || '—';
   const esLocalPalma = p.equipoLocal?.nombre === NOMBRE_PALMA;
   const lugarNombre = typeof p.lugar === 'string' ? p.lugar : (p.lugar?.nombre || null);
   const lugar = esLocalPalma ? (lugarNombre || '—') : (p.equipoLocal?.localidad || '—');
 
-  const localNombre = p.equipoLocal?.nombre || NOMBRE_CLUB;
-  const visitanteNombre = p.equipoVisitante?.nombre || '—';
+  const equipoNombre = esLocalPalma ? (p.equipoVisitante?.nombre || '—') : (p.equipoLocal?.nombre || '—');
   const localImgSrc = p.equipoLocal?.escudo || null;
   const visitImgSrc = p.equipoVisitante?.escudo || null;
-  const localImg = localImgSrc ? (imagenes[localImgSrc] || null) : escudoClub;
-  const visitImg = visitImgSrc ? (imagenes[visitImgSrc] || null) : null;
+  const escudoRivalSrc = esLocalPalma ? visitImgSrc : localImgSrc;
+  const escudoRival = escudoRivalSrc ? (imagenes[escudoRivalSrc] || null) : (esLocalPalma ? null : escudoClub);
 
   const escudoTamanio = 7;
   const mitadV = y + ALTO_FILA / 2 + 0.5;
   let x = margen;
 
+  // Tipo
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(20, 26, 32);
+  const tipoTexto = ajustarTexto(doc, etiquetaTipo(p), 7, ANCHO_COLUMNAS[0] - 2);
+  doc.text(tipoTexto, x + ANCHO_COLUMNAS[0] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[0];
+
   // Lugar / localidad
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(20, 26, 32);
-  const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[0] - 2);
-  doc.text(lugarTexto, x + 1.5, mitadV);
-  x += ANCHO_COLUMNAS[0];
+  const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[1] - 2);
+  doc.text(lugarTexto, x + ANCHO_COLUMNAS[1] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[1];
 
   // Hora
   const horaTexto = inicio ? formatearHora(inicio) : '—';
   doc.setFontSize(8.5);
   doc.text(horaTexto, x + 2, mitadV, { align: 'left' });
-  x += ANCHO_COLUMNAS[1];
+  x += ANCHO_COLUMNAS[2];
 
   // Categoría
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(GRANATE);
-  const catTexto = ajustarTexto(doc, cat, 9.5, ANCHO_COLUMNAS[2] - 2);
-  doc.text(catTexto, x + ANCHO_COLUMNAS[2] / 2, mitadV, { align: 'center' });
-  x += ANCHO_COLUMNAS[2];
-
-  // Local (escudo + nombre, alineado a la izquierda)
-  const anchoNombreLocal = ANCHO_COLUMNAS[3] - escudoTamanio - 6;
-  const localAjustado = ajustarTexto(doc, localNombre, 8, anchoNombreLocal);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  const xLocal = x + 2;
-  dibujarEscudo(doc, localImg, xLocal, mitadV - escudoTamanio / 2, escudoTamanio);
-  doc.setTextColor(20, 26, 32);
-  doc.text(localAjustado, xLocal + escudoTamanio + 2, mitadV);
+  const catTexto = ajustarTexto(doc, cat, 9.5, ANCHO_COLUMNAS[3] - 2);
+  doc.text(catTexto, x + ANCHO_COLUMNAS[3] / 2, mitadV, { align: 'center' });
   x += ANCHO_COLUMNAS[3];
 
-  // Visitante (escudo + nombre, alineado a la izquierda)
-  const anchoNombreVisitante = ANCHO_COLUMNAS[4] - escudoTamanio - 6;
-  const visitanteAjustado = ajustarTexto(doc, visitanteNombre, 8, anchoNombreVisitante);
+  // Equipo rival (escudo + nombre, alineados a la izquierda)
+  const anchoNombreEquipo = ANCHO_COLUMNAS[4] - escudoTamanio - 8;
+  const equipoAjustado = ajustarTexto(doc, equipoNombre, 8, anchoNombreEquipo);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  const xVisitante = x + 2;
-  dibujarEscudo(doc, visitImg, xVisitante, mitadV - escudoTamanio / 2, escudoTamanio);
+  const xEquipo = x + 2;
+  if (escudoRival) {
+    dibujarEscudo(doc, escudoRival, xEquipo, mitadV - escudoTamanio / 2, escudoTamanio);
+  }
   doc.setTextColor(20, 26, 32);
-  doc.text(visitanteAjustado, xVisitante + escudoTamanio + 2, mitadV);
+  doc.text(equipoAjustado, xEquipo + escudoTamanio + 2, mitadV);
 
   return y + ALTO_FILA;
 }
 
 function dibujarFilaEntrenamiento(doc, e, y) {
   const inicio = aDate(e.inicio);
-  const cat = e.categoria?.nombre || '—';
+  const cat = e.categoria?.alias || e.categoria?.nombre || '—';
   const lugar = e.lugar || '—';
   const horaTexto = inicio ? formatearHora(inicio) : '—';
 
   const mitadV = y + ALTO_FILA / 2 + 0.5;
   let x = margen;
 
+  // Tipo
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(20, 26, 32);
+  const tipoTexto = ajustarTexto(doc, etiquetaTipo(e), 7, ANCHO_COLUMNAS[0] - 2);
+  doc.text(tipoTexto, x + ANCHO_COLUMNAS[0] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[0];
+
   // Lugar
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(20, 26, 32);
-  const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[0] - 2);
-  doc.text(lugarTexto, x + 1.5, mitadV);
-  x += ANCHO_COLUMNAS[0];
+  const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[1] - 2);
+  doc.text(lugarTexto, x + ANCHO_COLUMNAS[1] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[1];
 
   // Hora
   doc.setFontSize(8.5);
   doc.text(horaTexto, x + 2, mitadV, { align: 'left' });
-  x += ANCHO_COLUMNAS[1];
+  x += ANCHO_COLUMNAS[2];
 
   // Categoría
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(VERDE);
-  const catTexto = ajustarTexto(doc, cat, 9, ANCHO_COLUMNAS[2] - 2);
-  doc.text(catTexto, x + ANCHO_COLUMNAS[2] / 2, mitadV, { align: 'center' });
+  const catTexto = ajustarTexto(doc, cat, 9, ANCHO_COLUMNAS[3] - 2);
+  doc.text(catTexto, x + ANCHO_COLUMNAS[3] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[3];
+
+  // Equipo vacío para entrenamientos
+  return y + ALTO_FILA;
+}
+
+function dibujarFilaTorneo(doc, t, imagenes, escudoClub, y) {
+  const inicio = aDate(t.inicio);
+  const cat = t.categoria?.alias || t.categoria?.nombre || '—';
+  const lugar = t.equipo?.localidad || '—';
+  const horaTexto = inicio ? formatearHora(inicio) : '—';
+
+  const mitadV = y + ALTO_FILA / 2 + 0.5;
+  let x = margen;
+
+  // Tipo
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(20, 26, 32);
+  const tipoTexto = ajustarTexto(doc, etiquetaTipo(t), 7, ANCHO_COLUMNAS[0] - 2);
+  doc.text(tipoTexto, x + ANCHO_COLUMNAS[0] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[0];
+
+  // Lugar
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  const lugarTexto = ajustarTexto(doc, lugar, 8, ANCHO_COLUMNAS[1] - 2);
+  doc.text(lugarTexto, x + ANCHO_COLUMNAS[1] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[1];
+
+  // Hora
+  doc.setFontSize(8.5);
+  doc.text(horaTexto, x + 2, mitadV, { align: 'left' });
   x += ANCHO_COLUMNAS[2];
 
-  // Local / Visitante vacíos para entrenamientos
+  // Categoría
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(VERDE);
+  const catTexto = ajustarTexto(doc, cat, 9, ANCHO_COLUMNAS[3] - 2);
+  doc.text(catTexto, x + ANCHO_COLUMNAS[3] / 2, mitadV, { align: 'center' });
+  x += ANCHO_COLUMNAS[3];
+
+  // Equipo vacío para torneos
   return y + ALTO_FILA;
 }

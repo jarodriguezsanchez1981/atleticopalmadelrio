@@ -1,0 +1,393 @@
+#!/usr/bin/env python3
+"""Lee el acta oficial de un partido en RFAF (NFG_CmpPartido) y la devuelve
+en JSON por stdout: equipos, jugadores que han jugado (titulares y
+suplentes, con el minuto en que entran o salen en las sustituciones), goles,
+tarjetas amarillas/rojas, resultado y la cookie de sesión.
+
+RFAF entrega el acta a cualquier visitante, pero exige una sesión (anónima):
+sin ella responde 302 a /pnfg/NLogin, que crea la sesión y redirige de vuelta
+al acta, igual que pasa al abrirla en un navegador. Desde la IP del servidor
+(AWS) RFAF no crea sesiones útiles (devuelve el acta vacía), así que allí la
+primera sesión es la JSESSIONID de un navegador, en RFAF_COOKIE. Para pedir a rfaf.es lo
+mínimo (su robots.txt no admite robots), la sesión obtenida se devuelve en
+"cookie" y el backend la pasa en RFAF_COOKIE la siguiente vez: con la sesión
+viva basta una petición; si ha caducado son tres (acta, NLogin y acta). Solo
+se siguen esas redirecciones, nunca a otra página, y sin reintentos.
+
+Uso:
+  rfaf_acta.py <cod_primaria> <cod_acta>   descarga y parsea el acta
+  rfaf_acta.py --html <fichero>            parsea un HTML ya guardado (tests)
+
+Salida con error: {"error": "..."} y código de salida 1.
+"""
+
+import json
+import os
+import re
+import sys
+import unicodedata
+
+from bs4 import BeautifulSoup
+
+URL_ACTA = "https://www.rfaf.es/pnfg/NPcd/NFG_CmpPartido"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/154.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+}
+
+
+MAX_PETICIONES = 3
+
+
+def descargar_acta(cod_primaria, cod_acta):
+    """Devuelve (html, cookie). Ver el docstring del módulo."""
+    return descargar(URL_ACTA, {"cod_primaria": cod_primaria, "CodActa": cod_acta}, "el acta")
+
+
+def descargar(url_base, params, que):
+    """GET a una página de RFAF con la sesión de RFAF_COOKIE (y el ida y vuelta
+    por NLogin si ha caducado). Devuelve (html, cookie). `que` es para los
+    mensajes de error ("el acta", "la clasificación")."""
+    import requests
+    from urllib.parse import urljoin, urlparse
+
+    sesion = requests.Session()
+    sesion.headers.update(HEADERS)
+    cookie = os.environ.get("RFAF_COOKIE", "").strip()
+    if cookie:
+        sesion.headers["Cookie"] = cookie
+
+    url = requests.Request("GET", url_base, params=params).prepare().url
+    siguiente = url
+    for _ in range(MAX_PETICIONES):
+        res = sesion.get(siguiente, timeout=30, allow_redirects=False)
+        nueva = res.cookies.get("JSESSIONID")
+        if nueva:
+            # La sesión anterior ya no vale: a partir de aquí, la nueva.
+            sesion.headers["Cookie"] = f"JSESSIONID={nueva}"
+        if not 300 <= res.status_code < 400:
+            break
+        destino = urljoin(siguiente, res.headers.get("Location") or "")
+        parsed = urlparse(destino)
+        # Solo el ida y vuelta por NLogin que hace RFAF para crear la sesión.
+        if parsed.netloc != "www.rfaf.es" or (parsed.path != "/pnfg/NLogin" and destino != url):
+            raise RuntimeError(f"RFAF ha redirigido a una página inesperada ({destino}).")
+        siguiente = destino
+    else:
+        raise RuntimeError(f"RFAF no ha entregado {que} (demasiadas redirecciones).")
+
+    if res.status_code != 200:
+        raise RuntimeError(f"RFAF respondió {res.status_code} al pedir {que}.")
+    res.encoding = res.encoding or "utf-8"
+    if not res.text.strip():
+        # Pasa cuando la sesión no vale y RFAF no la deja crear (p.ej. desde
+        # la IP del servidor): hay que dar una JSESSIONID de un navegador.
+        raise RuntimeError(f"RFAF ha devuelto {que} vacía: la sesión de RFAF no es válida, "
+                           "hay que poner una JSESSIONID nueva en RFAF_COOKIE.")
+    return res.text, sesion.headers.get("Cookie", "")
+
+
+def limpiar(texto):
+    return re.sub(r"\s+", " ", texto or "").strip()
+
+
+def normalizar_nombre(texto):
+    """"Pérez Gómez, Juan" -> "PEREZ GOMEZ JUAN" (mismo criterio que el backend)."""
+    texto = unicodedata.normalize("NFD", limpiar(texto).upper())
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return re.sub(r"\s+", " ", texto.replace(",", " ")).strip()
+
+
+def texto_sin_minuto(td):
+    """Celda "<span>(22')</span> APELLIDOS, NOMBRE" -> (nombre, minuto)."""
+    span = td.find("span")
+    minuto = None
+    if span:
+        m = re.search(r"\d+", span.get_text())
+        minuto = int(m.group()) if m else None
+        span.extract()
+    return limpiar(td.get_text()), minuto
+
+
+FOTO_GENERICA = re.compile(r"sin_?foto|no_?foto|silueta|default|avatar", re.I)
+
+
+def foto_de(td):
+    """Foto del jugador (img.fotojug): una imagen en línea (data:image/…) o la
+    dirección absoluta en rfaf.es. No se descarga (sería una petición más a
+    RFAF por jugador): la carga el navegador. Sin foto o con la genérica, None."""
+    from urllib.parse import urljoin, urlparse
+
+    img = td.find("img") if td else None
+    src = limpiar(img.get("src") if img else "")
+    if not src or FOTO_GENERICA.search(src):
+        return None
+    if src.startswith("data:image/"):
+        return src
+    url = urljoin(URL_ACTA, src)
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not (parsed.netloc == "rfaf.es" or parsed.netloc.endswith(".rfaf.es")):
+        return None
+    return url
+
+
+def tabla_tras(etiqueta):
+    return etiqueta.find_next("table") if etiqueta else None
+
+
+def es_cuerpo_tecnico(texto):
+    """"Cuerpo Técnico" (con o sin tilde, en mayúsculas o no)."""
+    return "CUERPO TECNICO" in normalizar_nombre(texto)
+
+
+def tabla_de_seccion(h5):
+    """La tabla de esa sección: la siguiente al título, siempre que no haya
+    antes otro título (si la sección está vacía, no se coge la de la siguiente,
+    p. ej. la del cuerpo técnico)."""
+    if not h5:
+        return None
+    for el in h5.find_all_next(["table", "h4", "h5"]):
+        return el if el.name == "table" else None
+    return None
+
+
+def jugadores_de(bloque, titulo, titular):
+    """Jugadores de la tabla Titulares / Suplentes. A partir de una fila o un
+    título "Cuerpo Técnico" son entrenadores y delegados, no jugadores."""
+    h5 = next((h for h in bloque.find_all("h5") if limpiar(h.get_text()) == titulo), None)
+    tabla = tabla_de_seccion(h5)
+    jugadores = []
+    if not tabla:
+        return jugadores
+    for tr in tabla.find_all("tr"):
+        if es_cuerpo_tecnico(tr.get_text()):
+            break
+        tds = tr.find_all("td")
+        if len(tds) < 3:
+            continue
+        nombre = limpiar(tds[2].get_text())
+        if not nombre:
+            continue
+        dorsal = limpiar(tds[0].get_text())
+        jugadores.append({
+            "dorsal": int(dorsal) if dorsal.isdigit() else None,
+            "nombre": nombre,
+            "foto": foto_de(tds[1]),
+            "titular": titular,
+            "goles": 0,
+            "tarjeta_amarilla": 0,
+            "tarjeta_roja": 0,
+            "minuto_entrada": None,
+            "minuto_salida": None,
+        })
+    return jugadores
+
+
+def cuerpos_tecnicos(soup):
+    """Cuerpo técnico de cada equipo, en el orden del acta (local, visitante).
+    Tras cada cabecera "Cuerpo Técnico" vienen sus miembros, cada uno un h5
+    "Rol: Nombre" (Entrenador, DEL. Campo, DEL. Equipo…) con una tabla interna
+    [foto, nombre]. Devuelve una lista por equipo de {nombre, foto, rol}."""
+    bloques = []
+    actual = None
+    # "Cuerpo Técnico" es un h4 y cada miembro un h5: hay que recorrer ambos.
+    for h in soup.find_all(["h4", "h5"]):
+        t = limpiar(h.get_text())
+        if es_cuerpo_tecnico(t):
+            actual = []
+            bloques.append(actual)
+            continue
+        if actual is None:
+            continue
+        if t in ("Titulares", "Suplentes"):  # empieza otra sección: fin del bloque
+            actual = None
+            continue
+        if ":" not in t or not h.find("img"):
+            continue
+        rol, nombre = t.split(":", 1)
+        nombre = limpiar(nombre)
+        if nombre:
+            actual.append({"nombre": nombre, "foto": foto_de(h), "rol": limpiar(rol)})
+    return bloques
+
+
+def sustituciones_de(bloque):
+    """Cambios del equipo: bajo el h4 "Sustituciones" hay una tabla por cambio
+    con el que entra (flecha izquierda) y el que sale (flecha derecha, con el
+    minuto entre paréntesis, que es el del cambio para los dos).
+    Devuelve [(minuto, dorsal_entra, nombre_entra, dorsal_sale, nombre_sale)]."""
+    h4 = next((h for h in bloque.find_all("h4") if limpiar(h.get_text()) == "Sustituciones"), None)
+    cambios = []
+    if not h4:
+        return cambios
+    for el in h4.find_all_next(["table", "h4", "h5"]):
+        if el.name != "table":
+            break  # siguiente sección ("Tarjetas")
+        entra = sale = None
+        minuto = None
+        for tr in el.find_all("tr"):
+            tds = tr.find_all("td")
+            icono = tr.find("i")
+            clases = icono.get("class", []) if icono else []
+            if len(tds) < 2 or not clases:
+                continue
+            dorsal = limpiar(tds[0].get_text())
+            nombre, minuto_fila = texto_sin_minuto(tds[1])
+            datos = (int(dorsal) if dorsal.isdigit() else None, nombre)
+            if "fa-arrow-left" in clases:
+                entra = datos
+            elif "fa-arrow-right" in clases:
+                sale = datos
+                minuto = minuto_fila
+        if minuto is not None and (entra or sale):
+            cambios.append((minuto, *(entra or (None, None)), *(sale or (None, None))))
+    return cambios
+
+
+def buscar_jugador(jugadores, dorsal, nombre):
+    clave = normalizar_nombre(nombre) if nombre else None
+    return (next((j for j in jugadores if clave and normalizar_nombre(j["nombre"]) == clave), None)
+            or next((j for j in jugadores if dorsal is not None and j["dorsal"] == dorsal), None))
+
+
+def tarjetas_de(bloque):
+    h4 = next((h for h in bloque.find_all("h4") if limpiar(h.get_text()) == "Tarjetas"), None)
+    tabla = tabla_tras(h4)
+    tarjetas = []
+    if not tabla:
+        return tarjetas
+    for tr in tabla.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 2:
+            continue
+        img = tds[0].find("img")
+        src = (img.get("src") if img else "") or ""
+        tipo = "roja" if "tarj_roja" in src else ("amarilla" if "tarj_amar" in src else None)
+        nombre, minuto = texto_sin_minuto(tds[1])
+        if tipo and nombre:
+            tarjetas.append((tipo, normalizar_nombre(nombre), minuto))
+    return tarjetas
+
+
+def goles_del_partido(soup):
+    """Goles de todo el partido. El color del balón indica el tipo: verde =
+    normal, azul = penalti, rojo = en propia puerta."""
+    goles = []
+    for div in soup.select("div.number"):
+        if limpiar(div.get_text()) != "Goles":
+            continue
+        tabla = div.parent.find("table")
+        if not tabla:
+            continue
+        for tr in tabla.find_all("tr"):
+            tds = tr.find_all("td")
+            if len(tds) < 2:
+                continue
+            icono = tds[0].find("i")
+            color = re.sub(r"\s+", "", (icono.get("style") if icono else "") or "").lower()
+            tipo = "propia" if "color:red" in color else (
+                "penalti" if ("rgb(21,114,228)" in color or "#1572e4" in color) else "normal")
+            nombre, minuto = texto_sin_minuto(tds[1])
+            if nombre:
+                goles.append({"tipo": tipo, "nombre": nombre, "minuto": minuto})
+    return goles
+
+
+def parsear_acta(html):
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Cada equipo es un div.dashboard-stat con su nombre en .number y las
+    # tablas "Titulares"/"Suplentes"; el primero es el local.
+    equipos = []
+    for bloque in soup.select("div.dashboard-stat"):
+        numero = bloque.select_one(".number")
+        if not numero or not any(limpiar(h.get_text()) == "Titulares" for h in bloque.find_all("h5")):
+            continue
+        jugadores = jugadores_de(bloque, "Titulares", True) + jugadores_de(bloque, "Suplentes", False)
+        tarjetas_equipo = []
+        for minuto, dorsal_entra, nombre_entra, dorsal_sale, nombre_sale in sustituciones_de(bloque):
+            entra = buscar_jugador(jugadores, dorsal_entra, nombre_entra)
+            sale = buscar_jugador(jugadores, dorsal_sale, nombre_sale)
+            if entra:
+                entra["minuto_entrada"] = minuto
+            if sale:
+                sale["minuto_salida"] = minuto
+        for tipo, nombre, minuto in tarjetas_de(bloque):
+            for j in jugadores:
+                if normalizar_nombre(j["nombre"]) != nombre:
+                    continue
+                j["tarjeta_amarilla" if tipo == "amarilla" else "tarjeta_roja"] += 1
+                tarjetas_equipo.append({"nombre": j["nombre"], "tipo": tipo, "minuto": minuto})
+                # El expulsado juega hasta el minuto de la roja (si estaba en el
+                # campo: titular o suplente que ya había entrado).
+                en_campo = j["titular"] or j["minuto_entrada"] is not None
+                if tipo == "roja" and minuto is not None and en_campo \
+                        and (j["minuto_salida"] is None or minuto < j["minuto_salida"]):
+                    j["minuto_salida"] = minuto
+        equipos.append({"nombre": limpiar(numero.get_text()), "jugadores": jugadores, "goles": 0, "tarjetas": tarjetas_equipo, "cuerpo_tecnico": []})
+
+    if len(equipos) != 2:
+        raise RuntimeError("El acta no tiene el formato esperado (no aparecen los dos equipos).")
+    local, visitante = equipos
+
+    # El cuerpo técnico va en cabeceras h5 fuera del bloque del equipo, en orden
+    # (local, visitante): se asigna a cada uno por ese orden.
+    tecnicos = cuerpos_tecnicos(soup)
+    local["cuerpo_tecnico"] = tecnicos[0] if len(tecnicos) > 0 else []
+    visitante["cuerpo_tecnico"] = tecnicos[1] if len(tecnicos) > 1 else []
+
+    # Cada gol se asigna al equipo del jugador; uno en propia puerta suma al
+    # rival y no cuenta como gol del jugador. "goles" guarda el minuto y el
+    # equipo que suma cada gol (para saber el marcador en cada momento).
+    goles = []
+    for gol in goles_del_partido(soup):
+        nombre = normalizar_nombre(gol["nombre"])
+        for equipo, rival in ((local, visitante), (visitante, local)):
+            jugador = next((j for j in equipo["jugadores"] if normalizar_nombre(j["nombre"]) == nombre), None)
+            if not jugador:
+                continue
+            suma = rival if gol["tipo"] == "propia" else equipo
+            suma["goles"] += 1
+            if gol["tipo"] != "propia":
+                jugador["goles"] += 1
+            goles.append({
+                "minuto": gol["minuto"],
+                "equipo": "local" if suma is local else "visitante",
+                "nombre": jugador["nombre"],
+                "tipo": gol["tipo"],
+            })
+            break
+
+    return {
+        "local": local,
+        "visitante": visitante,
+        "resultado": f"{local['goles']}-{visitante['goles']}",
+        "goles": goles,
+    }
+
+
+def main(argv):
+    try:
+        cookie = ""
+        if len(argv) == 3 and argv[1] == "--html":
+            with open(argv[2], encoding="utf-8") as f:
+                html = f.read()
+        elif len(argv) == 3:
+            html, cookie = descargar_acta(argv[1], argv[2])
+        else:
+            raise RuntimeError("Uso: rfaf_acta.py <cod_primaria> <cod_acta> | --html <fichero>")
+        print(json.dumps({**parsear_acta(html), "cookie": cookie}, ensure_ascii=False))
+        return 0
+    except Exception as e:  # noqa: BLE001 - cualquier fallo se devuelve como JSON
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

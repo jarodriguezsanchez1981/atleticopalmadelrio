@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 const ESCUDO_CLUB = '/escudo.png';
 const NOMBRE_CLUB = 'Atlético Palma del Río';
 
-const VERDE = '#0B3D2E';
+const VERDE = '#0F3D22';
 const GRIS = '#64748B';
 
 const anchoA4 = 210;

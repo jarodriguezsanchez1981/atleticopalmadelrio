@@ -1,4 +1,6 @@
 const { Delegado } = require('../models');
+const { esUrlImagen } = require('../utils/imagenes');
+const { whereDni } = require('../utils/dniCrypto.mixin');
 const { validarDNI } = require('../utils/dni.utils');
 
 async function listar(req, res, next) {
@@ -20,7 +22,7 @@ async function obtener(req, res, next) {
 
 async function crear(req, res, next) {
   try {
-    const { nombre, apellidos, dni, foto, tipo, telefono } = req.body;
+    const { nombre, apellidos, dni, foto, tipo, email, telefono } = req.body;
     if (!nombre || !apellidos) {
       return res.status(400).json({ message: 'Nombre y apellidos son obligatorios.' });
     }
@@ -28,10 +30,10 @@ async function crear(req, res, next) {
       if (!validarDNI(dni)) {
         return res.status(400).json({ message: 'El DNI introducido no es válido.' });
       }
-      const existe = await Delegado.findOne({ where: { dni } });
+      const existe = await Delegado.findOne({ where: whereDni(dni) });
       if (existe) return res.status(409).json({ message: 'Ya existe un delegado con ese DNI.' });
     }
-    const delegado = await Delegado.create({ nombre, apellidos, dni: dni || null, foto: foto || null, tipo: tipo || 'campo', telefono: telefono || null });
+    const delegado = await Delegado.create({ nombre, apellidos, dni: dni || null, foto: esUrlImagen(foto) ? null : (foto || null), tipo: tipo || 'campo', email: email || null, telefono: telefono || null });
     res.status(201).json(delegado);
   } catch (err) { next(err); }
 }
@@ -40,20 +42,22 @@ async function actualizar(req, res, next) {
   try {
     const delegado = await Delegado.findOne({ where: { id: req.params.id } });
     if (!delegado) return res.status(404).json({ message: 'Delegado no encontrado.' });
-    const { nombre, apellidos, dni, foto, tipo, telefono } = req.body;
+    const { nombre, apellidos, dni, foto, tipo, email, telefono } = req.body;
     if (nombre !== undefined) delegado.nombre = nombre;
     if (apellidos !== undefined) delegado.apellidos = apellidos;
+    if (email !== undefined) delegado.email = email || null;
     if (dni !== undefined && dni !== delegado.dni) {
       if (dni) {
         if (!validarDNI(dni)) {
           return res.status(400).json({ message: 'El DNI introducido no es válido.' });
         }
-        const existe = await Delegado.findOne({ where: { dni, id: { ne: delegado.id } } });
+        const existe = await Delegado.findOne({ where: { ...whereDni(dni), id: { ne: delegado.id } } });
         if (existe) return res.status(409).json({ message: 'Ya existe otro delegado con ese DNI.' });
       }
       delegado.dni = dni || null;
     }
-    if (foto !== undefined) delegado.foto = foto || null;
+    // La URL de /api/imagenes es la foto que ya tenía: no se toca.
+    if (foto !== undefined && !esUrlImagen(foto)) delegado.foto = foto || null;
     if (tipo !== undefined) delegado.tipo = tipo;
     if (telefono !== undefined) delegado.telefono = telefono || null;
     await delegado.save();

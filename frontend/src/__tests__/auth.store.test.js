@@ -12,7 +12,11 @@ const mockLocalStorage = {
 vi.mock('../services/index.js', () => ({
   authService: {
     login: vi.fn(),
-    me: vi.fn()
+    me: vi.fn(),
+    logout: vi.fn(),
+    verificar2fa: vi.fn(),
+    enrolar2faInicio: vi.fn(),
+    enrolar2faConfirmar: vi.fn()
   }
 }));
 
@@ -26,78 +30,159 @@ describe('Auth Store', () => {
     vi.clearAllMocks();
   });
 
-  it('estado inicial lee localStorage', () => {
+  it('estado inicial lee el usuario de localStorage (el token no: va en la cookie HttpOnly)', () => {
     mockLocalStorage.store = {
-      apr_token: 'tok',
       apr_user: JSON.stringify({ id: 1, usuario: 'admin', secciones: ['calendario'] })
     };
     const store = useAuthStore();
-    expect(store.token).toBe('tok');
+    expect(store).not.toHaveProperty('token');
     expect(store.user.usuario).toBe('admin');
     expect(store.isAuthenticated).toBe(true);
   });
 
-  it('puedeVer consulta secciones', () => {
+  it('puedeVer consulta permisos por sección', () => {
     const store = useAuthStore();
-    store.user = { secciones: ['jugadores'] };
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: false } } };
     expect(store.puedeVer('jugadores')).toBe(true);
     expect(store.puedeVer('administracion')).toBe(false);
   });
 
-  it('visibilidad "editar" permite crear, editar y eliminar', () => {
+  it('permiso "editar" en una sección permite crear, editar y eliminar en esa sección', () => {
     const store = useAuthStore();
-    store.user = { secciones: [], visibilidad: 'editar' };
-    expect(store.puedeCrear()).toBe(true);
-    expect(store.puedeEditar()).toBe(true);
-    expect(store.puedeEliminar()).toBe(true);
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: true } } };
+    expect(store.puedeCrear('jugadores')).toBe(true);
+    expect(store.puedeEditar('jugadores')).toBe(true);
+    expect(store.puedeEliminar('jugadores')).toBe(true);
   });
 
-  it('visibilidad "leer" bloquea creación, edición y borrado', () => {
+  it('solo permiso de "ver" bloquea creación, edición y borrado', () => {
     const store = useAuthStore();
-    store.user = { secciones: [], visibilidad: 'leer' };
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: false } } };
+    expect(store.puedeCrear('jugadores')).toBe(false);
+    expect(store.puedeEditar('jugadores')).toBe(false);
+    expect(store.puedeEliminar('jugadores')).toBe(false);
+  });
+
+  it('sin clave, puedeCrear/puedeEditar/puedeEliminar siempre son false', () => {
+    const store = useAuthStore();
+    store.user = { secciones: ['jugadores'], permisos: { jugadores: { ver: true, editar: true } } };
     expect(store.puedeCrear()).toBe(false);
     expect(store.puedeEditar()).toBe(false);
     expect(store.puedeEliminar()).toBe(false);
   });
 
-  it('login guarda token y usuario', async () => {
-    authService.login.mockResolvedValue({
-      token: 'abc',
-      user: { id: 1, usuario: 'admin', secciones: ['calendario'] }
+  it('login no inicia sesión: devuelve el paso de 2FA', async () => {
+    authService.login.mockResolvedValue({ twofa: 'verificar', nombre: 'Admin' });
+    const store = useAuthStore();
+    const resp = await store.login('admin', 'Admin#2026');
+    expect(resp).toEqual({ twofa: 'verificar', nombre: 'Admin' });
+    // Todavía no hay sesión hasta superar el segundo factor.
+    expect(store.isAuthenticated).toBe(false);
+    expect(mockLocalStorage.store.apr_user).toBeUndefined();
+  });
+
+  it('verificar2fa guarda el usuario e inicia sesión', async () => {
+    authService.verificar2fa.mockResolvedValue({ user: { id: 1, usuario: 'admin', secciones: ['calendario'] } });
+    const store = useAuthStore();
+    const user = await store.verificar2fa('123456');
+    expect(user.usuario).toBe('admin');
+    expect(store.isAuthenticated).toBe(true);
+    expect(JSON.parse(mockLocalStorage.store.apr_user).usuario).toBe('admin');
+  });
+
+  it('enrolar2faConfirmar inicia sesión y devuelve los códigos de recuperación', async () => {
+    authService.enrolar2faConfirmar.mockResolvedValue({
+      user: { id: 2, usuario: 'nuevo', secciones: [] },
+      codigos_recuperacion: ['AAAAA-11111', 'BBBBB-22222']
     });
     const store = useAuthStore();
-    const user = await store.login('admin', 'Admin#2026');
-    expect(user.usuario).toBe('admin');
-    expect(store.token).toBe('abc');
-    expect(mockLocalStorage.store.apr_token).toBe('abc');
+    const codigos = await store.enrolar2faConfirmar('123456');
+    expect(codigos).toEqual(['AAAAA-11111', 'BBBBB-22222']);
+    expect(store.user.usuario).toBe('nuevo');
+    expect(store.isAuthenticated).toBe(true);
   });
 
-  it('logout limpia estado y localStorage', () => {
+  it('logout limpia el estado y cierra la sesión en el backend', async () => {
+    authService.logout.mockResolvedValue({});
+    mockLocalStorage.store.apr_user = JSON.stringify({ id: 1 });
     const store = useAuthStore();
-    store.token = 'abc';
-    store.user = { id: 1 };
-    store.logout();
-    expect(store.token).toBeNull();
+    await store.logout();
     expect(store.user).toBeNull();
-    expect(mockLocalStorage.store.apr_token).toBeUndefined();
+    expect(store.isAuthenticated).toBe(false);
+    expect(mockLocalStorage.store.apr_user).toBeUndefined();
+    expect(authService.logout).toHaveBeenCalled();
   });
 
-  it('restoreSession actualiza usuario', async () => {
-    authService.me.mockResolvedValue({ id: 2, usuario: 'x' });
-    mockLocalStorage.store.apr_token = 'tok';
+  it('restoreSession sin sesión no llama al backend', async () => {
     const store = useAuthStore();
-    store.token = 'tok';
     await store.restoreSession();
+    expect(authService.me).not.toHaveBeenCalled();
+  });
+
+  it('restoreSession actualiza el usuario (la cookie la renueva el backend)', async () => {
+    authService.me.mockResolvedValue({ id: 2, usuario: 'x' });
+    mockLocalStorage.store.apr_user = JSON.stringify({ id: 2, usuario: 'antes' });
+    const store = useAuthStore();
+    await store.restoreSession();
+    expect(authService.me).toHaveBeenCalled();
     expect(store.user.usuario).toBe('x');
   });
 
-  it('restoreSession hace logout si falla', async () => {
+  it('restoreSession cierra la sesión si falla', async () => {
     authService.me.mockRejectedValue(new Error('expired'));
-    mockLocalStorage.store.apr_token = 'tok';
+    mockLocalStorage.store.apr_user = JSON.stringify({ id: 2 });
     const store = useAuthStore();
-    store.token = 'tok';
     await store.restoreSession();
-    expect(store.token).toBeNull();
-    expect(mockLocalStorage.store.apr_token).toBeUndefined();
+    expect(store.user).toBeNull();
+    expect(mockLocalStorage.store.apr_user).toBeUndefined();
+  });
+
+  it('Firma Email solo la ven los coordinadores aunque un entrenador tenga el permiso', () => {
+    const store = useAuthStore();
+    const permisos = { firma_email: { ver: true, editar: true }, calendario: { ver: true, editar: false } };
+    store.user = { id: 1, rol: 'coordinador', permisos };
+    expect(store.puedeVer('firma_email')).toBe(true);
+    store.user = { id: 2, rol: 'entrenador', permisos };
+    expect(store.puedeVer('firma_email')).toBe(false);
+    expect(store.puedeVer('calendario')).toBe(true);
+  });
+
+  it('esAdmin solo es true para el usuario "admin"', () => {
+    const store = useAuthStore();
+    store.user = { id: 1, usuario: 'admin', rol: 'coordinador' };
+    expect(store.esAdmin).toBe(true);
+    store.user = { id: 2, usuario: 'pepe', rol: 'coordinador' };
+    expect(store.esAdmin).toBe(false);
+    store.user = null;
+    expect(store.esAdmin).toBe(false);
+  });
+
+  it('las Estadísticas (Senior A) solo las ve el entrenador de esa categoría; los coordinadores, todas', () => {
+    const store = useAuthStore();
+    const permisos = { estadisticas_goles: { ver: true, editar: false }, calendario: { ver: true, editar: false } };
+    // Coordinador: las ve aunque no tenga categoría.
+    store.user = { id: 1, rol: 'coordinador', permisos };
+    expect(store.puedeVer('estadisticas_goles')).toBe(true);
+    // Entrenador de otra categoría: no las ve aunque tenga el permiso.
+    store.user = { id: 2, rol: 'entrenador', id_categoria: 9, categoria_nombre: 'Infantil A', permisos };
+    expect(store.puedeVer('estadisticas_goles')).toBe(false);
+    expect(store.puedeVer('calendario')).toBe(true);
+    // Entrenador de Senior A: sí las ve.
+    store.user = { id: 3, rol: 'entrenador', id_categoria: 4, categoria_nombre: 'Senior A', permisos };
+    expect(store.puedeVer('estadisticas_goles')).toBe(true);
+  });
+
+  it('las Estadísticas por categoría las ve todo el mundo menos el entrenador de Senior A', () => {
+    const store = useAuthStore();
+    const permisos = { estadisticas_cat_goles: { ver: true, editar: false } };
+    // Coordinador: las ve.
+    store.user = { id: 1, rol: 'coordinador', permisos };
+    expect(store.puedeVer('estadisticas_cat_goles')).toBe(true);
+    // Entrenador de otra categoría: las ve (son las de su categoría).
+    store.user = { id: 2, rol: 'entrenador', id_categoria: 9, categoria_nombre: 'Infantil A', permisos };
+    expect(store.puedeVer('estadisticas_cat_goles')).toBe(true);
+    // Entrenador de Senior A: NO las ve (ya tiene su propio apartado).
+    store.user = { id: 3, rol: 'entrenador', id_categoria: 4, categoria_nombre: 'Senior A', permisos };
+    expect(store.puedeVer('estadisticas_cat_goles')).toBe(false);
   });
 });

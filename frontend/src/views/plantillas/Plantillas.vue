@@ -7,8 +7,12 @@ import Select from 'primevue/select';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Checkbox from 'primevue/checkbox';
+import MultiSelect from 'primevue/multiselect';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
 import { useToast } from 'primevue/usetoast';
-import { plantillasService, categoriasService, temporadasService, divisionesService, jugadoresService, entrenadoresService, delegadosService } from '../../services';
+import { plantillasService, categoriasService, temporadasService, divisionesService, coordinadoresService, jugadoresService, entrenadoresService, delegadosService, personalService, posicionesService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import CamisetaDorsal from '../../components/CamisetaDorsal.vue';
 
@@ -18,9 +22,14 @@ const toast = useToast();
 const categorias = ref([]);
 const temporadas = ref([]);
 const divisiones = ref([]);
+const coordinadores = ref([]);
 const jugadores = ref([]);
 const entrenadores = ref([]);
 const delegados = ref([]);
+// Personal del club: solo se asigna a la plantilla de Senior A.
+const personal = ref([]);
+const CATEGORIA_CON_PERSONAL = 'Senior A';
+const posiciones = ref([]);
 const plantillasExistentes = ref([]);
 let unsubCambio = null;
 
@@ -29,21 +38,28 @@ const temporadaSeleccionada = ref(null);
 const creandoTemporada = ref(false);
 
 async function cargarOpciones() {
-  const [cats, temps, divs, jug, ents, dels, plants] = await Promise.all([
+  const [cats, temps, divs, coords, jug, ents, dels, pos, pers, plants] = await Promise.all([
     categoriasService.listar(),
     temporadasService.listar(),
     divisionesService.listar().catch(() => []),
+    coordinadoresService.listar().catch(() => []),
     jugadoresService.listar(),
     entrenadoresService.listar(),
     delegadosService.listar(),
+    posicionesService.listar().catch(() => []),
+    // Sin permiso de Personal ni de plantillas de Senior A, vacío.
+    personalService.listar().catch(() => []),
     plantillasService.listar()
   ]);
   categorias.value = cats;
   temporadas.value = temps;
   divisiones.value = divs;
+  coordinadores.value = coords;
   jugadores.value = jug;
   entrenadores.value = ents;
   delegados.value = dels;
+  personal.value = pers;
+  posiciones.value = pos;
   plantillasExistentes.value = plants;
 }
 
@@ -90,6 +106,21 @@ async function crearPlantillaTemporada() {
   }
 }
 
+/** Mientras haya una temporada marcada como actual, la tabla solo muestra sus plantillas. */
+// Pestañas Fútbol 7 / Fútbol 11: la tabla solo enseña las plantillas cuya
+// categoría es de ese tipo de fútbol (tipofutbol: 1 = Fútbol 7, 2 = Fútbol 11).
+const PESTANAS_TIPO_FUTBOL = [
+  { valor: 1, titulo: 'Fútbol 7' },
+  { valor: 2, titulo: 'Fútbol 11' }
+];
+const tipoFutbolPestana = ref(1);
+const filtroTipoFutbol = (p) => Number(p.categoria?.id_tipofutbol) === tipoFutbolPestana.value;
+
+const listParamsPlantillas = computed(() => {
+  const actual = temporadas.value.find(t => t.actual);
+  return actual ? { id_temporada: actual.id } : {};
+});
+
 const opcionesTemporada = computed(() =>
   temporadas.value.map(t => ({ label: t.nombre, value: t.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
@@ -111,18 +142,40 @@ const opcionesDivision = computed(() =>
   divisiones.value.map(d => ({ label: d.nombre, value: d.id })).sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
+/** Solo coordinadores cuyo tipo de fútbol coincide con el de la categoría seleccionada. */
+function opcionesCoordinador(form) {
+  const categoria = categorias.value.find(c => c.id === form?.id_categoria);
+  const idTipoFutbol = categoria?.id_tipofutbol ?? null;
+  if (!idTipoFutbol) return [];
+  return coordinadores.value
+    .filter(c => (c.ids_tipos_futbol || []).includes(idTipoFutbol))
+    .map(c => ({ label: `${c.nombre} ${c.apellidos}`, value: c.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+}
+
 const opcionesEntrenador = computed(() =>
-  entrenadores.value.map(e => ({ label: `${e.apellidos}, ${e.nombre}`, value: e.id }))
+  entrenadores.value.map(e => ({ label: `${e.nombre} ${e.apellidos}`, value: e.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
+const opcionesPersonal = computed(() =>
+  personal.value.map(p => ({ label: `${p.nombre} ${p.apellidos}${p.tipoPersonal?.nombre ? ` · ${p.tipoPersonal.nombre}` : ''}`, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesDelegado = computed(() =>
-  delegados.value.map(d => ({ label: `${d.apellidos}, ${d.nombre}`, value: d.id }))
+  delegados.value.map(d => ({ label: `${d.nombre} ${d.apellidos}`, value: d.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
 const opcionesJugador = computed(() =>
-  jugadores.value.map(j => ({ label: `${j.apellidos}, ${j.nombre}`, value: j.id }))
+  jugadores.value.map(j => ({ label: `${j.nombre} ${j.apellidos}`, value: j.id }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+);
+
+const opcionesPosicion = computed(() =>
+  posiciones.value
+    .map(p => ({ label: p.alias || p.nombre, value: p.id }))
     .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 );
 
@@ -130,16 +183,29 @@ const columns = computed(() => [
   { field: 'id_temporada', header: 'Temporada', type: 'select', options: opcionesTemporada.value, required: true, enDetalle: false },
   { field: 'id_categoria', header: 'Categoría', type: 'select', options: opcionesCategoriaDisponibles, required: true, enDetalle: false },
   { field: 'id_division', header: 'División', type: 'select', options: opcionesDivision.value, required: false, enDetalle: false },
+  { field: 'id_coordinador', header: 'Coordinador', type: 'select', options: opcionesCoordinador, required: false, enDetalle: false },
+  { field: 'codigo_competicion', header: 'Cód. Competición', type: 'text', required: false, enDetalle: false, enTabla: false },
+  { field: 'codigo_grupo', header: 'Cód. Grupo', type: 'text', required: false, enDetalle: false, enTabla: false },
+  { field: 'codigo_temporada', header: 'Cód. Temporada', type: 'text', required: false, enDetalle: false, enTabla: false },
+  { field: 'codigo_equipo', header: 'Cód. Equipo', type: 'text', required: false, enDetalle: false, enTabla: false },
   { field: 'ids_entrenadores', header: 'Entrenadores', type: 'multiselect', options: opcionesEntrenador.value, required: false, filter: true, filterMinLength: 3, relation: 'entrenadores', enDetalle: false, enForm: false },
-  { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false }
+  { field: 'ids_delegados', header: 'Delegados', type: 'multiselect', options: opcionesDelegado.value, required: false, filter: true, filterMinLength: 3, relation: 'delegados', enDetalle: false, enForm: false },
+  // Solo para cargar ids_personal al editar (relation); se edita en la tabla Personal del formulario.
+  { field: 'ids_personal', header: 'Personal', type: 'multiselect', options: opcionesPersonal.value, required: false, relation: 'personal', enDetalle: false, enForm: false, enTabla: false }
 ]);
 
 const emptyItem = {
   id_temporada: null,
   id_categoria: null,
   id_division: null,
+  id_coordinador: null,
+  codigo_competicion: '',
+  codigo_grupo: '',
+  codigo_temporada: '',
+  codigo_equipo: '',
   ids_entrenadores: [],
   ids_delegados: [],
+  ids_personal: [],
   jugadores: []
 };
 
@@ -155,14 +221,27 @@ function nombreDivision(id) {
   return divisiones.value.find(d => d.id === id)?.nombre || '—';
 }
 
+function nombreCoordinador(id) {
+  const c = coordinadores.value.find(c => c.id === id);
+  return c ? `${c.nombre} ${c.apellidos}` : '—';
+}
+
 function formatearJugador(j) {
   const jp = j.PlantillaJugador || {};
   return {
     id_jugador: j.id,
     dorsal: jp.dorsal,
     talla: jp.talla,
-    promocion: jp.promocion || false
+    alias: jp.alias || '',
+    promocion: jp.promocion || false,
+    ids_posiciones: (jp.posiciones || []).map(p => p.id),
+    veces_convocado_superior: jp.veces_convocado_superior ?? 0
   };
+}
+
+function posicionesDe(pos) {
+  if (!Array.isArray(pos)) return [];
+  return pos.map(p => p.alias || p.nombre);
 }
 
 function prepareEdit(item) {
@@ -180,6 +259,7 @@ function prepareEdit(item) {
 const nuevoEntrenador = ref(null);
 const nuevoDelegado = ref(null);
 const nuevoJugador = ref(null);
+const nuevasPosiciones = ref([]);
 const nuevoDorsal = ref(null);
 const nuevaTalla = ref(null);
 const keySelectJugador = ref(0);
@@ -188,6 +268,39 @@ const ordenJugadoresDetalle = ref({ campo: 'nombre', asc: true });
 
 function entrenadorInfo(id) {
   return entrenadores.value.find(e => e.id === id);
+}
+
+function nombreCompleto(idJugador) {
+  const j = jugadorInfo(idJugador);
+  return j ? `${j.nombre} ${j.apellidos}`.trim() : '';
+}
+
+/** La tabla Personal (y la columna Alias de los jugadores) del formulario
+ * solo sale con la categoría Senior A. */
+function conPersonal(form) {
+  return categorias.value.find((c) => c.id === form?.id_categoria)?.nombre === CATEGORIA_CON_PERSONAL;
+}
+
+function personalInfo(id) {
+  return personal.value.find(p => p.id === id);
+}
+
+const nuevoPersonal = ref(null);
+
+function addPersonal(form) {
+  if (!nuevoPersonal.value) return;
+  if (!form.ids_personal) form.ids_personal = [];
+  if (!form.ids_personal.includes(nuevoPersonal.value)) form.ids_personal.push(nuevoPersonal.value);
+  nuevoPersonal.value = null;
+}
+
+function removePersonal(form, id) {
+  form.ids_personal = (form.ids_personal || []).filter(i => i !== id);
+}
+
+function opcionesPersonalDisponibles(form) {
+  const usados = new Set(form?.ids_personal || []);
+  return opcionesPersonal.value.filter(o => !usados.has(o.value));
 }
 
 function delegadoInfo(id) {
@@ -237,11 +350,16 @@ function addJugador(form) {
       id_jugador: nuevoJugador.value,
       dorsal: nuevoDorsal.value ?? null,
       talla: nuevaTalla.value || null,
-      promocion: false
+      // Senior A: el alias empieza siendo su nombre (se puede cambiar).
+      alias: conPersonal(form) ? nombreCompleto(nuevoJugador.value) : '',
+      promocion: false,
+      ids_posiciones: [...nuevasPosiciones.value],
+      veces_convocado_superior: 0
     });
     if (nuevoDorsal.value != null) comprobarDorsalDuplicado(form, nuevoJugador.value, nuevoDorsal.value);
   }
   nuevoJugador.value = null;
+  nuevasPosiciones.value = [];
   nuevoDorsal.value = null;
   nuevaTalla.value = null;
   keySelectJugador.value++;
@@ -319,24 +437,46 @@ function comprobarDorsalDuplicado(form, idJugadorActual, dorsal) {
   const duplicado = (form.jugadores || []).find(j => j.id_jugador !== idJugadorActual && j.dorsal === dorsal);
   if (duplicado) {
     const nombre = jugadorInfo(duplicado.id_jugador);
-    const texto = nombre ? `${nombre.apellidos}, ${nombre.nombre} (nº ${dorsal})` : `nº ${dorsal}`;
+    const texto = nombre ? `${nombre.nombre} ${nombre.apellidos} (nº ${dorsal})` : `nº ${dorsal}`;
     toast.add({ severity: 'warn', summary: 'Dorsal duplicado', detail: `El dorsal ${dorsal} ya está asignado a ${texto}.`, life: 5000 });
   }
 }
 
+/** Ids ya asignados en OTRAS plantillas de la misma temporada (una persona no
+ * puede estar en dos equipos esa temporada). En jugadores no cuentan las
+ * promociones: su plantilla base es otra. */
+function asignadosEnOtras(form, clave) {
+  const idTemp = form?.id_temporada;
+  const idActual = form?.id;
+  const usados = new Set();
+  if (!idTemp) return usados;
+  for (const pl of plantillasExistentes.value) {
+    if (pl.id_temporada !== idTemp || (idActual && pl.id === idActual)) continue;
+    if (clave === 'jugadores') {
+      for (const j of (pl.jugadores || [])) if (!(j.PlantillaJugador?.promocion)) usados.add(j.id);
+    } else {
+      for (const x of (pl[clave] || [])) usados.add(x.id);
+    }
+  }
+  return usados;
+}
+
 function opcionesEntrenadorDisponibles(form) {
   const usados = new Set(form?.ids_entrenadores || []);
-  return opcionesEntrenador.value.filter(o => !usados.has(o.value));
+  const otras = asignadosEnOtras(form, 'entrenadores');
+  return opcionesEntrenador.value.filter(o => !usados.has(o.value) && !otras.has(o.value));
 }
 
 function opcionesDelegadoDisponibles(form) {
   const usados = new Set(form?.ids_delegados || []);
-  return opcionesDelegado.value.filter(o => !usados.has(o.value));
+  const otras = asignadosEnOtras(form, 'delegados');
+  return opcionesDelegado.value.filter(o => !usados.has(o.value) && !otras.has(o.value));
 }
 
 function opcionesJugadorDisponibles(form) {
   const usados = new Set((form?.jugadores || []).map(j => j.id_jugador));
-  return opcionesJugador.value.filter(o => !usados.has(o.value));
+  const otras = asignadosEnOtras(form, 'jugadores');
+  return opcionesJugador.value.filter(o => !usados.has(o.value) && !otras.has(o.value));
 }
 
 function validarPlantilla(form) {
@@ -353,18 +493,29 @@ function validarPlantilla(form) {
 </script>
 
 <template>
+<SectionGuard seccion="plantillas">
   <CrudDataTable
     ref="crudRef"
     title="Plantillas"
+    seccion="plantillas"
     :columns="columns"
     :service="plantillasService"
     :emptyItem="emptyItem"
+    :listParams="listParamsPlantillas"
     detailMaxWidth="max-w-4xl"
     formMaxWidth="max-w-4xl"
     :validateForm="validarPlantilla"
     :prepareEdit="prepareEdit"
+    :filtroItems="filtroTipoFutbol"
     @changed="onPlantillasChanged"
   >
+    <template #antesTabla>
+      <Tabs v-model:value="tipoFutbolPestana" class="mt-2">
+        <TabList>
+          <Tab v-for="t in PESTANAS_TIPO_FUTBOL" :key="t.valor" :value="t.valor">{{ t.titulo }}</Tab>
+        </TabList>
+      </Tabs>
+    </template>
     <template #acciones>
       <Button label="Crear plantilla temporada" icon="pi pi-sparkles" outlined
               class="!text-club-green !border-club-green/50 hover:!bg-club-green/5"
@@ -379,12 +530,19 @@ function validarPlantilla(form) {
     <template #cell-id_division="{ data }">
       {{ data.division?.nombre || nombreDivision(data.id_division) }}
     </template>
+    <template #cell-id_coordinador="{ data }">
+      {{ data.coordinador ? `${data.coordinador.nombre} ${data.coordinador.apellidos}` : nombreCoordinador(data.id_coordinador) }}
+    </template>
     <template #cell-ids_entrenadores="{ data }">
-      <span v-if="data.entrenadores?.length" v-html="data.entrenadores.map(e => `${e.apellidos}, ${e.nombre}`).join('<br>')"></span>
+      <span v-if="data.entrenadores?.length">
+        <template v-for="(e, i) in data.entrenadores" :key="e.id ?? i"><br v-if="i > 0" />{{ e.nombre }} {{ e.apellidos }}</template>
+      </span>
       <span v-else>—</span>
     </template>
     <template #cell-ids_delegados="{ data }">
-      <span v-if="data.delegados?.length" v-html="data.delegados.map(d => `${d.apellidos}, ${d.nombre}`).join('<br>')"></span>
+      <span v-if="data.delegados?.length">
+        <template v-for="(d, i) in data.delegados" :key="d.id ?? i"><br v-if="i > 0" />{{ d.nombre }} {{ d.apellidos }}</template>
+      </span>
       <span v-else>—</span>
     </template>
 
@@ -408,7 +566,7 @@ function validarPlantilla(form) {
                   <img v-if="entrenadorInfo(id)?.foto" :src="entrenadorInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                   <span v-else class="text-ink-tertiary">—</span>
                 </td>
-                <td class="text-center border border-line p-2 text-sm">{{ entrenadorInfo(id)?.apellidos }}, {{ entrenadorInfo(id)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ entrenadorInfo(id)?.nombre }} {{ entrenadorInfo(id)?.apellidos }}</td>
                 <td class="text-center border border-line p-2 text-sm">{{ entrenadorTitulo(entrenadorInfo(id)) }}</td>
                 <td class="text-center border border-line p-2">
                   <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeEntrenador(form, id)" />
@@ -442,7 +600,7 @@ function validarPlantilla(form) {
                   <img v-if="delegadoInfo(id)?.foto" :src="delegadoInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                   <span v-else class="text-ink-tertiary">—</span>
                 </td>
-                <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.apellidos }}, {{ delegadoInfo(id)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.nombre }} {{ delegadoInfo(id)?.apellidos }}</td>
                 <td class="text-center border border-line p-2 text-sm">{{ delegadoInfo(id)?.tipo || '—' }}</td>
                 <td class="text-center border border-line p-2">
                   <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeDelegado(form, id)" />
@@ -455,6 +613,47 @@ function validarPlantilla(form) {
             <Select v-model="nuevoDelegado" :options="opcionesDelegadoDisponibles(form)" optionLabel="label" optionValue="value"
                     placeholder="Seleccionar delegado" class="flex-1" filter showClear />
             <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addDelegado(form)" />
+          </div>
+        </div>
+
+        <div v-if="conPersonal(form)">
+          <h3 class="text-sm font-semibold text-club-green mb-2">Personal</h3>
+          <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-club-green/5">
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Tipo Personal</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Email</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Teléfono</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="id in (form.ids_personal || [])" :key="id">
+                <td class="text-center border border-line p-2">
+                  <img v-if="personalInfo(id)?.foto" :src="personalInfo(id).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                  <span v-else class="text-ink-tertiary">—</span>
+                </td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.nombre }} {{ personalInfo(id)?.apellidos }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.tipoPersonal?.nombre || '—' }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.email || '—' }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ personalInfo(id)?.telefono || '—' }}</td>
+                <td class="text-center border border-line p-2">
+                  <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removePersonal(form, id)" />
+                </td>
+              </tr>
+              <tr v-if="!(form.ids_personal || []).length">
+                <td colspan="6" class="text-center border border-line p-3 text-sm text-ink-tertiary">Sin personal asignado.</td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+          <div class="flex gap-2 mt-2">
+            <Select v-model="nuevoPersonal" :options="opcionesPersonalDisponibles(form)" optionLabel="label" optionValue="value"
+                    placeholder="Seleccionar personal" class="flex-1" filter showClear />
+            <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addPersonal(form)" />
           </div>
         </div>
 
@@ -473,8 +672,12 @@ function validarPlantilla(form) {
                     @click="toggleOrdenJugadores('dorsal', form)">
                   <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrden('dorsal'), 'text-[10px]']"></i></span>
                 </th>
+                <th v-if="conPersonal(form)" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary"
+                    v-tooltip.top="'Nombre con el que sale en las estadísticas de Senior A'">Alias</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
+                <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary" v-tooltip.top="'Veces convocado por una categoría superior'">Nº Veces</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
               </tr>
             </thead>
@@ -484,7 +687,7 @@ function validarPlantilla(form) {
                   <img v-if="jugadorInfo(j.id_jugador)?.foto" :src="jugadorInfo(j.id_jugador).foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                   <span v-else class="text-ink-tertiary">—</span>
                 </td>
-                <td class="text-center border border-line p-2 text-sm">{{ jugadorInfo(j.id_jugador)?.apellidos }}, {{ jugadorInfo(j.id_jugador)?.nombre }}</td>
+                <td class="text-center border border-line p-2 text-sm">{{ jugadorInfo(j.id_jugador)?.nombre }} {{ jugadorInfo(j.id_jugador)?.apellidos }}</td>
                 <td class="text-center border border-line p-2">
                   <div class="flex items-center justify-center gap-1">
                     <CamisetaDorsal :numero="j.dorsal" :size="50" />
@@ -492,12 +695,21 @@ function validarPlantilla(form) {
                       @blur="comprobarDorsalDuplicado(form, j.id_jugador, j.dorsal)" />
                   </div>
                 </td>
+                <td v-if="conPersonal(form)" class="text-center border border-line p-2">
+                  <InputText v-model="j.alias" class="!w-40" maxlength="100" :placeholder="nombreCompleto(j.id_jugador)" />
+                </td>
                 <td class="text-center border border-line p-2">
                   <InputText v-model="j.talla" class="!w-16 !text-center" />
                 </td>
                 <td class="text-center border border-line p-2">
+                  <MultiSelect v-model="j.ids_posiciones" :options="opcionesPosicion" optionLabel="label"
+                               optionValue="value" display="chip" class="w-full min-w-44"
+                               placeholder="Posiciones" :maxSelectedLabels="1" />
+                </td>
+                <td class="text-center border border-line p-2">
                   <Checkbox v-model="j.promocion" :binary="true" />
                 </td>
+                <td class="text-center border border-line p-2 text-sm">{{ j.veces_convocado_superior ?? 0 }}</td>
                 <td class="text-center border border-line p-2">
                   <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7" @click="removeJugador(form, j.id_jugador)" />
                 </td>
@@ -505,9 +717,11 @@ function validarPlantilla(form) {
             </tbody>
           </table>
           </div>
-          <div class="flex gap-2 mt-2 items-center">
+          <div class="flex gap-2 mt-2 items-center flex-wrap">
             <Select :key="keySelectJugador" v-model="nuevoJugador" :options="opcionesJugadorDisponibles(form)" optionLabel="label" optionValue="value"
                     placeholder="Seleccionar jugador" class="flex-1" filter showClear />
+            <MultiSelect v-model="nuevasPosiciones" :options="opcionesPosicion" optionLabel="label"
+                         optionValue="value" display="chip" class="w-56" placeholder="Posición" :maxSelectedLabels="1" />
             <InputNumber v-model="nuevoDorsal" placeholder="Dorsal" :min="0" :max="99" class="w-20" inputClass="!w-20" />
             <InputText v-model="nuevaTalla" placeholder="Talla" class="w-20" />
             <Button label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50" @click="addJugador(form)" />
@@ -518,16 +732,16 @@ function validarPlantilla(form) {
 
     <template #detail-extra="{ data }">
       <div class="overflow-x-auto">
-      <table class="w-full border-collapse mb-6">
-        <tr>
-          <td class="text-center border border-line p-3 bg-club-green text-white">
-            <div class="text-sm font-medium">Temporada</div>
+      <table class="w-full border-collapse">
+        <tr class="bg-club-green/5">
+          <td class="text-center border border-line p-3">
+            <div class="text-sm font-medium text-ink-tertiary">Temporada</div>
           </td>
-          <td class="text-center border border-line p-3 bg-club-green text-white">
-            <div class="text-sm font-medium">Categoría</div>
+          <td class="text-center border border-line p-3">
+            <div class="text-sm font-medium text-ink-tertiary">Categoría</div>
           </td>
-          <td class="text-center border border-line p-3 bg-club-green text-white">
-            <div class="text-sm font-medium">División</div>
+          <td class="text-center border border-line p-3">
+            <div class="text-sm font-medium text-ink-tertiary">División</div>
           </td>
         </tr>
         <tr>
@@ -542,6 +756,24 @@ function validarPlantilla(form) {
           </td>
         </tr>
       </table>
+      </div>
+
+      <div v-if="data.coordinador" class="mb-6">
+        <h3 class="text-sm font-semibold text-club-green mb-2">Coordinador</h3>
+        <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-center border border-line p-2 text-sm">{{ data.coordinador.nombre }} {{ data.coordinador.apellidos }}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
       </div>
 
       <div v-if="data.entrenadores?.length" class="mb-6">
@@ -561,7 +793,7 @@ function validarPlantilla(form) {
                 <img v-if="e.foto" :src="e.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
-              <td class="text-center border border-line p-2 text-sm">{{ e.apellidos }}, {{ e.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ e.nombre }} {{ e.apellidos }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ e.titulos?.map(t => t.nombre).join(', ') || e.PlantillaEntrenador?.rol || '—' }}</td>
             </tr>
           </tbody>
@@ -586,8 +818,37 @@ function validarPlantilla(form) {
                 <img v-if="d.foto" :src="d.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
-              <td class="text-center border border-line p-2 text-sm">{{ d.apellidos }}, {{ d.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ d.nombre }} {{ d.apellidos }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ d.tipo || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div v-if="data.personal?.length" class="mb-6">
+        <h3 class="text-sm font-semibold text-club-green mb-2">Personal</h3>
+        <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Foto</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Nombre</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Tipo Personal</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Email</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Teléfono</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in data.personal" :key="p.id">
+              <td class="text-center border border-line p-2">
+                <img v-if="p.foto" :src="p.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
+                <span v-else class="text-ink-tertiary">—</span>
+              </td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.nombre }} {{ p.apellidos }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.tipoPersonal?.nombre || '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.email || '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ p.telefono || '—' }}</td>
             </tr>
           </tbody>
         </table>
@@ -609,8 +870,11 @@ function validarPlantilla(form) {
                   @click="toggleOrdenDetalle('dorsal')">
                 <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrdenDetalle('dorsal'), 'text-[10px]']"></i></span>
               </th>
+              <th v-if="conPersonal(data)" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Alias</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary" v-tooltip.top="'Veces convocado por una categoría superior'">Nº Veces</th>
             </tr>
           </thead>
           <tbody>
@@ -619,16 +883,24 @@ function validarPlantilla(form) {
                 <img v-if="j.foto" :src="j.foto" alt="" class="w-10 h-10 object-cover rounded inline-block" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
-              <td class="text-center border border-line p-2 text-sm">{{ j.apellidos }}, {{ j.nombre }}</td>
+              <td class="text-center border border-line p-2 text-sm">{{ j.nombre }} {{ j.apellidos }}</td>
               <td class="text-center border border-line p-2">
                 <CamisetaDorsal v-if="j.PlantillaJugador?.dorsal != null" :numero="j.PlantillaJugador.dorsal" :size="50" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
+              <td v-if="conPersonal(data)" class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.alias || '—' }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
+              <td class="text-center border border-line p-2 text-sm">
+                <template v-if="posicionesDe(j.PlantillaJugador?.posiciones).length">
+                  <template v-for="(p, i) in posicionesDe(j.PlantillaJugador?.posiciones)" :key="i"><br v-if="i > 0" />{{ p }}</template>
+                </template>
+                <span v-else>—</span>
+              </td>
               <td class="text-center border border-line p-2 text-sm">
                 <i v-if="j.PlantillaJugador?.promocion" class="pi pi-check-circle text-club-green" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
+              <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.veces_convocado_superior ?? 0 }}</td>
             </tr>
           </tbody>
         </table>
@@ -658,4 +930,5 @@ function validarPlantilla(form) {
       </div>
     </template>
   </Dialog>
+</SectionGuard>
 </template>

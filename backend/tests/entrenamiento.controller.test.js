@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Entrenamiento, Plantilla, Categoria } from './helpers/models.js';
+import { Entrenamiento, Plantilla, Categoria, Partido, Torneo } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/entrenamiento.controller.js';
@@ -10,10 +10,13 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     Entrenamiento.findAll.mockReset();
     Entrenamiento.findByPk.mockReset();
     Entrenamiento.create.mockReset();
+    Entrenamiento.update.mockReset();
     Entrenamiento.destroy.mockReset();
     Entrenamiento.count.mockReset();
     Plantilla.findOne.mockReset();
     Categoria.findOne.mockReset();
+    Partido.count.mockReset();
+    Torneo.count.mockReset();
   });
 
   function llamar(fn, overrides = {}) {
@@ -102,17 +105,94 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(Entrenamiento.create).toHaveBeenCalledWith({
-      id_plantilla: 1, fecha: '2026-01-01', hasta: null, id_lugar: 2, id_usuario: 7, recurrente: 0
+      id_plantilla: 1, fecha: '2026-01-01', hasta: null, id_lugar: 2, id_usuario: 7, recurrente: 0, horario_reducido: 0
     });
     expect(res._status).toBe(201);
-    expect(res._json).toEqual({ id: 5, plantilla: null, lugar: null });
+    expect(res._json).toEqual({ id: 5, plantilla: null, lugar: null, generados: 1, omitidos: [] });
   });
 
-  it('crear rechaza duplicado: misma plantilla y misma hora', async () => {
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 9, fecha: new Date('2026-01-01T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
+  it('crear recurrente con fecha límite genera un entrenamiento por cada semana', async () => {
+    const creado = { id: 5 };
+    const completo = { id: 5, plantilla: null, lugar: null };
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: {
+        id_plantilla: 1, fecha: '2026-01-05T18:00:00', id_lugar: 2,
+        recurrente: true, hasta: '2026-01-26T18:00:00'
+      }
+    });
+    await promesa;
+
+    // 05, 12, 19, 26 de enero -> 4 semanas
+    expect(Entrenamiento.create).toHaveBeenCalledTimes(4);
+    expect(Entrenamiento.create).toHaveBeenNthCalledWith(1, {
+      id_plantilla: 1, fecha: '2026-01-05T18:00:00', hasta: '2026-01-26T18:00:00', id_lugar: 2, id_usuario: 7, recurrente: 1, horario_reducido: 0
+    });
+    expect(Entrenamiento.create).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      id_plantilla: 1, id_lugar: 2, id_usuario: 7, recurrente: 1
+    }));
+    expect(res._status).toBe(201);
+    expect(res._json.generados).toBe(4);
+    expect(res._json.omitidos).toEqual([]);
+  });
+
+  it('crear recurrente conserva la hora española al cruzar el cambio de horario', async () => {
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.create.mockResolvedValue({ id: 5 });
+    Entrenamiento.findByPk.mockResolvedValue({ id: 5 });
+
+    const { promesa } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: {
+        // Lunes 19/10/2026 a las 18:15 en España (16:15 UTC, horario de verano),
+        // semanal hasta el 02/11 (ya en horario de invierno).
+        id_plantilla: 1, fecha: '2026-10-19T16:15:00.000Z', id_lugar: 2,
+        recurrente: true, hasta: '2026-11-01T23:00:00.000Z'
+      }
+    });
+    await promesa;
+
+    const fechas = Entrenamiento.create.mock.calls.map(([d]) => new Date(d.fecha).toISOString());
+    // 18:15 en España todas las semanas: 16:15 UTC en verano, 17:15 UTC en invierno.
+    expect(fechas).toEqual(['2026-10-19T16:15:00.000Z', '2026-10-26T17:15:00.000Z', '2026-11-02T17:15:00.000Z']);
+  });
+
+  it('crear recurrente omite semanas donde ya hay otro evento y lo reporta', async () => {
+    const creado = { id: 5 };
+    const completo = { id: 5, plantilla: null, lugar: null };
+    Entrenamiento.count.mockResolvedValueOnce(0); // chequeo inicial: sin conflicto
+    Entrenamiento.count.mockResolvedValueOnce(1); // segunda semana: ya hay entrenamiento
+    Entrenamiento.count.mockResolvedValueOnce(0); // tercera semana: libre
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: {
+        id_plantilla: 1, fecha: '2026-01-05T18:00:00', id_lugar: 2,
+        recurrente: true, hasta: '2026-01-19T18:00:00'
+      }
+    });
+    await promesa;
+
+    expect(Entrenamiento.create).toHaveBeenCalledTimes(2);
+    expect(res._json.generados).toBe(2);
+    expect(res._json.omitidos).toHaveLength(1);
+    expect(res._json.omitidos[0].motivo).toBe('entrenamiento');
+  });
+
+  it('crear rechaza duplicado: misma plantilla el mismo día', async () => {
+    Entrenamiento.count.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.crear, {
       user: { id: 7, usuario: 'admin' },
       body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
@@ -121,7 +201,54 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento a esa hora.');
+    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento ese día.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza un segundo entrenamiento el mismo día aunque no se solape en horario', async () => {
+    // La plantilla ya tiene un entrenamiento a las 09:00; este nuevo es a las 18:00 (sin
+    // solape de horario), pero sigue sin permitirse: máximo un registro por día.
+    Entrenamiento.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01T18:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento ese día.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza si la plantilla ya tiene un partido ese día', async () => {
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un partido ese día.');
+    expect(Entrenamiento.create).not.toHaveBeenCalled();
+  });
+
+  it('crear rechaza si la plantilla ya tiene un torneo ese día', async () => {
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(1);
+    const { promesa, res } = llamar(ctrl.crear, {
+      user: { id: 7, usuario: 'admin' },
+      body: { id_plantilla: 1, fecha: '2026-01-01T10:00:00', id_lugar: 2 }
+    });
+
+    await promesa;
+
+    expect(res._status).toBe(409);
+    expect(res._json.message).toBe('Esta plantilla ya tiene un torneo ese día.');
     expect(Entrenamiento.create).not.toHaveBeenCalled();
   });
 
@@ -145,49 +272,10 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     expect(res._status).toBe(201);
   });
 
-  it('crear rechaza si el entrenamiento anterior aún no ha terminado (tiempoentrenamiento)', async () => {
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 9, fecha: new Date('2026-01-01T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
-    const { promesa, res } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T10:30:00', id_lugar: 2 }
-    });
-
-    await promesa;
-
-    expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento a esa hora.');
-    expect(Entrenamiento.create).not.toHaveBeenCalled();
-  });
-
-  it('crear permite cuando el entrenamiento anterior ya ha terminado', async () => {
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 9, fecha: new Date('2026-01-01T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
-    const creado = { id: 6 };
-    const completo = { id: 6, plantilla: null, lugar: null };
-    Entrenamiento.create.mockResolvedValue(creado);
-    Entrenamiento.findByPk.mockResolvedValue(completo);
-    const { promesa, res } = llamar(ctrl.crear, {
-      user: { id: 7, usuario: 'admin' },
-      body: { id_plantilla: 1, fecha: '2026-01-01T11:00:00', id_lugar: 2 }
-    });
-
-    await promesa;
-
-    expect(res._status).toBe(201);
-  });
-
   it('actualizar rechaza duplicado al cambiar de plantilla o fecha', async () => {
     const entrenamiento = { id: 1, id_plantilla: 1, fecha: '2026-01-01T10:00:00', recurrente: 0, id_lugar: 2, save: vi.fn().mockResolvedValue() };
     Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
-    Plantilla.findOne.mockResolvedValue({ id: 1, categoria: { id: 1, tiempoentrenamiento: 60 } });
-    Entrenamiento.findAll.mockResolvedValue([
-      { id: 2, fecha: new Date('2026-01-03T10:00:00'), plantilla: { categoria: { id: 1, tiempoentrenamiento: 60 } } }
-    ]);
+    Entrenamiento.count.mockResolvedValue(1);
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' },
       body: { fecha: '2026-01-03T10:00:00' }
@@ -196,7 +284,7 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
     await promesa;
 
     expect(res._status).toBe(409);
-    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento a esa hora.');
+    expect(res._json.message).toBe('Esta plantilla ya tiene un entrenamiento ese día.');
     expect(entrenamiento.save).not.toHaveBeenCalled();
   });
 
@@ -213,6 +301,35 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(entrenamiento.id_lugar).toBe(3);
     expect(res._status).toBe(200);
+  });
+
+  it('actualizar con alcance serie lleva la nueva hora a las sesiones siguientes del mismo día de la semana', async () => {
+    const hasta = new Date('2027-06-29T22:00:00Z');
+    // Viernes 16/10/2026 creado sin hora (02:00 en España); se cambia a las 17:00.
+    const entrenamiento = { id: 1, id_plantilla: 9, fecha: new Date('2026-10-16T00:00:00Z'), recurrente: 1, hasta, id_lugar: 2, save: vi.fn().mockResolvedValue() };
+    const sesion = (id, iso) => ({ id, fecha: new Date(iso), save: vi.fn().mockResolvedValue() });
+    const viernes23 = sesion(2, '2026-10-23T00:00:00Z');   // verano
+    const viernes30 = sesion(3, '2026-10-30T00:00:00Z');   // invierno
+    const miercoles21 = sesion(4, '2026-10-21T15:00:00Z'); // otro día de la semana: no se toca
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce({ id: 1 });
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+    Entrenamiento.findAll.mockResolvedValue([viernes23, viernes30, miercoles21]);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { fecha: '2026-10-16T15:00:00.000Z', alcance: 'serie', recurrente: true, hasta: hasta.toISOString() }
+    });
+    await promesa;
+
+    // Solo sesiones posteriores a la editada.
+    expect(Entrenamiento.findAll).toHaveBeenCalledWith({ where: expect.objectContaining({ id_plantilla: 9, recurrente: 1, hasta }) });
+    // 17:00 en España: 15:00 UTC en verano y 16:00 UTC en invierno.
+    expect(viernes23.fecha.toISOString()).toBe('2026-10-23T15:00:00.000Z');
+    expect(viernes30.fecha.toISOString()).toBe('2026-10-30T16:00:00.000Z');
+    expect(miercoles21.save).not.toHaveBeenCalled();
+    expect(res._json.horaPropagada).toBe(2);
   });
 
   it('actualizar devuelve 404 si no existe', async () => {
@@ -234,7 +351,128 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(entrenamiento.id_lugar).toBe(2);
     expect(entrenamiento.save).toHaveBeenCalled();
-    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null });
+    expect(res._json).toEqual({ id: 1, id_lugar: 2, plantilla: null, lugar: null, generados: 0, omitidos: [], propagados: 0, horaPropagada: 0 });
+  });
+
+  it('crear guarda horario_reducido cuando se indica', async () => {
+    const creado = { id: 5 };
+    const completo = { id: 5, plantilla: null, lugar: null };
+    Entrenamiento.findAll.mockResolvedValue([]);
+    Entrenamiento.create.mockResolvedValue(creado);
+    Entrenamiento.findByPk.mockResolvedValue(completo);
+    const { promesa } = llamar(ctrl.crear, {
+      user: { id: 7 },
+      body: { id_plantilla: 1, fecha: '2026-01-01', id_lugar: 2, horario_reducido: true }
+    });
+
+    await promesa;
+
+    expect(Entrenamiento.create).toHaveBeenCalledWith(
+      expect.objectContaining({ horario_reducido: 1 })
+    );
+  });
+
+  it('actualizar guarda horario_reducido cuando se indica', async () => {
+    const entrenamiento = { id: 1, id_lugar: 1, save: vi.fn().mockResolvedValue() };
+    const actualizado = { id: 1, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '1' }, body: { horario_reducido: true } });
+
+    await promesa;
+
+    expect(entrenamiento.horario_reducido).toBe(1);
+    expect(entrenamiento.save).toHaveBeenCalled();
+  });
+
+  it('actualizar propaga el cambio de lugar al resto de semanas de una serie recurrente cuando el alcance es "serie"', async () => {
+    const entrenamiento = {
+      id: 5, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 1, hasta: '2026-01-19T18:00:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 5, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    Entrenamiento.update.mockResolvedValue([2]);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2, alcance: 'serie' } });
+    await promesa;
+
+    expect(Entrenamiento.update).toHaveBeenCalledWith(
+      { id_lugar: 2 },
+      { where: { id_plantilla: 3, recurrente: 1, hasta: '2026-01-19T18:00:00', id: { [Op.ne]: 5 } } }
+    );
+    expect(res._json.propagados).toBe(2);
+  });
+
+  it('actualizar no propaga el lugar si el alcance es "dia" aunque sea una serie recurrente', async () => {
+    const entrenamiento = {
+      id: 5, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 1, hasta: '2026-01-19T18:00:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 5, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2, alcance: 'dia' } });
+    await promesa;
+
+    expect(Entrenamiento.update).not.toHaveBeenCalled();
+    expect(res._json.propagados).toBe(0);
+  });
+
+  it('actualizar no propaga el lugar si no se indica el alcance, aunque sea una serie recurrente', async () => {
+    const entrenamiento = {
+      id: 5, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 1, hasta: '2026-01-19T18:00:00',
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 5, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '5' }, body: { id_lugar: 2 } });
+    await promesa;
+
+    expect(Entrenamiento.update).not.toHaveBeenCalled();
+    expect(res._json.propagados).toBe(0);
+  });
+
+  it('actualizar no propaga el lugar si el entrenamiento no es de una serie recurrente', async () => {
+    const entrenamiento = {
+      id: 6, id_plantilla: 3, id_lugar: 1, fecha: '2026-01-05T18:00:00',
+      recurrente: 0, hasta: null,
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 6, id_lugar: 2, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+
+    const { promesa, res } = llamar(ctrl.actualizar, { params: { id: '6' }, body: { id_lugar: 2, alcance: 'serie' } });
+    await promesa;
+
+    expect(Entrenamiento.update).not.toHaveBeenCalled();
+    expect(res._json.propagados).toBe(0);
+  });
+
+  it('actualizar genera la serie semanal al marcar recurrente con fecha límite', async () => {
+    const entrenamiento = {
+      id: 1, id_plantilla: 1, id_lugar: 2, fecha: '2026-01-05T18:00:00', recurrente: 0, hasta: null,
+      save: vi.fn().mockResolvedValue()
+    };
+    const actualizado = { id: 1, plantilla: null, lugar: null };
+    Entrenamiento.findByPk.mockResolvedValueOnce(entrenamiento).mockResolvedValueOnce(actualizado);
+    Entrenamiento.count.mockResolvedValue(0);
+    Partido.count.mockResolvedValue(0);
+    Torneo.count.mockResolvedValue(0);
+
+    const { promesa, res } = llamar(ctrl.actualizar, {
+      params: { id: '1' },
+      body: { recurrente: true, hasta: '2026-01-19T18:00:00' }
+    });
+    await promesa;
+
+    expect(entrenamiento.save).toHaveBeenCalled();
+    // 05, 12, 19 -> 3 semanas, la primera ya existe (es el propio registro editado)
+    expect(Entrenamiento.create).toHaveBeenCalledTimes(2);
+    expect(res._json.generados).toBe(2);
   });
 
   it('eliminar elimina y responde 204', async () => {
@@ -255,4 +493,141 @@ describe('Sección Entrenamientos · entrenamiento.controller', () => {
 
     expect(res._status).toBe(404);
   });
+
+  it('eliminar con alcance=serie borra toda la serie recurrente', async () => {
+    const entrenamiento = { id: 5, id_plantilla: 3, recurrente: 1, hasta: '2027-05-30T22:00:00' };
+    Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
+    Entrenamiento.destroy.mockResolvedValue(5);
+
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '5' }, query: { alcance: 'serie' } });
+    await promesa;
+
+    expect(Entrenamiento.destroy).toHaveBeenCalledWith({
+      where: { id_plantilla: 3, recurrente: 1, hasta: '2027-05-30T22:00:00' }
+    });
+    expect(res._status).toBe(200);
+    expect(res._json).toEqual({ eliminados: 5 });
+  });
+
+  it('eliminar con alcance=serie devuelve 404 si no existe', async () => {
+    Entrenamiento.findByPk.mockResolvedValue(null);
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '99' }, query: { alcance: 'serie' } });
+
+    await promesa;
+
+    expect(res._status).toBe(404);
+    expect(Entrenamiento.destroy).not.toHaveBeenCalled();
+  });
+
+  it('eliminar con alcance=serie borra solo este registro si no es una serie recurrente', async () => {
+    const entrenamiento = { id: 6, id_plantilla: 3, recurrente: 0, hasta: null };
+    Entrenamiento.findByPk.mockResolvedValue(entrenamiento);
+    Entrenamiento.destroy.mockResolvedValue(1);
+
+    const { promesa, res } = llamar(ctrl.eliminar, { params: { id: '6' }, query: { alcance: 'serie' } });
+    await promesa;
+
+    expect(Entrenamiento.destroy).toHaveBeenCalledWith({ where: { id: '6' } });
+    expect(res._status).toBe(204);
+  });
+
+  describe('adjunto', () => {
+    // data URLs reales mínimos (los decodifica el util real de imagenes).
+    const PDF = 'data:application/pdf;base64,JVBERi0xLjQK';
+    const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+    const TXT = 'data:text/plain;base64,aG9sYQ==';
+
+    it('subirAdjunto guarda el PDF y devuelve nombre y URL, sin el base64', async () => {
+      const update = vi.fn().mockResolvedValue();
+      Entrenamiento.findByPk
+        .mockResolvedValueOnce({ id: 7, update })
+        .mockResolvedValueOnce({ toJSON: () => ({ id: 7, adjunto_nombre: 'plan.pdf', updatedAt: '2026-10-14T00:00:00Z' }) });
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: PDF, adjunto_nombre: 'plan.pdf' } });
+      await promesa;
+
+      expect(update).toHaveBeenCalledWith({ adjunto: PDF, adjunto_nombre: 'plan.pdf' });
+      expect(res._json.adjunto_nombre).toBe('plan.pdf');
+      expect(res._json.adjunto_url).toContain('/api/entrenamientos/7/adjunto');
+      expect(res._json.adjunto).toBeUndefined();
+    });
+
+    it('subirAdjunto acepta imágenes PNG', async () => {
+      const update = vi.fn().mockResolvedValue();
+      Entrenamiento.findByPk
+        .mockResolvedValueOnce({ id: 7, update })
+        .mockResolvedValueOnce({ toJSON: () => ({ id: 7, adjunto_nombre: 'pizarra.png' }) });
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: PNG, adjunto_nombre: 'pizarra.png' } });
+      await promesa;
+      expect(update).toHaveBeenCalled();
+      expect(res._json.adjunto_url).toContain('/adjunto');
+    });
+
+    it('subirAdjunto rechaza un tipo no admitido (400)', async () => {
+      const update = vi.fn();
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, update });
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: TXT, adjunto_nombre: 'x.txt' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('subirAdjunto rechaza un fichero de más de 5 MB (400)', async () => {
+      const update = vi.fn();
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, update });
+      const grande = `data:application/pdf;base64,${'A'.repeat(Math.ceil(5 * 1024 * 1024 / 3) * 4 + 8)}`;
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '7' }, body: { adjunto: grande, adjunto_nombre: 'gordo.pdf' } });
+      await promesa;
+      expect(res._status).toBe(400);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('subirAdjunto 404 si el entrenamiento no existe', async () => {
+      Entrenamiento.findByPk.mockResolvedValue(null);
+      const { promesa, res } = llamar(ctrl.subirAdjunto, { params: { id: '99' }, body: { adjunto: PDF, adjunto_nombre: 'p.pdf' } });
+      await promesa;
+      expect(res._status).toBe(404);
+    });
+
+    it('eliminarAdjunto pone adjunto y nombre a null', async () => {
+      const update = vi.fn().mockResolvedValue();
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, update });
+      const { promesa, res } = llamar(ctrl.eliminarAdjunto, { params: { id: '7' } });
+      await promesa;
+      expect(update).toHaveBeenCalledWith({ adjunto: null, adjunto_nombre: null });
+      expect(res._json.message).toMatch(/eliminado/i);
+    });
+
+    it('descargarAdjunto devuelve el fichero con su tipo y nombre', async () => {
+      Entrenamiento.scope.mockReturnValue(Entrenamiento);
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, adjunto: PDF, adjunto_nombre: 'plan.pdf' });
+      const { promesa, res } = llamar(ctrl.descargarAdjunto, { params: { id: '7' } });
+      await promesa;
+      expect(Entrenamiento.scope).toHaveBeenCalledWith('conAdjunto');
+      expect(res._headers['Content-Type']).toBe('application/pdf');
+      expect(res._headers['Content-Disposition']).toContain('plan.pdf');
+      expect(Buffer.isBuffer(res._payload)).toBe(true);
+    });
+
+    it('descargarAdjunto codifica en la cabecera un nombre con acentos (sin romper el header)', async () => {
+      Entrenamiento.scope.mockReturnValue(Entrenamiento);
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, adjunto: PDF, adjunto_nombre: 'PayPal_ Detalles de la transacción.pdf' });
+      const { promesa, res } = llamar(ctrl.descargarAdjunto, { params: { id: '7' } });
+      await promesa;
+      const cd = res._headers['Content-Disposition'];
+      // El valor de la cabecera debe ser ASCII puro (si no, Node lanza ERR_INVALID_CHAR)
+      expect(/^[\x20-\x7E]*$/.test(cd)).toBe(true);
+      expect(cd).toContain("filename*=UTF-8''");
+      expect(cd).toContain(encodeURIComponent('PayPal_ Detalles de la transacción.pdf'));
+      expect(Buffer.isBuffer(res._payload)).toBe(true);
+    });
+
+    it('descargarAdjunto 404 si no hay adjunto', async () => {
+      Entrenamiento.scope.mockReturnValue(Entrenamiento);
+      Entrenamiento.findByPk.mockResolvedValue({ id: 7, adjunto: null });
+      const { promesa, res } = llamar(ctrl.descargarAdjunto, { params: { id: '7' } });
+      await promesa;
+      expect(res._status).toBe(404);
+    });
+  });
+
 });

@@ -7,12 +7,16 @@ require('./config/env');
 const apiRoutes = require('./routes');
 const errorHandler = require('./middlewares/error.middleware');
 const auditMiddleware = require('./middlewares/audit.middleware');
+const imagenesUrl = require('./middlewares/imagenesUrl.middleware');
 
 const app = express();
 
-// La app va detrás de un único proxy nginx; permite a
-// express-rate-limit leer la IP real desde X-Forwarded-For.
-app.set('trust proxy', 1);
+// Número de proxies nginx delante del backend, para que express-rate-limit
+// lea la IP real desde X-Forwarded-For. Por defecto 1 (solo el nginx del
+// frontend); con el reverse proxy HTTPS delante son 2 (TRUST_PROXY_HOPS=2).
+// Si se queda corto, todos los clientes comparten la IP del proxy y el límite
+// de intentos de login se agota para todos a la vez.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 
 app.use(helmet());
 
@@ -20,7 +24,10 @@ const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).fil
 if (process.env.NODE_ENV === 'production' && (!corsOrigins || !corsOrigins.length)) {
   throw new Error('CORS_ORIGIN debe estar configurado en producción.');
 }
-app.use(cors({ origin: corsOrigins || '*', credentials: true }));
+// Con `credentials: true` el comodín '*' es inválido (el navegador lo rechaza):
+// si no hay CORS_ORIGIN (solo puede pasar en desarrollo), se refleja el origen
+// de la petición con `origin: true` en vez de usar '*'.
+app.use(cors({ origin: corsOrigins || true, credentials: true }));
 
 // Rate limiting global: 10000 peticiones por 15 minutos por IP (prácticamente ilimitado)
 const globalLimiter = rateLimit({
@@ -32,6 +39,15 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
+// El adjunto de un entrenamiento (PDF o imagen en base64, hasta 5 MB) necesita
+// más que el límite general: un parser propio de 8 MB solo para esa ruta, antes
+// del parser general (una vez parseado, el de 2 MB lo deja pasar).
+const adjuntoParser = express.json({ limit: '8mb' });
+app.use('/api', (req, res, next) => {
+  if (req.method === 'PUT' && /^\/entrenamientos\/\d+\/adjunto$/.test(req.path)) return adjuntoParser(req, res, next);
+  next();
+});
+
 // Body parser con límite reducido (2mb en vez de 10mb)
 app.use(express.json({ limit: '2mb' }));
 
@@ -39,6 +55,9 @@ app.get('/health', (req, res) => res.json({ status: 'ok', club: 'Atlético Palma
 
 // Auditoría automática: intercepta POST/PUT/DELETE y registra cambios
 app.use('/api', auditMiddleware);
+
+// Fotos y escudos como URL cacheable en vez de base64 dentro del JSON.
+app.use('/api', imagenesUrl);
 
 app.use('/api', apiRoutes);
 

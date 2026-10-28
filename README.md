@@ -2,73 +2,136 @@
 
 Intranet de gestión del club con Docker Compose.
 
-**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8 · Nginx
+**Stack:** Vue 3 + Vite + Pinia + Tailwind + PrimeVue · Node/Express · MySQL 8.4 LTS · Nginx
 
 ## Arranque rápido (Docker)
 
 ```bash
-cp .env.example .env   # o usar el .existente
-docker compose up -d --build
+# Desarrollo
+docker compose --env-file .env.development up -d --build
+
+# Producción
+docker compose --env-file .env.production up -d --build
 ```
 
 | Servicio  | URL | Descripción |
 |-----------|-----|-------------|
-| Intranet  | https://intranetatleticopalmadelrio.com | Acceso principal (HTTPS) |
-| Intranet  | https://localhost | Acceso local alternativo |
-| API       | https://localhost/api | REST API (proxied por Nginx) |
+| Intranet  | http://localhost:8080 (dev) / http://localhost:80 (prod) | Acceso principal |
+| API       | http://localhost:8080/api | REST API (proxied por el nginx del frontend) |
 | MySQL     | 127.0.0.1:3306 | Base de datos (solo localhost) |
 
-> **Nota:** añade `127.0.0.1 intranetatleticopalmadelrio.com` a `/etc/hosts` para resolver el dominio en local.
+### HTTPS en el servidor (nginx + Let's Encrypt)
 
-**Login inicial:** `admin` / cámbiala en Administración.
+En el servidor la intranet se publica en `https://intranet.atleticopalmadelrio.com` con HTTPS propio, sin Cloudflare:
+
+- `reverse-proxy` (nginx, puertos 80/443) termina TLS, redirige HTTP a HTTPS y reenvía todo al servicio `frontend`.
+- `certbot` renueva el certificado de Let's Encrypt automáticamente (lo comprueba cada 12 h).
+
+Primer despliegue (una sola vez, con el registro DNS A apuntando al servidor y los puertos 80 y 443 abiertos):
+
+```bash
+# En el env file del servidor:
+#   DOMAIN=intranet.atleticopalmadelrio.com
+#   TRUST_PROXY_HOPS=2          # dos nginx delante del backend (reverse-proxy + frontend)
+#   CERTBOT_EMAIL=...           # opcional, avisos de caducidad
+./reverse-proxy/init-letsencrypt.sh
+```
+
+El script arranca nginx con un certificado temporal, pide el real a Let's Encrypt y deja `certbot` renovando. Los certificados quedan en `reverse-proxy/certbot/` (fuera de git).
+
+> `TRUST_PROXY_HOPS` debe coincidir con el número de nginx delante del backend (1 en local, 2 con el reverse proxy). Si se queda corto, el backend ve a todos los clientes con la IP del proxy y el límite de intentos de login se comparte entre todos los usuarios.
+
+**Login inicial:** `admin` / cámbiala en Administración. En el primer acceso, el 2FA obligatorio pedirá configurar el segundo factor (escanear el QR con una app TOTP y guardar los códigos de recuperación).
 
 ```bash
 docker compose logs -f          # logs
-docker compose down             # parar
-docker compose down -v          # parar y borrar datos MySQL
+docker compose down             # parar (conserva datos)
+docker compose down -v          # parar y borrar datos MySQL (¡borra todo!)
 ```
+
+Además del volcado manual, el servicio `backup` del `docker-compose.yml` hace un backup diario automático (03:00, conserva 30 días) a `backups/` usando [`databack/mysql-backup`](https://github.com/databacker/mysql-backup); no requiere nada más, arranca solo con `docker compose up`.
+
+Para hacer un backup manual de los datos reales (nunca se commitea, va a `backups/` que está en `.gitignore`):
+
+```bash
+./scripts/dump-init.sh               # vuelca la BD a backups/dump_<bd>_<fecha>.sql
+./scripts/dump-init.sh .env.production
+```
+
+Para restaurar ese backup en un despliegue:
+
+```bash
+docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < backups/<fichero>.sql
+```
+
+**Backup continuo (binlog)**: el servicio `binlog-backup` mantiene el binary log de MySQL activo (`--log-bin`, purga a los 30 días) y lo va copiando en vivo a `backups/binlogs/` (mysqlbinlog en modo `--stop-never`), así que cualquier cambio queda respaldado casi al instante, no solo el estado del último volcado diario. Para restaurar hasta un momento concreto (point-in-time):
+
+```bash
+# 1. Restaura el último volcado completo anterior al incidente
+docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < backups/dump_<bd>_<fecha_del_volcado>.sql
+
+# 2. Reproduce los cambios posteriores a ese volcado hasta el instante deseado
+mysqlbinlog --start-datetime="2026-09-04 03:00:00" --stop-datetime="2026-09-04 14:32:00" \
+  backups/binlogs/mysql-bin.* | docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME"
+```
+
+`database/init.sql` (el que usa `docker-entrypoint-initdb.d`) solo contiene el esquema, sin datos — no debe regenerarse con `dump-init.sh` ni contener información real de usuarios/jugadores.
 
 ## Arquitectura
 
 ```
-prueba3/
+atleticopalmadelrio/
 ├── docker-compose.yml
-├── .env / .env.example
-├── nginx/
-│   ├── proxy.conf              # Reverse proxy HTTPS + security headers
-│   └── certs/                  # Certificados TLS
+├── .env.development / .env.production
+├── scripts/
+│   ├── rfaf_equipaciones.py         # Extrae equipaciones RFAF de una competición
+│   ├── rfaf_equipaciones_todas.py   # Extrae equipaciones de todas las ligas de Córdoba
+│   └── dump-init.sh                 # Vuelca MySQL (datos reales) a backups/, NUNCA a git
+├── reverse-proxy/
+│   ├── init-letsencrypt.sh          # Primer certificado de Let's Encrypt (una sola vez en el servidor)
+│   └── templates/app.conf.template  # nginx HTTPS (80/443) → frontend, parametrizado por DOMAIN
 ├── database/
-│   ├── init.sql                # DDL + datos iniciales (26 tablas, 850+ líneas)
+│   ├── init.sql                # Solo esquema (sin datos), usado por docker-entrypoint-initdb.d
 │   └── schema.sql              # Instalación manual MySQL
 ├── backend/                    # Express + Sequelize + JWT + bcrypt
 │   ├── Dockerfile              # Multi-stage, non-root user
 │   └── src/
-│       ├── models/             # Modelos Sequelize + asociaciones (20 modelos)
+│       ├── models/             # Modelos Sequelize + asociaciones
 │       ├── controllers/        # Lógica CRUD con validación
 │       ├── routes/             # REST API con auth + autorización
 │       ├── middlewares/        # JWT, roles, auditoría, rate limiting, errores
 │       └── utils/              # bcrypt, AES-256-GCM, JWT, validación SSRF
 ├── frontend/                   # Vue 3 + Pinia + PrimeVue + FullCalendar
 │   ├── Dockerfile              # Build estático + nginx interno
-│   ├── tailwind.config.js      # Sistema de diseño escandinavo
 │   └── src/
 │       ├── components/
-│       │   ├── CrudDataTable.vue       # Tabla CRUD genérica responsive
+│       │   ├── CrudDataTable.vue       # Tabla CRUD genérica responsive (columnas, selects dinámicos, detalle)
+│       │   ├── SectionGuard.vue        # Gate de visibilidad por permiso de sección
 │       │   ├── EventosCalendario.vue   # Calendario con detalle partidos/entrenamientos
 │       │   ├── EventoFormCalendario.vue
-│       │   ├── CamisetaDorsal.vue      # Visualización jersey + dorsal
-│       │   └── FooterSponsors.vue      # Footer compartido con sponsors
+│       │   ├── JornadasCalendario.vue  # Vista visual de jornadas de liga
+│       │   ├── TorneoFormCalendario.vue
+│       │   ├── CalendarioLista.vue     # Vista lista (alternativa móvil al calendario)
+│       │   ├── PlantillaJugadoresManager.vue
+│       │   ├── EquipacionPrenda.vue    # Camiseta/calzonas/medias SVG por color
+│       │   └── CamisetaDorsal.vue      # Visualización jersey + dorsal
 │       ├── views/
 │       │   ├── auth/Login.vue
 │       │   ├── admin/Usuarios.vue
 │       │   ├── calendario/Calendario.vue
 │       │   ├── plantillas/Plantillas.vue
+│       │   ├── coordinadores/Coordinadores.vue
+│       │   ├── temporadas/Temporadas.vue
+│       │   ├── posicion/Posicion.vue
+│       │   ├── categoriaCalendario/CategoriaCalendario.vue   # Sección Jornadas
 │       │   ├── cambios/Cambios.vue     # Auditoría de cambios
 │       │   └── ...
 │       ├── layouts/MainLayout.vue      # Sidebar responsive + drawer móvil
 │       ├── composables/useMediaQuery.js
 │       ├── services/api.js             # Axios + JWT interceptor
 │       └── utils/
+│           ├── coloresEquipacion.js    # Paleta de colores de equipación
+│           ├── temporadaActual.js      # Filtra plantillas a la temporada marcada como actual
 │           ├── pdfPartidos.js          # PDF 5 columnas con semana
 │           ├── pdfCalendario.js        # PDF combinado (partidos + entrenamientos)
 │           └── pdfEntrenamientos.js    # PDF entrenamientos agrupados
@@ -79,24 +142,29 @@ prueba3/
 | Sección        | CRUD | Nivel | Descripción |
 |----------------|------|-------|-------------|
 | Calendario     | No   | read  | Vista calendario (mes/semana/año) |
-| Entrenamientos | Sí   | write | Gestión de entrenamientos |
+| Entrenamientos | Sí   | write | Gestión de entrenamientos (con adjunto PDF/imagen de la sesión) |
 | Entren. Jugadores | Sí | write | Asignación de jugadores a entrenamientos |
 | Partidos       | Sí   | write | Partidos con filtros temporada/categoría |
-| Temporadas     | Sí   | write | Temporadas del club |
+| Temporadas     | Sí   | write | Temporadas del club; una puede marcarse como **actual** (solo puede haber una) |
 | Títulos        | Sí   | write | Títulos de entrenadores |
 | División       | Sí   | write | Divisiones deportivas |
+| Posición       | Sí   | write | Posiciones de juego (nombre + alias) |
 | Lugares        | Sí   | write | Lugares de entrenamiento/partido |
+| Material       | Sí   | write | Material deportivo del club |
 | Delegados      | Sí   | write | Delegados del club |
+| Coordinadores  | Sí   | write | Coordinadores por tipo de fútbol (F7/F11); al crear uno se asigna automáticamente a las plantillas de ese tipo de fútbol |
 | Categorías     | Sí   | write | Categorías del club |
-| Equipos        | Sí   | write | Equipos del club |
+| Equipos        | Sí   | write | Equipos del club con equipación (camiseta/calzonas/medias) |
+| Equipos Jugadores | Sí | write | Jugadores de equipos rivales (para convocatorias en Jornadas) |
 | Incidencias    | Sí   | write | Incidencias de partidos |
 | Jugadores      | Sí   | write | Jugadores del club |
-| Plantillas     | Sí   | write | Plantillas por categoría y temporada |
+| Plantillas     | Sí   | write | Plantillas por categoría y temporada, con coordinador y posiciones por temporada. Filtradas por defecto a la temporada actual |
+| Promociones    | Sí   | write | Ascensos de jugadores entre plantillas |
 | Entrenadores   | Sí   | write | Entrenadores del club |
-| Jornadas       | Sí   | write | Jornadas deportivas (calendario por categoría) |
-| Sanciones      | Sí   | write | Sanciones a jugadores |
-| Roles          | Sí   | write | Roles de usuario |
-| Patrocinadores | Sí   | write | Patrocinadores del club |
+| Jornadas       | Sí   | write | Jornadas con jugadores convocados (tarjetas y goles) |
+| Torneo         | Sí   | write | Torneos y partidos amistosos |
+| Sanciones      | Sí   | write | Sanciones a jugadores (autogeneradas desde Jornadas para el equipo local del club) |
+| Informes       | —    | read  | En construcción |
 | Administración | Sí   | write | Gestión de usuarios y permisos |
 | **Cambios**    | **No** | **read** | **Auditoría de todos los cambios realizados** |
 
@@ -124,13 +192,45 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 
 ### Plantillas
 - **CRUD de plantillas** con drag & drop de entrenadores, delegados y jugadores
+- **Pestañas Fútbol 7 / Fútbol 11**: la tabla muestra solo las plantillas cuya categoría es de ese tipo de fútbol
+- **Coordinador**: FK opcional a `coordinadores`, filtrada/validada por que `coordinador.id_tipofutbol` coincida con `categoria.id_tipofutbol`
 - **Dorsal visual**: camiseta con número asignado, detección de duplicados
+- **Posiciones por temporada**: cada jugador tiene una o varias posiciones dentro de su plantilla (`plantilla_jugador_posiciones`), no globales
 - **Ordenación** por nombre y dorsal en vista detalle
-- **Vista detalle** con entrenadores, delegados y jugadores
+- **Vista detalle** con coordinador, entrenadores, delegados y jugadores
+- **Filtrado por temporada actual**: la tabla de Plantillas y los selectores de plantilla en Eventos, Jornadas, Torneos y Promociones solo muestran las de la temporada marcada como actual (si ninguna está marcada, se muestran todas)
 
-### Equipo
+### Coordinadores
+- CRUD de coordinadores (nombre, apellidos, email, teléfono, tipo de fútbol)
+- **Asignación automática**: al crear un coordinador con tipo de fútbol, se asigna como coordinador de todas las plantillas cuya categoría comparta ese tipo de fútbol (no ocurre al editar, solo al crear)
+
+### Temporadas
+- CRUD de temporadas con el campo **actual** (Sí/No)
+- Solo puede haber una temporada actual a la vez: marcar una desmarca automáticamente las demás
+- Mientras haya una temporada actual, se usa para filtrar Plantillas en toda la aplicación (ver arriba)
+
+### Posición
+- CRUD de posiciones de juego con **nombre** y **alias** (p. ej. `Portero (POR)`)
+
+### Equipos y equipación
 - **Escudo download**: desde la API de equipos
 - **Datos geográficos** y localidad
+- **Equipación**: columnas `camiseta`, `calzonas` y `medias` con colores de una paleta
+- **Prendas SVG**: en el listado y el detalle del partido se dibujan la camiseta, las calzonas y las medias con su color real
+- **Selector de color**: al editar, combo con todos los colores de la paleta
+- **Colores desde RFAF**: scripts en `scripts/` extraen las equipaciones de rfaf.es (por competición o todas las ligas de Córdoba) y se importan a los equipos
+
+### Jornadas
+- CRUD de jornadas con equipos local/visitante, fecha, hora, incidencias y observaciones
+- **Jugadores convocados** por jornada, en dos grupos: **Equipo Local** y **Equipo Visitante**
+  - Si el equipo es **PALMA DEL RIO ATLETICO C.F.**: se cargan los jugadores de la plantilla (`plantilla.jugadores`)
+  - Si no: se cargan los jugadores de `equipos_jugadores` de ese equipo
+- Por cada jugador convocado: **tarjeta amarilla**, **tarjeta roja** y **goles**
+- **Sanciones automáticas**: los jugadores de PALMA con tarjetas generan/actualizan registros en `sanciones` vinculados al partido de la jornada
+- **Detalle personalizado**:
+  1. Tabla resumen (2 filas × 4 col): **Temporada | Categoría | Fecha y Hora | Jornada**
+  2. Tabla de equipos (4 filas × 2 col): **Equipo Local | Equipo Visitante**, con nombres, escudos y la **suma de goles** de cada lado
+  3. Tablas **Jugadores Equipo Local** y **Jugadores Equipo Visitante** (jugador, T. Amarilla, T. Roja, Goles)
 
 ### Responsive móvil
 - **Sidebar → Drawer** en dispositivos ≤767px
@@ -144,20 +244,45 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 ### Protección de la aplicación
 - **Auditoría**: middleware automático que registra todos los cambios en la tabla `cambios`
 - **SSRF protection**: proxy de imágenes bloquea IPs privadas, loopback y DNS rebinding
-- **Rate limiting**: 10 000 req/15min globales
+- **Rate limiting**: 10 000 req/15min globales y 10 intentos de login/15min por IP (backend). Además, el reverse-proxy limita por IP real 20 req/s (ráfaga 40) y 30 conexiones simultáneas, con cuerpo máximo y timeouts en ambos nginx contra slowloris; `/health` va limitado a 5 req/s
 - **Body limit**: 2MB máximo por petición
-- **JWT**: tokens de 8h con secrets generados por entorno
+- **JWT**: sesión de 1 hora como máximo desde el login (renovar el token no la alarga), con secrets generados por entorno
+- **2FA obligatorio (TOTP)**: segundo factor obligatorio para todos los usuarios (Google Authenticator, Authy…). El login nunca da sesión por sí solo: siempre pide el código de 6 dígitos y, si el usuario aún no lo ha configurado, le obliga a enrolarse. El secreto TOTP se guarda cifrado con AES-256-GCM. Recuperación con **códigos de un solo uso** y **reset por un administrador** desde Administración
+- **Bloqueo temporal de cuenta**: tras 5 contraseñas fallidas seguidas, la cuenta se bloquea 15 min (freno a la fuerza bruta dirigida, además del límite por IP). El login correcto lo reinicia
+- **Recuperación de contraseña por email**: enlace "¿Olvidaste la contraseña?" en el login. El backend envía un email con un enlace que lleva un token aleatorio de un solo uso y caducidad de 1 hora (en la BD solo se guarda su hash SHA-256, nunca el token). La respuesta es siempre la misma exista o no la cuenta (sin enumeración de usuarios) y está limitada por IP. Restablecer la contraseña **no** inicia sesión: el 2FA sigue siendo obligatorio al entrar. Requiere configurar el envío SMTP (ver "Correo saliente (SMTP)")
 - **bcrypt**: hashing de contraseñas con 12 rondas
 - **Política de contraseñas**: mín. 8 caracteres + mayúscula + minúscula + número + símbolo
+- **Cifrado en reposo (AES-256-GCM)**: datos sensibles cifrados en la BD (DNI de jugadores/entrenadores/delegados, secreto TOTP)
 - **Autorización**: `requireNivel()` en rutas de escritura, `authorize()` por sección
 - **Error handling**: mensajes específicos en creación de usuarios, genéricos en producción
 
 ### Protección de la infraestructura
-- **Nginx**: security headers (CSP, X-Frame-Options DENY, nosniff, Referrer-Policy)
-- **TLS**: cifrados ECDHE fuertes, TLS 1.2/1.3
-- **Docker**: containers non-root, `cap_drop: ALL`, límites de recursos
+- **Nginx**: security headers en HTML y assets (HSTS a 1 año con `includeSubDomains`, X-Frame-Options SAMEORIGIN, nosniff, Referrer-Policy y una CSP estricta —`default-src 'self'`, sin `unsafe-eval`—); la API lleva los de helmet
+- **fail2ban**: banea por iptables las IPs con abuso sostenido de login/2FA leyendo el log del reverse-proxy (umbral alto, complementa al límite por IP y al bloqueo por cuenta); el jail `sshd` ya viene activo. Ver `reverse-proxy/fail2ban/README.md`
+- **TLS**: HTTPS propio con Let's Encrypt (servicios `reverse-proxy` + `certbot`), solo TLS 1.2/1.3
+- **Docker**: containers non-root, `cap_drop: ALL`, `no-new-privileges`, límites de recursos
 - **MySQL**: puerto solo expuesto a `127.0.0.1`
 - **Secrets**: backend se niega a arrancar con valores por defecto en producción
+- **CI (GitHub Actions)**: en cada push/PR corre `gitleaks` (fuga de secretos), los tests y `npm audit` (bloquea en CRITICAL de dependencias de producción). Ver `.github/workflows/ci.yml`
+- **Aviso de seguridad por correo**: una tarea cada 2 días (`scripts/comprobar-parches-docker.sh`) revisa parches de las imágenes Docker y CVEs HIGH/CRITICAL (Trivy) y dependencias npm, y deja un resumen en `informes_seguridad`. Si hay algo pendiente **y ha cambiado respecto al informe anterior**, envía un correo al administrador (`backend/src/scripts/avisar-seguridad.js`, al email del usuario `admin` o a `SEGURIDAD_AVISO_EMAIL`); así no se repite el mismo aviso cada 2 días por los CVEs residuales sin parche. Requiere tener configurado el envío de correo (sección Correos o variables `SMTP_*`)
+- **Aviso de sesión de RFAF caducada**: cuando `RFAF_COOKIE` deja de valer (Finalizar Acta, clasificación o actas de la liga), se envía un correo al administrador (mismo destino que el aviso de seguridad) para que ponga una `JSESSIONID` nueva; como mucho uno cada 24 h mientras siga caducada, sin peticiones extra a rfaf.es (`backend/src/utils/avisoSesionRfaf.js`)
+
+### Pruebas de seguridad (pentesting autorizado)
+
+Para auditorías de seguridad se usa [**Strix Claude Code**](https://github.com/tghastings/strix-claude-code), una herramienta de pentesting con IA (Claude CLI + sandbox Kali en Docker + servidor MCP). **No es una dependencia del proyecto**: se instala aparte, en un entorno aislado fuera del repo.
+
+```bash
+# Instalación (una vez), aislada con uv y Python 3.12:
+mkdir -p ~/tools && cd ~/tools
+git clone https://github.com/tghastings/strix-claude-code.git
+cd strix-claude-code && uv venv --python 3.12 && uv pip install -e .
+
+# Escaneo (desde ese directorio); la imagen de Kali se descarga en el primer uso:
+uv run strix-claude-cli -t https://intranet.atleticopalmadelrio.com -m standard -o informe.md
+uv run strix-claude-tui    # panel interactivo
+```
+
+> ⚠️ Herramienta **ofensiva (dual-use)**: úsala solo contra objetivos propios o con permiso explícito (p. ej. un entorno de pruebas de la intranet), nunca contra sistemas de terceros. Requiere Docker y el Claude CLI autenticado.
 
 ## Diseño visual
 
@@ -166,28 +291,38 @@ Sistema de diseño escandinavo aplicado:
 - **Color de marca**: verde institucional `#0B3D2E` como único accent
 - **Tipografía**: Inter (Google Fonts)
 - **Componentes**: PrimeVue con theme neutro
-- **Footer**: patrocinadores compartido (FooterSponsors.vue)
 
 ## Tablas MySQL
 
 ### Principales
 - `usuarios` — Usuarios del sistema con roles y secciones visibles
-- `categorias` — Categorías del club (Benjamin, Infantil, Juvenil, Senior...)
-- `equipos` — Equipos con escudo y datos geográficos
+- `categorias` — Categorías del club (Benjamin, Infantil, Juvenil, Senior...), con FK a `tipofutbol`
+- `tipofutbol` — Fútbol 7 / Fútbol 11
+- `equipos` — Equipos con escudo, datos geográficos y equipación (camiseta/calzonas/medias)
 - `jugadores` — Jugadores del club (DNI opcional)
+- `posicion` — Posiciones de juego (nombre + alias)
+- `material` — Material deportivo del club
 - `partidos` — Partidos con `id_equipo_local` y `id_equipo_visitante` (FK equipos)
-- `jornadas` — Jornadas deportivas con equipos local/visitante
-- `sanciones` — Sanciones a jugadores
-- `patrocinadores` — Patrocinadores con logos
-- `plantillas` — Plantillas por categoría y temporada
+- `jornadas` — Jornadas con equipos local/visitante, hora, incidencias y observaciones
+- `jornada_jugadores` — Jugadores convocados por jornada (local/visitante) con tarjetas y goles
+- `sanciones` — Sanciones a jugadores (id_partido, id_jugador, amarilla, roja)
+- `temporadas` — Temporadas del club; columna `actual` (solo una puede ser `true`)
+- `coordinadores` — Coordinadores por tipo de fútbol (`id_tipofutbol`), FK opcional desde `plantillas`
+- `plantillas` — Plantillas por categoría y temporada, con FK opcional `id_coordinador`
+- `promociones` — Ascensos de jugadores entre plantillas
+- `torneo` — Torneos y partidos amistosos
 - **`cambios`** — Auditoría de todas las acciones CRUD (entidad, acción, antes/después, usuario)
 
 ### Relaciones
 - `plantilla_jugadores` / `plantilla_entrenadores` / `plantilla_delegados` — Muchos a muchos
-- `usuario_secciones` — Permisos por sección (24 secciones)
+- `plantilla_jugador_posiciones` — Posiciones de cada jugador en su plantilla
+- `usuario_secciones` — Permisos por sección
 - `entrenador_titulos` — Muchos a muchos
 - `lugar_tipofutbol` — Muchos a muchos
 - `entrenamientos_jugadores` — Asignación de jugadores a entrenamientos
+- `equipos_jugadores` — Jugadores de equipos rivales (para convocatorias)
+
+> Los cambios de esquema posteriores a `database/schema.sql`/`init.sql` viven como migraciones idempotentes en `database/migrations/` (aplicadas automáticamente al arrancar el backend).
 
 ## Desarrollo local
 
@@ -205,12 +340,12 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (303 tests, 32 archivos)
+# Backend (648 tests, 52 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (21 tests, 4 archivos)
+# Frontend (56 tests, 11 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```
@@ -223,8 +358,31 @@ Mocks en `backend/tests/helpers/` — `Module._load` interceptor para Sequelize 
 |----------|-----|------------|
 | `NODE_ENV` | development | production |
 | `DB_NAME` | atletico_palma_intranet_dev | atletico_palma_intranet |
-| `CORS_ORIGIN` | http://localhost:5173 | https://intranetatleticopalmadelrio.com |
+| `CORS_ORIGIN` | http://localhost:5173 | https://intranet.atleticopalmadelrio.com |
+| `DOMAIN` | — | intranet.atleticopalmadelrio.com |
+| `TRUST_PROXY_HOPS` | 1 (por defecto) | 2 |
 | `JWT_SECRET` | (desarrollo) | (generado por entorno) |
+
+### Correo saliente (SMTP)
+
+El envío de correo (hoy: recuperación de contraseña) se configura de dos formas, por este orden de prioridad:
+
+1. **Sección "Correos"** (Administración, solo visible para el usuario `admin`): cuentas de correo internas guardadas en la BD (p. ej. `no-reply`), con su configuración SMTP. La contraseña se guarda **cifrada con AES-256-GCM** y nunca se muestra. Puede haber varias cuentas marcadas como **Activa**; la web envía sus avisos (recuperación de contraseña, seguridad) desde la primera (la de menor id); una cuenta solo se puede marcar como activa tras comprobar su configuración (prueba interna: conexión e inicio de sesión SMTP sin enviar correo, que el backend repite al guardar). En la tabla solo se ven Etiqueta y Email; el resto, en el detalle; hay un botón para enviar un correo de prueba y comprobar las credenciales.
+2. **Variables de entorno** (respaldo): si no hay ninguna cuenta activa en la BD, se usan las variables `SMTP_*` del env file del servidor (**no se versionan**, son secretos).
+
+Si no hay ninguna de las dos, la función de recuperar contraseña responde igual al usuario pero no envía nada (queda un aviso en el log del backend).
+
+| Variable | Descripción |
+|----------|-------------|
+| `SMTP_HOST` | Servidor SMTP (p. ej. `smtp.gmail.com`) |
+| `SMTP_PORT` | Puerto: `465` (TLS directo) o `587` (STARTTLS). Opcional, por defecto `587` |
+| `SMTP_SECURE` | `true` para TLS directo (465). Opcional, se deduce del puerto |
+| `SMTP_USER` | Usuario del buzón |
+| `SMTP_PASS` | Contraseña del buzón (en Gmail, una *app password*) |
+| `SMTP_FROM` | Remitente, p. ej. `Atlético Palma del Río <no-reply@atleticopalmadelrio.com>`. Opcional, por defecto `SMTP_USER` |
+| `APP_URL` | Base para los enlaces del email. Opcional, por defecto el primer `CORS_ORIGIN` que no sea `localhost` o, si no hay, el dominio de producción |
+
+> Para que los correos no caigan en spam, el dominio desde el que se envía (`SMTP_FROM`) debe tener bien configurados **SPF** y **DKIM** en su DNS (lo da el proveedor del buzón).
 
 ## Comandos útiles
 
@@ -233,25 +391,24 @@ Mocks en `backend/tests/helpers/` — `Module._load` interceptor para Sequelize 
 docker compose logs -f backend
 
 # Reconstruir solo el backend
-docker compose build backend && docker compose up -d backend
+docker compose --env-file .env.development build backend
+docker compose --env-file .env.development up -d backend
 
 # Reconstruir todas las imágenes
-docker compose build && docker compose up -d
+docker compose --env-file .env.development build
+docker compose --env-file .env.development up -d
 
-# Desplegar frontend (build + copiar al contenedor)
-cd frontend && npm run build
-docker cp dist/. apr_frontend:/usr/share/nginx/html/
-docker restart apr_nginx
+# Recargar config de Nginx sin reiniciar (el propio contenedor frontend sirve el estático + nginx)
+docker exec apr_frontend nginx -s reload
 
-# Recargar config de Nginx sin reiniciar
-docker exec apr_nginx nginx -s reload
+# Acceder a MySQL (nombre de BD según entorno: ver tabla "Entornos")
+docker exec -it apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME"
 
-# Acceder a MySQL
-docker exec -it apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" atletico_palma_intranet
+# Verificar health de la API (proxied directamente, no bajo /api)
+curl http://localhost:8080/health
 
-# Verificar health de la API
-curl -k https://localhost/api/health
-
-# Backup de la base de datos
-./scripts/backup-db.sh
+# Backup manual de la base de datos
+./scripts/dump-init.sh
 ```
+
+> Los dos nginx (`frontend` y `reverse-proxy`) resuelven el contenedor de detrás con el DNS interno de Docker cada 10 s, así que recrear `apr_backend` o `apr_frontend` no requiere reiniciar ni recargar nada más.
