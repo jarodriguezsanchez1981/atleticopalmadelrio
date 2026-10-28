@@ -84,6 +84,28 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     expect(res._json.siguiente).toEqual({ jornada: 2, desde: '2026-09-21', disponible: true });
   });
 
+  it('listar: últimos resultados (G/E/P) de cada equipo, de cómo cambian de una jornada a otra; descansar no cuenta', async () => {
+    const fila = (jornada, nombre, ganados, empatados, perdidos) => ({
+      jornada, fecha: null, posicion: 1, equipo: nombre, codigo_equipo: null, es_palma: false,
+      jugados: ganados + empatados + perdidos, ganados, empatados, perdidos
+    });
+    Clasificacion.findAll.mockResolvedValue([
+      fila(1, 'UNO', 1, 0, 0), fila(1, 'DOS', 0, 0, 1),
+      fila(2, 'UNO', 1, 1, 0), fila(2, 'DOS', 0, 0, 1), // DOS descansa
+      fila(3, 'UNO', 1, 1, 1), fila(3, 'DOS', 1, 0, 1),
+      fila(4, 'UNO', 2, 1, 1), fila(4, 'DOS', 1, 1, 1),
+      fila(5, 'UNO', 3, 1, 1), fila(5, 'DOS', 1, 1, 2),
+      fila(6, 'UNO', 3, 2, 1), fila(6, 'DOS', 2, 1, 2)
+    ]);
+    const { promesa, res } = llamar(ctrl.listar, { query: { id_plantilla: '36' } });
+    await promesa;
+    const porEquipo = Object.fromEntries(res._json.ultima.equipos.map((e) => [e.equipo, e.ultimos.map((u) => u.resultado).join('')]));
+    // UNO: G E P G G E -> los 5 últimos.
+    expect(porEquipo.UNO).toBe('EPGGE');
+    expect(porEquipo.DOS).toBe('PGEPG');
+    expect(res._json.ultima.equipos[0].ultimos.at(-1)).toEqual({ jornada: 6, resultado: 'E' });
+  });
+
   it('siguienteJornada: el día siguiente al partido, solo desde las 10:00', async () => {
     vi.setSystemTime(new Date('2026-09-21T07:59:00Z')); // 09:59 en España
     expect(await ctrl.siguienteJornada(36, new Set([1]))).toEqual({ jornada: 2, desde: '2026-09-21', disponible: false });

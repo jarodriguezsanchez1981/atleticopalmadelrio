@@ -80,6 +80,31 @@ async function siguienteJornada(idPlantilla, guardadas) {
 }
 
 /** GET /estadisticas/clasificacion?id_plantilla= */
+const ULTIMOS_PARTIDOS = 5;
+
+/** Últimos resultados de cada equipo ('G' | 'E' | 'P', del más antiguo al
+ * último, como mucho ULTIMOS_PARTIDOS) a partir de cómo cambian sus ganados,
+ * empatados y perdidos de una jornada guardada a la siguiente (si descansa no
+ * cambian). `jornadas`: [{ jornada, equipos }] en orden. Devuelve un Map
+ * equipo (código o nombre) -> [{ jornada, resultado }]. */
+function ultimosResultados(jornadas) {
+  const clave = (e) => e.codigo_equipo || e.equipo;
+  const anterior = new Map();
+  const resultados = new Map();
+  for (const { jornada, equipos } of jornadas) {
+    for (const e of equipos) {
+      const antes = anterior.get(clave(e)) || { ganados: 0, empatados: 0, perdidos: 0 };
+      const lista = resultados.get(clave(e)) || [];
+      for (const [campo, letra] of [['ganados', 'G'], ['empatados', 'E'], ['perdidos', 'P']]) {
+        for (let i = 0; i < Math.max(0, Number(e[campo]) - Number(antes[campo])); i++) lista.push({ jornada, resultado: letra });
+      }
+      resultados.set(clave(e), lista.slice(-ULTIMOS_PARTIDOS));
+      anterior.set(clave(e), e);
+    }
+  }
+  return resultados;
+}
+
 async function listar(req, res, next) {
   try {
     const idPlantilla = Number(req.query.id_plantilla);
@@ -107,6 +132,11 @@ async function listar(req, res, next) {
       };
     });
     const ultima = [...porJornada.values()].pop() || null;
+    // Tabla de la última jornada: con los últimos resultados de cada equipo.
+    if (ultima) {
+      const ultimos = ultimosResultados([...porJornada.values()]);
+      ultima.equipos = ultima.equipos.map((e) => ({ ...e, ultimos: ultimos.get(e.codigo_equipo || e.equipo) || [] }));
+    }
     const siguiente = await siguienteJornada(idPlantilla, new Set(porJornada.keys()));
     res.json({ jornadas, ultima, siguiente });
   } catch (err) { next(err); }

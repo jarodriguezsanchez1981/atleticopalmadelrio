@@ -126,7 +126,16 @@ const opciones = computed(() => ({
 const ultima = computed(() => datos.value.ultima);
 // Filas de la tabla con la diferencia de goles ya calculada (para ordenar por ella).
 const equiposTabla = computed(() => (ultima.value?.equipos || [])
-  .map((e) => ({ ...e, diferencia: e.goles_favor - e.goles_contra })));
+  .map((e) => ({
+    ...e,
+    diferencia: e.goles_favor - e.goles_contra,
+    // Para el Excel: "G E P G G".
+    ultimos_texto: (e.ultimos || []).map((u) => u.resultado).join(' ')
+  })));
+
+// Últimos partidos: G en verde, E en gris y P en rojo.
+const CLASE_RESULTADO = { G: 'bg-green-600', E: 'bg-gray-400', P: 'bg-red-600' };
+const NOMBRE_RESULTADO = { G: 'Ganado', E: 'Empate', P: 'Perdido' };
 
 // Exportar a Excel: la tabla de la clasificación y, en otra hoja, la evolución
 // jornada a jornada (los datos de la gráfica).
@@ -136,11 +145,11 @@ const COLUMNAS_CLASIFICACION = [
   { campo: 'posicion', titulo: 'Pos.' }, { campo: 'equipo', titulo: 'Equipo' }, { campo: 'puntos', titulo: 'Pts' },
   { campo: 'jugados', titulo: 'J' }, { campo: 'ganados', titulo: 'G' }, { campo: 'empatados', titulo: 'E' },
   { campo: 'perdidos', titulo: 'P' }, { campo: 'goles_favor', titulo: 'GF' }, { campo: 'goles_contra', titulo: 'GC' },
-  { campo: 'diferencia', titulo: 'Dif.' }
+  { campo: 'diferencia', titulo: 'Dif.' }, { campo: 'ultimos_texto', titulo: 'Últimos partidos' }
 ];
 const COLUMNAS_EVOLUCION = [
   { campo: 'jornada', titulo: 'Jornada' }, { campo: 'fecha', titulo: 'Fecha' }, { campo: 'posicion', titulo: 'Posición' },
-  { campo: 'total_equipos', titulo: 'Equipos' }, ...COLUMNAS_CLASIFICACION.slice(2)
+  { campo: 'total_equipos', titulo: 'Equipos' }, ...COLUMNAS_CLASIFICACION.slice(2, -1)
 ];
 async function exportarExcel() {
   exportando.value = true;
@@ -226,7 +235,22 @@ onBeforeUnmount(() => {
           <Column field="goles_favor" header="GF" sortable />
           <Column field="goles_contra" header="GC" sortable />
           <Column field="diferencia" header="Dif." sortable />
+          <Column header="Últimos partidos" style="min-width: 9rem">
+            <template #body="{ data }">
+              <div class="flex items-center gap-1">
+                <span v-for="(u, i) in data.ultimos || []" :key="i"
+                      class="inline-flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
+                      :class="CLASE_RESULTADO[u.resultado]"
+                      v-tooltip.top="`Jornada ${u.jornada}: ${NOMBRE_RESULTADO[u.resultado]}`">{{ u.resultado }}</span>
+                <span v-if="!(data.ultimos || []).length" class="text-ink-tertiary">—</span>
+              </div>
+            </template>
+          </Column>
         </DataTable>
+        <p class="text-xs text-ink-tertiary">
+          Últimos partidos: los 5 últimos resultados de cada equipo (el más reciente a la derecha): G ganado, E empate y
+          P perdido. Salen de comparar cada jornada guardada con la anterior; las jornadas en las que descansa no cuentan.
+        </p>
       </div>
     </template>
   </div>
