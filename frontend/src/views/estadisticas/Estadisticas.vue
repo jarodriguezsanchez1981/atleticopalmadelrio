@@ -53,7 +53,8 @@ async function cargar() {
     golesContra.value = null;
     if (plantilla.value) {
       filas.value = (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
-        .map((f) => ({ ...f, jugador: `${f.nombre} ${f.apellidos}` }));
+        // El alias del jugador en la plantilla (Plantillas) o, sin él, su nombre.
+        .map((f) => ({ ...f, jugador: f.alias || `${f.nombre} ${f.apellidos}` }));
       // En Goles, además, los goles del equipo (parte de Estadísticas Equipo) y
       // los que nos marca el equipo contrario por periodo. En Sanciones, las
       // tarjetas del equipo (parte de Estadísticas Equipo).
@@ -77,7 +78,7 @@ async function cargar() {
 
 // Filtro de las tablas de jugadores: los jugadores de la plantilla elegidos.
 const opcionesJugadores = computed(() => (plantilla.value?.jugadores || [])
-  .map((j) => ({ value: j.id, label: `${j.nombre} ${j.apellidos}` }))
+  .map((j) => ({ value: j.id, label: j.PlantillaJugador?.alias || `${j.nombre} ${j.apellidos}` }))
   .sort((a, b) => a.label.localeCompare(b.label, 'es')));
 const textoVacio = computed(() => (jugadoresFiltro.value.length
   ? 'Ninguno de los jugadores elegidos tiene datos en esta tabla.'

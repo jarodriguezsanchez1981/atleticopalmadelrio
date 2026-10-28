@@ -220,6 +220,7 @@ function formatearJugador(j) {
     id_jugador: j.id,
     dorsal: jp.dorsal,
     talla: jp.talla,
+    alias: jp.alias || '',
     promocion: jp.promocion || false,
     ids_posiciones: (jp.posiciones || []).map(p => p.id),
     veces_convocado_superior: jp.veces_convocado_superior ?? 0
@@ -257,7 +258,13 @@ function entrenadorInfo(id) {
   return entrenadores.value.find(e => e.id === id);
 }
 
-/** La tabla Personal del formulario solo sale con la categoría Senior A. */
+function nombreCompleto(idJugador) {
+  const j = jugadorInfo(idJugador);
+  return j ? `${j.nombre} ${j.apellidos}`.trim() : '';
+}
+
+/** La tabla Personal (y la columna Alias de los jugadores) del formulario
+ * solo sale con la categoría Senior A. */
 function conPersonal(form) {
   return categorias.value.find((c) => c.id === form?.id_categoria)?.nombre === CATEGORIA_CON_PERSONAL;
 }
@@ -331,6 +338,8 @@ function addJugador(form) {
       id_jugador: nuevoJugador.value,
       dorsal: nuevoDorsal.value ?? null,
       talla: nuevaTalla.value || null,
+      // Senior A: el alias empieza siendo su nombre (se puede cambiar).
+      alias: conPersonal(form) ? nombreCompleto(nuevoJugador.value) : '',
       promocion: false,
       ids_posiciones: [...nuevasPosiciones.value],
       veces_convocado_superior: 0
@@ -643,6 +652,8 @@ function validarPlantilla(form) {
                     @click="toggleOrdenJugadores('dorsal', form)">
                   <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrden('dorsal'), 'text-[10px]']"></i></span>
                 </th>
+                <th v-if="conPersonal(form)" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary"
+                    v-tooltip.top="'Nombre con el que sale en las estadísticas de Senior A'">Alias</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
                 <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
@@ -663,6 +674,9 @@ function validarPlantilla(form) {
                     <InputNumber v-model="j.dorsal" :min="0" :max="99" inputClass="!w-12 !text-center" class="!w-12"
                       @blur="comprobarDorsalDuplicado(form, j.id_jugador, j.dorsal)" />
                   </div>
+                </td>
+                <td v-if="conPersonal(form)" class="text-center border border-line p-2">
+                  <InputText v-model="j.alias" class="!w-40" maxlength="100" :placeholder="nombreCompleto(j.id_jugador)" />
                 </td>
                 <td class="text-center border border-line p-2">
                   <InputText v-model="j.talla" class="!w-16 !text-center" />
@@ -836,6 +850,7 @@ function validarPlantilla(form) {
                   @click="toggleOrdenDetalle('dorsal')">
                 <span class="inline-flex items-center gap-1">Dorsal <i :class="['pi', iconoOrdenDetalle('dorsal'), 'text-[10px]']"></i></span>
               </th>
+              <th v-if="conPersonal(data)" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Alias</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Talla</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Posición</th>
               <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary">Promoción</th>
@@ -853,6 +868,7 @@ function validarPlantilla(form) {
                 <CamisetaDorsal v-if="j.PlantillaJugador?.dorsal != null" :numero="j.PlantillaJugador.dorsal" :size="50" />
                 <span v-else class="text-ink-tertiary">—</span>
               </td>
+              <td v-if="conPersonal(data)" class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.alias || '—' }}</td>
               <td class="text-center border border-line p-2 text-sm">{{ j.PlantillaJugador?.talla ?? '—' }}</td>
               <td class="text-center border border-line p-2 text-sm">
                 <template v-if="posicionesDe(j.PlantillaJugador?.posiciones).length">

@@ -267,13 +267,16 @@ async function listar(req, res, next) {
     const enActa = new Set(filas.filter((f) => f.id_jugador).map((f) => `${f.id_partido}-${f.id_jugador}`));
     const plantillaJugadores = await PlantillaJugador.findAll({
       where: { id_plantilla: idPlantilla },
-      attributes: ['id_jugador'],
+      attributes: ['id_jugador', 'alias'],
       include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
     }) || [];
     for (const pj of plantillaJugadores) {
       for (const [idPartido, lado] of ladoPartido) {
         if (!enActa.has(`${idPartido}-${pj.id_jugador}`)) sumar(filaDe(pj.id_jugador, pj.jugador), 'sin_convocar', 1, lado);
       }
+      // Alias del jugador en la plantilla (Plantillas, Senior A): el nombre
+      // que muestran las estadísticas; sin alias, nombre y apellidos.
+      if (pj.alias && porJugador.has(pj.id_jugador)) porJugador.get(pj.id_jugador).alias = pj.alias;
     }
 
     // Lesión / Sanc.: convocatorias de esos partidos en las que el jugador está

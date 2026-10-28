@@ -37,7 +37,7 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       { id_partido: 3, id_jugador: 8, es_local: true, titular: true, minutos: 90, jugador: { id: 8, nombre: 'Luis', apellidos: 'Ruiz' } }
     ]);
     // Ana y Eva son de la plantilla; Eva no aparece en ningún acta.
-    PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 7, jugador: ana }, { id_jugador: 9, jugador: eva }]);
+    PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 7, alias: 'Anita', jugador: ana }, { id_jugador: 9, jugador: eva }]);
     Convocatoria.findAll.mockResolvedValue([{ id: 30, id_partido: 3 }, { id: 20, id_partido: 2 }]);
     ConvocatoriaSinJugador.findAll.mockResolvedValue([
       { id_convocatoria: 30, id_jugador: 7, lesion: true, jugador: ana },
@@ -61,6 +61,9 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       minutos_por_partido: 90, minutos_por_gol: 180, minutos_por_tarjeta: 180,
       minutos_por_gol_visitante: null, minutos_por_tarjeta_local: 90
     });
+    // Alias de la plantilla (Plantillas, Senior A); sin alias, no lleva.
+    expect(porId[7].alias).toBe('Anita');
+    expect(porId[9].alias).toBeUndefined();
     expect(porId[9]).toMatchObject({
       nombre: 'Eva', convocatorias: 0, sin_convocar: 3, sin_convocar_local: 2, sin_convocar_visitante: 1,
       lesiones: 2, lesiones_local: 1, lesiones_visitante: 1, minutos_por_partido: null

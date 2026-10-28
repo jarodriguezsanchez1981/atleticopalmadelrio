@@ -5,7 +5,7 @@ const includes = [
   { model: Temporada, as: 'temporada', attributes: ['id', 'nombre'] },
   { model: Division, as: 'division', attributes: ['id', 'nombre'] },
   { model: Coordinador, as: 'coordinador', attributes: ['id', 'nombre', 'apellidos'] },
-  { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['id', 'dorsal', 'talla', 'titular', 'promocion'] } },
+  { model: Jugador, as: 'jugadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['id', 'dorsal', 'talla', 'alias', 'titular', 'promocion'] } },
   { model: Entrenador, as: 'entrenadores', attributes: ['id', 'nombre', 'apellidos', 'foto'], through: { attributes: ['rol'] }, include: [{ model: Titulo, as: 'titulos', attributes: ['id', 'nombre'], through: { attributes: [] } }] },
   { model: Delegado, as: 'delegados', attributes: ['id', 'nombre', 'apellidos', 'foto', 'tipo'], through: { attributes: ['rol'] } },
   // Personal del club (sección Personal); en el formulario solo se ofrece en Senior A.
@@ -281,6 +281,7 @@ async function crear(req, res, next) {
         id_jugador: j.id_jugador,
         dorsal: j.dorsal || null,
         talla: j.talla || null,
+        alias: String(j.alias ?? '').trim().slice(0, 100) || null,
         titular: j.titular || false,
         promocion: j.promocion || false
       }));
@@ -387,6 +388,7 @@ async function actualizar(req, res, next) {
           id_jugador: j.id_jugador,
           dorsal: j.dorsal || null,
           talla: j.talla || null,
+          alias: String(j.alias ?? '').trim().slice(0, 100) || null,
           titular: j.titular || false,
           promocion: j.promocion || false
         }));

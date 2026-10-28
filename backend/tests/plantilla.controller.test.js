@@ -611,7 +611,7 @@ describe('Sección Plantillas · plantilla.controller', () => {
     PlantillaJugador.bulkCreate.mockResolvedValue([]);
     const { promesa, res } = llamar(ctrl.actualizar, {
       params: { id: '1' },
-      body: { jugadores: [{ id_jugador: 5, dorsal: 10, talla: 'M' }, { id_jugador: 6, dorsal: 7, talla: 'L' }] }
+      body: { jugadores: [{ id_jugador: 5, dorsal: 10, talla: 'M', alias: '  Pepe  ' }, { id_jugador: 6, dorsal: 7, talla: 'L', alias: '' }] }
     });
 
     await promesa;
@@ -619,8 +619,8 @@ describe('Sección Plantillas · plantilla.controller', () => {
     expect(PlantillaJugador.destroy).toHaveBeenCalledWith({ where: { id_plantilla: 1 } });
     expect(PlantillaJugador.bulkCreate).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ id_plantilla: 1, id_jugador: 5, dorsal: 10, talla: 'M', titular: false }),
-        expect.objectContaining({ id_plantilla: 1, id_jugador: 6, dorsal: 7, talla: 'L', titular: false })
+        expect.objectContaining({ id_plantilla: 1, id_jugador: 5, dorsal: 10, talla: 'M', alias: 'Pepe', titular: false }),
+        expect.objectContaining({ id_plantilla: 1, id_jugador: 6, dorsal: 7, talla: 'L', alias: null, titular: false })
       ]),
       { ignoreDuplicates: true }
     );
