@@ -1,6 +1,6 @@
 ---
 name: desplegar
-description: Commit, push y despliegue de un cambio de código en local y en el EC2 de producción (git pull + rebuild de backend/frontend). Usar al terminar cualquier cambio de código.
+description: Commit, push, PR a main y despliegue de un cambio de código en local y en el EC2 de producción (git pull + rebuild de backend/frontend). Usar al terminar cualquier cambio de código.
 ---
 
 # Desplegar un cambio
@@ -9,9 +9,10 @@ Datos de acceso al EC2 (host, clave SSH, carpeta): en la memoria del proyecto (`
 
 1. **Tests** de lo tocado en verde: `cd backend && npx vitest run` y/o `cd frontend && npx vitest run && npx vite build`.
 2. **Commit**: `git add` solo de los ficheros del cambio (nunca `.env*`, `backups/`, `.claude/settings.local.json`), mensaje en español con el formato `Sección: qué cambia`, y el trailer Co-Authored-By de la sesión. `git push origin develop`.
+   - Pasar a `main` (lo que corre en el EC2) con un PR: `gh pr create --base main --head develop --fill` y `gh pr merge --merge`; después igualar `develop`: `git pull --ff-only origin main && git push origin develop`.
 3. **Local**: `docker compose --env-file .env.development up -d --build <backend|frontend>` (solo los servicios tocados) y comprobar con `docker ps`.
 4. **EC2** (por SSH, en la carpeta del proyecto):
-   - `git pull --ff-only origin develop`
+   - `git pull --ff-only origin main` (el EC2 está en la rama `main`)
    - `docker compose --env-file .env.development up -d --build <backend|frontend>`; **nunca** `.env.production`.
    - Si aparece `apr_backend_test`, quitarlo con `docker rm -f apr_backend_test`.
    - Comprobar: `docker ps` y `docker logs --tail 20 apr_backend` (migraciones aplicadas, sin errores).

@@ -33,9 +33,9 @@ docker logs --tail 50 apr_backend     # logs (contenedores: apr_backend, apr_fro
 ## Flujo de trabajo (obligatorio)
 
 1. Cambio de código → tests de la parte tocada (`npx vitest run`) en verde.
-2. `git add` solo de los ficheros del cambio, commit en español y `git push origin develop` (rama de trabajo: `develop`).
+2. `git add` solo de los ficheros del cambio, commit en español y `git push origin develop` (rama de trabajo: `develop`, lo desplegado en local). Después PR de `develop` a `main` (lo que está en el EC2), fusionarlo y dejar `develop` igual que `main`.
 3. Reconstruir los contenedores locales afectados (`backend` y/o `frontend`).
-4. Desplegar en el EC2 de producción: skill `/desplegar`.
+4. Desplegar en el EC2 de producción (rama `main`): skill `/desplegar`.
 5. Los cambios solo de datos (SQL directo en la BD) no llevan commit: skill `/corregir-datos`.
 
 ## Reglas que no se pueden saltar
