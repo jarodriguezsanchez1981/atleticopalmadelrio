@@ -60,6 +60,9 @@ defineProps({
       <label class="flex items-center gap-2 text-sm text-ink-secondary">
         <Checkbox v-model="datos.mostrarAviso" :binary="true" /> Aviso legal
       </label>
+      <label class="flex items-center gap-2 text-sm text-ink-secondary">
+        <Checkbox v-model="datos.noResponder" :binary="true" /> Aviso «no responda a este correo»
+      </label>
     </div>
     <div v-if="datos.mostrarAviso" class="flex flex-col gap-1">
       <label class="text-xs font-medium text-ink-secondary" :for="`${prefijo}-aviso`">Texto del aviso legal</label>

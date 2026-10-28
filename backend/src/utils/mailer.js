@@ -2,7 +2,7 @@
  * Envío de correo con nodemailer.
  *
  * La configuración a usar se resuelve en este orden:
- *   1) la cuenta de correo marcada como ACTIVA en la BD (sección "Correos" de
+ *   1) la cuenta de correo marcada como ACTIVA en la BD (la primera, si hay varias) (sección "Correos" de
  *      Administración); su contraseña se guarda cifrada con AES.
  *   2) si no hay cuenta activa, las variables de entorno SMTP_* (respaldo):
  *        SMTP_HOST, SMTP_PORT (587), SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM
@@ -38,11 +38,11 @@ function configDesdeEnv() {
   };
 }
 
-/** Config SMTP de la cuenta activa en la BD, o null. */
+/** Config SMTP de la cuenta activa en la BD (la de menor id si hay varias), o null. */
 async function configActivaBD() {
   try {
     const { CuentaCorreo } = require('../models');
-    const cuenta = await CuentaCorreo.scope('conPassword').findOne({ where: { activa: true } });
+    const cuenta = await CuentaCorreo.scope('conPassword').findOne({ where: { activa: true }, order: [['id', 'ASC']] });
     if (!cuenta || !cuenta.smtp_host || !cuenta.smtp_user || !cuenta.smtp_password) return null;
     return {
       host: cuenta.smtp_host,

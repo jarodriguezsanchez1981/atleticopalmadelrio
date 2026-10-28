@@ -81,8 +81,8 @@ function enviarPrueba(data) {
       </h1>
     </div>
     <p class="text-sm text-ink-tertiary mb-4">
-      Cuentas de correo internas de la web (p. ej. <code>no-reply</code>). La cuenta marcada como <strong>Activa</strong>
-      es la que usa la intranet para enviar correos (recuperación de contraseña, etc.). Solo puede haber una activa.
+      Cuentas de correo internas de la web (p. ej. <code>no-reply</code>). Puede haber varias cuentas
+      <strong>Activas</strong>; los avisos de la intranet (recuperación de contraseña, etc.) salen de la primera de la lista.
     </p>
 
     <Message severity="info" :closable="false" class="mb-4">

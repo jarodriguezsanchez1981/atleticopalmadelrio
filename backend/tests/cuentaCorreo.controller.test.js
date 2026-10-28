@@ -90,12 +90,14 @@ describe('Sección Correos · cuentaCorreo.controller', () => {
     expect(res._status).toBe(400);
   });
 
-  it('crear con activa=true desmarca las demás cuentas', async () => {
+  it('crear con activa=true no desmarca las demás cuentas (puede haber varias activas)', async () => {
     CuentaCorreo.create.mockResolvedValue({ id: 4 });
     CuentaCorreo.findByPk.mockResolvedValue({ toJSON: () => ({ id: 4, smtp_password: 'c', activa: true }) });
-    const { promesa } = llamar(ctrl.crear, { body: cuerpoValido({ activa: true }) });
+    const { promesa, res } = llamar(ctrl.crear, { body: cuerpoValido({ activa: true }) });
     await promesa;
-    expect(CuentaCorreo.update).toHaveBeenCalledWith({ activa: false }, expect.any(Object));
+    expect(res._status).toBe(201);
+    expect(CuentaCorreo.create).toHaveBeenCalledWith(expect.objectContaining({ activa: true }));
+    expect(CuentaCorreo.update).not.toHaveBeenCalled();
   });
 
   it('actualizar mantiene la contraseña si no se envía una nueva', async () => {

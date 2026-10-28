@@ -15,6 +15,11 @@ export const AVISO_LEGAL_POR_DEFECTO =
   `${NOMBRE_CLUB} para gestionar esta comunicación; puede ejercer sus derechos de acceso, rectificación, ` +
   'supresión y demás reconocidos por el RGPD respondiendo a este correo.';
 
+/** Aviso de que el correo no se debe responder (correos que envía la web
+ * desde las cuentas de Correos, que nadie lee). */
+export const AVISO_NO_RESPONDER =
+  'Este correo se ha enviado de forma automática. Por favor, no responda a este mensaje.';
+
 /** Redes sociales que puede mostrar la firma. `base` se antepone al nombre de
  * usuario; `conArroba`: el enlace lleva la @ (los canales de YouTube). */
 export const REDES = [
@@ -44,7 +49,8 @@ export const DATOS_POR_DEFECTO = {
   colorSecundario: '#7A1E2B',
   mostrarEscudo: true,
   mostrarAviso: true,
-  aviso: AVISO_LEGAL_POR_DEFECTO
+  aviso: AVISO_LEGAL_POR_DEFECTO,
+  noResponder: false
 };
 
 export function escaparHtml(texto) {
@@ -125,6 +131,9 @@ export function generarFirmaHtml(datos = {}) {
     `<table cellpadding="0" cellspacing="0" border="0" style="${estiloTabla}">` +
     `<tr>${celdaEscudo}<td valign="middle" style="${sangria}vertical-align:middle;">${lineas.join('')}</td></tr>` +
     '</table>';
+  const noResponder = d.noResponder
+    ? `<tr><td style="padding:12px 0 0 0;font-size:12px;font-weight:bold;color:${c2};">${escaparHtml(AVISO_NO_RESPONDER)}</td></tr>`
+    : '';
   const aviso = d.mostrarAviso && d.aviso
     ? `<tr><td style="padding:12px 0 0 0;font-size:10px;line-height:1.4;color:#999999;max-width:560px;">${escaparHtml(d.aviso)}</td></tr>`
     : '';
@@ -132,6 +141,7 @@ export function generarFirmaHtml(datos = {}) {
   return (
     `<table cellpadding="0" cellspacing="0" border="0" style="${estiloTabla}">` +
     `<tr><td style="padding:0;">${bloque}</td></tr>` +
+    noResponder +
     aviso +
     '</table>'
   );

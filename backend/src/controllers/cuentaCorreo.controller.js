@@ -1,5 +1,4 @@
-const { Op } = require('sequelize');
-const { CuentaCorreo, sequelize } = require('../models');
+const { CuentaCorreo } = require('../models');
 const aes = require('../utils/aesCrypto');
 const { enviarConConfig, conFirma } = require('../utils/mailer');
 
@@ -51,14 +50,6 @@ function validar(body, { esNuevo }) {
   };
 }
 
-/** Si la cuenta `id` se marca activa, desmarca las demás (solo una activa). */
-async function desactivarOtras(idActiva, transaction) {
-  await CuentaCorreo.update(
-    { activa: false },
-    { where: idActiva ? { id: { [Op.ne]: idActiva } } : {}, transaction }
-  );
-}
-
 async function listar(req, res, next) {
   try {
     const cuentas = await CuentaCorreo.scope('conPassword').findAll({ order: [['id', 'ASC']] });
@@ -79,13 +70,9 @@ async function crear(req, res, next) {
     const { datos, error } = validar(req.body, { esNuevo: true });
     if (error) return res.status(400).json({ message: error });
 
-    const nueva = await sequelize.transaction(async (t) => {
-      const cuenta = await CuentaCorreo.create({
-        ...datos,
-        smtp_password: aes.encrypt(String(req.body.smtp_password))
-      }, { transaction: t });
-      if (datos.activa) await desactivarOtras(cuenta.id, t);
-      return cuenta;
+    const nueva = await CuentaCorreo.create({
+      ...datos,
+      smtp_password: aes.encrypt(String(req.body.smtp_password))
     });
 
     const completa = await CuentaCorreo.scope('conPassword').findByPk(nueva.id);
@@ -107,10 +94,7 @@ async function actualizar(req, res, next) {
     const nuevaPass = String(req.body.smtp_password ?? '').trim();
     if (nuevaPass) cambios.smtp_password = aes.encrypt(nuevaPass);
 
-    await sequelize.transaction(async (t) => {
-      await cuenta.update(cambios, { transaction: t });
-      if (datos.activa) await desactivarOtras(cuenta.id, t);
-    });
+    await cuenta.update(cambios);
 
     const completa = await CuentaCorreo.scope('conPassword').findByPk(cuenta.id);
     res.json(serializar(completa));

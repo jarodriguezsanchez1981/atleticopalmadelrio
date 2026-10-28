@@ -12,7 +12,9 @@ const props = defineProps({
 });
 
 const conFirma = ref(props.form.id ? !!props.form.firma_html : true);
-const datos = reactive({ ...DATOS_POR_DEFECTO, ...(props.form.firma_datos || {}) });
+// Las cuentas de Correos son buzones que nadie lee: el aviso de no responder
+// viene marcado (también en las firmas guardadas antes de existir la opción).
+const datos = reactive({ ...DATOS_POR_DEFECTO, noResponder: true, ...(props.form.firma_datos || {}) });
 delete datos.email;
 
 const html = computed(() => generarFirmaHtml({ ...datos, email: props.form.email || '' }));
