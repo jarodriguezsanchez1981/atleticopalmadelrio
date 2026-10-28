@@ -13,7 +13,7 @@ export const AVISO_LEGAL_POR_DEFECTO =
   'Este mensaje y sus archivos adjuntos son confidenciales y se dirigen exclusivamente a su destinatario. ' +
   'Si lo ha recibido por error, comuníquelo al remitente y elimínelo. Sus datos personales son tratados por ' +
   `${NOMBRE_CLUB} para gestionar esta comunicación; puede ejercer sus derechos de acceso, rectificación, ` +
-  'supresión y demás reconocidos por el RGPD respondiendo a este correo.';
+  `supresión y demás reconocidos por el RGPD dirigiéndose por escrito a ${NOMBRE_CLUB}.`;
 
 /** Aviso de que el correo no se debe responder (correos que envía la web
  * desde las cuentas de Correos, que nadie lee). */

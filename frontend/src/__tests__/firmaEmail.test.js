@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generarFirmaHtml, URL_ESCUDO, NOMBRE_CLUB, AVISO_NO_RESPONDER } from '../utils/firmaEmail.js';
+import { generarFirmaHtml, URL_ESCUDO, NOMBRE_CLUB, AVISO_NO_RESPONDER, AVISO_LEGAL_POR_DEFECTO } from '../utils/firmaEmail.js';
 
 describe('firmaEmail · generarFirmaHtml', () => {
   it('incluye los datos, el club y el escudo por URL pública', () => {
@@ -24,6 +24,10 @@ describe('firmaEmail · generarFirmaHtml', () => {
     const html = generarFirmaHtml({ nombre: 'A', colorPrincipal: 'red;background:url(x)' });
     expect(html).not.toContain('url(x)');
     expect(html).toContain('#0F3D22');
+  });
+
+  it('el aviso legal por defecto no pide responder al correo', () => {
+    expect(AVISO_LEGAL_POR_DEFECTO).not.toMatch(/respond/i);
   });
 
   it('el aviso de no responder solo sale si se marca', () => {

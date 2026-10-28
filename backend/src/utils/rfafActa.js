@@ -1,5 +1,6 @@
 const path = require('path');
 const { execFile } = require('child_process');
+const avisoSesion = require('./avisoSesionRfaf');
 
 const SCRIPT = path.join(__dirname, '..', 'scripts', 'rfaf_acta.py');
 const SCRIPT_CLASIFICACION = path.join(__dirname, '..', 'scripts', 'rfaf_clasificacion.py');
@@ -31,8 +32,11 @@ function ejecutarScript(script, args, error) {
         let salida = null;
         try { salida = JSON.parse(stdout); } catch { /* sin JSON: fallo del propio script */ }
         if (!salida || salida.error || err) {
+          // Sesión caducada: aviso por email al administrador (no bloquea).
+          avisoSesion.avisarSiCaducada(salida?.error);
           return reject(new ErrorActa(salida?.error || error, 502));
         }
+        avisoSesion.sesionValida();
         const { cookie, ...datos } = salida;
         if (cookie) sesionRfaf = cookie;
         return resolve(datos);
