@@ -7,6 +7,7 @@ import InputText from 'primevue/inputtext';
 import { useToast } from 'primevue/usetoast';
 import { temporadasService, plantillasService, partidosService, convocatoriasService } from '../services';
 import { escudoEquipo, cargarEscudos } from '../utils/escudosEquipos';
+import ConvocatoriaListaAusentes from './ConvocatoriaListaAusentes.vue';
 
 const PALMA_ID = 73;
 
@@ -38,12 +39,13 @@ const nuevoNoConvocado = ref(null);
 const observacionesNuevoNoConvocado = ref('');
 const keySelectNoConvocado = ref(0);
 
-// Lesionados: tampoco están convocados (se guardan como no convocados con
-// `lesion`); Estadísticas cuenta las veces que cada jugador ha estado lesionado.
+// Lesionados y sancionados: tampoco están convocados (se guardan como no
+// convocados con `lesion` / `sancion`); Estadísticas cuenta las veces que cada
+// jugador ha estado lesionado / sancionado.
 const jugadoresLesionados = ref([]); // array de { id_jugador, observaciones }
-const nuevoLesionado = ref(null);
-const observacionesNuevoLesionado = ref('');
-const keySelectLesionado = ref(0);
+const jugadoresSancionados = ref([]); // array de { id_jugador, observaciones }
+const listaLesionados = ref(null);
+const listaSancionados = ref(null);
 
 // Promoción (solo al crear): jugadores de otra plantilla de la misma temporada
 // con categoría de orden igual o inferior; se guardan en la tabla promociones.
@@ -59,13 +61,12 @@ function resetForm() {
   jugadoresConvocados.value = [];
   jugadoresNoConvocados.value = [];
   jugadoresLesionados.value = [];
+  jugadoresSancionados.value = [];
   partidosPlantilla.value = [];
   partidoSeleccionado.value = null;
   nuevoJugador.value = null;
   nuevoNoConvocado.value = null;
   observacionesNuevoNoConvocado.value = '';
-  nuevoLesionado.value = null;
-  observacionesNuevoLesionado.value = '';
   resetPromocion();
 }
 
@@ -158,11 +159,12 @@ async function cargarRegistro() {
     id_partido: item.id_partido ?? item.partido?.id ?? null
   };
   jugadoresConvocados.value = (item.jugadores || []).map((j) => j.id_jugador);
-  const sinConvocar = (lesion) => (item.noConvocados || [])
-    .filter((n) => !!n.lesion === lesion)
+  const sinConvocar = (filtro) => (item.noConvocados || [])
+    .filter(filtro)
     .map((n) => ({ id_jugador: n.id_jugador, observaciones: n.observaciones || '' }));
-  jugadoresNoConvocados.value = sinConvocar(false);
-  jugadoresLesionados.value = sinConvocar(true);
+  jugadoresNoConvocados.value = sinConvocar((n) => !n.lesion && !n.sancion);
+  jugadoresLesionados.value = sinConvocar((n) => !!n.lesion);
+  jugadoresSancionados.value = sinConvocar((n) => !n.lesion && !!n.sancion);
   jugadoresPromocion.value = (item.promocionados || []).map((p) => ({
     id_plantilla: p.id_plantilla,
     id_jugador: p.id_jugador,
@@ -207,10 +209,10 @@ const jugadoresPlantilla = computed(() =>
 );
 
 // El desplegable de "convocados" excluye solo a quien ya está convocado: a un
-// jugador que está en "no convocados" o en "lesionados" se le puede elegir
-// igual, lo que lo convoca directamente (ver addJugador). Los de "no
-// convocados" y "lesionados", en cambio, excluyen a cualquiera de las tres
-// listas: para pasar a alguien de una a otra hay que quitarlo antes.
+// jugador que está en "no convocados", "lesionados" o "sancionados" se le
+// puede elegir igual, lo que lo convoca directamente (ver addJugador). Los de
+// esas tres listas, en cambio, excluyen a cualquiera de las cuatro: para pasar
+// a alguien de una a otra hay que quitarlo antes.
 const opcionesJugadorDisponible = computed(() => {
   const usados = new Set(jugadoresConvocados.value);
   return jugadoresPlantilla.value
@@ -222,7 +224,8 @@ const opcionesJugadorDisponibleNoConv = computed(() => {
   const usados = new Set([
     ...jugadoresConvocados.value,
     ...jugadoresNoConvocados.value.map((n) => n.id_jugador),
-    ...jugadoresLesionados.value.map((n) => n.id_jugador)
+    ...jugadoresLesionados.value.map((n) => n.id_jugador),
+    ...jugadoresSancionados.value.map((n) => n.id_jugador)
   ]);
   return jugadoresPlantilla.value
     .filter((j) => !usados.has(j.id))
@@ -281,9 +284,7 @@ const jugadoresConvocadosOrdenados = computed(() =>
 const jugadoresNoConvocadosOrdenados = computed(() =>
   [...jugadoresNoConvocados.value].sort((a, b) => nombreJugador(a.id_jugador).localeCompare(nombreJugador(b.id_jugador), 'es'))
 );
-const jugadoresLesionadosOrdenados = computed(() =>
-  [...jugadoresLesionados.value].sort((a, b) => nombreJugador(a.id_jugador).localeCompare(nombreJugador(b.id_jugador), 'es'))
-);
+
 
 async function onTemporadaChange() {
   form.value.id_plantilla = null;
@@ -315,9 +316,11 @@ function addJugador() {
     jugadoresConvocados.value.push(nuevoJugador.value);
     toast.add({ severity: 'success', summary: 'Añadido', detail: `${nombreJugador(nuevoJugador.value)} añadido a convocados.`, life: 2500 });
   }
-  // Un jugador convocado no puede seguir figurando como no convocado ni como lesionado.
-  jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== nuevoJugador.value);
-  jugadoresLesionados.value = jugadoresLesionados.value.filter((n) => n.id_jugador !== nuevoJugador.value);
+  // Un jugador convocado no puede seguir figurando como no convocado, lesionado ni sancionado.
+  const otro = (n) => n.id_jugador !== nuevoJugador.value;
+  jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter(otro);
+  jugadoresLesionados.value = jugadoresLesionados.value.filter(otro);
+  jugadoresSancionados.value = jugadoresSancionados.value.filter(otro);
   nuevoJugador.value = null;
   keySelectJugador.value += 1;
 }
@@ -330,6 +333,7 @@ function plantillaCompleta() {
   jugadoresConvocados.value = jugadoresPlantilla.value.map((j) => j.id);
   jugadoresNoConvocados.value = [];
   jugadoresLesionados.value = [];
+  jugadoresSancionados.value = [];
 }
 
 function addNoConvocado() {
@@ -370,25 +374,6 @@ function removeNoConvocado(id) {
   jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== id);
 }
 
-function addLesionado() {
-  if (!nuevoLesionado.value) {
-    toast.add({ severity: 'warn', summary: 'Selecciona un jugador', detail: 'Elige un jugador de la lista antes de pulsar Añadir.', life: 4000 });
-    return;
-  }
-  const idAgregado = nuevoLesionado.value;
-  if (!jugadoresLesionados.value.some((n) => n.id_jugador === idAgregado)) {
-    jugadoresLesionados.value.push({ id_jugador: idAgregado, observaciones: observacionesNuevoLesionado.value.trim() });
-    toast.add({ severity: 'success', summary: 'Añadido', detail: `${nombreJugador(idAgregado)} añadido a lesionados.`, life: 2500 });
-  }
-  nuevoLesionado.value = null;
-  observacionesNuevoLesionado.value = '';
-  keySelectLesionado.value += 1;
-}
-
-function removeLesionado(id) {
-  jugadoresLesionados.value = jugadoresLesionados.value.filter((n) => n.id_jugador !== id);
-}
-
 function onPlantillaPromocionChange() {
   nuevoPromocionado.value = null;
   keySelectPromocionado.value += 1;
@@ -427,7 +412,8 @@ async function guardar() {
   }
   // Si hay un jugador elegido en alguno de los dos selectores pero no se ha
   // pulsado su "Añadir", avisar en vez de guardar sin él sin decir nada.
-  if (nuevoJugador.value || nuevoNoConvocado.value || nuevoLesionado.value || nuevoPromocionado.value) {
+  if (nuevoJugador.value || nuevoNoConvocado.value || nuevoPromocionado.value
+    || listaLesionados.value?.pendiente() || listaSancionados.value?.pendiente()) {
     toast.add({
       severity: 'warn',
       summary: 'Jugador sin añadir',
@@ -442,13 +428,15 @@ async function guardar() {
   }));
   const noConvocadosPayload = sinConvocarPayload(jugadoresNoConvocados.value);
   const lesionadosPayload = sinConvocarPayload(jugadoresLesionados.value);
+  const sancionadosPayload = sinConvocarPayload(jugadoresSancionados.value);
   guardando.value = true;
   try {
     if (modoEdicion.value) {
       await convocatoriasService.actualizar(props.registroId, {
         jugadores: jugadoresConvocados.value,
         no_convocados: noConvocadosPayload,
-        lesionados: lesionadosPayload
+        lesionados: lesionadosPayload,
+        sancionados: sancionadosPayload
       });
       toast.add({ severity: 'success', summary: 'Actualizada', detail: 'Convocatoria actualizada correctamente.', life: 3000 });
     } else {
@@ -459,6 +447,7 @@ async function guardar() {
         jugadores: jugadoresConvocados.value,
         no_convocados: noConvocadosPayload,
         lesionados: lesionadosPayload,
+        sancionados: sancionadosPayload,
         promociones: jugadoresPromocion.value.map((x) => ({ id_plantilla: x.id_plantilla, id_jugador: x.id_jugador }))
       });
       toast.add({ severity: 'success', summary: 'Creada', detail: 'Convocatoria creada correctamente.', life: 3000 });
@@ -665,43 +654,15 @@ async function guardar() {
       </div>
     </div>
 
-    <div v-if="form.id_partido">
-      <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores lesionados</h3>
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse">
-          <thead>
-            <tr class="bg-club-green/5">
-              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-10">Nº</th>
-              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
-              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Observaciones</th>
-              <th v-if="!soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(n, i) in jugadoresLesionadosOrdenados" :key="n.id_jugador">
-              <td class="text-center border border-line p-2 text-sm text-ink-tertiary tabular-nums">{{ i + 1 }}</td>
-              <td class="border border-line p-2 text-sm">{{ nombreJugador(n.id_jugador) }}</td>
-              <td class="border border-line p-2 text-sm text-ink-secondary">{{ n.observaciones || '—' }}</td>
-              <td v-if="!soloLectura" class="text-center border border-line p-2">
-                <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
-                        @click="removeLesionado(n.id_jugador)" />
-              </td>
-            </tr>
-            <tr v-if="!jugadoresLesionadosOrdenados.length">
-              <td :colspan="soloLectura ? 3 : 4" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores lesionados.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-if="!soloLectura" class="flex flex-col sm:flex-row gap-2 mt-2">
-        <Select :key="keySelectLesionado" v-model="nuevoLesionado" :options="opcionesJugadorDisponibleNoConv"
-                optionLabel="label" optionValue="value" placeholder="Seleccionar jugador"
-                class="flex-1" filter showClear />
-        <InputText v-model="observacionesNuevoLesionado" placeholder="Observaciones (lesión)" class="flex-1" />
-        <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
-                @click="addLesionado" />
-      </div>
-    </div>
+    <ConvocatoriaListaAusentes v-if="form.id_partido" ref="listaLesionados" v-model="jugadoresLesionados"
+                               titulo="Jugadores lesionados" nombreLista="lesionados" :opciones="opcionesJugadorDisponibleNoConv"
+                               :nombreJugador="nombreJugador" :soloLectura="soloLectura"
+                               placeholderObservaciones="Observaciones (lesión)" textoVacio="No hay jugadores lesionados." />
+
+    <ConvocatoriaListaAusentes v-if="form.id_partido" ref="listaSancionados" v-model="jugadoresSancionados"
+                               titulo="Jugadores sancionados" nombreLista="sancionados" :opciones="opcionesJugadorDisponibleNoConv"
+                               :nombreJugador="nombreJugador" :soloLectura="soloLectura"
+                               placeholderObservaciones="Observaciones (sanción)" textoVacio="No hay jugadores sancionados." />
 
     <!-- Al crear se añaden; al editar o ver solo se muestran (no se modifican). -->
     <div v-if="form.id_partido">

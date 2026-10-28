@@ -8,7 +8,9 @@ const ConvocatoriaSinJugador = sequelize.define('ConvocatoriaSinJugador', {
   id_jugador: { type: DataTypes.INTEGER, allowNull: false },
   observaciones: { type: DataTypes.TEXT, allowNull: true },
   // Lesionado (tabla Lesionados de la convocatoria); 0 = no convocado normal.
-  lesion: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
+  lesion: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  // Sancionado (tabla Sancionados de la convocatoria).
+  sancion: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
 }, {
   tableName: 'convocatorias_sin_jugadores'
 });

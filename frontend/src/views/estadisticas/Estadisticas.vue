@@ -115,9 +115,10 @@ const TABLAS = {
   convocatorias: {
     seccion: 'estadisticas_convocatorias',
     titulo: 'Estadísticas Convocatorias',
-    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sin Conv.: partidos con acta en los que un jugador de la plantilla no está en el acta (cuentan también los anteriores a su llegada a la plantilla). Lesión: convocatorias en las que está en la tabla Lesionados. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan), y en qué parte (1ª parte hasta el minuto 45).',
+    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sin Conv.: partidos con acta en los que un jugador de la plantilla no está en el acta (cuentan también los anteriores a su llegada a la plantilla). Lesión / Sanc.: convocatorias en las que está en la tabla Lesionados / Sancionados. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan), y en qué parte (1ª parte hasta el minuto 45).',
     metricas: METRICAS_CONVOCATORIAS_SENIOR,
-    sortField: 'convocatorias'
+    sortField: 'convocatorias',
+    pestanasLado: true
   },
   tiempo: {
     seccion: 'estadisticas_tiempo',
@@ -250,7 +251,7 @@ const PESTANAS = computed(() => [
 // El filtro de jugadores solo afecta a las tablas de jugadores.
 const verFiltroJugadores = computed(() => !conResumenEquipo.value || pestana.value === 'jugadores');
 
-// Estadísticas Tiempo: Total, Local y Visitante, cada uno en su pestaña.
+// Estadísticas Convocatoria y Tiempo: Total, Local y Visitante, cada uno en su pestaña.
 const pestanaLado = ref('total');
 
 // Al pasar de una sección de Estadísticas a otra se reutiliza el componente.
@@ -352,7 +353,7 @@ onBeforeUnmount(() => {
         </TabPanels>
       </Tabs>
 
-      <!-- Estadísticas Tiempo: Total, Local y Visitante en pestañas. -->
+      <!-- Estadísticas Convocatoria y Tiempo: Total, Local y Visitante en pestañas. -->
       <Tabs v-else-if="config.pestanasLado" v-model:value="pestanaLado">
         <TabList>
           <Tab v-for="lado in LADOS_TABLA" :key="lado.clave" :value="lado.clave">{{ lado.titulo }}</Tab>

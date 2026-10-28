@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { Convocatoria, ConvocatoriaSinJugador, PlantillaJugador, Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, LigaPartido, LigaJugador, LigaGol, LigaTarjeta, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
 const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 const { diaEspana } = require('../utils/horaEspana');
@@ -44,7 +45,7 @@ function tramoGol(minuto, dur) {
 // Contadores de cada jugador; cada uno se guarda en total (campo) y según el
 // PALMA jugara en casa o fuera (campo_local / campo_visitante).
 const CONTADORES = [
-  'convocatorias', 'sin_convocar', 'lesiones', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
+  'convocatorias', 'sin_convocar', 'lesiones', 'sanciones', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
   'sustituciones', 'sustituciones_primera', 'sustituciones_segunda',
   'minutos', 'minutos_titular', 'minutos_banquillo',
   'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda', ...CAMPOS_GOLES_TRAMO,
@@ -275,22 +276,26 @@ async function listar(req, res, next) {
       }
     }
 
-    // Lesión: convocatorias de esos partidos en las que el jugador está en la
-    // tabla Lesionados (convocatorias_sin_jugadores con lesion).
+    // Lesión / Sanc.: convocatorias de esos partidos en las que el jugador está
+    // en la tabla Lesionados / Sancionados (convocatorias_sin_jugadores con
+    // lesion / sancion).
     const convocatorias = await Convocatoria.findAll({
       where: { id_plantilla: idPlantilla, id_partido: [...ladoPartido.keys()] },
       attributes: ['id', 'id_partido']
     }) || [];
     if (convocatorias.length) {
       const partidoDeConvocatoria = new Map(convocatorias.map((c) => [c.id, c.id_partido]));
-      const lesionados = await ConvocatoriaSinJugador.findAll({
-        where: { id_convocatoria: [...partidoDeConvocatoria.keys()], lesion: true },
-        attributes: ['id_convocatoria', 'id_jugador'],
+      const ausentes = await ConvocatoriaSinJugador.findAll({
+        where: { id_convocatoria: [...partidoDeConvocatoria.keys()], [Op.or]: [{ lesion: true }, { sancion: true }] },
+        attributes: ['id_convocatoria', 'id_jugador', 'lesion', 'sancion'],
         include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
       }) || [];
-      for (const l of lesionados) {
-        const lado = ladoPartido.get(partidoDeConvocatoria.get(l.id_convocatoria));
-        if (lado) sumar(filaDe(l.id_jugador, l.jugador), 'lesiones', 1, lado);
+      for (const a of ausentes) {
+        const lado = ladoPartido.get(partidoDeConvocatoria.get(a.id_convocatoria));
+        if (!lado) continue;
+        const fila = filaDe(a.id_jugador, a.jugador);
+        if (a.lesion) sumar(fila, 'lesiones', 1, lado);
+        else if (a.sancion) sumar(fila, 'sanciones', 1, lado);
       }
     }
 
@@ -324,7 +329,7 @@ async function listar(req, res, next) {
     }
     const resultado = [...porJugador.values()]
       .filter((f) => f.partidos > 0 || f.goles > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0 || f.banquillo_no_jugados > 0
-        || f.sin_convocar > 0 || f.lesiones > 0)
+        || f.sin_convocar > 0 || f.lesiones > 0 || f.sanciones > 0)
       .sort((a, b) => b.minutos - a.minutos || b.partidos - a.partidos
         || `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`, 'es'));
     res.json(resultado);

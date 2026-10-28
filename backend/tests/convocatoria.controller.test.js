@@ -141,7 +141,7 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     await promesa;
 
     expect(ConvocatoriaSinJugador.bulkCreate).toHaveBeenCalledWith(
-      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: 'Lesionado', lesion: false }],
+      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: 'Lesionado', lesion: false, sancion: false }],
       { ignoreDuplicates: true }
     );
     expect(res._status).toBe(201);
@@ -171,12 +171,42 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
 
     expect(ConvocatoriaSinJugador.bulkCreate).toHaveBeenCalledWith(
       [
-        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 12, observaciones: 'Rodilla', lesion: true },
-        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: 'Técnico', lesion: false }
+        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 12, observaciones: 'Rodilla', lesion: true, sancion: false },
+        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: 'Técnico', lesion: false, sancion: false }
       ],
       { ignoreDuplicates: true }
     );
     expect(res._status).toBe(201);
+  });
+
+  it('crear guarda los sancionados con sancion=true (el lesionado tiene prioridad)', async () => {
+    Temporada.findByPk.mockResolvedValue({ id: 1 });
+    Plantilla.findByPk.mockResolvedValue({ id: 2, id_temporada: 1 });
+    Partido.findByPk.mockResolvedValue({ id: 3, id_plantilla: 2, id_equipo_local: 73, id_equipo_visitante: 50 });
+    Convocatoria.findOne.mockResolvedValue(null);
+    PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 10 }, { id_jugador: 11 }, { id_jugador: 12 }]);
+    Convocatoria.create.mockResolvedValue({ id: 7 });
+    ConvocatoriaJugador.bulkCreate.mockResolvedValue([]);
+    ConvocatoriaSinJugador.bulkCreate.mockResolvedValue([]);
+    PartidoJugador.findOrCreate.mockResolvedValue([{ id: 1 }, true]);
+    Convocatoria.findByPk.mockResolvedValue({ id: 7, toJSON: () => ({ id: 7 }) });
+
+    const { promesa } = llamar(ctrl.crear, {
+      body: {
+        id_temporada: 1, id_plantilla: 2, id_partido: 3, jugadores: [10],
+        lesionados: [{ id_jugador: 12 }],
+        sancionados: [{ id_jugador: 11, observaciones: '5 amarillas' }, { id_jugador: 12 }]
+      }
+    });
+    await promesa;
+
+    expect(ConvocatoriaSinJugador.bulkCreate).toHaveBeenCalledWith(
+      [
+        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 12, observaciones: null, lesion: true, sancion: false },
+        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: '5 amarillas', lesion: false, sancion: true }
+      ],
+      { ignoreDuplicates: true }
+    );
   });
 
   it('crear prioriza convocado si el mismo jugador viene también como no convocado', async () => {
@@ -376,7 +406,7 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
 
     expect(ConvocatoriaSinJugador.destroy).toHaveBeenCalledWith({ where: { id_convocatoria: 7 } });
     expect(ConvocatoriaSinJugador.bulkCreate).toHaveBeenCalledWith(
-      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 13, observaciones: 'Sanción', lesion: false }],
+      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 13, observaciones: 'Sanción', lesion: false, sancion: false }],
       { ignoreDuplicates: true }
     );
   });
@@ -487,7 +517,8 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
       promocionados: [{ jugador: { nombre: 'Luis', apellidos: 'García' } }],
       noConvocados: [
         { jugador: { nombre: 'Juan', apellidos: 'Ruiz' }, observaciones: 'Lesionado' },
-        { jugador: { nombre: 'Pedro', apellidos: 'Sanz' }, observaciones: 'Tobillo', lesion: true }
+        { jugador: { nombre: 'Pedro', apellidos: 'Sanz' }, observaciones: 'Tobillo', lesion: true },
+        { jugador: { nombre: 'Raúl', apellidos: 'Gil' }, observaciones: 'Roja', sancion: true }
       ]
     });
 
@@ -509,6 +540,7 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
       expect(correo.text).toContain('1. Zoe Álvarez\n2. Luis García (promoción)\n3. Ana Pérez');
       expect(correo.text).toContain('No convocados (1):\n- Juan Ruiz: Lesionado');
       expect(correo.text).toContain('Lesionados (1):\n- Pedro Sanz: Tobillo');
+      expect(correo.text).toContain('Sancionados (1):\n- Raúl Gil: Roja');
       expect(correo.html).toContain('C.D. Rival &lt;B&gt;');
     });
 

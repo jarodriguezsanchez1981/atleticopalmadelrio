@@ -183,10 +183,13 @@ function confirmarEliminar(item) {
         <template #body="{ data }">{{ (data.jugadores || []).length }}</template>
       </Column>
       <Column header="No Convocados">
-        <template #body="{ data }">{{ (data.noConvocados || []).filter((n) => !n.lesion).length }}</template>
+        <template #body="{ data }">{{ (data.noConvocados || []).filter((n) => !n.lesion && !n.sancion).length }}</template>
       </Column>
       <Column header="Lesionados">
         <template #body="{ data }">{{ (data.noConvocados || []).filter((n) => n.lesion).length }}</template>
+      </Column>
+      <Column header="Sancionados">
+        <template #body="{ data }">{{ (data.noConvocados || []).filter((n) => !n.lesion && n.sancion).length }}</template>
       </Column>
       <Column header="Promociones">
         <template #body="{ data }">{{ (data.promocionados || []).length }}</template>

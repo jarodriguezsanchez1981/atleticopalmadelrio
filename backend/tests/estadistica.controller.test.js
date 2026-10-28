@@ -40,21 +40,23 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 7, jugador: ana }, { id_jugador: 9, jugador: eva }]);
     Convocatoria.findAll.mockResolvedValue([{ id: 30, id_partido: 3 }, { id: 20, id_partido: 2 }]);
     ConvocatoriaSinJugador.findAll.mockResolvedValue([
-      { id_convocatoria: 30, id_jugador: 7, jugador: ana },
-      { id_convocatoria: 20, id_jugador: 9, jugador: eva },
-      { id_convocatoria: 30, id_jugador: 9, jugador: eva }
+      { id_convocatoria: 30, id_jugador: 7, lesion: true, jugador: ana },
+      { id_convocatoria: 20, id_jugador: 9, lesion: true, jugador: eva },
+      { id_convocatoria: 30, id_jugador: 9, lesion: true, jugador: eva },
+      { id_convocatoria: 20, id_jugador: 7, sancion: true, jugador: ana }
     ]);
 
     const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
     await promesa;
 
     expect(ConvocatoriaSinJugador.findAll).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id_convocatoria: [30, 20], lesion: true }
+      where: expect.objectContaining({ id_convocatoria: [30, 20] })
     }));
     const porId = Object.fromEntries(res._json.map((f) => [f.id_jugador, f]));
     expect(porId[7]).toMatchObject({
       sin_convocar: 1, sin_convocar_local: 1, sin_convocar_visitante: 0,
       lesiones: 1, lesiones_local: 1,
+      sanciones: 1, sanciones_local: 0, sanciones_visitante: 1,
       // 180' en 2 partidos, 1 gol y 1 tarjeta.
       minutos_por_partido: 90, minutos_por_gol: 180, minutos_por_tarjeta: 180,
       minutos_por_gol_visitante: null, minutos_por_tarjeta_local: 90

@@ -38,12 +38,13 @@ export const METRICAS_CONVOCATORIAS = [
   { campo: 'sustituciones_primera', titulo: 'Sust. 1 Parte', descripcion: 'Sustituido en la 1ª parte (hasta el minuto 45)' },
   { campo: 'sustituciones_segunda', titulo: 'Sust. 2 Parte', descripcion: 'Sustituido en la 2ª parte' }
 ];
-// Solo Estadísticas Senior A: veces sin convocar (no está en el acta) y
-// lesionado (tabla Lesionados de la convocatoria), tras Conv.
+// Solo Estadísticas Senior A: veces sin convocar (no está en el acta),
+// lesionado y sancionado (tablas Lesionados / Sancionados de la convocatoria), tras Conv.
 export const METRICAS_CONVOCATORIAS_SENIOR = [
   METRICAS_CONVOCATORIAS[0],
   { campo: 'sin_convocar', titulo: 'Sin Conv.', descripcion: 'Partidos en los que no está en el acta (no convocado)' },
   { campo: 'lesiones', titulo: 'Lesión', descripcion: 'Convocatorias en las que está en la tabla Lesionados' },
+  { campo: 'sanciones', titulo: 'Sanc.', descripcion: 'Convocatorias en las que está en la tabla Sancionados' },
   ...METRICAS_CONVOCATORIAS.slice(1)
 ];
 export const METRICAS_TIEMPO = [

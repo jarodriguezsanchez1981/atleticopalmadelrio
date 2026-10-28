@@ -152,25 +152,26 @@ async function validarPromociones(promociones, plantillaDestino) {
   return { promociones: lista };
 }
 
-/** Limpia y deduplica los lesionados y los no convocados (los dos van en
- * convocatorias_sin_jugadores, los lesionados con `lesion`), y quita cualquiera
- * que también esté en la lista de convocados: un jugador convocado no puede
- * figurar a la vez como no convocado ni como lesionado. Si un jugador está en
- * las dos listas, cuenta como lesionado. */
-function normalizarNoConvocados(noConvocados, idsConvocados, lesionados = []) {
+/** Limpia y deduplica los lesionados, sancionados y no convocados (los tres
+ * van en convocatorias_sin_jugadores, marcados con `lesion` / `sancion`), y
+ * quita cualquiera que también esté en la lista de convocados: un jugador
+ * convocado no puede figurar a la vez en ninguna de las otras. Si un jugador
+ * está en varias, cuenta como lesionado, si no como sancionado. */
+function normalizarNoConvocados(noConvocados, idsConvocados, lesionados = [], sancionados = []) {
   const convocadosSet = new Set(idsConvocados);
   const vistos = new Set();
   const resultado = [];
-  const agregar = (lista, lesion) => {
+  const agregar = (lista, lesion, sancion) => {
     for (const item of (lista || [])) {
       const id_jugador = Number(item?.id_jugador);
       if (!id_jugador || convocadosSet.has(id_jugador) || vistos.has(id_jugador)) continue;
       vistos.add(id_jugador);
-      resultado.push({ id_jugador, observaciones: item.observaciones || null, lesion });
+      resultado.push({ id_jugador, observaciones: item.observaciones || null, lesion, sancion });
     }
   };
-  agregar(lesionados, true);
-  agregar(noConvocados, false);
+  agregar(lesionados, true, false);
+  agregar(sancionados, false, true);
+  agregar(noConvocados, false, false);
   return resultado;
 }
 
@@ -188,7 +189,7 @@ async function sincronizarPartidoJugadores(partido, idsJugador) {
 
 async function crear(req, res, next) {
   try {
-    const { id_temporada, id_plantilla, id_partido, jugadores, no_convocados, lesionados, promociones } = req.body;
+    const { id_temporada, id_plantilla, id_partido, jugadores, no_convocados, lesionados, sancionados, promociones } = req.body;
     const { error, partido, plantilla } = await validarReferencias({ id_temporada, id_plantilla, id_partido });
     if (error) return res.status(400).json({ message: error });
 
@@ -196,7 +197,7 @@ async function crear(req, res, next) {
     if (existente) return res.status(409).json({ message: 'Este partido ya tiene una convocatoria.' });
 
     const idsJugador = [...new Set((jugadores || []).map(Number).filter(Boolean))];
-    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador, lesionados);
+    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador, lesionados, sancionados);
     const idsValidar = [...new Set([...idsJugador, ...sinJugador.map((s) => s.id_jugador)])];
     if (!(await jugadoresValidos(id_plantilla, idsValidar))) {
       return res.status(400).json({ message: 'Algún jugador indicado no pertenece a la plantilla.' });
@@ -214,7 +215,7 @@ async function crear(req, res, next) {
     }
     if (sinJugador.length) {
       await ConvocatoriaSinJugador.bulkCreate(
-        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones, lesion: s.lesion })),
+        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones, lesion: s.lesion, sancion: s.sancion })),
         { ignoreDuplicates: true }
       );
     }
@@ -243,15 +244,15 @@ async function actualizar(req, res, next) {
     const convocatoria = await Convocatoria.findByPk(req.params.id);
     if (!convocatoria) return res.status(404).json({ message: 'Convocatoria no encontrada.' });
 
-    const { jugadores, no_convocados, lesionados } = req.body;
-    if (jugadores === undefined && no_convocados === undefined && lesionados === undefined) {
+    const { jugadores, no_convocados, lesionados, sancionados } = req.body;
+    if ([jugadores, no_convocados, lesionados, sancionados].every((x) => x === undefined)) {
       const completa = await Convocatoria.findByPk(convocatoria.id, { include: includesBase });
       return res.json(serialize(completa));
     }
 
     const partido = await Partido.findByPk(convocatoria.id_partido);
     const idsJugador = [...new Set((jugadores || []).map(Number).filter(Boolean))];
-    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador, lesionados);
+    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador, lesionados, sancionados);
     const idsValidar = [...new Set([...idsJugador, ...sinJugador.map((s) => s.id_jugador)])];
     if (!(await jugadoresValidos(convocatoria.id_plantilla, idsValidar))) {
       return res.status(400).json({ message: 'Algún jugador indicado no pertenece a la plantilla.' });
@@ -272,7 +273,7 @@ async function actualizar(req, res, next) {
     await ConvocatoriaSinJugador.destroy({ where: { id_convocatoria: convocatoria.id } });
     if (sinJugador.length) {
       await ConvocatoriaSinJugador.bulkCreate(
-        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla: convocatoria.id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones, lesion: s.lesion })),
+        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla: convocatoria.id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones, lesion: s.lesion, sancion: s.sancion })),
         { ignoreDuplicates: true }
       );
     }
@@ -319,8 +320,8 @@ const porApellidos = (a, b) => `${a.apellidos} ${a.nombre}`.localeCompare(`${b.a
 
 /** Asunto, texto y HTML del correo de una convocatoria (cargada con
  * includesBase): jornada y partido en el asunto; día y hora, convocados
- * (incluidos los de promoción) por orden alfabético, lesionados y no
- * convocados con sus observaciones en el cuerpo. */
+ * (incluidos los de promoción) por orden alfabético, y no convocados,
+ * lesionados y sancionados con sus observaciones en el cuerpo. */
 function construirCorreoConvocatoria(convocatoria) {
   const partido = convocatoria.partido || {};
   const local = partido.equipoLocal?.nombre || '—';
@@ -337,12 +338,13 @@ function construirCorreoConvocatoria(convocatoria) {
     ...(convocatoria.jugadores || []).map((c) => ({ ...c.jugador })),
     ...(convocatoria.promocionados || []).map((c) => ({ ...c.jugador, promocion: true }))
   ].filter((j) => j.nombre != null).sort(porApellidos);
-  const sinConvocar = (lesion) => (convocatoria.noConvocados || [])
-    .filter((c) => c.jugador && !!c.lesion === lesion)
+  const sinConvocar = (filtro) => (convocatoria.noConvocados || [])
+    .filter((c) => c.jugador && filtro(c))
     .map((c) => ({ ...c.jugador, observaciones: c.observaciones }))
     .sort(porApellidos);
-  const noConvocados = sinConvocar(false);
-  const lesionados = sinConvocar(true);
+  const noConvocados = sinConvocar((c) => !c.lesion && !c.sancion);
+  const lesionados = sinConvocar((c) => !!c.lesion);
+  const sancionados = sinConvocar((c) => !c.lesion && !!c.sancion);
   const lineaTexto = (j) => `- ${nombre(j)}${j.observaciones ? `: ${j.observaciones}` : ''}`;
   const listaHtml = (lista) => (lista.length
     ? `<ul style="margin: 0 0 16px;">${lista.map((j) => `<li>${escaparHtml(nombre(j))}${j.observaciones ? `: <em>${escaparHtml(j.observaciones)}</em>` : ''}</li>`).join('')}</ul>`
@@ -360,7 +362,10 @@ function construirCorreoConvocatoria(convocatoria) {
     ...(noConvocados.length ? noConvocados.map(lineaTexto) : ['- Ninguno']),
     '',
     `Lesionados (${lesionados.length}):`,
-    ...(lesionados.length ? lesionados.map(lineaTexto) : ['- Ninguno'])
+    ...(lesionados.length ? lesionados.map(lineaTexto) : ['- Ninguno']),
+    '',
+    `Sancionados (${sancionados.length}):`,
+    ...(sancionados.length ? sancionados.map(lineaTexto) : ['- Ninguno'])
   ].join('\n');
 
   const html = `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1a1a1a;">
@@ -372,6 +377,8 @@ function construirCorreoConvocatoria(convocatoria) {
 ${listaHtml(noConvocados)}
 <h3 style="color: #0B3D2E; margin: 0 0 4px;">Lesionados (${lesionados.length})</h3>
 ${listaHtml(lesionados)}
+<h3 style="color: #0B3D2E; margin: 0 0 4px;">Sancionados (${sancionados.length})</h3>
+${listaHtml(sancionados)}
 </div>`;
 
   return { subject, text, html };
