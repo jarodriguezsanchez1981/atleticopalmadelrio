@@ -108,35 +108,39 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     expect(res._json.ultima.equipos[0].ultimos.at(-1)).toEqual({ jornada: 6, resultado: 'E' });
   });
 
-  it('listar: cada último resultado lleva su partido (liga_partidos y, para el PALMA, sus partidos)', async () => {
+  it('listar: los últimos partidos salen de los partidos (liga_partidos y los del PALMA), en orden de fecha y con su marcador', async () => {
     const fila = (jornada, nombre, codigo, ganados, empatados, perdidos, es_palma = false) => ({
       jornada, fecha: null, posicion: 1, equipo: nombre, codigo_equipo: codigo, es_palma,
       jugados: ganados + empatados + perdidos, ganados, empatados, perdidos
     });
     Clasificacion.findAll.mockResolvedValue([
-      fila(1, 'UNO', '11', 1, 0, 0), fila(1, 'PALMA DEL RIO ATLETICO C.F.', '73', 0, 1, 0, true),
-      fila(2, 'UNO', '11', 1, 1, 0), fila(2, 'PALMA DEL RIO ATLETICO C.F.', '73', 1, 1, 0, true)
+      fila(1, 'UNO', '11', 1, 0, 0), fila(1, 'PALMA DEL RIO ATLETICO C.F.', '73', 0, 0, 0, true), fila(1, 'SEIS', '16', 1, 0, 0),
+      // Jornada 2: el PALMA juega la 2 y la 1 aplazada (las diferencias no dirían el orden).
+      fila(2, 'UNO', '11', 1, 1, 0), fila(2, 'PALMA DEL RIO ATLETICO C.F.', '73', 1, 1, 0, true), fila(2, 'SEIS', '16', 1, 0, 1)
     ]);
     LigaPartido.findAll.mockResolvedValue([
-      { jornada: 1, equipo_local: 'UNO', codigo_equipo_local: '11', equipo_visitante: 'DOS', codigo_equipo_visitante: '12', goles_local: 3, goles_visitante: 0 },
-      { jornada: 2, equipo_local: 'TRES', codigo_equipo_local: '13', equipo_visitante: 'UNO', codigo_equipo_visitante: '11', goles_local: null, goles_visitante: null }
+      { jornada: 1, fecha: '2026-09-13', equipo_local: 'UNO', codigo_equipo_local: '11', equipo_visitante: 'DOS', codigo_equipo_visitante: '12', goles_local: 3, goles_visitante: 0 },
+      { jornada: 2, fecha: '2026-09-20', equipo_local: 'TRES', codigo_equipo_local: '13', equipo_visitante: 'UNO', codigo_equipo_visitante: '11', goles_local: 2, goles_visitante: 2 },
+      { jornada: 2, fecha: '2026-09-20', equipo_local: 'DOS', codigo_equipo_local: '12', equipo_visitante: 'UNO', codigo_equipo_visitante: '11', goles_local: null, goles_visitante: null }
     ]);
-    // Al PALMA no lo trae liga_partidos: sale de sus partidos (el 2 sin resultado).
     Partido.findAll.mockImplementation(async (opts) => (opts?.include ? [
-      { jornada: 1, resultado: '1-1', equipoLocal: { nombre: 'PALMA DEL RIO ATLETICO C.F.' }, equipoVisitante: { nombre: 'CUATRO' } },
-      { jornada: 2, resultado: '0-2', equipoLocal: { nombre: 'CINCO' }, equipoVisitante: { nombre: 'PALMA DEL RIO ATLETICO C.F.' } }
+      { jornada: 2, fecha: new Date('2026-09-20T17:00:00Z'), resultado: '0-2', id_equipo_local: 50, equipoLocal: { nombre: 'CINCO' }, equipoVisitante: { nombre: 'PALMA DEL RIO ATLETICO C.F.' } },
+      { jornada: 1, fecha: new Date('2026-09-17T19:00:00Z'), resultado: '1-1', id_equipo_local: 73, equipoLocal: { nombre: 'PALMA DEL RIO ATLETICO C.F.' }, equipoVisitante: { nombre: 'CUATRO' } },
+      { jornada: 1, fecha: new Date('2026-09-13T12:00:00Z'), resultado: null, suspendido: true, id_equipo_local: 73, equipoLocal: { nombre: 'PALMA DEL RIO ATLETICO C.F.' }, equipoVisitante: { nombre: 'CUATRO' } }
     ] : PARTIDOS));
     const { promesa, res } = llamar(ctrl.listar, { query: { id_plantilla: '36' } });
     await promesa;
-    const [uno, palma] = res._json.ultima.equipos;
+    const [uno, palma, seis] = res._json.ultima.equipos;
     expect(uno.ultimos).toEqual([
       { jornada: 1, resultado: 'G', partido: 'UNO 3 - 0 DOS' },
-      { jornada: 2, resultado: 'E', partido: 'TRES - UNO' }
+      { jornada: 2, resultado: 'E', partido: 'TRES 2 - 2 UNO' }
     ]);
     expect(palma.ultimos).toEqual([
       { jornada: 1, resultado: 'E', partido: 'PALMA DEL RIO ATLETICO C.F. 1 - 1 CUATRO' },
       { jornada: 2, resultado: 'G', partido: 'CINCO 0 - 2 PALMA DEL RIO ATLETICO C.F.' }
     ]);
+    // Sin partidos suyos: de comparar jornadas, sin el partido.
+    expect(seis.ultimos).toEqual([{ jornada: 1, resultado: 'G' }, { jornada: 2, resultado: 'P' }]);
   });
 
   it('siguienteJornada: el día siguiente al partido, solo desde las 10:00', async () => {
