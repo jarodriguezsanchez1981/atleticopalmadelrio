@@ -134,7 +134,8 @@ export const authService = {
 // Cuentas de correo internas (solo admin). CRUD + envío de prueba.
 export const cuentasCorreoService = {
   ...crudService('cuentas-correo'),
-  probar: (id, destino) => api.post(`/cuentas-correo/${id}/probar`, { destino }).then(r => r.data)
+  probar: (id, destino) => api.post(`/cuentas-correo/${id}/probar`, { destino }).then(r => r.data),
+  verificar: (config) => api.post('/cuentas-correo/verificar', config).then(r => r.data)
 };
 
 export const calendarioService = {

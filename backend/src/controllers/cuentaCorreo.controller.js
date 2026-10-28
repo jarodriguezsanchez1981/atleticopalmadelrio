@@ -1,6 +1,6 @@
 const { CuentaCorreo } = require('../models');
 const aes = require('../utils/aesCrypto');
-const { enviarConConfig, conFirma } = require('../utils/mailer');
+const { enviarConConfig, verificarConfig, conFirma } = require('../utils/mailer');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Tamaño máximo del HTML de la firma (la plantilla ocupa unos pocos KB).
@@ -50,6 +50,32 @@ function validar(body, { esNuevo }) {
   };
 }
 
+/** Config SMTP para nodemailer a partir de los datos validados y la contraseña en claro. */
+function configSmtp(datos, pass) {
+  return {
+    host: datos.smtp_host,
+    port: Number(datos.smtp_port) || 587,
+    secure: !!datos.smtp_secure,
+    user: datos.smtp_user,
+    pass
+  };
+}
+
+/** Prueba interna (conexión e inicio de sesión SMTP, sin enviar nada).
+ * Devuelve null si funciona o el mensaje de error. */
+async function errorDeConfig(datos, pass) {
+  if (!pass) return 'Falta la contraseña SMTP.';
+  try {
+    await verificarConfig(configSmtp(datos, pass));
+    return null;
+  } catch (err) {
+    return err.message || 'No se pudo conectar con el servidor SMTP.';
+  }
+}
+
+const mensajeNoActivable = (error) =>
+  `No se puede marcar como activa: la configuración no funciona (${error}).`;
+
 async function listar(req, res, next) {
   try {
     const cuentas = await CuentaCorreo.scope('conPassword').findAll({ order: [['id', 'ASC']] });
@@ -69,6 +95,11 @@ async function crear(req, res, next) {
   try {
     const { datos, error } = validar(req.body, { esNuevo: true });
     if (error) return res.status(400).json({ message: error });
+    // Solo puede quedar activa si la configuración funciona (prueba interna).
+    if (datos.activa) {
+      const fallo = await errorDeConfig(datos, String(req.body.smtp_password));
+      if (fallo) return res.status(400).json({ message: mensajeNoActivable(fallo) });
+    }
 
     const nueva = await CuentaCorreo.create({
       ...datos,
@@ -94,6 +125,12 @@ async function actualizar(req, res, next) {
     const nuevaPass = String(req.body.smtp_password ?? '').trim();
     if (nuevaPass) cambios.smtp_password = aes.encrypt(nuevaPass);
 
+    if (datos.activa) {
+      const pass = nuevaPass || (cuenta.smtp_password ? aes.decrypt(cuenta.smtp_password) : '');
+      const fallo = await errorDeConfig(datos, pass);
+      if (fallo) return res.status(400).json({ message: mensajeNoActivable(fallo) });
+    }
+
     await cuenta.update(cambios);
 
     const completa = await CuentaCorreo.scope('conPassword').findByPk(cuenta.id);
@@ -106,6 +143,29 @@ async function eliminar(req, res, next) {
     const eliminado = await CuentaCorreo.destroy({ where: { id: req.params.id } });
     if (!eliminado) return res.status(404).json({ message: 'Cuenta de correo no encontrada.' });
     res.status(204).send();
+  } catch (err) { next(err); }
+}
+
+/** Prueba interna de la configuración del formulario (sin enviar correo):
+ * con `id` y sin contraseña nueva, usa la guardada de esa cuenta. */
+async function verificar(req, res, next) {
+  try {
+    const body = req.body || {};
+    const smtp_host = String(body.smtp_host ?? '').trim();
+    const smtp_user = String(body.smtp_user ?? '').trim();
+    const smtp_port = Number(body.smtp_port);
+    if (!smtp_host || !smtp_user) return res.status(400).json({ message: 'Faltan el servidor y el usuario SMTP.' });
+    if (!Number.isInteger(smtp_port) || smtp_port < 1 || smtp_port > 65535) {
+      return res.status(400).json({ message: 'El puerto SMTP debe ser un número entre 1 y 65535.' });
+    }
+    let pass = String(body.smtp_password ?? '').trim();
+    if (!pass && body.id) {
+      const cuenta = await CuentaCorreo.scope('conPassword').findByPk(body.id);
+      if (cuenta?.smtp_password) pass = aes.decrypt(cuenta.smtp_password);
+    }
+    const fallo = await errorDeConfig({ smtp_host, smtp_user, smtp_port, smtp_secure: !!body.smtp_secure }, pass);
+    if (fallo) return res.status(400).json({ ok: false, message: `La configuración no funciona: ${fallo}` });
+    res.json({ ok: true, message: 'Configuración correcta: el servidor SMTP acepta la conexión y el usuario.' });
   } catch (err) { next(err); }
 }
 
@@ -142,4 +202,4 @@ async function probar(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar, probar };
+module.exports = { listar, obtener, crear, actualizar, eliminar, probar, verificar };

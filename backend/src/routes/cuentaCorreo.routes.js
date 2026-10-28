@@ -10,6 +10,7 @@ const router = Router();
 router.use(authenticate, soloAdmin);
 
 router.get('/', ctrl.listar);
+router.post('/verificar', ctrl.verificar);
 router.get('/:id', ctrl.obtener);
 router.post('/', ctrl.crear);
 router.put('/:id', ctrl.actualizar);

@@ -128,4 +128,10 @@ async function enviarConConfig(cfg, { to, subject, html, text }) {
   return transporteDe(cfg).sendMail({ from: cfg.from || cfg.user, to, subject, html, text });
 }
 
-module.exports = { enviarEmail, enviarDesde, conFirma, enviarConConfig, mailConfigurado, resolverConfig };
+/** Comprueba la configuración (conexión e inicio de sesión SMTP) sin enviar
+ * ningún correo. Lanza con el error del servidor si no funciona. */
+async function verificarConfig(cfg) {
+  return transporteDe(cfg).verify();
+}
+
+module.exports = { enviarEmail, enviarDesde, conFirma, enviarConConfig, verificarConfig, mailConfigurado, resolverConfig };

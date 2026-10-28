@@ -4,6 +4,7 @@ import CrudDataTable from '../../components/CrudDataTable.vue';
 import Button from 'primevue/button';
 import Message from 'primevue/message';
 import FirmaCuentaCorreo from '../../components/FirmaCuentaCorreo.vue';
+import ActivaCuentaCorreo from '../../components/ActivaCuentaCorreo.vue';
 import { cuentasCorreoService } from '../../services';
 import { useAuthStore } from '../../stores/auth.store';
 import { useToast } from 'primevue/usetoast';
@@ -17,23 +18,21 @@ const opcionesSecure = [
   { label: 'No — STARTTLS (normalmente puerto 587)', value: false },
   { label: 'Sí — SSL/TLS directo (normalmente puerto 465)', value: true }
 ];
-const opcionesActiva = [
-  { label: 'No', value: false },
-  { label: 'Sí (la usa la web para enviar)', value: true }
-];
-
+// En la tabla solo Etiqueta, Email y Acciones; el resto, en el detalle.
+// «Activa» no va en el formulario genérico: la pone ActivaCuentaCorreo
+// tras la prueba interna de la configuración.
 const columns = computed(() => [
   { field: 'etiqueta', header: 'Etiqueta', type: 'text', required: true },
   { field: 'email', header: 'Email', type: 'text', required: true },
-  { field: 'smtp_host', header: 'Servidor SMTP', type: 'text', required: true },
-  { field: 'smtp_port', header: 'Puerto', type: 'number', required: true },
-  { field: 'smtp_secure', header: 'SSL/TLS', type: 'select', options: opcionesSecure,
+  { field: 'smtp_host', header: 'Servidor SMTP', type: 'text', required: true, enTabla: false },
+  { field: 'smtp_port', header: 'Puerto', type: 'number', required: true, enTabla: false },
+  { field: 'smtp_secure', header: 'SSL/TLS', type: 'select', options: opcionesSecure, enTabla: false,
     format: (v) => (v ? 'SSL/TLS' : 'STARTTLS') },
-  { field: 'smtp_user', header: 'Usuario SMTP', type: 'text', required: true },
-  { field: 'smtp_password', header: 'Contraseña', type: 'password', requiredOnCreate: true },
-  { field: 'tiene_password', header: 'Contraseña', type: 'text', soloTabla: true,
+  { field: 'smtp_user', header: 'Usuario SMTP', type: 'text', required: true, enTabla: false },
+  { field: 'smtp_password', header: 'Contraseña', type: 'password', requiredOnCreate: true, enTabla: false },
+  { field: 'tiene_password', header: 'Contraseña', type: 'text', soloTabla: true, enTabla: false,
     format: (v) => (v ? 'Configurada' : '—') },
-  { field: 'activa', header: 'Activa', type: 'select', options: opcionesActiva,
+  { field: 'activa', header: 'Activa', type: 'select', enTabla: false, enForm: false,
     format: (v) => (v ? 'Sí' : 'No') }
 ]);
 
@@ -87,6 +86,7 @@ function enviarPrueba(data) {
 
     <Message severity="info" :closable="false" class="mb-4">
       La contraseña SMTP se guarda cifrada y nunca se muestra. Al editar, deja la contraseña vacía para conservar la actual.
+      Una cuenta solo puede marcarse como <strong>Activa</strong> después de <strong>Comprobar</strong> que su configuración funciona.
       Usa <strong>Enviar correo de prueba</strong> (en el detalle de cada cuenta) para comprobar que las credenciales funcionan.
       La <strong>firma</strong> de cada cuenta (como en Firma Email) se añade al final de los correos que salen de ella.
     </Message>
@@ -99,17 +99,18 @@ function enviarPrueba(data) {
       :emptyItem="emptyItem"
       formMaxWidth="max-w-2xl"
     >
-      <template #cell-activa="{ data }">
+      <template #detail-activa="{ data }">
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
               :class="data.activa ? 'bg-club-green/10 text-club-green' : 'bg-gray-100 text-ink-tertiary'">
           <i :class="data.activa ? 'pi pi-check-circle' : 'pi pi-circle'" class="text-[0.7rem]" />
           {{ data.activa ? 'Activa' : 'Inactiva' }}
         </span>
       </template>
-      <template #cell-smtp_password>
-        <span class="text-ink-tertiary">••••••••</span>
+      <template #detail-smtp_password="{ data }">
+        {{ data.tiene_password ? 'Configurada (cifrada)' : '—' }}
       </template>
       <template #form-extra="{ form }">
+        <ActivaCuentaCorreo :form="form" />
         <FirmaCuentaCorreo :form="form" />
       </template>
       <template #detail-extra="{ data }">

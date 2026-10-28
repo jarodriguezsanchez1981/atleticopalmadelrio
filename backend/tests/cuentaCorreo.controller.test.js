@@ -15,6 +15,7 @@ describe('Sección Correos · cuentaCorreo.controller', () => {
     CuentaCorreo.destroy.mockReset();
     CuentaCorreo.scope.mockReturnValue(CuentaCorreo);
     mailer.enviarConConfig.mockReset();
+    mailer.verificarConfig.mockReset().mockResolvedValue(true);
   });
 
   function llamar(fn, overrides = {}) {
@@ -156,5 +157,57 @@ describe('Sección Correos · cuentaCorreo.controller', () => {
     expect(cfg.pass).toBe('Secreta#2026');
     expect(mail.to).toBe('test@club.es');
     expect(res._json.message).toContain('test@club.es');
+  });
+
+  it('crear con activa=true y una configuración que no funciona responde 400 y no guarda', async () => {
+    mailer.verificarConfig.mockRejectedValue(new Error('Invalid login: 535 Incorrect authentication data'));
+    const { promesa, res } = llamar(ctrl.crear, { body: cuerpoValido({ activa: true }) });
+    await promesa;
+    expect(res._status).toBe(400);
+    expect(res._json.message).toMatch(/No se puede marcar como activa.*535/);
+    expect(CuentaCorreo.create).not.toHaveBeenCalled();
+  });
+
+  it('crear sin activa no hace la prueba interna', async () => {
+    CuentaCorreo.create.mockResolvedValue({ id: 7 });
+    CuentaCorreo.findByPk.mockResolvedValue({ toJSON: () => ({ id: 7, smtp_password: 'c' }) });
+    const { promesa } = llamar(ctrl.crear, { body: cuerpoValido({ activa: false }) });
+    await promesa;
+    expect(mailer.verificarConfig).not.toHaveBeenCalled();
+  });
+
+  it('actualizar con activa=true prueba con la contraseña guardada si no llega una nueva', async () => {
+    const cuenta = { id: 8, smtp_password: aes.encrypt('Guardada#1'), update: vi.fn().mockResolvedValue() };
+    CuentaCorreo.findByPk
+      .mockResolvedValueOnce(cuenta)
+      .mockResolvedValueOnce({ toJSON: () => ({ id: 8, smtp_password: 'x', activa: true }) });
+    const { promesa } = llamar(ctrl.actualizar, { params: { id: '8' }, body: cuerpoValido({ smtp_password: '', activa: true }) });
+    await promesa;
+    expect(mailer.verificarConfig).toHaveBeenCalledWith(expect.objectContaining({ pass: 'Guardada#1', port: 587, secure: false }));
+    expect(cuenta.update).toHaveBeenCalled();
+  });
+
+  it('verificar: configuración correcta responde ok sin enviar correo', async () => {
+    const { promesa, res } = llamar(ctrl.verificar, { body: cuerpoValido() });
+    await promesa;
+    expect(res._json.ok).toBe(true);
+    expect(mailer.enviarConConfig).not.toHaveBeenCalled();
+  });
+
+  it('verificar: con id y sin contraseña usa la guardada; si falla responde 400', async () => {
+    CuentaCorreo.findByPk.mockResolvedValue({ smtp_password: aes.encrypt('Guardada#2') });
+    mailer.verificarConfig.mockRejectedValue(new Error('wrong version number'));
+    const { promesa, res } = llamar(ctrl.verificar, { body: cuerpoValido({ id: 9, smtp_password: '', smtp_secure: true }) });
+    await promesa;
+    expect(mailer.verificarConfig).toHaveBeenCalledWith(expect.objectContaining({ pass: 'Guardada#2', secure: true }));
+    expect(res._status).toBe(400);
+    expect(res._json.ok).toBe(false);
+  });
+
+  it('verificar: sin contraseña (cuenta nueva) responde 400', async () => {
+    const { promesa, res } = llamar(ctrl.verificar, { body: cuerpoValido({ smtp_password: '' }) });
+    await promesa;
+    expect(res._status).toBe(400);
+    expect(mailer.verificarConfig).not.toHaveBeenCalled();
   });
 });
