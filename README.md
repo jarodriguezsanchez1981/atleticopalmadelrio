@@ -379,7 +379,7 @@ Si no hay ninguna de las dos, la función de recuperar contraseña responde igua
 | `SMTP_USER` | Usuario del buzón |
 | `SMTP_PASS` | Contraseña del buzón (en Gmail, una *app password*) |
 | `SMTP_FROM` | Remitente, p. ej. `Atlético Palma del Río <no-reply@atleticopalmadelrio.com>`. Opcional, por defecto `SMTP_USER` |
-| `APP_URL` | Base para los enlaces del email. Opcional, por defecto el primer `CORS_ORIGIN` o el dominio de producción |
+| `APP_URL` | Base para los enlaces del email. Opcional, por defecto el primer `CORS_ORIGIN` que no sea `localhost` o, si no hay, el dominio de producción |
 
 > Para que los correos no caigan en spam, el dominio desde el que se envía (`SMTP_FROM`) debe tener bien configurados **SPF** y **DKIM** en su DNS (lo da el proveedor del buzón).
 

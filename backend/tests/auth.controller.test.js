@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Usuario, Seccion, UsuarioCodigoRecuperacion } from './helpers/models.js';
 import { passwordUtils, jwtUtils, mailer } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
@@ -537,6 +537,35 @@ describe('Autenticación · auth.controller', () => {
       const { promesa, res } = llamar(ctrl.validarTokenReset, { query: { token: 'tok' } });
       await promesa;
       expect(res._json).toEqual({ valido: true });
+    });
+  });
+
+  describe('baseUrlApp (enlace del email)', () => {
+    const original = { APP_URL: process.env.APP_URL, CORS_ORIGIN: process.env.CORS_ORIGIN, NODE_ENV: process.env.NODE_ENV };
+    afterEach(() => {
+      for (const [k, v] of Object.entries(original)) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+      }
+    });
+
+    it('usa el primer origen de CORS_ORIGIN que no es localhost (como en el servidor)', () => {
+      delete process.env.APP_URL;
+      process.env.CORS_ORIGIN = 'http://localhost:8080,http://localhost:5173,https://intranet.atleticopalmadelrio.com/';
+      expect(ctrl.baseUrlApp()).toBe('https://intranet.atleticopalmadelrio.com');
+    });
+
+    it('APP_URL tiene prioridad', () => {
+      process.env.APP_URL = 'https://otra.club.es/';
+      expect(ctrl.baseUrlApp()).toBe('https://otra.club.es');
+    });
+
+    it('solo localhost: en desarrollo lo usa, en producción usa el dominio', () => {
+      delete process.env.APP_URL;
+      process.env.CORS_ORIGIN = 'http://localhost:5173';
+      process.env.NODE_ENV = 'development';
+      expect(ctrl.baseUrlApp()).toBe('http://localhost:5173');
+      process.env.NODE_ENV = 'production';
+      expect(ctrl.baseUrlApp()).toBe('https://intranet.atleticopalmadelrio.com');
     });
   });
 });

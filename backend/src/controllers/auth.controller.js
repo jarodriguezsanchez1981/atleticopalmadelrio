@@ -321,12 +321,20 @@ function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-/** URL base de la intranet para construir el enlace del email. */
+const URL_PRODUCCION = 'https://intranet.atleticopalmadelrio.com';
+const esLocal = (url) => /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url);
+
+/** URL base de la intranet para construir el enlace del email: APP_URL o, si
+ * no, el primer origen de CORS_ORIGIN que no sea localhost (en el servidor,
+ * CORS_ORIGIN empieza por http://localhost:8080). En desarrollo se admite
+ * localhost; en producción, si solo hay localhost, el dominio de producción. */
 function baseUrlApp() {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
-  const primerCors = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean)[0];
-  if (primerCors) return primerCors.replace(/\/$/, '');
-  return 'https://intranet.atleticopalmadelrio.com';
+  const origenes = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+  const publico = origenes.find((o) => !esLocal(o));
+  if (publico) return publico;
+  if (origenes[0] && process.env.NODE_ENV !== 'production') return origenes[0];
+  return URL_PRODUCCION;
 }
 
 function emailRecuperacionHtml(nombre, enlace) {
@@ -447,6 +455,7 @@ async function restablecerPassword(req, res, next) {
 }
 
 module.exports = {
+  baseUrlApp,
   login,
   verificar2fa,
   enrolar2faInicio,
