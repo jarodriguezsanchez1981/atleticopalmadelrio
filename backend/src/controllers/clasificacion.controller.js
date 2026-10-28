@@ -1,5 +1,5 @@
 const { UniqueConstraintError, Op } = require('sequelize');
-const { Clasificacion, Partido, Plantilla, Categoria, Temporada } = require('../models');
+const { Clasificacion, Partido, Plantilla, Categoria, Temporada, Equipo, LigaPartido } = require('../models');
 const rfafActa = require('../utils/rfafActa');
 const { diaEspana, partesEspana } = require('../utils/horaEspana');
 
@@ -105,6 +105,49 @@ function ultimosResultados(jornadas) {
   return resultados;
 }
 
+/** "LOCAL 2 - 1 VISITANTE" (sin goles, "LOCAL - VISITANTE"). */
+function textoPartido(local, visitante, golesLocal, golesVisitante) {
+  const marcador = golesLocal != null && golesVisitante != null ? `${golesLocal} - ${golesVisitante}` : '-';
+  return `${local} ${marcador} ${visitante}`;
+}
+
+/** Añade a cada resultado de `ultimos` el partido de esa jornada (texto con el
+ * marcador): de los partidos de toda la liga (liga_partidos, solo Senior A)
+ * y, para el PALMA, de sus partidos. Sin datos del partido, se queda sin él. */
+async function conPartidos(idPlantilla, equipos) {
+  const jornadas = [...new Set(equipos.flatMap((e) => e.ultimos.map((u) => u.jornada)))];
+  if (!jornadas.length) return equipos;
+  const [liga, propios] = await Promise.all([
+    LigaPartido.findAll({ where: { id_plantilla: idPlantilla, jornada: jornadas }, raw: true }),
+    Partido.findAll({
+      where: { id_plantilla: idPlantilla, jornada: jornadas },
+      attributes: ['jornada', 'resultado', 'suspendido'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['nombre'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['nombre'] }
+      ]
+    })
+  ]);
+  const mismoEquipo = (codigo, nombre, e) => (codigo && e.codigo_equipo ? codigo === e.codigo_equipo
+    : String(nombre || '').trim().toUpperCase() === String(e.equipo || '').trim().toUpperCase());
+  const partidoLiga = (e, jornada) => (liga || []).find((p) => p.jornada === jornada
+    && (mismoEquipo(p.codigo_equipo_local, p.equipo_local, e) || mismoEquipo(p.codigo_equipo_visitante, p.equipo_visitante, e)));
+  const partidoPalma = (jornada) => (propios || []).find((p) => Number(p.jornada) === jornada && !p.suspendido && p.equipoLocal);
+  return equipos.map((e) => ({
+    ...e,
+    ultimos: e.ultimos.map((u) => {
+      const l = partidoLiga(e, u.jornada);
+      if (l) return { ...u, partido: textoPartido(l.equipo_local, l.equipo_visitante, l.goles_local, l.goles_visitante) };
+      const p = e.es_palma ? partidoPalma(u.jornada) : null;
+      if (p) {
+        const [gl, gv] = String(p.resultado || '').split('-').map((x) => (x.trim() === '' ? null : Number(x)));
+        return { ...u, partido: textoPartido(p.equipoLocal?.nombre, p.equipoVisitante?.nombre, gl, gv) };
+      }
+      return u;
+    })
+  }));
+}
+
 async function listar(req, res, next) {
   try {
     const idPlantilla = Number(req.query.id_plantilla);
@@ -135,7 +178,8 @@ async function listar(req, res, next) {
     // Tabla de la última jornada: con los últimos resultados de cada equipo.
     if (ultima) {
       const ultimos = ultimosResultados([...porJornada.values()]);
-      ultima.equipos = ultima.equipos.map((e) => ({ ...e, ultimos: ultimos.get(e.codigo_equipo || e.equipo) || [] }));
+      ultima.equipos = await conPartidos(idPlantilla,
+        ultima.equipos.map((e) => ({ ...e, ultimos: ultimos.get(e.codigo_equipo || e.equipo) || [] })));
     }
     const siguiente = await siguienteJornada(idPlantilla, new Set(porJornada.keys()));
     res.json({ jornadas, ultima, siguiente });

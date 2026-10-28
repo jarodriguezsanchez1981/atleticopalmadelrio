@@ -130,8 +130,8 @@ const equiposTabla = computed(() => (ultima.value?.equipos || [])
   .map((e) => ({
     ...e,
     diferencia: e.goles_favor - e.goles_contra,
-    // Para el Excel: "G E P G G".
-    ultimos_texto: (e.ultimos || []).map((u) => u.resultado).join(' ')
+    // Para el Excel: "G (J7: LOCAL 2 - 1 VISITANTE) · E (…)".
+    ultimos_texto: (e.ultimos || []).map((u) => (u.partido ? `${u.resultado} (J${u.jornada}: ${u.partido})` : u.resultado)).join(' · ')
   })));
 
 // Exportar a Excel: la tabla de la clasificación y, en otra hoja, la evolución
@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
         </DataTable>
         <p class="text-xs text-ink-tertiary">
           Últimos partidos: los 5 últimos resultados de cada equipo (el más reciente a la derecha): G ganado, E empate y
-          P perdido. Salen de comparar cada jornada guardada con la anterior; las jornadas en las que descansa no cuentan.
+          P perdido. Salen de comparar cada jornada guardada con la anterior; las jornadas en las que descansa no cuentan. Pasa el ratón por un cuadrado para ver el partido y su marcador.
         </p>
       </div>
     </template>

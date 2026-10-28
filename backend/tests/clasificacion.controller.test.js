@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRequire } from 'module';
-import { Clasificacion, Partido, Plantilla } from './helpers/models.js';
+import { Clasificacion, Partido, Plantilla, LigaPartido } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/clasificacion.controller.js';
@@ -32,6 +32,8 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     Clasificacion.bulkCreate.mockReset();
     Partido.findAll.mockReset();
     Partido.findAll.mockResolvedValue(PARTIDOS);
+    LigaPartido.findAll.mockReset();
+    LigaPartido.findAll.mockResolvedValue([]);
     Plantilla.findByPk.mockReset();
     Plantilla.findByPk.mockResolvedValue(SENIOR_A);
     leer = vi.spyOn(rfafActa, 'leerClasificacion');
@@ -104,6 +106,37 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     expect(porEquipo.UNO).toBe('EPGGE');
     expect(porEquipo.DOS).toBe('PGEPG');
     expect(res._json.ultima.equipos[0].ultimos.at(-1)).toEqual({ jornada: 6, resultado: 'E' });
+  });
+
+  it('listar: cada último resultado lleva su partido (liga_partidos y, para el PALMA, sus partidos)', async () => {
+    const fila = (jornada, nombre, codigo, ganados, empatados, perdidos, es_palma = false) => ({
+      jornada, fecha: null, posicion: 1, equipo: nombre, codigo_equipo: codigo, es_palma,
+      jugados: ganados + empatados + perdidos, ganados, empatados, perdidos
+    });
+    Clasificacion.findAll.mockResolvedValue([
+      fila(1, 'UNO', '11', 1, 0, 0), fila(1, 'PALMA DEL RIO ATLETICO C.F.', '73', 0, 1, 0, true),
+      fila(2, 'UNO', '11', 1, 1, 0), fila(2, 'PALMA DEL RIO ATLETICO C.F.', '73', 1, 1, 0, true)
+    ]);
+    LigaPartido.findAll.mockResolvedValue([
+      { jornada: 1, equipo_local: 'UNO', codigo_equipo_local: '11', equipo_visitante: 'DOS', codigo_equipo_visitante: '12', goles_local: 3, goles_visitante: 0 },
+      { jornada: 2, equipo_local: 'TRES', codigo_equipo_local: '13', equipo_visitante: 'UNO', codigo_equipo_visitante: '11', goles_local: null, goles_visitante: null }
+    ]);
+    // Al PALMA no lo trae liga_partidos: sale de sus partidos (el 2 sin resultado).
+    Partido.findAll.mockImplementation(async (opts) => (opts?.include ? [
+      { jornada: 1, resultado: '1-1', equipoLocal: { nombre: 'PALMA DEL RIO ATLETICO C.F.' }, equipoVisitante: { nombre: 'CUATRO' } },
+      { jornada: 2, resultado: '0-2', equipoLocal: { nombre: 'CINCO' }, equipoVisitante: { nombre: 'PALMA DEL RIO ATLETICO C.F.' } }
+    ] : PARTIDOS));
+    const { promesa, res } = llamar(ctrl.listar, { query: { id_plantilla: '36' } });
+    await promesa;
+    const [uno, palma] = res._json.ultima.equipos;
+    expect(uno.ultimos).toEqual([
+      { jornada: 1, resultado: 'G', partido: 'UNO 3 - 0 DOS' },
+      { jornada: 2, resultado: 'E', partido: 'TRES - UNO' }
+    ]);
+    expect(palma.ultimos).toEqual([
+      { jornada: 1, resultado: 'E', partido: 'PALMA DEL RIO ATLETICO C.F. 1 - 1 CUATRO' },
+      { jornada: 2, resultado: 'G', partido: 'CINCO 0 - 2 PALMA DEL RIO ATLETICO C.F.' }
+    ]);
   });
 
   it('siguienteJornada: el día siguiente al partido, solo desde las 10:00', async () => {
