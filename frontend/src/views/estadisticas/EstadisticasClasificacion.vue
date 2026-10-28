@@ -12,6 +12,7 @@ import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { colorPosicion, jornadasDescanso } from '../../utils/colorPosicion';
 import { construirHojaSimple, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
+import UltimosPartidos from '../../components/UltimosPartidos.vue';
 
 /** Estadísticas → Clasificación: posición del PALMA en la liga jornada a
  * jornada (plantilla Senior A de la temporada actual). El servidor copia cada
@@ -133,10 +134,6 @@ const equiposTabla = computed(() => (ultima.value?.equipos || [])
     ultimos_texto: (e.ultimos || []).map((u) => u.resultado).join(' ')
   })));
 
-// Últimos partidos: G en verde, E en gris y P en rojo.
-const CLASE_RESULTADO = { G: 'bg-green-600', E: 'bg-gray-400', P: 'bg-red-600' };
-const NOMBRE_RESULTADO = { G: 'Ganado', E: 'Empate', P: 'Perdido' };
-
 // Exportar a Excel: la tabla de la clasificación y, en otra hoja, la evolución
 // jornada a jornada (los datos de la gráfica).
 const toast = useToast();
@@ -236,15 +233,7 @@ onBeforeUnmount(() => {
           <Column field="goles_contra" header="GC" sortable />
           <Column field="diferencia" header="Dif." sortable />
           <Column header="Últimos partidos" style="min-width: 9rem">
-            <template #body="{ data }">
-              <div class="flex items-center gap-1">
-                <span v-for="(u, i) in data.ultimos || []" :key="i"
-                      class="inline-flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
-                      :class="CLASE_RESULTADO[u.resultado]"
-                      v-tooltip.top="`Jornada ${u.jornada}: ${NOMBRE_RESULTADO[u.resultado]}`">{{ u.resultado }}</span>
-                <span v-if="!(data.ultimos || []).length" class="text-ink-tertiary">—</span>
-              </div>
-            </template>
+            <template #body="{ data }"><UltimosPartidos :ultimos="data.ultimos || []" /></template>
           </Column>
         </DataTable>
         <p class="text-xs text-ink-tertiary">

@@ -8,6 +8,7 @@ import { estadisticasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { estiloTabla } from '../../utils/estiloTabla';
 import { colorPosicion, jornadasDescanso } from '../../utils/colorPosicion';
+import UltimosPartidos from '../../components/UltimosPartidos.vue';
 
 /** Estadísticas por categoría → Clasificación: igual que la de Senior A, pero
  * de la categoría de cada usuario (un entrenador, la suya; un coordinador elige
@@ -216,7 +217,14 @@ onBeforeUnmount(() => {
           <Column field="goles_favor" header="GF" sortable />
           <Column field="goles_contra" header="GC" sortable />
           <Column field="diferencia" header="Dif." sortable />
+          <Column header="Últimos partidos" style="min-width: 9rem">
+            <template #body="{ data }"><UltimosPartidos :ultimos="data.ultimos || []" /></template>
+          </Column>
         </DataTable>
+        <p class="text-xs text-ink-tertiary">
+          Últimos partidos: los 5 últimos resultados de cada equipo (el más reciente a la derecha): G ganado, E empate y
+          P perdido. Salen de comparar cada jornada guardada con la anterior; las jornadas en las que descansa no cuentan.
+        </p>
       </div>
     </template>
   </div>
