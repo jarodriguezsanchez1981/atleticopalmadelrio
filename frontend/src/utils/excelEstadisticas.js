@@ -58,7 +58,7 @@ export function construirHojaEstadistica({ metricas, filas = [], soloGrupo = nul
         cabeceras[fila].push(sinSaltos(m.titulo));
       }
       columnas.push({ field: `${m.campo}${GRUPOS[clave].sufijo}`,
-        formato: m.porcentaje ? 'porcentaje' : m.decimal ? 'decimal' : null });
+        formato: m.porcentaje ? 'porcentaje' : m.decimal ? 'decimal' : m.unDecimal ? 'unDecimal' : null });
     });
   }
 
@@ -95,7 +95,7 @@ export function nombreHoja(nombre, usados = new Set()) {
 }
 
 const VERDE = 'FF0B3D2E';
-const FORMATO_NUMERO = { porcentaje: '0.0" %"', decimal: '0.00' };
+const FORMATO_NUMERO = { porcentaje: '0.0" %"', decimal: '0.00', unDecimal: '0.#' };
 
 /** Escribe y descarga el libro. hojas: [{ nombre, titulo, ...hoja construida }]. */
 export async function descargarExcel(nombreFichero, hojas) {

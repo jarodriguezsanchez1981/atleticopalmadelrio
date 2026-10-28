@@ -141,7 +141,39 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
     await promesa;
 
     expect(ConvocatoriaSinJugador.bulkCreate).toHaveBeenCalledWith(
-      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: 'Lesionado' }],
+      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: 'Lesionado', lesion: false }],
+      { ignoreDuplicates: true }
+    );
+    expect(res._status).toBe(201);
+  });
+
+  it('crear guarda los lesionados con lesion=true (y cuentan como lesionado aunque vengan también como no convocados)', async () => {
+    Temporada.findByPk.mockResolvedValue({ id: 1 });
+    Plantilla.findByPk.mockResolvedValue({ id: 2, id_temporada: 1 });
+    Partido.findByPk.mockResolvedValue({ id: 3, id_plantilla: 2, id_equipo_local: 73, id_equipo_visitante: 50 });
+    Convocatoria.findOne.mockResolvedValue(null);
+    PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 10 }, { id_jugador: 11 }, { id_jugador: 12 }]);
+    Convocatoria.create.mockResolvedValue({ id: 7 });
+    ConvocatoriaJugador.bulkCreate.mockResolvedValue([]);
+    ConvocatoriaSinJugador.bulkCreate.mockResolvedValue([]);
+    PartidoJugador.findOrCreate.mockResolvedValue([{ id: 1 }, true]);
+    Convocatoria.findByPk.mockResolvedValue({ id: 7, toJSON: () => ({ id: 7 }) });
+
+    const { promesa, res } = llamar(ctrl.crear, {
+      body: {
+        id_temporada: 1, id_plantilla: 2, id_partido: 3,
+        jugadores: [10],
+        no_convocados: [{ id_jugador: 11, observaciones: 'Técnico' }, { id_jugador: 12 }],
+        lesionados: [{ id_jugador: 12, observaciones: 'Rodilla' }, { id_jugador: 10, observaciones: 'convocado' }]
+      }
+    });
+    await promesa;
+
+    expect(ConvocatoriaSinJugador.bulkCreate).toHaveBeenCalledWith(
+      [
+        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 12, observaciones: 'Rodilla', lesion: true },
+        { id_convocatoria: 7, id_plantilla: 2, id_jugador: 11, observaciones: 'Técnico', lesion: false }
+      ],
       { ignoreDuplicates: true }
     );
     expect(res._status).toBe(201);
@@ -344,7 +376,7 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
 
     expect(ConvocatoriaSinJugador.destroy).toHaveBeenCalledWith({ where: { id_convocatoria: 7 } });
     expect(ConvocatoriaSinJugador.bulkCreate).toHaveBeenCalledWith(
-      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 13, observaciones: 'Sanción' }],
+      [{ id_convocatoria: 7, id_plantilla: 2, id_jugador: 13, observaciones: 'Sanción', lesion: false }],
       { ignoreDuplicates: true }
     );
   });
@@ -453,7 +485,10 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
         { jugador: { nombre: 'Ana', apellidos: 'Pérez' } }
       ],
       promocionados: [{ jugador: { nombre: 'Luis', apellidos: 'García' } }],
-      noConvocados: [{ jugador: { nombre: 'Juan', apellidos: 'Ruiz' }, observaciones: 'Lesionado' }]
+      noConvocados: [
+        { jugador: { nombre: 'Juan', apellidos: 'Ruiz' }, observaciones: 'Lesionado' },
+        { jugador: { nombre: 'Pedro', apellidos: 'Sanz' }, observaciones: 'Tobillo', lesion: true }
+      ]
     });
 
     beforeEach(() => {
@@ -472,7 +507,8 @@ describe('Sección Convocatorias · convocatoria.controller', () => {
       expect(correo.subject).toBe('Jornada 9: PALMA DEL RIO ATLETICO C.F. - C.D. Rival <B>');
       expect(correo.text).toContain('domingo 01/11/2026 a las 17:30');
       expect(correo.text).toContain('1. Zoe Álvarez\n2. Luis García (promoción)\n3. Ana Pérez');
-      expect(correo.text).toContain('- Juan Ruiz: Lesionado');
+      expect(correo.text).toContain('No convocados (1):\n- Juan Ruiz: Lesionado');
+      expect(correo.text).toContain('Lesionados (1):\n- Pedro Sanz: Tobillo');
       expect(correo.html).toContain('C.D. Rival &lt;B&gt;');
     });
 

@@ -245,6 +245,9 @@ Jugador.belongsToMany(Plantilla, {
   timestamps: false
 });
 
+// ---- PlantillaJugador -> Jugador (Estadísticas: jugadores de la plantilla sin convocar) ----
+PlantillaJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador', constraints: false });
+
 // ---- PlantillaJugador <-> Posición (Muchos a Muchos) ----
 PlantillaJugador.belongsToMany(Posicion, { through: 'plantilla_jugador_posiciones', foreignKey: 'id_plantilla_jugador', otherKey: 'id_posicion', as: 'posiciones', timestamps: false });
 Posicion.belongsToMany(PlantillaJugador, { through: 'plantilla_jugador_posiciones', foreignKey: 'id_posicion', otherKey: 'id_plantilla_jugador', sourceKey: 'id', as: 'plantillasJugadores', timestamps: false });

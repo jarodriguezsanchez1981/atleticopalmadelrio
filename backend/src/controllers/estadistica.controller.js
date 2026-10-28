@@ -1,4 +1,4 @@
-const { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, LigaPartido, LigaJugador, LigaGol, LigaTarjeta, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
+const { Convocatoria, ConvocatoriaSinJugador, PlantillaJugador, Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, LigaPartido, LigaJugador, LigaGol, LigaTarjeta, Jugador, Plantilla, Categoria, TipoFutbol, Temporada, Equipo } = require('../models');
 const { categoriaDelUsuario } = require('../utils/filtroCategoria');
 const { diaEspana } = require('../utils/horaEspana');
 const { esPalma: esPalmaEquipo } = require('./clasificacion.controller');
@@ -44,7 +44,7 @@ function tramoGol(minuto, dur) {
 // Contadores de cada jugador; cada uno se guarda en total (campo) y según el
 // PALMA jugara en casa o fuera (campo_local / campo_visitante).
 const CONTADORES = [
-  'convocatorias', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
+  'convocatorias', 'sin_convocar', 'lesiones', 'partidos', 'titular', 'suplente', 'banquillo_no_jugados',
   'sustituciones', 'sustituciones_primera', 'sustituciones_segunda',
   'minutos', 'minutos_titular', 'minutos_banquillo',
   'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', 'goles_primera', 'goles_segunda', ...CAMPOS_GOLES_TRAMO,
@@ -64,6 +64,8 @@ const CONTADORES_EQUIPO = [
 const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : null);
 /** Media con dos decimales (null si no se puede calcular). */
 const media = (parte, total) => (total > 0 ? Math.round((parte / total) * 100) / 100 : null);
+/** Minutos por partido / gol / tarjeta: con un decimal (null si no hay). */
+const minutosPor = (minutos, veces) => (veces > 0 ? Math.round((minutos / veces) * 10) / 10 : null);
 
 /** Estadísticas de cada jugador en los partidos de una plantilla (datos de
  * "Finalizar Acta"): convocatorias (está en el acta), partidos jugados
@@ -133,22 +135,27 @@ async function listar(req, res, next) {
       sumar(fila, 'sustituciones', 1, lado);
       sumar(fila, Number(minuto) <= FIN_PRIMERA_PARTE ? 'sustituciones_primera' : 'sustituciones_segunda', 1, lado);
     };
-    for (const f of filas) {
-      if (!f.id_jugador) continue;
-      let fila = porJugador.get(f.id_jugador);
+    // Fila de un jugador (se crea con todos los contadores a 0 la primera vez).
+    const filaDe = (idJugador, jugador) => {
+      let fila = porJugador.get(idJugador);
       if (!fila) {
         // partidos_goles / partidos_tarjetas: partidos en los que marcó / vio
         // alguna tarjeta (desplegables de Estadísticas Goles y Sanciones).
         fila = {
-          id_jugador: f.id_jugador, nombre: f.jugador?.nombre || '', apellidos: f.jugador?.apellidos || '',
+          id_jugador: idJugador, nombre: jugador?.nombre || '', apellidos: jugador?.apellidos || '',
           partidos_goles: [], partidos_tarjetas: []
         };
         for (const c of CONTADORES) {
           fila[c] = 0;
           for (const l of LADOS) fila[`${c}_${l}`] = 0;
         }
-        porJugador.set(f.id_jugador, fila);
+        porJugador.set(idJugador, fila);
       }
+      return fila;
+    };
+    for (const f of filas) {
+      if (!f.id_jugador) continue;
+      const fila = filaDe(f.id_jugador, f.jugador);
       // es_local: el jugador (del PALMA) estaba en el equipo local del partido.
       const lado = f.es_local ? 'local' : 'visitante';
       ladoEnPartido.set(`${f.id_partido}-${f.id_jugador}`, lado);
@@ -254,6 +261,39 @@ async function listar(req, res, next) {
     const partidosEquipo = { '': ladoPartido.size, _local: 0, _visitante: 0 };
     for (const lado of ladoPartido.values()) partidosEquipo[`_${lado}`] += 1;
 
+    // Sin convocar: partidos con acta en los que un jugador de la plantilla no
+    // está en el acta (aunque llegara a la plantilla a mitad de temporada).
+    const enActa = new Set(filas.filter((f) => f.id_jugador).map((f) => `${f.id_partido}-${f.id_jugador}`));
+    const plantillaJugadores = await PlantillaJugador.findAll({
+      where: { id_plantilla: idPlantilla },
+      attributes: ['id_jugador'],
+      include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
+    }) || [];
+    for (const pj of plantillaJugadores) {
+      for (const [idPartido, lado] of ladoPartido) {
+        if (!enActa.has(`${idPartido}-${pj.id_jugador}`)) sumar(filaDe(pj.id_jugador, pj.jugador), 'sin_convocar', 1, lado);
+      }
+    }
+
+    // Lesión: convocatorias de esos partidos en las que el jugador está en la
+    // tabla Lesionados (convocatorias_sin_jugadores con lesion).
+    const convocatorias = await Convocatoria.findAll({
+      where: { id_plantilla: idPlantilla, id_partido: [...ladoPartido.keys()] },
+      attributes: ['id', 'id_partido']
+    }) || [];
+    if (convocatorias.length) {
+      const partidoDeConvocatoria = new Map(convocatorias.map((c) => [c.id, c.id_partido]));
+      const lesionados = await ConvocatoriaSinJugador.findAll({
+        where: { id_convocatoria: [...partidoDeConvocatoria.keys()], lesion: true },
+        attributes: ['id_convocatoria', 'id_jugador'],
+        include: [{ model: Jugador, as: 'jugador', attributes: ['id', 'nombre', 'apellidos'] }]
+      }) || [];
+      for (const l of lesionados) {
+        const lado = ladoPartido.get(partidoDeConvocatoria.get(l.id_convocatoria));
+        if (lado) sumar(filaDe(l.id_jugador, l.jugador), 'lesiones', 1, lado);
+      }
+    }
+
     for (const f of porJugador.values()) {
       f.partidos_tarjetas.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
       f.partidos_goles.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
@@ -274,12 +314,17 @@ async function listar(req, res, next) {
         // Minutos jugados sobre los de todos los partidos del equipo, los
         // haya jugado o no.
         f[`porcentaje_minutos_equipo${sufijo}`] = porcentaje(f[`minutos${sufijo}`], partidosEquipo[sufijo] * MINUTOS_PARTIDO);
+        // Minutos por partido jugado, por gol y por tarjeta (amarillas + rojas).
+        f[`minutos_por_partido${sufijo}`] = minutosPor(f[`minutos${sufijo}`], f[`partidos${sufijo}`]);
+        f[`minutos_por_gol${sufijo}`] = minutosPor(f[`minutos${sufijo}`], f[`goles${sufijo}`]);
+        f[`minutos_por_tarjeta${sufijo}`] = minutosPor(f[`minutos${sufijo}`], f[`tarjetas_amarillas${sufijo}`] + f[`tarjetas_rojas${sufijo}`]);
       }
       // Parte de sus goles marcados en casa o fuera.
       for (const l of LADOS) f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
     }
     const resultado = [...porJugador.values()]
-      .filter((f) => f.partidos > 0 || f.goles > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0 || f.banquillo_no_jugados > 0)
+      .filter((f) => f.partidos > 0 || f.goles > 0 || f.tarjetas_amarillas > 0 || f.tarjetas_rojas > 0 || f.banquillo_no_jugados > 0
+        || f.sin_convocar > 0 || f.lesiones > 0)
       .sort((a, b) => b.minutos - a.minutos || b.partidos - a.partidos
         || `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`, 'es'));
     res.json(resultado);

@@ -14,7 +14,7 @@ import { estiloTabla } from '../utils/estiloTabla';
  * moverla (en los tres grupos a la vez). */
 const props = defineProps({
   filas: { type: Array, default: () => [] },
-  // [{ campo, titulo, descripcion?: 'nombre completo (tooltip)', calculo?: 'fórmula (tooltip)', porcentaje?: true, decimal?: true, soloLados?: true, subgrupo?: 'Amarillas' }]
+  // [{ campo, titulo, descripcion?: 'nombre completo (tooltip)', calculo?: 'fórmula (tooltip)', porcentaje?: true, decimal?: true, unDecimal?: true, soloLados?: true, subgrupo?: 'Amarillas' }]
   // Las métricas seguidas con el mismo `subgrupo` van bajo un título común
   // dentro de cada grupo (una fila más de cabecera).
   metricas: { type: Array, required: true },
@@ -90,6 +90,11 @@ function claseSeparador(c) {
 /** 33.3 -> "33,3 %"; sin datos para calcularlo, "—". */
 function formatoPorcentaje(valor) {
   return valor == null ? '—' : `${Number(valor).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
+}
+
+/** 67.5 -> "67,5", 90 -> "90" (minutos por partido / gol / tarjeta); sin datos, "—". */
+function formatoUnDecimal(valor) {
+  return valor == null ? '—' : Number(valor).toLocaleString('es-ES', { maximumFractionDigits: 1 });
 }
 
 /** 1.67 -> "1,67" (medias); sin datos para calcularla, "—". */
@@ -210,6 +215,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
       <Column v-for="c in g.columnas" :key="c.field" :field="c.field" :bodyClass="`text-center${claseSeparador(c)}`">
         <template v-if="c.porcentaje" #body="{ data }">{{ formatoPorcentaje(data[c.field]) }}</template>
         <template v-else-if="c.decimal" #body="{ data }">{{ formatoDecimal(data[c.field]) }}</template>
+        <template v-else-if="c.unDecimal" #body="{ data }">{{ formatoUnDecimal(data[c.field]) }}</template>
       </Column>
     </template>
 

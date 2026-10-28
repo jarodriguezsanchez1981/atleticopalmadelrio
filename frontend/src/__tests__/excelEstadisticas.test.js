@@ -24,6 +24,16 @@ describe('excelEstadisticas · construirHojaEstadistica', () => {
     expect(h.filas).toEqual([['Luis', 4, 5, 1.25], ['Ana', 3, 1, 0.33]]);
   });
 
+  it('los minutos por partido / gol / tarjeta (unDecimal) llevan su formato y "—" vacío queda en null', () => {
+    const h = construirHojaEstadistica({
+      metricas: [{ campo: 'minutos_por_gol', titulo: 'Min. por\nGoles', unDecimal: true }],
+      filas: [{ jugador: 'Ana', minutos_por_gol: 67.5 }, { jugador: 'Luis', minutos_por_gol: null }],
+      soloGrupo: 'total'
+    });
+    expect(h.formatos).toEqual([null, 'unDecimal']);
+    expect(h.filas).toEqual([['Ana', 67.5], ['Luis', null]]);
+  });
+
   it('en Local ordena por el campo del lado y usa sus campos', () => {
     const h = construirHojaEstadistica({ metricas, filas, soloGrupo: 'local', sortField: 'goles' });
     expect(h.cabeceras[0]).toEqual(['Jugador', 'Partidos', 'Goles', '% de sus goles', 'Media']);

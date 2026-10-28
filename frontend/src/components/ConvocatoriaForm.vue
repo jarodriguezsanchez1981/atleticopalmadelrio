@@ -38,6 +38,13 @@ const nuevoNoConvocado = ref(null);
 const observacionesNuevoNoConvocado = ref('');
 const keySelectNoConvocado = ref(0);
 
+// Lesionados: tampoco están convocados (se guardan como no convocados con
+// `lesion`); Estadísticas cuenta las veces que cada jugador ha estado lesionado.
+const jugadoresLesionados = ref([]); // array de { id_jugador, observaciones }
+const nuevoLesionado = ref(null);
+const observacionesNuevoLesionado = ref('');
+const keySelectLesionado = ref(0);
+
 // Promoción (solo al crear): jugadores de otra plantilla de la misma temporada
 // con categoría de orden igual o inferior; se guardan en la tabla promociones.
 const plantillaPromocion = ref(null);
@@ -51,11 +58,14 @@ function resetForm() {
   form.value = { id_temporada: null, id_plantilla: null, id_partido: null };
   jugadoresConvocados.value = [];
   jugadoresNoConvocados.value = [];
+  jugadoresLesionados.value = [];
   partidosPlantilla.value = [];
   partidoSeleccionado.value = null;
   nuevoJugador.value = null;
   nuevoNoConvocado.value = null;
   observacionesNuevoNoConvocado.value = '';
+  nuevoLesionado.value = null;
+  observacionesNuevoLesionado.value = '';
   resetPromocion();
 }
 
@@ -148,10 +158,11 @@ async function cargarRegistro() {
     id_partido: item.id_partido ?? item.partido?.id ?? null
   };
   jugadoresConvocados.value = (item.jugadores || []).map((j) => j.id_jugador);
-  jugadoresNoConvocados.value = (item.noConvocados || []).map((n) => ({
-    id_jugador: n.id_jugador,
-    observaciones: n.observaciones || ''
-  }));
+  const sinConvocar = (lesion) => (item.noConvocados || [])
+    .filter((n) => !!n.lesion === lesion)
+    .map((n) => ({ id_jugador: n.id_jugador, observaciones: n.observaciones || '' }));
+  jugadoresNoConvocados.value = sinConvocar(false);
+  jugadoresLesionados.value = sinConvocar(true);
   jugadoresPromocion.value = (item.promocionados || []).map((p) => ({
     id_plantilla: p.id_plantilla,
     id_jugador: p.id_jugador,
@@ -196,10 +207,10 @@ const jugadoresPlantilla = computed(() =>
 );
 
 // El desplegable de "convocados" excluye solo a quien ya está convocado: a un
-// jugador que está en "no convocados" se le puede elegir igual, lo que lo
-// convoca directamente (ver addJugador). El de "no convocados", en cambio,
-// excluye a cualquiera de las dos listas: para marcar como no convocado a
-// alguien ya convocado hay que quitarlo antes de "Jugadores convocados".
+// jugador que está en "no convocados" o en "lesionados" se le puede elegir
+// igual, lo que lo convoca directamente (ver addJugador). Los de "no
+// convocados" y "lesionados", en cambio, excluyen a cualquiera de las tres
+// listas: para pasar a alguien de una a otra hay que quitarlo antes.
 const opcionesJugadorDisponible = computed(() => {
   const usados = new Set(jugadoresConvocados.value);
   return jugadoresPlantilla.value
@@ -210,7 +221,8 @@ const opcionesJugadorDisponible = computed(() => {
 const opcionesJugadorDisponibleNoConv = computed(() => {
   const usados = new Set([
     ...jugadoresConvocados.value,
-    ...jugadoresNoConvocados.value.map((n) => n.id_jugador)
+    ...jugadoresNoConvocados.value.map((n) => n.id_jugador),
+    ...jugadoresLesionados.value.map((n) => n.id_jugador)
   ]);
   return jugadoresPlantilla.value
     .filter((j) => !usados.has(j.id))
@@ -269,6 +281,9 @@ const jugadoresConvocadosOrdenados = computed(() =>
 const jugadoresNoConvocadosOrdenados = computed(() =>
   [...jugadoresNoConvocados.value].sort((a, b) => nombreJugador(a.id_jugador).localeCompare(nombreJugador(b.id_jugador), 'es'))
 );
+const jugadoresLesionadosOrdenados = computed(() =>
+  [...jugadoresLesionados.value].sort((a, b) => nombreJugador(a.id_jugador).localeCompare(nombreJugador(b.id_jugador), 'es'))
+);
 
 async function onTemporadaChange() {
   form.value.id_plantilla = null;
@@ -300,8 +315,9 @@ function addJugador() {
     jugadoresConvocados.value.push(nuevoJugador.value);
     toast.add({ severity: 'success', summary: 'Añadido', detail: `${nombreJugador(nuevoJugador.value)} añadido a convocados.`, life: 2500 });
   }
-  // Un jugador convocado no puede seguir figurando como no convocado.
+  // Un jugador convocado no puede seguir figurando como no convocado ni como lesionado.
   jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== nuevoJugador.value);
+  jugadoresLesionados.value = jugadoresLesionados.value.filter((n) => n.id_jugador !== nuevoJugador.value);
   nuevoJugador.value = null;
   keySelectJugador.value += 1;
 }
@@ -313,6 +329,7 @@ function removeJugador(id) {
 function plantillaCompleta() {
   jugadoresConvocados.value = jugadoresPlantilla.value.map((j) => j.id);
   jugadoresNoConvocados.value = [];
+  jugadoresLesionados.value = [];
 }
 
 function addNoConvocado() {
@@ -353,6 +370,25 @@ function removeNoConvocado(id) {
   jugadoresNoConvocados.value = jugadoresNoConvocados.value.filter((n) => n.id_jugador !== id);
 }
 
+function addLesionado() {
+  if (!nuevoLesionado.value) {
+    toast.add({ severity: 'warn', summary: 'Selecciona un jugador', detail: 'Elige un jugador de la lista antes de pulsar Añadir.', life: 4000 });
+    return;
+  }
+  const idAgregado = nuevoLesionado.value;
+  if (!jugadoresLesionados.value.some((n) => n.id_jugador === idAgregado)) {
+    jugadoresLesionados.value.push({ id_jugador: idAgregado, observaciones: observacionesNuevoLesionado.value.trim() });
+    toast.add({ severity: 'success', summary: 'Añadido', detail: `${nombreJugador(idAgregado)} añadido a lesionados.`, life: 2500 });
+  }
+  nuevoLesionado.value = null;
+  observacionesNuevoLesionado.value = '';
+  keySelectLesionado.value += 1;
+}
+
+function removeLesionado(id) {
+  jugadoresLesionados.value = jugadoresLesionados.value.filter((n) => n.id_jugador !== id);
+}
+
 function onPlantillaPromocionChange() {
   nuevoPromocionado.value = null;
   keySelectPromocionado.value += 1;
@@ -391,7 +427,7 @@ async function guardar() {
   }
   // Si hay un jugador elegido en alguno de los dos selectores pero no se ha
   // pulsado su "Añadir", avisar en vez de guardar sin él sin decir nada.
-  if (nuevoJugador.value || nuevoNoConvocado.value || nuevoPromocionado.value) {
+  if (nuevoJugador.value || nuevoNoConvocado.value || nuevoLesionado.value || nuevoPromocionado.value) {
     toast.add({
       severity: 'warn',
       summary: 'Jugador sin añadir',
@@ -400,16 +436,19 @@ async function guardar() {
     });
     return;
   }
-  const noConvocadosPayload = jugadoresNoConvocados.value.map((n) => ({
+  const sinConvocarPayload = (lista) => lista.map((n) => ({
     id_jugador: n.id_jugador,
     observaciones: n.observaciones || null
   }));
+  const noConvocadosPayload = sinConvocarPayload(jugadoresNoConvocados.value);
+  const lesionadosPayload = sinConvocarPayload(jugadoresLesionados.value);
   guardando.value = true;
   try {
     if (modoEdicion.value) {
       await convocatoriasService.actualizar(props.registroId, {
         jugadores: jugadoresConvocados.value,
-        no_convocados: noConvocadosPayload
+        no_convocados: noConvocadosPayload,
+        lesionados: lesionadosPayload
       });
       toast.add({ severity: 'success', summary: 'Actualizada', detail: 'Convocatoria actualizada correctamente.', life: 3000 });
     } else {
@@ -419,6 +458,7 @@ async function guardar() {
         id_partido: form.value.id_partido,
         jugadores: jugadoresConvocados.value,
         no_convocados: noConvocadosPayload,
+        lesionados: lesionadosPayload,
         promociones: jugadoresPromocion.value.map((x) => ({ id_plantilla: x.id_plantilla, id_jugador: x.id_jugador }))
       });
       toast.add({ severity: 'success', summary: 'Creada', detail: 'Convocatoria creada correctamente.', life: 3000 });
@@ -622,6 +662,44 @@ async function guardar() {
         <InputText v-model="observacionesNuevoNoConvocado" placeholder="Observaciones (motivo)" class="flex-1" />
         <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
                 @click="addNoConvocado" />
+      </div>
+    </div>
+
+    <div v-if="form.id_partido">
+      <h3 class="text-sm font-semibold text-club-green mb-2">Jugadores lesionados</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-club-green/5">
+              <th class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-10">Nº</th>
+              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Jugador</th>
+              <th class="text-left border border-line p-2 text-xs font-medium text-ink-tertiary">Observaciones</th>
+              <th v-if="!soloLectura" class="text-center border border-line p-2 text-xs font-medium text-ink-tertiary w-12"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(n, i) in jugadoresLesionadosOrdenados" :key="n.id_jugador">
+              <td class="text-center border border-line p-2 text-sm text-ink-tertiary tabular-nums">{{ i + 1 }}</td>
+              <td class="border border-line p-2 text-sm">{{ nombreJugador(n.id_jugador) }}</td>
+              <td class="border border-line p-2 text-sm text-ink-secondary">{{ n.observaciones || '—' }}</td>
+              <td v-if="!soloLectura" class="text-center border border-line p-2">
+                <Button icon="pi pi-times" text rounded severity="danger" class="!w-7 !h-7"
+                        @click="removeLesionado(n.id_jugador)" />
+              </td>
+            </tr>
+            <tr v-if="!jugadoresLesionadosOrdenados.length">
+              <td :colspan="soloLectura ? 3 : 4" class="text-center text-ink-tertiary p-3 text-sm">No hay jugadores lesionados.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="!soloLectura" class="flex flex-col sm:flex-row gap-2 mt-2">
+        <Select :key="keySelectLesionado" v-model="nuevoLesionado" :options="opcionesJugadorDisponibleNoConv"
+                optionLabel="label" optionValue="value" placeholder="Seleccionar jugador"
+                class="flex-1" filter showClear />
+        <InputText v-model="observacionesNuevoLesionado" placeholder="Observaciones (lesión)" class="flex-1" />
+        <Button type="button" label="Añadir" icon="pi pi-plus" outlined class="!text-club-green !border-club-green/50"
+                @click="addLesionado" />
       </div>
     </div>
 

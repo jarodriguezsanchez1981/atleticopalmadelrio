@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, LigaPartido, Plantilla, Temporada } from './helpers/models.js';
+import { Partido, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, LigaPartido, Plantilla, Temporada, PlantillaJugador, Convocatoria, ConvocatoriaSinJugador } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/estadistica.controller.js';
@@ -15,6 +15,56 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     // Por defecto, Senior A (categoría con minutos): "jugó" = minutos > 0.
     Plantilla.findByPk.mockReset();
     Plantilla.findByPk.mockResolvedValue({ categoria: { nombre: 'Senior A' } });
+    PlantillaJugador.findAll.mockReset();
+    PlantillaJugador.findAll.mockResolvedValue([]);
+    Convocatoria.findAll.mockReset();
+    Convocatoria.findAll.mockResolvedValue([]);
+    ConvocatoriaSinJugador.findAll.mockReset();
+    ConvocatoriaSinJugador.findAll.mockResolvedValue([]);
+  });
+
+  it('Sin Conv.: partidos con acta en los que el jugador de la plantilla no está; Lesión: veces en Lesionados', async () => {
+    Partido.findAll.mockResolvedValue([
+      { id: 1, jornada: 1, acta_finalizada_at: new Date() },
+      { id: 2, jornada: 2, acta_finalizada_at: new Date() },
+      { id: 3, jornada: 3, acta_finalizada_at: new Date() }
+    ]);
+    const ana = { id: 7, nombre: 'Ana', apellidos: 'López' };
+    const eva = { id: 9, nombre: 'Eva', apellidos: 'Sanz' };
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 90, goles: 1, tarjeta_amarilla: 1, tarjeta_roja: 0, jugador: ana },
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: true, minutos: 90, goles: 0, tarjeta_amarilla: 0, tarjeta_roja: 0, jugador: ana },
+      { id_partido: 3, id_jugador: 8, es_local: true, titular: true, minutos: 90, jugador: { id: 8, nombre: 'Luis', apellidos: 'Ruiz' } }
+    ]);
+    // Ana y Eva son de la plantilla; Eva no aparece en ningún acta.
+    PlantillaJugador.findAll.mockResolvedValue([{ id_jugador: 7, jugador: ana }, { id_jugador: 9, jugador: eva }]);
+    Convocatoria.findAll.mockResolvedValue([{ id: 30, id_partido: 3 }, { id: 20, id_partido: 2 }]);
+    ConvocatoriaSinJugador.findAll.mockResolvedValue([
+      { id_convocatoria: 30, id_jugador: 7, jugador: ana },
+      { id_convocatoria: 20, id_jugador: 9, jugador: eva },
+      { id_convocatoria: 30, id_jugador: 9, jugador: eva }
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    expect(ConvocatoriaSinJugador.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id_convocatoria: [30, 20], lesion: true }
+    }));
+    const porId = Object.fromEntries(res._json.map((f) => [f.id_jugador, f]));
+    expect(porId[7]).toMatchObject({
+      sin_convocar: 1, sin_convocar_local: 1, sin_convocar_visitante: 0,
+      lesiones: 1, lesiones_local: 1,
+      // 180' en 2 partidos, 1 gol y 1 tarjeta.
+      minutos_por_partido: 90, minutos_por_gol: 180, minutos_por_tarjeta: 180,
+      minutos_por_gol_visitante: null, minutos_por_tarjeta_local: 90
+    });
+    expect(porId[9]).toMatchObject({
+      nombre: 'Eva', convocatorias: 0, sin_convocar: 3, sin_convocar_local: 2, sin_convocar_visitante: 1,
+      lesiones: 2, lesiones_local: 1, lesiones_visitante: 1, minutos_por_partido: null
+    });
+    // Luis no es de la plantilla (promoción): no cuenta como sin convocar.
+    expect(porId[8].sin_convocar).toBe(0);
   });
 
   function llamar(overrides = {}) {

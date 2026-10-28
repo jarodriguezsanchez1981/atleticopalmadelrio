@@ -15,7 +15,8 @@ import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import {
-  METRICAS_EQUIPO_GOLES, METRICAS_EQUIPO_TARJETAS, METRICAS_CONVOCATORIAS, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA, METRICAS_SANCIONES
+  METRICAS_EQUIPO_GOLES, METRICAS_EQUIPO_TARJETAS, METRICAS_CONVOCATORIAS_SENIOR, METRICAS_TIEMPO, METRICAS_GOLES, METRICAS_GOLES_CONTRA,
+  METRICAS_SANCIONES, MINUTOS_POR_GOL, MINUTOS_POR_TARJETA
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 
@@ -114,38 +115,41 @@ const TABLAS = {
   convocatorias: {
     seccion: 'estadisticas_convocatorias',
     titulo: 'Estadísticas Convocatorias',
-    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan), y en qué parte (1ª parte hasta el minuto 45).',
-    metricas: METRICAS_CONVOCATORIAS,
+    descripcion: 'Partidos en los que el jugador está en el acta, y cómo: de titular, de suplente entrando a jugar o de suplente sin jugar. Sin Conv.: partidos con acta en los que un jugador de la plantilla no está en el acta (cuentan también los anteriores a su llegada a la plantilla). Lesión: convocatorias en las que está en la tabla Lesionados. Sustitución: veces que lo cambian (sale del campo antes del final; las expulsiones no cuentan), y en qué parte (1ª parte hasta el minuto 45).',
+    metricas: METRICAS_CONVOCATORIAS_SENIOR,
     sortField: 'convocatorias'
   },
   tiempo: {
     seccion: 'estadisticas_tiempo',
     titulo: 'Estadísticas Tiempo',
-    descripcion: 'Minutos jugados por cada jugador. "% Minutos jugados": minutos jugados sobre los posibles (90 por partido) en los partidos que ha jugado; si juega 3 partidos enteros, 100 %. "% Min. Jugados Total Partidos": minutos jugados sobre los de todos los partidos del equipo (90 por partido), los haya jugado o no; si el equipo lleva 6 partidos y él ha jugado 3 enteros, 50 %.',
+    descripcion: 'Minutos jugados por cada jugador. "% Minutos jugados": minutos jugados sobre los posibles (90 por partido) en los partidos que ha jugado; si juega 3 partidos enteros, 100 %. "% Min. Jugados Total Partidos": minutos jugados sobre los de todos los partidos del equipo (90 por partido), los haya jugado o no; si el equipo lleva 6 partidos y él ha jugado 3 enteros, 50 %. "Min. por partido": minutos jugados entre partidos jugados.',
     metricas: METRICAS_TIEMPO,
-    sortField: 'minutos'
+    sortField: 'minutos',
+    pestanasLado: true
   },
   goles: {
     seccion: 'estadisticas_goles',
     titulo: 'Estadísticas Goles',
-    descripcion: 'Goles de cada jugador por tramos de 15 minutos dentro de cada parte (1ª parte: 0-15, 16-30, 31-45; 2ª parte: 46-60, 61-75, 76-90; el tiempo añadido se suma al último tramo de su parte) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol (si marca en 2 de 4 partidos, 50 %; marcar varios en un partido cuenta como uno). Los goles en propia puerta no cuentan. Pulsa en un jugador para ver en qué partidos marcó (y en qué minuto; (p) = de penalti).',
-    metricas: METRICAS_GOLES,
+    descripcion: 'Goles de cada jugador por tramos de 15 minutos dentro de cada parte (1ª parte: 0-15, 16-30, 31-45; 2ª parte: 46-60, 61-75, 76-90; el tiempo añadido se suma al último tramo de su parte) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol (si marca en 2 de 4 partidos, 50 %; marcar varios en un partido cuenta como uno). Los goles en propia puerta no cuentan. Pulsa en un jugador para ver en qué partidos marcó (y en qué minuto; (p) = de penalti). "Min. por Goles": minutos jugados entre goles marcados.',
+    metricas: [...METRICAS_GOLES, MINUTOS_POR_GOL],
     sortField: 'goles',
     porLado: true
   },
   sanciones: {
     seccion: 'estadisticas_sanciones',
     titulo: 'Estadísticas Sanciones',
-    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo. Tit. / Supl.: tarjetas siendo titular o suplente (las del suplente cuentan aunque no llegara a entrar). Pulsa en un jugador para ver en qué partidos vio cada tarjeta (y en qué minuto).',
-    metricas: METRICAS_SANCIONES,
+    descripcion: 'Tarjetas de cada jugador por parte del partido (1ª parte hasta el minuto 45) y según iba el marcador en ese momento; con empate no cuentan como ganando ni perdiendo. Tit. / Supl.: tarjetas siendo titular o suplente (las del suplente cuentan aunque no llegara a entrar). Pulsa en un jugador para ver en qué partidos vio cada tarjeta (y en qué minuto). "Min. por Tarjeta": minutos jugados entre tarjetas vistas (amarillas + rojas).',
+    metricas: [...METRICAS_SANCIONES, MINUTOS_POR_TARJETA],
     sortField: 'tarjetas_amarillas',
     porLado: true
   }
 };
 const config = computed(() => TABLAS[props.tabla]);
+// Tiempo: solo quien está en algún acta (Convocatoria incluye también a los
+// jugadores de la plantilla que nunca han sido convocados, por Sin Conv.).
 const filasTabla = computed(() => ({
   convocatorias: filasFiltradas.value,
-  tiempo: filasFiltradas.value,
+  tiempo: filasFiltradas.value.filter((f) => f.convocatorias > 0),
   goles: filasGoles.value,
   sanciones: filasSanciones.value
 })[props.tabla]);
@@ -207,6 +211,11 @@ function hojasExcel() {
       agregar(`Jugadores ${lado.titulo}`, { metricas: config.value.metricas, filas: filasDelLado(lado.sufijo),
         soloGrupo: lado.clave, sortField: config.value.sortField });
     }
+  } else if (config.value.pestanasLado) {
+    for (const lado of LADOS_TABLA) {
+      agregar(lado.titulo, { metricas: config.value.metricas, filas: filasTabla.value,
+        soloGrupo: lado.clave, sortField: config.value.sortField });
+    }
   } else {
     agregar(config.value.titulo.replace(/^Estadísticas\s+/, ''), { metricas: config.value.metricas,
       filas: filasTabla.value, sortField: config.value.sortField });
@@ -241,8 +250,11 @@ const PESTANAS = computed(() => [
 // El filtro de jugadores solo afecta a las tablas de jugadores.
 const verFiltroJugadores = computed(() => !conResumenEquipo.value || pestana.value === 'jugadores');
 
+// Estadísticas Tiempo: Total, Local y Visitante, cada uno en su pestaña.
+const pestanaLado = ref('total');
+
 // Al pasar de una sección de Estadísticas a otra se reutiliza el componente.
-watch(() => props.tabla, () => { pestana.value = 'equipo'; cargar(); });
+watch(() => props.tabla, () => { pestana.value = 'equipo'; pestanaLado.value = 'total'; cargar(); });
 
 onMounted(async () => {
   await cargar();
@@ -336,6 +348,20 @@ onBeforeUnmount(() => {
                 </TablaEstadistica>
               </div>
             </div>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
+
+      <!-- Estadísticas Tiempo: Total, Local y Visitante en pestañas. -->
+      <Tabs v-else-if="config.pestanasLado" v-model:value="pestanaLado">
+        <TabList>
+          <Tab v-for="lado in LADOS_TABLA" :key="lado.clave" :value="lado.clave">{{ lado.titulo }}</Tab>
+        </TabList>
+        <TabPanels class="!px-0">
+          <TabPanel v-for="lado in LADOS_TABLA" :key="lado.clave" :value="lado.clave">
+            <TablaEstadistica :key="`${tabla}-${lado.clave}`" :filas="filasTabla" :metricas="config.metricas"
+                              :soloGrupo="lado.clave" :sortField="config.sortField" :cargando="cargando"
+                              :textoVacio="textoVacioTabla" />
           </TabPanel>
         </TabPanels>
       </Tabs>

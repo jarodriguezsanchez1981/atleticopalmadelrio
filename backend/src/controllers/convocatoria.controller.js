@@ -152,19 +152,25 @@ async function validarPromociones(promociones, plantillaDestino) {
   return { promociones: lista };
 }
 
-/** Limpia y deduplica la lista de no convocados, y quita cualquiera que
- * también esté en la lista de convocados: un jugador convocado no puede
- * figurar a la vez como no convocado. */
-function normalizarNoConvocados(noConvocados, idsConvocados) {
+/** Limpia y deduplica los lesionados y los no convocados (los dos van en
+ * convocatorias_sin_jugadores, los lesionados con `lesion`), y quita cualquiera
+ * que también esté en la lista de convocados: un jugador convocado no puede
+ * figurar a la vez como no convocado ni como lesionado. Si un jugador está en
+ * las dos listas, cuenta como lesionado. */
+function normalizarNoConvocados(noConvocados, idsConvocados, lesionados = []) {
   const convocadosSet = new Set(idsConvocados);
   const vistos = new Set();
   const resultado = [];
-  for (const item of (noConvocados || [])) {
-    const id_jugador = Number(item?.id_jugador);
-    if (!id_jugador || convocadosSet.has(id_jugador) || vistos.has(id_jugador)) continue;
-    vistos.add(id_jugador);
-    resultado.push({ id_jugador, observaciones: item.observaciones || null });
-  }
+  const agregar = (lista, lesion) => {
+    for (const item of (lista || [])) {
+      const id_jugador = Number(item?.id_jugador);
+      if (!id_jugador || convocadosSet.has(id_jugador) || vistos.has(id_jugador)) continue;
+      vistos.add(id_jugador);
+      resultado.push({ id_jugador, observaciones: item.observaciones || null, lesion });
+    }
+  };
+  agregar(lesionados, true);
+  agregar(noConvocados, false);
   return resultado;
 }
 
@@ -182,7 +188,7 @@ async function sincronizarPartidoJugadores(partido, idsJugador) {
 
 async function crear(req, res, next) {
   try {
-    const { id_temporada, id_plantilla, id_partido, jugadores, no_convocados, promociones } = req.body;
+    const { id_temporada, id_plantilla, id_partido, jugadores, no_convocados, lesionados, promociones } = req.body;
     const { error, partido, plantilla } = await validarReferencias({ id_temporada, id_plantilla, id_partido });
     if (error) return res.status(400).json({ message: error });
 
@@ -190,7 +196,7 @@ async function crear(req, res, next) {
     if (existente) return res.status(409).json({ message: 'Este partido ya tiene una convocatoria.' });
 
     const idsJugador = [...new Set((jugadores || []).map(Number).filter(Boolean))];
-    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador);
+    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador, lesionados);
     const idsValidar = [...new Set([...idsJugador, ...sinJugador.map((s) => s.id_jugador)])];
     if (!(await jugadoresValidos(id_plantilla, idsValidar))) {
       return res.status(400).json({ message: 'Algún jugador indicado no pertenece a la plantilla.' });
@@ -208,7 +214,7 @@ async function crear(req, res, next) {
     }
     if (sinJugador.length) {
       await ConvocatoriaSinJugador.bulkCreate(
-        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones })),
+        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones, lesion: s.lesion })),
         { ignoreDuplicates: true }
       );
     }
@@ -237,15 +243,15 @@ async function actualizar(req, res, next) {
     const convocatoria = await Convocatoria.findByPk(req.params.id);
     if (!convocatoria) return res.status(404).json({ message: 'Convocatoria no encontrada.' });
 
-    const { jugadores, no_convocados } = req.body;
-    if (jugadores === undefined && no_convocados === undefined) {
+    const { jugadores, no_convocados, lesionados } = req.body;
+    if (jugadores === undefined && no_convocados === undefined && lesionados === undefined) {
       const completa = await Convocatoria.findByPk(convocatoria.id, { include: includesBase });
       return res.json(serialize(completa));
     }
 
     const partido = await Partido.findByPk(convocatoria.id_partido);
     const idsJugador = [...new Set((jugadores || []).map(Number).filter(Boolean))];
-    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador);
+    const sinJugador = normalizarNoConvocados(no_convocados, idsJugador, lesionados);
     const idsValidar = [...new Set([...idsJugador, ...sinJugador.map((s) => s.id_jugador)])];
     if (!(await jugadoresValidos(convocatoria.id_plantilla, idsValidar))) {
       return res.status(400).json({ message: 'Algún jugador indicado no pertenece a la plantilla.' });
@@ -266,7 +272,7 @@ async function actualizar(req, res, next) {
     await ConvocatoriaSinJugador.destroy({ where: { id_convocatoria: convocatoria.id } });
     if (sinJugador.length) {
       await ConvocatoriaSinJugador.bulkCreate(
-        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla: convocatoria.id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones })),
+        sinJugador.map((s) => ({ id_convocatoria: convocatoria.id, id_plantilla: convocatoria.id_plantilla, id_jugador: s.id_jugador, observaciones: s.observaciones, lesion: s.lesion })),
         { ignoreDuplicates: true }
       );
     }
@@ -313,8 +319,8 @@ const porApellidos = (a, b) => `${a.apellidos} ${a.nombre}`.localeCompare(`${b.a
 
 /** Asunto, texto y HTML del correo de una convocatoria (cargada con
  * includesBase): jornada y partido en el asunto; día y hora, convocados
- * (incluidos los de promoción) por orden alfabético y no convocados con sus
- * observaciones en el cuerpo. */
+ * (incluidos los de promoción) por orden alfabético, lesionados y no
+ * convocados con sus observaciones en el cuerpo. */
 function construirCorreoConvocatoria(convocatoria) {
   const partido = convocatoria.partido || {};
   const local = partido.equipoLocal?.nombre || '—';
@@ -331,10 +337,16 @@ function construirCorreoConvocatoria(convocatoria) {
     ...(convocatoria.jugadores || []).map((c) => ({ ...c.jugador })),
     ...(convocatoria.promocionados || []).map((c) => ({ ...c.jugador, promocion: true }))
   ].filter((j) => j.nombre != null).sort(porApellidos);
-  const noConvocados = (convocatoria.noConvocados || [])
-    .filter((c) => c.jugador)
+  const sinConvocar = (lesion) => (convocatoria.noConvocados || [])
+    .filter((c) => c.jugador && !!c.lesion === lesion)
     .map((c) => ({ ...c.jugador, observaciones: c.observaciones }))
     .sort(porApellidos);
+  const noConvocados = sinConvocar(false);
+  const lesionados = sinConvocar(true);
+  const lineaTexto = (j) => `- ${nombre(j)}${j.observaciones ? `: ${j.observaciones}` : ''}`;
+  const listaHtml = (lista) => (lista.length
+    ? `<ul style="margin: 0 0 16px;">${lista.map((j) => `<li>${escaparHtml(nombre(j))}${j.observaciones ? `: <em>${escaparHtml(j.observaciones)}</em>` : ''}</li>`).join('')}</ul>`
+    : '<p style="margin: 0 0 16px;">Ninguno</p>');
   const nombre = (j) => `${j.nombre} ${j.apellidos}${j.promocion ? ' (promoción)' : ''}`;
 
   const text = [
@@ -345,9 +357,10 @@ function construirCorreoConvocatoria(convocatoria) {
     ...convocados.map((j, i) => `${i + 1}. ${nombre(j)}`),
     '',
     `No convocados (${noConvocados.length}):`,
-    ...(noConvocados.length
-      ? noConvocados.map((j) => `- ${nombre(j)}${j.observaciones ? `: ${j.observaciones}` : ''}`)
-      : ['- Ninguno'])
+    ...(noConvocados.length ? noConvocados.map(lineaTexto) : ['- Ninguno']),
+    '',
+    `Lesionados (${lesionados.length}):`,
+    ...(lesionados.length ? lesionados.map(lineaTexto) : ['- Ninguno'])
   ].join('\n');
 
   const html = `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1a1a1a;">
@@ -356,9 +369,9 @@ function construirCorreoConvocatoria(convocatoria) {
 <h3 style="color: #0B3D2E; margin: 0 0 4px;">Convocados (${convocados.length})</h3>
 <ol style="margin: 0 0 16px;">${convocados.map((j) => `<li>${escaparHtml(nombre(j))}</li>`).join('')}</ol>
 <h3 style="color: #0B3D2E; margin: 0 0 4px;">No convocados (${noConvocados.length})</h3>
-${noConvocados.length
-    ? `<ul style="margin: 0;">${noConvocados.map((j) => `<li>${escaparHtml(nombre(j))}${j.observaciones ? `: <em>${escaparHtml(j.observaciones)}</em>` : ''}</li>`).join('')}</ul>`
-    : '<p style="margin: 0;">Ninguno</p>'}
+${listaHtml(noConvocados)}
+<h3 style="color: #0B3D2E; margin: 0 0 4px;">Lesionados (${lesionados.length})</h3>
+${listaHtml(lesionados)}
 </div>`;
 
   return { subject, text, html };

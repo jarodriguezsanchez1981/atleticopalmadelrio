@@ -38,9 +38,18 @@ export const METRICAS_CONVOCATORIAS = [
   { campo: 'sustituciones_primera', titulo: 'Sust. 1 Parte', descripcion: 'Sustituido en la 1ª parte (hasta el minuto 45)' },
   { campo: 'sustituciones_segunda', titulo: 'Sust. 2 Parte', descripcion: 'Sustituido en la 2ª parte' }
 ];
+// Solo Estadísticas Senior A: veces sin convocar (no está en el acta) y
+// lesionado (tabla Lesionados de la convocatoria), tras Conv.
+export const METRICAS_CONVOCATORIAS_SENIOR = [
+  METRICAS_CONVOCATORIAS[0],
+  { campo: 'sin_convocar', titulo: 'Sin Conv.', descripcion: 'Partidos en los que no está en el acta (no convocado)' },
+  { campo: 'lesiones', titulo: 'Lesión', descripcion: 'Convocatorias en las que está en la tabla Lesionados' },
+  ...METRICAS_CONVOCATORIAS.slice(1)
+];
 export const METRICAS_TIEMPO = [
   { campo: 'partidos', titulo: 'Partidos' },
   { campo: 'minutos', titulo: 'Min.', descripcion: 'Minutos' },
+  { campo: 'minutos_por_partido', titulo: 'Min. por\npartido', descripcion: 'Minutos por partido jugado', unDecimal: true, calculo: 'Min. / Partidos' },
   { campo: 'porcentaje_minutos', titulo: '% Min.\njugados', descripcion: '% Minutos jugados', porcentaje: true, calculo: 'Min. / (Partidos\njugados × 90) × 100' },
   { campo: 'porcentaje_minutos_equipo', titulo: '% Min. Jugados\nTotal Partidos', descripcion: '% Minutos jugados sobre el total de partidos del equipo', porcentaje: true, calculo: 'Min. / (Partidos\ndel equipo × 90) × 100' },
   { campo: 'minutos_titular', titulo: 'Min.\nTit.', descripcion: 'Minutos Titular' },
@@ -110,3 +119,8 @@ export const METRICAS_SANCIONES = [
   { campo: 'rojas_ganando', titulo: 'Ganando', subgrupo: 'Rojas' },
   { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas' }
 ];
+
+// Solo Estadísticas Senior A (las demás categorías no registran minutos):
+// minutos jugados por cada gol / tarjeta, al final de Goles / Sanciones.
+export const MINUTOS_POR_GOL = { campo: 'minutos_por_gol', titulo: 'Min. por\nGoles', descripcion: 'Minutos jugados por cada gol', unDecimal: true, calculo: 'Min. / Goles' };
+export const MINUTOS_POR_TARJETA = { campo: 'minutos_por_tarjeta', titulo: 'Min. por\nTarjeta', descripcion: 'Minutos jugados por cada tarjeta (amarillas + rojas)', unDecimal: true, calculo: 'Min. / (Amarillas\n+ Rojas)' };
