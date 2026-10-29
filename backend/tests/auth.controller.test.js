@@ -149,6 +149,50 @@ describe('Autenticación · auth.controller', () => {
     }));
   });
 
+  describe('SIN_2FA (solo en local)', () => {
+    const entornoPrevio = { NODE_ENV: process.env.NODE_ENV, SIN_2FA: process.env.SIN_2FA };
+    afterEach(() => {
+      process.env.NODE_ENV = entornoPrevio.NODE_ENV;
+      if (entornoPrevio.SIN_2FA === undefined) delete process.env.SIN_2FA;
+      else process.env.SIN_2FA = entornoPrevio.SIN_2FA;
+    });
+
+    function prepararUsuario() {
+      const user = {
+        id: 1, usuario: 'admin', nombre: 'A', activo: true,
+        totp_activado: true, totp_secret: 'cifrado', password: 'hash', secciones: []
+      };
+      Usuario.findOne.mockResolvedValue(user);
+      Usuario.findByPk.mockResolvedValue(user);
+      passwordUtils.verifyPassword.mockResolvedValue(true);
+    }
+
+    it('con NODE_ENV=development y SIN_2FA=true da la sesión sin pedir código', async () => {
+      process.env.NODE_ENV = 'development';
+      process.env.SIN_2FA = 'true';
+      prepararUsuario();
+      const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'admin', password: 'Clave123!' } });
+
+      await promesa;
+
+      expect(res._json.twofa).toBeUndefined();
+      expect(res._json.user).toEqual(expect.objectContaining({ id: 1, usuario: 'admin' }));
+      expect(res._cookies.apr_sesion.valor).toBe('token-fake');
+    });
+
+    it('en producción ignora SIN_2FA y sigue pidiendo el código', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.SIN_2FA = 'true';
+      prepararUsuario();
+      const { promesa, res } = llamar(ctrl.login, { body: { usuario: 'admin', password: 'Clave123!' } });
+
+      await promesa;
+
+      expect(res._json).toEqual({ twofa: 'verificar', nombre: 'A' });
+      expect(res._cookies.apr_sesion.valor).toBeNull();
+    });
+  });
+
   it('login con contraseña correcta y sin 2FA fuerza a configurarlo', async () => {
     Usuario.findOne.mockResolvedValue({
       id: 2, usuario: 'nuevo', nombre: 'N', activo: true,
