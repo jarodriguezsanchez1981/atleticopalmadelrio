@@ -143,7 +143,7 @@ function subgrupoActivo(subgrupo) {
   <div class="min-h-screen flex bg-club-cream">
 
     <!-- Sidebar Desktop -->
-    <aside v-if="!isMobile" class="w-64 bg-club-green flex flex-col shrink-0 shadow-panel relative z-10">
+    <aside v-if="!isMobile" class="w-64 bg-gradient-to-b from-club-green to-club-greenMid flex flex-col shrink-0 shadow-panel relative z-10">
       <div class="flex items-center gap-3 px-5 py-5 border-b border-white/10">
         <img
           src="/escudo.png"
@@ -163,8 +163,8 @@ function subgrupoActivo(subgrupo) {
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+          class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+          active-class="!bg-white/20 !text-white !font-bold !border-l-2 !border-white !pl-[10px]"
         >
           <i :class="item.icon" class="text-[0.85rem]" />
           <span>{{ item.label }}</span>
@@ -173,8 +173,8 @@ function subgrupoActivo(subgrupo) {
         <div v-for="grupo in gruposNav" :key="grupo.clave" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="toggleGrupo(grupo.clave)"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': grupoActivo(grupo) }"
+            class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/20 !text-white !font-bold': grupoActivo(grupo) }"
           >
             <i :class="grupo.icon" class="text-[0.85rem]" />
             <span class="flex-1 text-left">{{ grupo.label }}</span>
@@ -185,8 +185,8 @@ function subgrupoActivo(subgrupo) {
               v-for="item in grupo.items"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/20 !text-white !font-bold !border-l-2 !border-white !pl-[10px]"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
               <span>{{ item.label }}</span>
@@ -196,8 +196,8 @@ function subgrupoActivo(subgrupo) {
             <div v-for="sub in grupo.subgrupos" :key="sub.clave">
               <button
                 @click="toggleGrupo(sub.clave)"
-                class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-                :class="{ '!bg-white/10 !text-white !font-medium': subgrupoActivo(sub) }"
+                class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors w-full"
+                :class="{ '!bg-white/20 !text-white !font-bold': subgrupoActivo(sub) }"
               >
                 <i :class="sub.icon" class="text-[0.85rem]" />
                 <span class="flex-1 text-left">{{ sub.label }}</span>
@@ -208,8 +208,8 @@ function subgrupoActivo(subgrupo) {
                   v-for="item in sub.items"
                   :key="item.to"
                   :to="item.to"
-                  class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-                  active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+                  class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  active-class="!bg-white/20 !text-white !font-bold !border-l-2 !border-white !pl-[10px]"
                 >
                   <i :class="item.icon" class="text-[0.85rem]" />
                   <span>{{ item.label }}</span>
@@ -237,8 +237,8 @@ function subgrupoActivo(subgrupo) {
           v-for="item in navItems"
           :key="item.to"
           :to="item.to"
-          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+          class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+          active-class="!bg-white/20 !text-white !font-bold !border-l-2 !border-white !pl-[10px]"
           @click="navegar"
         >
           <i :class="item.icon" class="text-[0.85rem]" />
@@ -248,8 +248,8 @@ function subgrupoActivo(subgrupo) {
         <div v-for="grupo in gruposNav" :key="grupo.clave" class="mt-4 pt-3 border-t border-white/10">
           <button
             @click="toggleGrupo(grupo.clave)"
-            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-            :class="{ '!bg-white/10 !text-white !font-medium': grupoActivo(grupo) }"
+            class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors w-full"
+            :class="{ '!bg-white/20 !text-white !font-bold': grupoActivo(grupo) }"
           >
             <i :class="grupo.icon" class="text-[0.85rem]" />
             <span class="flex-1 text-left">{{ grupo.label }}</span>
@@ -260,8 +260,8 @@ function subgrupoActivo(subgrupo) {
               v-for="item in grupo.items"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-              active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+              class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              active-class="!bg-white/20 !text-white !font-bold !border-l-2 !border-white !pl-[10px]"
               @click="navegar"
             >
               <i :class="item.icon" class="text-[0.85rem]" />
@@ -272,8 +272,8 @@ function subgrupoActivo(subgrupo) {
             <div v-for="sub in grupo.subgrupos" :key="sub.clave">
               <button
                 @click="toggleGrupo(sub.clave)"
-                class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors w-full"
-                :class="{ '!bg-white/10 !text-white !font-medium': subgrupoActivo(sub) }"
+                class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors w-full"
+                :class="{ '!bg-white/20 !text-white !font-bold': subgrupoActivo(sub) }"
               >
                 <i :class="sub.icon" class="text-[0.85rem]" />
                 <span class="flex-1 text-left">{{ sub.label }}</span>
@@ -284,8 +284,8 @@ function subgrupoActivo(subgrupo) {
                   v-for="item in sub.items"
                   :key="item.to"
                   :to="item.to"
-                  class="flex items-center gap-3 px-3 py-2 text-sm rounded-md text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-                  active-class="!bg-white/10 !text-white !font-medium !border-l-2 !border-white !pl-[10px]"
+                  class="flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  active-class="!bg-white/20 !text-white !font-bold !border-l-2 !border-white !pl-[10px]"
                   @click="navegar"
                 >
                   <i :class="item.icon" class="text-[0.85rem]" />
@@ -299,21 +299,21 @@ function subgrupoActivo(subgrupo) {
     </Drawer>
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="h-20 bg-white border-b border-line flex items-center justify-between px-4 sm:px-6 shadow-[0_1px_2px_rgb(16_24_40_/_0.04)]">
+      <header class="h-20 bg-gradient-to-r from-club-green to-club-greenBright flex items-center justify-between px-4 sm:px-6 shadow-[0_2px_8px_rgb(15_61_34_/_0.18)]">
         <div class="flex items-center gap-3">
           <button
             v-if="isMobile"
             @click="drawerVisible = true"
-            class="pi pi-bars text-xl text-ink-secondary hover:text-ink-primary transition-colors"
+            class="pi pi-bars text-xl text-white/80 hover:text-white transition-colors"
           />
         </div>
 
         <button class="flex items-center gap-3" @click="menu.toggle($event)">
           <div class="text-right leading-tight max-w-[45vw] sm:max-w-none">
-            <p class="text-sm font-medium text-ink-primary truncate">{{ auth.nombreCompleto }}</p>
-            <p class="text-xs text-ink-tertiary truncate">{{ rolLabel }}</p>
+            <p class="text-sm font-medium text-white truncate">{{ auth.nombreCompleto }}</p>
+            <p class="text-xs text-white/70 truncate">{{ rolLabel }}</p>
           </div>
-          <Avatar :label="auth.user?.nombre?.[0] || 'U'" shape="circle" class="!bg-club-green !text-white" />
+          <Avatar :label="auth.user?.nombre?.[0] || 'U'" shape="circle" class="!bg-white !text-club-green" />
         </button>
         <Menu ref="menu" :model="userMenuItems" :popup="true" />
       </header>
@@ -329,7 +329,7 @@ function subgrupoActivo(subgrupo) {
 /* El Drawer de PrimeVue se teletransporta a <body>, fuera del árbol
    del componente: estas reglas deben ser globales (no scoped/:deep). */
 .p-drawer {
-  background: #0F3D22 !important;
+  background: linear-gradient(180deg, #0F3D22, #1E6B40) !important;
   color: #fff !important;
 }
 .p-drawer-header {

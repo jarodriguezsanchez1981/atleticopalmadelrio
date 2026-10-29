@@ -145,6 +145,14 @@ async function login(req, res, next) {
       await user.update({ intentos_fallidos: 0, bloqueado_hasta: null });
     }
 
+    // Solo en local (NODE_ENV=development y SIN_2FA=true): sesión directa sin
+    // segundo factor. En producción NODE_ENV es siempre 'production'.
+    if (process.env.NODE_ENV === 'development' && process.env.SIN_2FA === 'true') {
+      borrarCookie2fa(res);
+      const payload = await emitirSesion(res, user.id);
+      return res.json({ user: payload });
+    }
+
     // El 2FA es obligatorio: el login nunca da sesión directa. Si el usuario ya
     // tiene el segundo factor, se le pide el código; si no, se le fuerza a
     // configurarlo. La sesión solo se emite al superar el 2FA (ver más abajo).

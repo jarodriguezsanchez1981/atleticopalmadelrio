@@ -594,7 +594,7 @@ function claseResultado(partido, esLocal) {
         </div>
 
         <div class="flex justify-end gap-2 pt-3">
-          <Button label="Cerrar" @click="detalleEquipoVisible = false" class="!bg-club-green !border-club-green" />
+          <Button label="Cerrar" @click="detalleEquipoVisible = false" class="!bg-club-garnet !border-club-garnet" />
         </div>
       </div>
     </Dialog>

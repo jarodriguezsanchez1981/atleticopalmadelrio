@@ -157,7 +157,7 @@ function confirmarEliminar(item) {
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <h1 class="font-display text-xl text-club-green">Convocatorias</h1>
       <Button v-if="puedeEditar()" label="Nueva convocatoria" icon="pi pi-plus"
-              class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+              class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight"
               @click="nuevaConvocatoria" />
     </div>
 

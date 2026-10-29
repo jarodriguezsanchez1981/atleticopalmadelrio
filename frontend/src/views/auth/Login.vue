@@ -38,6 +38,12 @@ async function onSubmit() {
   enviando.value = true;
   try {
     const resp = await auth.login(usuario.value, password.value);
+    // En local sin 2FA (SIN_2FA) el backend ya da la sesión.
+    if (resp.user) {
+      auth.finalizarSesion(resp.user);
+      entrar();
+      return;
+    }
     nombre.value = resp.nombre || '';
     codigo.value = '';
     if (resp.twofa === 'verificar') {
@@ -106,8 +112,8 @@ async function copiarCodigos() {
           alt="Escudo Atlético Palma del Río"
           class="h-36 w-auto object-contain select-none"
         />
-        <h1 class="mt-5 font-display text-2xl text-ink-primary tracking-tight">Atlético Palma del Río</h1>
-        <p class="text-sm text-ink-tertiary mt-1.5">Intranet de gestión del club</p>
+        <h1 class="mt-5 font-display text-2xl text-white tracking-tight">Atlético Palma del Río</h1>
+        <p class="text-sm text-white/70 mt-1.5">Intranet de gestión del club</p>
       </div>
 
       <!-- Paso 1: usuario y contraseña -->
@@ -142,7 +148,7 @@ async function copiarCodigos() {
             label="Iniciar sesión"
             icon="pi pi-sign-in"
             :loading="enviando"
-            class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight"
+            class="w-full !bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight"
           />
 
           <div class="text-center">
@@ -169,7 +175,7 @@ async function copiarCodigos() {
 
           <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
-          <Button type="submit" label="Verificar" icon="pi pi-check" :loading="enviando" class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight" />
+          <Button type="submit" label="Verificar" icon="pi pi-check" :loading="enviando" class="w-full !bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
         </form>
 
         <!-- Paso 2 (sin 2FA): configurar el autenticador -->
@@ -195,7 +201,7 @@ async function copiarCodigos() {
 
           <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
-          <Button type="submit" label="Activar y entrar" icon="pi pi-check" :loading="enviando" class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight" />
+          <Button type="submit" label="Activar y entrar" icon="pi pi-check" :loading="enviando" class="w-full !bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
         </form>
 
         <!-- Paso 3: códigos de recuperación (se muestran una sola vez) -->
@@ -212,11 +218,11 @@ async function copiarCodigos() {
           </ul>
           <div class="flex gap-2">
             <Button label="Copiar" icon="pi pi-copy" severity="secondary" outlined class="flex-1" @click="copiarCodigos" />
-            <Button label="Guardados, entrar" icon="pi pi-sign-in" class="flex-1 !bg-club-green !border-club-green hover:!bg-club-greenLight" @click="entrar" />
+            <Button label="Guardados, entrar" icon="pi pi-sign-in" class="flex-1 !bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" @click="entrar" />
           </div>
         </div>
 
-      <p class="text-center text-xs text-ink-tertiary mt-8">
+      <p class="text-center text-xs text-white/60 mt-8">
         Atlético Palma del Río © {{ new Date().getFullYear() }} · Todos los derechos reservados
       </p>
     </div>
@@ -224,14 +230,9 @@ async function copiarCodigos() {
 </template>
 
 <style scoped>
-/* Fondo suave teñido del verde del club: dos "glows" difusos en las esquinas
-   sobre una base clara; hace que la tarjeta blanca destaque sin distraer. */
 .login-fondo {
-  background-color: #EEF3F0;
-  background-image:
-    radial-gradient(42rem 42rem at 12% -8%, rgba(11, 61, 46, 0.14), transparent 60%),
-    radial-gradient(46rem 46rem at 112% 114%, rgba(11, 61, 46, 0.12), transparent 58%),
-    linear-gradient(180deg, #F3F7F4 0%, #E9F0EB 100%);
+  /* Mismo degradado verde que el menú y la cabecera */
+  background: linear-gradient(135deg, #0F3D22 0%, #1E6B40 55%, #2E7D4F 100%);
   background-attachment: fixed;
 }
 </style>

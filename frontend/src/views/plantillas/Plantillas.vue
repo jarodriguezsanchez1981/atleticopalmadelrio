@@ -925,7 +925,7 @@ function validarPlantilla(form) {
         <Button label="Cancelar" text @click="dialogTemporadaVisible = false" :disabled="creandoTemporada" />
         <Button label="Crear" icon="pi pi-check" :loading="creandoTemporada"
                 :disabled="!temporadaSeleccionada"
-                class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight"
                 @click="crearPlantillaTemporada" />
       </div>
     </template>

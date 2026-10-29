@@ -133,7 +133,7 @@ function descargarHtml() {
             <h2 class="text-sm font-semibold text-club-green">Vista previa</h2>
             <div class="flex gap-2 flex-wrap">
               <Button label="Copiar firma" icon="pi pi-copy" size="small"
-                      class="!bg-club-green !border-club-green hover:!bg-club-greenLight" @click="copiarFirma" />
+                      class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" @click="copiarFirma" />
               <Button label="Copiar HTML" icon="pi pi-code" size="small" outlined
                       class="!text-club-green !border-club-green/50" @click="copiarHtml" />
               <Button label="Descargar" icon="pi pi-download" size="small" text @click="descargarHtml" />

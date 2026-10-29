@@ -82,7 +82,7 @@ function cancelarCambios() {
         <div v-if="huboCambios" class="flex items-center justify-end gap-2 mb-3">
           <Button label="Cancelar" text @click="cancelarCambios" :disabled="guardando" />
           <Button label="Guardar orden" icon="pi pi-check" :loading="guardando"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                  class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight"
                   @click="guardarOrden" />
         </div>
 

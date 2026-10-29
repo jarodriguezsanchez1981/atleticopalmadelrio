@@ -160,7 +160,7 @@ function getNombreCompleto(jugador) {
         <template #footer>
           <div class="flex justify-end gap-2 w-full">
             <Button label="Cancelar" text @click="dialogVisible = false" />
-            <Button label="Guardar" icon="pi pi-check" @click="guardarJugador" class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+            <Button label="Guardar" icon="pi pi-check" @click="guardarJugador" class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
           </div>
         </template>
       </Dialog>

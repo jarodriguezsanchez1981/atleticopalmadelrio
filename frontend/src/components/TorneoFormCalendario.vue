@@ -156,7 +156,7 @@ async function guardar() {
       <div class="flex justify-end gap-2 pt-3">
         <Button type="button" label="Cancelar" text @click="cerrar" />
         <Button type="submit" label="Guardar" icon="pi pi-check" :loading="guardando"
-                class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+                class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
       </div>
     </form>
   </Dialog>
