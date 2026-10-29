@@ -403,7 +403,7 @@ const calendarOptions = {
         </p>
       </div>
       <Button v-if="esMovil && auth.puedeVer('torneo') && auth.puedeEditar('torneo')" label="Nuevo" icon="pi pi-plus"
-              size="small" class="!bg-club-green !border-club-green hover:!bg-club-greenLight" @click="abrirNuevo()" />
+              size="small" class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" @click="abrirNuevo()" />
     </div>
 
     <div class="bg-white rounded-xl p-4 calendario-club">
@@ -449,7 +449,7 @@ const calendarOptions = {
         <div class="flex justify-end gap-2 pt-3">
           <Button type="button" label="Cancelar" text @click="dialogVisible = false" />
           <Button type="submit" label="Guardar" icon="pi pi-check" :loading="guardando"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+                  class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
         </div>
       </form>
     </Dialog>
@@ -492,7 +492,7 @@ const calendarOptions = {
           <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar('torneo')" label="Eliminar" icon="pi pi-trash"
                   severity="danger" outlined @click="eliminarDesdeDetalle" />
           <Button v-if="auth.puedeVer('torneo') && auth.puedeEditar('torneo')" label="Editar" icon="pi pi-pencil"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+                  class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight"
                   @click="editarDesdeDetalle" />
         </div>
       </div>

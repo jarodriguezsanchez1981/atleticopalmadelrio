@@ -665,7 +665,7 @@ watch(
           </IconField>
           <slot name="acciones" />
           <Button v-if="permisoCrear" label="Nuevo" icon="pi pi-plus" @click="abrirNuevo"
-                  :class="esMovil ? 'fab-movil !fixed !bottom-6 !right-6 !z-50 !rounded-full !w-14 !h-14 !shadow-lg' : '!bg-club-green !border-club-green hover:!bg-club-greenLight !'" />
+                  :class="esMovil ? 'fab-movil !fixed !bottom-6 !right-6 !z-50 !rounded-full !w-14 !h-14 !shadow-lg' : '!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight !'" />
         </div>
       </div>
       <div class="mt-3 h-px bg-fill-hover"></div>
@@ -853,7 +853,7 @@ watch(
         <div class="flex justify-end gap-2 pt-3">
           <Button type="button" label="Cancelar" text @click="dialogVisible = false" />
           <Button type="submit" label="Guardar" icon="pi pi-check"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+                  class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
         </div>
       </form>
     </Dialog>
@@ -891,7 +891,7 @@ watch(
           <Button v-if="permisoEditar" label="Editar" icon="pi pi-pencil" text
                   @click="detalleVisible = false; abrirEdicion(detalle)" />
           <Button label="Cerrar" @click="detalleVisible = false"
-                  class="!bg-club-green !border-club-green" />
+                  class="!bg-club-garnet !border-club-garnet" />
         </div>
       </div>
     </Dialog>

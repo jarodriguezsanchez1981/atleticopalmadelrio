@@ -735,7 +735,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
           label="Nuevo"
           icon="pi pi-plus"
           size="small"
-          class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+          class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight"
           @click="abrirNuevoEvento"
         />
       </div>
@@ -993,7 +993,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
         <div class="flex justify-end gap-2 pt-1">
           <Button type="button" label="Cancelar" text severity="secondary" @click="pdfDialogVisible = false" />
           <Button type="button" label="Generar PDF" icon="pi pi-print" :loading="generandoPdf"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight" @click="generarPdfSemana" />
+                  class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" @click="generarPdfSemana" />
         </div>
       </div>
     </Dialog>

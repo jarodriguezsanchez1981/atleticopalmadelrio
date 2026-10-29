@@ -24,8 +24,14 @@ export default {
           green: '#0F3D22',
           greenLight: '#446853',
           greenDark: '#0A2B18',
+          // Verdes del degradado de menú y cabecera
+          greenMid: '#1E6B40',
+          greenBright: '#2E7D4F',
           garnet: '#7A2436',
-          cream: '#F7F8FA',
+          // Botones (opción B): granate y su tono de hover
+          garnetLight: '#93304A',
+          garnetDark: '#5E1B29',
+          cream: '#F3F6F4',
         }
       },
       fontFamily: {

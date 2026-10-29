@@ -707,11 +707,11 @@ async function guardar() {
 
     <div class="flex justify-end gap-2 pt-3 border-t border-line">
       <Button v-if="soloLectura" type="button" label="Cerrar" @click="cerrar"
-              class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+              class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
       <template v-else>
         <Button type="button" label="Cancelar" text @click="cerrar" />
         <Button type="submit" label="Guardar" icon="pi pi-check" :loading="guardando"
-                class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+                class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
       </template>
     </div>
   </form>

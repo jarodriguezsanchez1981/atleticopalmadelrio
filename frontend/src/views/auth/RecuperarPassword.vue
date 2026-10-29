@@ -36,8 +36,8 @@ async function onSubmit() {
     <div class="w-full max-w-sm">
       <div class="flex flex-col items-center text-center mb-8">
         <img src="/escudo.png" alt="Escudo Atlético Palma del Río" class="h-36 w-auto object-contain select-none" />
-        <h1 class="mt-5 font-display text-2xl text-ink-primary tracking-tight">Atlético Palma del Río</h1>
-        <p class="text-sm text-ink-tertiary mt-1.5">Intranet de gestión del club</p>
+        <h1 class="mt-5 font-display text-2xl text-white tracking-tight">Atlético Palma del Río</h1>
+        <p class="text-sm text-white/70 mt-1.5">Intranet de gestión del club</p>
       </div>
 
       <div class="bg-white rounded-2xl shadow-[0_1px_2px_rgb(16_24_40_/_0.04),0_8px_24px_rgb(16_24_40_/_0.06)] border border-line p-8 space-y-5">
@@ -62,7 +62,7 @@ async function onSubmit() {
             <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
             <Button type="submit" label="Enviar enlace" icon="pi pi-send" :loading="enviando"
-                    class="w-full !bg-club-green !border-club-green hover:!bg-club-greenLight" />
+                    class="w-full !bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
           </form>
         </template>
 
@@ -83,11 +83,8 @@ async function onSubmit() {
 
 <style scoped>
 .login-fondo {
-  background-color: #EEF3F0;
-  background-image:
-    radial-gradient(42rem 42rem at 12% -8%, rgba(11, 61, 46, 0.14), transparent 60%),
-    radial-gradient(46rem 46rem at 112% 114%, rgba(11, 61, 46, 0.12), transparent 58%),
-    linear-gradient(180deg, #F3F7F4 0%, #E9F0EB 100%);
+  /* Mismo degradado verde que el menú y la cabecera */
+  background: linear-gradient(135deg, #0F3D22 0%, #1E6B40 55%, #2E7D4F 100%);
   background-attachment: fixed;
 }
 </style>

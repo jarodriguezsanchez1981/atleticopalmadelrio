@@ -112,7 +112,7 @@ async function confirmarReorden() {
     <template #footer>
       <Button label="Cancelar" text @click="dialogReordenVisible = false" :disabled="reordenando" />
       <Button label="Reordenar" icon="pi pi-check" :loading="reordenando" :disabled="!desdeReorden"
-              class="!bg-club-green !border-club-green hover:!bg-club-greenLight"
+              class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight"
               @click="confirmarReorden" />
     </template>
   </Dialog>

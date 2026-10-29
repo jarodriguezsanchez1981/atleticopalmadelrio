@@ -152,7 +152,7 @@ onBeforeUnmount(() => {
 
         <div class="flex flex-wrap gap-2 pt-1">
           <Button label="Descargar PDF" icon="pi pi-download" :loading="generando" @click="descargar"
-                  class="!bg-club-green !border-club-green hover:!bg-club-greenLight" />
+                  class="!bg-club-garnet !border-club-garnet hover:!bg-club-garnetLight hover:!border-club-garnetLight" />
           <Button label="Restablecer" icon="pi pi-refresh" severity="secondary" outlined @click="restablecer" />
         </div>
       </div>
