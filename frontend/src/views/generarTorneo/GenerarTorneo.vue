@@ -404,7 +404,7 @@ onBeforeUnmount(() => { if (quitarSuscripcion) quitarSuscripcion(); });
                 <div class="flex flex-col gap-2">
                   <label class="text-sm font-medium text-ink-secondary">Equipos</label>
                   <div class="flex gap-2">
-                    <Select v-model="cat.equipoNuevo" :options="equipos" optionLabel="nombre" optionValue="id" filter
+                    <Select v-model="cat.equipoNuevo" :options="equipos" optionLabel="nombre" optionValue="id" filter resetFilterOnHide
                             placeholder="Busca un equipo" class="flex-1 min-w-0" />
                     <Button label="Añadir" icon="pi pi-plus" :class="BOTON_PRINCIPAL" :disabled="!cat.equipoNuevo"
                             @click="anadirEquipo(cat)" />
