@@ -49,6 +49,9 @@ const Convocatoria = require('./Convocatoria');
 const ConvocatoriaJugador = require('./ConvocatoriaJugador');
 const ConvocatoriaSinJugador = require('./ConvocatoriaSinJugador');
 const ConvocatoriaPromocion = require('./ConvocatoriaPromocion');
+const TorneoGenerado = require('./TorneoGenerado');
+const TorneoGeneradoCategoria = require('./TorneoGeneradoCategoria');
+const TorneoGeneradoEquipo = require('./TorneoGeneradoEquipo');
 
 // ---- Asociaciones ----
 // Las tablas con PK compuesta (id, nombre) requieren targetKey/sourceKey
@@ -171,6 +174,14 @@ LigaPartido.hasMany(LigaTarjeta, { foreignKey: 'id_liga_partido', sourceKey: 'id
 PartidoJugador.belongsTo(Jugador, { foreignKey: 'id_jugador', targetKey: 'id', as: 'jugador' });
 Jugador.hasMany(PartidoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as: 'partidosJugador' });
 PartidoJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+
+// ---- Generar Torneo ----
+TorneoGenerado.hasMany(TorneoGeneradoCategoria, { foreignKey: 'id_torneo_generado', sourceKey: 'id', as: 'categorias', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+TorneoGeneradoCategoria.belongsTo(TorneoGenerado, { foreignKey: 'id_torneo_generado', targetKey: 'id', as: 'torneo' });
+TorneoGeneradoCategoria.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria' });
+TorneoGeneradoCategoria.hasMany(TorneoGeneradoEquipo, { foreignKey: 'id_torneo_generado_categoria', sourceKey: 'id', as: 'equipos', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
+TorneoGeneradoEquipo.belongsTo(TorneoGeneradoCategoria, { foreignKey: 'id_torneo_generado_categoria', targetKey: 'id', as: 'torneoCategoria' });
+TorneoGeneradoEquipo.belongsTo(Equipo, { foreignKey: 'id_equipo', targetKey: 'id', as: 'equipo' });
 
 // ---- Torneo ----
 Torneo.belongsTo(Plantilla, { foreignKey: 'id_plantilla', targetKey: 'id', as: 'plantilla', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
@@ -354,6 +365,9 @@ module.exports = {
   LigaGol,
   LigaTarjeta,
   Torneo,
+  TorneoGenerado,
+  TorneoGeneradoCategoria,
+  TorneoGeneradoEquipo,
   Sancion,
   Plantilla,
   PlantillaJugador,

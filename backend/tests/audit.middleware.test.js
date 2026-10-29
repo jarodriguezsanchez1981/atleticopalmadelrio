@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
-import { Cambio, Usuario } from './helpers/models.js';
+import { Cambio, Usuario, TorneoGenerado } from './helpers/models.js';
 
 import auditMiddleware from '../src/middlewares/audit.middleware.js';
 
@@ -106,6 +106,25 @@ describe('Auditoría · audit.middleware', () => {
     expect(arg.accion).toBe('editar');
     expect(arg.id_registro).toBe(5);
     expect(arg.datos_previos).toEqual({ id: 5, usuario: 'juan', nombre: 'Juan', apellidos: 'P' });
+  });
+
+  it('DELETE de un torneo generado guarda el snapshot previo con sus categorías', async () => {
+    TorneoGenerado.findByPk.mockReset();
+    const req = { method: 'DELETE', originalUrl: '/api/torneos-generados/7', body: {}, user: { id: 2 } };
+    const res = makeRes(204);
+    TorneoGenerado.findByPk.mockResolvedValue({
+      toJSON: () => ({ id: 7, nombre: 'Navidad', categorias: [{ id_categoria: 5, equipos: [{ nombre: 'PALMA A' }] }] })
+    });
+
+    auditMiddleware(req, res, () => {});
+    await flush();
+    res.emit('finish');
+    await flush();
+
+    expect(TorneoGenerado.findByPk).toHaveBeenCalledWith(7, expect.objectContaining({ include: expect.any(Array) }));
+    const arg = Cambio.create.mock.calls[0][0];
+    expect(arg.entidad).toBe('torneos-generados');
+    expect(arg.datos_previos.categorias[0].equipos[0].nombre).toBe('PALMA A');
   });
 
   it('DELETE registra eliminar con el snapshot previo', async () => {
