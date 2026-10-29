@@ -101,6 +101,12 @@ const routes = [
         meta: { seccion: 'delegados' }
       },
       {
+        path: 'generar-torneo',
+        name: 'generar_torneo',
+        component: () => import('../views/generarTorneo/GenerarTorneo.vue'),
+        meta: { seccion: 'generar_torneo' }
+      },
+      {
         path: 'personal',
         name: 'personal',
         component: () => import('../views/personal/Personal.vue'),

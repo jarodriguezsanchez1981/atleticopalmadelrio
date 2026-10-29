@@ -31,6 +31,11 @@ export default {
           // Botones (opción B): granate y su tono de hover
           garnetLight: '#93304A',
           garnetDark: '#5E1B29',
+          // Tablas: cabecera verde claro y fila alterna; finales de Oro y Plata
+          greenPale: '#CFE2D6',
+          rowAlt: '#F5F9F6',
+          gold: '#A07800',
+          silver: '#6B7280',
           cream: '#F3F6F4',
         }
       },

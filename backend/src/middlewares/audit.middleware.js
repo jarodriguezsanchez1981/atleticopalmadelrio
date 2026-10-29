@@ -1,4 +1,5 @@
-const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Jornada, Sancion, Plantilla, Promocion, Torneo } = require('../models');
+const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Jornada, Sancion, Plantilla, Promocion, Torneo, TorneoGenerado } = require('../models');
+const { opcionesDetalleTorneo } = require('../utils/torneoGeneradoDetalle');
 
 const ENTITY_MAP = {
   usuarios: { model: Usuario, label: 'Usuarios' },
@@ -20,7 +21,10 @@ const ENTITY_MAP = {
   plantillas: { model: Plantilla, label: 'Plantillas' },
   'entrenamientos-jugadores': { model: null, label: 'Entrenamientos-Jugadores' },
   promociones: { model: Promocion, label: 'Promociones' },
-  torneos: { model: Torneo, label: 'Torneos' }
+  torneos: { model: Torneo, label: 'Torneos' },
+  // La foto previa lleva categorías e inscripciones (si no, un torneo borrado
+  // no se podría reconstruir desde Cambios).
+  'torneos-generados': { model: TorneoGenerado, label: 'Generar Torneo', opciones: () => opcionesDetalleTorneo() }
 };
 
 // Credenciales y datos personales que no se guardan en el historial de
@@ -103,7 +107,7 @@ function auditMiddleware(req, res, next) {
   }
 
   if ((accion === 'editar' || accion === 'eliminar') && urlId && entityInfo?.model) {
-    entityInfo.model.findByPk(urlId)
+    entityInfo.model.findByPk(urlId, entityInfo.opciones ? entityInfo.opciones() : undefined)
       .then((record) => {
         req._auditBefore = record ? sanitize(record.toJSON()) : null;
         setupFinishListener();
