@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
           columna arrastrando su título.
         </p>
       </div>
-      <Button v-if="plantilla && !error" label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined
+      <Button v-if="plantilla && !error" label="Exportar a Excel" icon="pi pi-file-excel"
               :loading="exportando" :disabled="cargando || !equipos.length" @click="exportarExcel" />
     </div>
 

@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <Button v-if="plantilla" label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined
+        <Button v-if="plantilla" label="Exportar a Excel" icon="pi pi-file-excel"
                 :loading="exportando" :disabled="cargando || !jornadas.length" @click="exportarExcel" />
         <div v-if="plantilla && siguiente" class="rounded-lg border border-line bg-white px-3 py-2 text-xs text-ink-tertiary">
           <i class="pi pi-clock mr-1" />

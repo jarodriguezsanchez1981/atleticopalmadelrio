@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
                        optionValue="value" filter display="chip" :maxSelectedLabels="4" showClear
                        :placeholder="`Todos los jugadores de ${titulo}`" class="w-full sm:w-[28rem]" />
         </template>
-        <Button label="Exportar a Excel" icon="pi pi-file-excel" severity="secondary" outlined class="sm:ml-auto"
+        <Button label="Exportar a Excel" icon="pi pi-file-excel" class="sm:ml-auto"
                 :loading="exportando" :disabled="cargando" @click="exportarExcel" />
       </div>
 
