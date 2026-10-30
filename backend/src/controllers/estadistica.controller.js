@@ -142,9 +142,11 @@ async function listar(req, res, next) {
       if (!fila) {
         // partidos_goles / partidos_tarjetas: partidos en los que marcó / vio
         // alguna tarjeta (desplegables de Estadísticas Goles y Sanciones).
+        // partidos_minutos: minutos (y tarjetas) de cada partido en cuya acta
+        // está (Estadísticas Tiempo, pestaña Jugadores).
         fila = {
           id_jugador: idJugador, nombre: jugador?.nombre || '', apellidos: jugador?.apellidos || '',
-          partidos_goles: [], partidos_tarjetas: []
+          partidos_goles: [], partidos_tarjetas: [], partidos_minutos: []
         };
         for (const c of CONTADORES) {
           fila[c] = 0;
@@ -205,6 +207,7 @@ async function listar(req, res, next) {
       }
       const amarillas = Number(f.tarjeta_amarilla) || 0;
       const rojas = Number(f.tarjeta_roja) || 0;
+      fila.partidos_minutos.push({ ...datosPartido(f.id_partido, lado), titular: esTitular, minutos, amarillas, rojas });
       if (goles > 0) {
         // Minutos de cada gol (partido_goles), si el acta los trae; penalti: true si fue de penalti.
         fila.partidos_goles.push({ ...datosPartido(f.id_partido, lado), titular: esTitular, goles, minutos_goles: [] });
@@ -305,6 +308,7 @@ async function listar(req, res, next) {
     for (const f of porJugador.values()) {
       f.partidos_tarjetas.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
       f.partidos_goles.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
+      f.partidos_minutos.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
       for (const x of f.partidos_goles) x.minutos_goles.sort((a, b) => a.minuto - b.minuto);
       for (const x of f.partidos_tarjetas) {
         x.minutos_amarillas.sort((a, b) => a - b);

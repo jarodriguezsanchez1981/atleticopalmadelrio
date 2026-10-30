@@ -237,3 +237,13 @@ h1, h2, h3, .font-display {
 .ar-datatable.ar-dt-agrupada .p-datatable-tbody > tr > td.text-center {
   text-align: center;
 }
+
+/* Tablas sencillas con columnas numéricas centradas (p. ej. Estadísticas
+   Tiempo, pestaña Jugadores): cabecera y datos de las columnas con
+   text-center, centrados (PrimeVue pisa el text-center del th y del td). */
+.ar-datatable.ar-dt-centrada th.text-center .p-datatable-column-header-content {
+  justify-content: center;
+}
+.ar-datatable.ar-dt-centrada .p-datatable-tbody > tr > td.text-center {
+  text-align: center;
+}

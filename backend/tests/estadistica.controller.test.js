@@ -279,6 +279,28 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     });
   });
 
+  it('lista por jugador los minutos de cada partido en que está en el acta, por jornada', async () => {
+    const fecha1 = new Date('2026-09-07T16:00:00Z');
+    const fecha2 = new Date('2026-09-14T16:00:00Z');
+    Partido.findAll.mockResolvedValue([
+      { id: 2, jornada: 2, fecha: fecha2, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'RIVAL B' }, equipoVisitante: { nombre: 'PALMA' } },
+      { id: 1, jornada: 1, fecha: fecha1, acta_finalizada_at: new Date(), equipoLocal: { nombre: 'PALMA' }, equipoVisitante: { nombre: 'RIVAL A' } }
+    ]);
+    PartidoJugador.findAll.mockResolvedValue([
+      { id_partido: 2, id_jugador: 7, es_local: false, titular: false, minuto_entrada: null, minutos: 0, tarjeta_amarilla: 1, jugador: { nombre: 'Ana', apellidos: 'López' } },
+      { id_partido: 1, id_jugador: 7, es_local: true, titular: true, minutos: 75, tarjeta_amarilla: 2, tarjeta_roja: 1, jugador: { nombre: 'Ana', apellidos: 'López' } }
+    ]);
+
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+
+    // También el partido en el que se quedó en el banquillo (0 minutos), con sus tarjetas.
+    expect(res._json[0].partidos_minutos).toEqual([
+      { id_partido: 1, jornada: 1, fecha: fecha1, es_local: true, rival: 'RIVAL A', titular: true, minutos: 75, amarillas: 2, rojas: 1 },
+      { id_partido: 2, jornada: 2, fecha: fecha2, es_local: false, rival: 'RIVAL B', titular: false, minutos: 0, amarillas: 1, rojas: 0 }
+    ]);
+  });
+
   it('lista por jugador los partidos en que marcó, con el rival y los minutos (y si fue de penalti)', async () => {
     const fecha1 = new Date('2026-09-07T16:00:00Z');
     const fecha2 = new Date('2026-09-14T16:00:00Z');

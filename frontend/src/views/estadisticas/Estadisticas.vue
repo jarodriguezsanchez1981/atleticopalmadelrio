@@ -7,6 +7,8 @@ import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
 import TabPanels from 'primevue/tabpanels';
 import TabPanel from 'primevue/tabpanel';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
 import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
@@ -19,6 +21,8 @@ import {
   METRICAS_SANCIONES, MINUTOS_POR_GOL, MINUTOS_POR_TARJETA
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
+import { construirMinutosPorJornada, hojaMinutosPorJornada } from '../../utils/minutosJornada';
+import { estiloTabla } from '../../utils/estiloTabla';
 
 /** Estadísticas en los partidos de la plantilla Senior A de la temporada
  * actual (las rellena "Finalizar Acta" en Partidos). Cada tabla es una sección
@@ -218,6 +222,10 @@ function hojasExcel() {
       agregar(lado.titulo, { metricas: config.value.metricas, filas: filasTabla.value,
         soloGrupo: lado.clave, sortField: config.value.sortField });
     }
+    if (props.tabla === 'tiempo') {
+      hojas.push({ nombre: 'Jugadores', titulo: `${config.value.titulo} · ${titulo.value} · Jugadores por jornada`,
+        ...hojaMinutosPorJornada(filasTabla.value) });
+    }
   } else {
     agregar(config.value.titulo.replace(/^Estadísticas\s+/, ''), { metricas: config.value.metricas,
       filas: filasTabla.value, sortField: config.value.sortField });
@@ -254,6 +262,14 @@ const verFiltroJugadores = computed(() => !conResumenEquipo.value || pestana.val
 
 // Estadísticas Convocatoria y Tiempo: Total, Local y Visitante, cada uno en su pestaña.
 const pestanaLado = ref('total');
+
+// Estadísticas Tiempo, pestaña Jugadores: minutos de cada jugador en el partido
+// de cada jornada (una columna por jornada).
+// Sin ordenar por columna: de más a menos minutos en total.
+const minutosPorJornada = computed(() => {
+  const tabla = construirMinutosPorJornada(props.tabla === 'tiempo' ? filasTabla.value : []);
+  return { ...tabla, filas: [...tabla.filas].sort((a, b) => b.total - a.total || a.jugador.localeCompare(b.jugador, 'es')) };
+});
 
 // Al pasar de una sección de Estadísticas a otra se reutiliza el componente.
 watch(() => props.tabla, () => { pestana.value = 'equipo'; pestanaLado.value = 'total'; cargar(); });
@@ -358,12 +374,59 @@ onBeforeUnmount(() => {
       <Tabs v-else-if="config.pestanasLado" v-model:value="pestanaLado">
         <TabList>
           <Tab v-for="lado in LADOS_TABLA" :key="lado.clave" :value="lado.clave">{{ lado.titulo }}</Tab>
+          <Tab v-if="tabla === 'tiempo'" value="jornadas">Jugadores</Tab>
         </TabList>
         <TabPanels class="!px-0">
           <TabPanel v-for="lado in LADOS_TABLA" :key="lado.clave" :value="lado.clave">
             <TablaEstadistica :key="`${tabla}-${lado.clave}`" :filas="filasTabla" :metricas="config.metricas"
                               :soloGrupo="lado.clave" :sortField="config.sortField" :cargando="cargando"
                               :textoVacio="textoVacioTabla" />
+          </TabPanel>
+          <!-- Estadísticas Tiempo: minutos de cada jugador en el partido de cada jornada. -->
+          <TabPanel v-if="tabla === 'tiempo'" value="jornadas">
+            <div class="flex flex-col gap-2">
+              <p class="text-sm text-ink-tertiary">
+                Minutos jugados por cada jugador en el partido de cada jornada (<i class="pi pi-home text-xs" aria-label="en casa" /> en casa,
+                <i class="pi pi-car text-xs" aria-label="fuera" /> fuera). En negrita, los
+                partidos en los que fue titular; 0, convocado sin llegar a jugar; —, no está en el acta.
+                <span class="inline-block w-2 h-3 rounded-[2px] bg-yellow-400 align-middle" aria-hidden="true" /> amarilla,
+                <span class="inline-block w-2 h-3 rounded-[2px] bg-red-600 align-middle" aria-hidden="true" /> roja.
+              </p>
+              <DataTable v-bind="estiloTabla" class="ar-dt-centrada" :value="minutosPorJornada.filas" dataKey="id_jugador" :loading="cargando"
+                         scrollable>
+                <template #empty>
+                  <div class="py-6 text-center text-sm text-ink-tertiary">{{ textoVacioTabla }}</div>
+                </template>
+                <Column field="jugador" header="Jugador" frozen class="whitespace-nowrap" />
+                <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave"
+                        headerClass="text-center" bodyClass="text-center">
+                  <template #header>
+                    <div class="flex flex-col items-center leading-tight" :title="j.rival">
+                      <span class="inline-flex items-center gap-1">
+                        J{{ j.jornada }}
+                        <i :class="['pi text-xs', j.es_local ? 'pi-home' : 'pi-car']"
+                           :aria-label="j.es_local ? 'En casa' : 'Fuera'" :title="j.es_local ? 'En casa' : 'Fuera'" />
+                      </span>
+                      <span class="text-[11px] font-normal text-ink-tertiary max-w-[7rem] truncate">{{ j.rival }}</span>
+                    </div>
+                  </template>
+                  <template #body="{ data }">
+                    <span v-if="data.celdas[j.clave]" class="inline-flex items-center gap-1">
+                      <span :class="{ 'font-semibold': data.celdas[j.clave].titular }"
+                            :title="data.celdas[j.clave].titular ? 'Titular' : 'Suplente'">
+                        {{ data.celdas[j.clave].minutos }}
+                      </span>
+                      <span v-for="n in data.celdas[j.clave].amarillas" :key="`a${n}`"
+                            class="inline-block w-2 h-3 rounded-[2px] bg-yellow-400" title="Tarjeta amarilla" />
+                      <span v-for="n in data.celdas[j.clave].rojas" :key="`r${n}`"
+                            class="inline-block w-2 h-3 rounded-[2px] bg-red-600" title="Tarjeta roja" />
+                    </span>
+                    <span v-else class="text-ink-tertiary">—</span>
+                  </template>
+                </Column>
+                <Column field="total" header="Total" headerClass="text-center" bodyClass="text-center font-semibold" />
+              </DataTable>
+            </div>
           </TabPanel>
         </TabPanels>
       </Tabs>
