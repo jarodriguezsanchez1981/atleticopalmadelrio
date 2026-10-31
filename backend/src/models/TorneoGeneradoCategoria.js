@@ -15,7 +15,9 @@ const TorneoGeneradoCategoria = sequelize.define('TorneoGeneradoCategoria', {
   formato: { type: DataTypes.ENUM('liga', 'grupos'), allowNull: false },
   semifinales: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   final_oro: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-  final_plata: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
+  final_plata: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  // Sin descanso: un equipo puede jugar dos partidos seguidos.
+  sin_descanso: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }
 }, {
   tableName: 'torneo_generado_categorias'
 });

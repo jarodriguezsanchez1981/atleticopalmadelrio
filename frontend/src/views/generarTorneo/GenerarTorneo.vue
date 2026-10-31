@@ -92,6 +92,7 @@ function nuevaCategoria(cat) {
     semifinales: false,
     final_oro: false,
     final_plata: false,
+    sin_descanso: false,
     equipos: [],
     equipoNuevo: null
   };
@@ -124,6 +125,7 @@ function aPayloadCategoria(cat) {
     semifinales: !liga && cat.semifinales,
     final_oro: cat.final_oro,
     final_plata: cat.final_plata,
+    sin_descanso: !!cat.sin_descanso,
     equipos: cat.equipos.map((e) => ({ id_equipo: e.id_equipo, nombre: e.nombre.trim(), grupo: liga ? null : e.grupo }))
   };
 }
@@ -211,6 +213,7 @@ async function editarTorneo(item) {
       semifinales: !!c.semifinales,
       final_oro: !!c.final_oro,
       final_plata: !!c.final_plata,
+      sin_descanso: !!c.sin_descanso,
       equipos: (c.equipos || []).map((e) => ({ id_equipo: e.id_equipo, nombre: e.nombre, grupo: e.grupo || 'A' })),
       equipoNuevo: null
     }));
@@ -396,7 +399,14 @@ onBeforeUnmount(() => { if (quitarSuscripcion) quitarSuscripcion(); });
                   <label class="flex items-center gap-2 text-sm">
                     <Checkbox v-model="cat.final_plata" binary /> Final de Plata
                   </label>
+                  <label class="flex items-center gap-2 text-sm"
+                         title="Un equipo puede jugar dos partidos seguidos (sin marcar, nunca juega dos seguidos)">
+                    <Checkbox v-model="cat.sin_descanso" binary /> Sin descanso
+                  </label>
                 </div>
+                <p v-if="cat.sin_descanso" class="text-xs text-ink-tertiary -mt-2">
+                  Sin descanso: un equipo puede jugar dos partidos seguidos.
+                </p>
                 <p v-if="cat.semifinales || cat.final_oro || cat.final_plata" class="text-xs text-ink-tertiary -mt-2">
                   Antes de las semifinales y antes de las finales hay 10 minutos de descanso.
                 </p>

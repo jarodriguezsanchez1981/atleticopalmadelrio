@@ -8,7 +8,8 @@
  *   (en grupos, se intercalan las jornadas del A y del B).
  * - Colocación: turnos sucesivos desde la hora de comienzo, con tantos huecos
  *   como campos; un equipo nunca juega dos turnos seguidos (si hace falta, un
- *   turno queda vacío). Se busca el reparto con menos turnos.
+ *   turno queda vacío), salvo con "Sin descanso". Se busca el reparto con
+ *   menos turnos.
  * - Eliminatorias sin nombres ("1º A", "Ganador SF1"…), porque no se apuntan
  *   resultados.
  */
@@ -104,24 +105,26 @@ function opcionesDeTurno(disponibles, partidos, numCampos) {
 }
 
 /** Mínimo de turnos que aún hacen falta: por campos y porque un equipo con r
- * partidos pendientes necesita al menos 2r-1 turnos (2r si jugó el anterior). */
-function cotaInferior(pendientes, partidos, numCampos, anteriores) {
+ * partidos pendientes necesita al menos 2r-1 turnos (2r si jugó el anterior);
+ * sin descanso, r turnos. */
+function cotaInferior(pendientes, partidos, numCampos, anteriores, sinDescanso) {
   const restantes = new Map();
   for (const i of pendientes) {
     for (const e of [partidos[i].local, partidos[i].visitante]) restantes.set(e, (restantes.get(e) || 0) + 1);
   }
   let cota = Math.ceil(pendientes.length / numCampos);
-  for (const [e, r] of restantes) cota = Math.max(cota, 2 * r - 1 + (anteriores.has(e) ? 1 : 0));
+  for (const [e, r] of restantes) cota = Math.max(cota, sinDescanso ? r : 2 * r - 1 + (anteriores.has(e) ? 1 : 0));
   return cota;
 }
 
 /**
  * Reparte los partidos en turnos de forma que ningún equipo juegue dos turnos
- * seguidos (regla obligatoria). Busca el reparto con menos turnos; si en algún
- * turno no cabe ningún partido sin romper la regla, ese turno queda vacío.
+ * seguidos (salvo con `sinDescanso`, la opción "Sin descanso" de la
+ * categoría). Busca el reparto con menos turnos; si en algún turno no cabe
+ * ningún partido sin romper la regla, ese turno queda vacío.
  * Devuelve una lista de turnos, cada uno una lista de partidos.
  */
-function colocarEnTurnos(partidos, numCampos) {
+function colocarEnTurnos(partidos, numCampos, sinDescanso = false) {
   let mejor = null;
   let nodos = 0;
   const buscar = (pendientes, anteriores, turnos) => {
@@ -130,7 +133,7 @@ function colocarEnTurnos(partidos, numCampos) {
       return;
     }
     if (nodos++ > LIMITE_BUSQUEDA) return;
-    if (mejor && turnos.length + cotaInferior(pendientes, partidos, numCampos, anteriores) >= mejor.length) return;
+    if (mejor && turnos.length + cotaInferior(pendientes, partidos, numCampos, anteriores, sinDescanso) >= mejor.length) return;
 
     const disponibles = pendientes.filter((i) => !anteriores.has(partidos[i].local) && !anteriores.has(partidos[i].visitante));
     const opciones = opcionesDeTurno(disponibles, partidos, numCampos);
@@ -144,7 +147,7 @@ function colocarEnTurnos(partidos, numCampos) {
     for (const opcion of opciones) {
       const enTurno = new Set(opcion.flatMap((i) => [partidos[i].local, partidos[i].visitante]));
       turnos.push(opcion);
-      buscar(pendientes.filter((i) => !opcion.includes(i)), enTurno, turnos);
+      buscar(pendientes.filter((i) => !opcion.includes(i)), sinDescanso ? new Set() : enTurno, turnos);
       turnos.pop();
     }
   };
@@ -189,7 +192,7 @@ function turnosEliminatoria(partidos, numCampos, esFinal) {
 /**
  * @param cat categoría del torneo (forma del GET /torneos-generados/:id):
  *   { hora_inicio, hora_fin, duracion_min, descanso_min, campos, formato,
- *     semifinales, final_oro, final_plata, equipos: [{ nombre, grupo }] }
+ *     semifinales, final_oro, final_plata, sin_descanso, equipos: [{ nombre, grupo }] }
  * @returns {{ turnos: { hora, fase, partidos: { campo, local, visitante, grupo?, etiqueta? }[] }[],
  *            horaFinReal: string, excedeHoraFin: boolean }}
  */
@@ -202,7 +205,7 @@ export function generarCategoria(cat) {
 
   const { semifinales, finales } = eliminatorias(cat);
   const bloques = [
-    ...colocarEnTurnos(partidosFaseGrupos(cat), numCampos).map((p) => ({ fase: 'grupos', partidos: p })),
+    ...colocarEnTurnos(partidosFaseGrupos(cat), numCampos, !!cat.sin_descanso).map((p) => ({ fase: 'grupos', partidos: p })),
     ...turnosEliminatoria(semifinales, numCampos, false).map((p) => ({ fase: 'semifinales', partidos: p })),
     ...turnosEliminatoria(finales, numCampos, true).map((p) => ({ fase: 'finales', partidos: p }))
   ];
