@@ -125,6 +125,17 @@ describe('Generar Torneo · torneoGenerado.controller', () => {
     expect(filas[0]).toEqual(expect.objectContaining({ id_torneo_generado_categoria: 20, nombre: 'A1', grupo: 'A', orden: 0 }));
   });
 
+  it('crear guarda "Sin descanso" (por defecto, no)', async () => {
+    const { promesa } = llamar(ctrl.crear, { body: torneoValido({ categorias: [categoriaGrupos({ sin_descanso: true })] }) });
+    await promesa;
+    expect(TorneoGeneradoCategoria.create).toHaveBeenCalledWith(expect.objectContaining({ sin_descanso: true }), expect.anything());
+
+    TorneoGeneradoCategoria.create.mockClear();
+    const otra = llamar(ctrl.crear, { body: torneoValido() });
+    await otra.promesa;
+    expect(TorneoGeneradoCategoria.create).toHaveBeenCalledWith(expect.objectContaining({ sin_descanso: false }), expect.anything());
+  });
+
   it('crear en liga guarda grupo NULL y sin semifinales', async () => {
     const cat = categoriaGrupos({ formato: 'liga', semifinales: true, equipos: equipos(['X', 'Y', 'Z', 'W'], 'A') });
     const { promesa } = llamar(ctrl.crear, { body: torneoValido({ categorias: [cat] }) });

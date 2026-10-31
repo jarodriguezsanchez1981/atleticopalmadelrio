@@ -172,6 +172,17 @@ describe('generarTorneo · generarCategoria', () => {
     expect(r.turnos.every((t) => t.partidos[0].campo === 'estadio1')).toBe(true);
   });
 
+  it('"Sin descanso": un equipo puede jugar dos turnos seguidos y se usan menos turnos', () => {
+    const conDescanso = generarCategoria(categoria({ final_oro: false, final_plata: false }));
+    const sinDescanso = generarCategoria(categoria({ final_oro: false, final_plata: false, sin_descanso: true }));
+    // Liga de 4 con 2 campos: 3 jornadas de 2 partidos, una por turno.
+    expect(sinDescanso.turnos).toHaveLength(3);
+    expect(sinDescanso.turnos.every((t) => t.partidos.length === 2)).toBe(true);
+    expect(conDescanso.turnos.length).toBeGreaterThan(3);
+    expect(partidosDeFase(sinDescanso, 'grupos').map(pareja).sort()).toEqual(partidosDeFase(conDescanso, 'grupos').map(pareja).sort());
+    sinEquiposRepetidosPorTurno(sinDescanso);
+  });
+
   it('en liga ignora semifinales aunque estén marcadas', () => {
     const r = generarCategoria(categoria({ semifinales: true }));
     expect(partidosDeFase(r, 'semifinales')).toEqual([]);

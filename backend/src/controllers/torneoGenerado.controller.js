@@ -83,7 +83,8 @@ async function guardarCategorias(idTorneo, categorias, transaction) {
       formato: cat.formato,
       semifinales: !liga && !!cat.semifinales,
       final_oro: !!cat.final_oro,
-      final_plata: !!cat.final_plata
+      final_plata: !!cat.final_plata,
+      sin_descanso: !!cat.sin_descanso
     }, { transaction });
     const equipos = (cat.equipos || []).map((e, i) => ({
       id_torneo_generado_categoria: fila.id,
