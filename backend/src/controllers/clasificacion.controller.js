@@ -5,13 +5,16 @@ const { diaEspana, partesEspana } = require('../utils/horaEspana');
 
 /**
  * Estadísticas → Clasificación: la clasificación de la liga jornada a jornada.
- * Se copia sola de RFAF (NFG_VisClasificacion) el día siguiente al partido de
- * cada jornada a las 10:00 (utils/clasificacionAutomatica.js) y se guarda en
- * `clasificaciones` para no volver a pedirla a rfaf.es.
+ * Se copia sola de RFAF (NFG_VisClasificacion) los lunes a las 09:00
+ * (utils/clasificacionAutomatica.js), antes del informe semanal de las 10:00,
+ * y se guarda en `clasificaciones` para no volver a pedirla a rfaf.es.
  */
 
-// Hora española a partir de la cual se copia la clasificación el día siguiente al partido.
-const HORA_ACTUALIZACION = 10;
+// Hora española a partir de la cual se puede copiar la clasificación de una
+// jornada (el día siguiente a su partido) y a la que se copia los lunes.
+const HORA_ACTUALIZACION = 9;
+// Día de la semana de la copia automática (1 = lunes).
+const DIA_ACTUALIZACION = 1;
 
 /** Códigos de la competición de RFAF de una plantilla (en sus columnas
  * codigo_primaria/codigo_grupo/codigo_competicion, que se rellenan al crear o
@@ -296,4 +299,6 @@ async function actualizarTodas(log = console) {
   return guardadas;
 }
 
-module.exports = { listar, guardarSiguiente, actualizarTodas, siguienteJornada, esPalma, competicionDe, HORA_ACTUALIZACION };
+module.exports = {
+  listar, guardarSiguiente, actualizarTodas, siguienteJornada, esPalma, competicionDe, HORA_ACTUALIZACION, DIA_ACTUALIZACION
+};

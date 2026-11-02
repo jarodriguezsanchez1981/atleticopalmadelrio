@@ -104,7 +104,7 @@ async function enviarEmail({ to, subject, html, text }) {
 /** Envía desde la cuenta de "Correos" con ese email (esté o no activa). Si no
  * está registrada (o le falta la configuración SMTP) lanza un error con
  * `sinCuenta = true`. */
-async function enviarDesde(email, { to, subject, html, text }) {
+async function enviarDesde(email, { to, subject, html, text, attachments }) {
   const { CuentaCorreo } = require('../models');
   const cuenta = await CuentaCorreo.scope('conPassword').findOne({ where: { email } });
   if (!cuenta || !cuenta.smtp_host || !cuenta.smtp_user || !cuenta.smtp_password) {
@@ -120,7 +120,7 @@ async function enviarDesde(email, { to, subject, html, text }) {
     pass: aes.decrypt(cuenta.smtp_password),
     from: cuenta.etiqueta ? `${cuenta.etiqueta} <${cuenta.email}>` : cuenta.email
   };
-  return transporteDe(cfg).sendMail({ from: cfg.from, to, subject, html: conFirma(html, cuenta.firma_html), text });
+  return transporteDe(cfg).sendMail({ from: cfg.from, to, subject, html: conFirma(html, cuenta.firma_html), text, attachments });
 }
 
 /** Envía con una configuración explícita (para "probar" una cuenta concreta). */

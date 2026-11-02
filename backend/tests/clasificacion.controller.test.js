@@ -143,8 +143,8 @@ describe('Estadísticas Clasificación · clasificacion.controller', () => {
     expect(seis.ultimos).toEqual([{ jornada: 1, resultado: 'G' }, { jornada: 2, resultado: 'P' }]);
   });
 
-  it('siguienteJornada: el día siguiente al partido, solo desde las 10:00', async () => {
-    vi.setSystemTime(new Date('2026-09-21T07:59:00Z')); // 09:59 en España
+  it('siguienteJornada: el día siguiente al partido, solo desde las 09:00', async () => {
+    vi.setSystemTime(new Date('2026-09-21T06:59:00Z')); // 08:59 en España
     expect(await ctrl.siguienteJornada(36, new Set([1]))).toEqual({ jornada: 2, desde: '2026-09-21', disponible: false });
   });
 
@@ -243,5 +243,12 @@ describe('clasificacionAutomatica · proximaEjecucion', () => {
     expect(proximaEjecucion(12, new Date('2026-09-21T10:00:01Z')).toISOString()).toBe('2026-09-22T10:00:00.000Z');
     // Tras el cambio de hora (invierno, UTC+1).
     expect(proximaEjecucion(12, new Date('2026-10-25T12:00:00Z')).toISOString()).toBe('2026-10-26T11:00:00.000Z');
+  });
+
+  it('con día de la semana (1 = lunes): el próximo lunes a esa hora', () => {
+    expect(proximaEjecucion(9, new Date('2026-11-02T07:00:00Z'), 1).toISOString()).toBe('2026-11-02T08:00:00.000Z');
+    expect(proximaEjecucion(9, new Date('2026-11-02T08:00:01Z'), 1).toISOString()).toBe('2026-11-09T08:00:00.000Z');
+    // Del jueves 22/10 (verano) al lunes 26/10 (invierno, UTC+1).
+    expect(proximaEjecucion(10, new Date('2026-10-22T12:00:00Z'), 1).toISOString()).toBe('2026-10-26T09:00:00.000Z');
   });
 });

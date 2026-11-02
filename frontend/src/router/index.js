@@ -101,6 +101,12 @@ const routes = [
         meta: { seccion: 'delegados' }
       },
       {
+        path: 'informes/semanal',
+        name: 'informe_semanal',
+        component: () => import('../views/informes/InformeSemanal.vue'),
+        meta: { seccion: 'informe_semanal' }
+      },
+      {
         path: 'generar-torneo',
         name: 'generar_torneo',
         component: () => import('../views/generarTorneo/GenerarTorneo.vue'),

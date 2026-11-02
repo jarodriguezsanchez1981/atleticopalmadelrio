@@ -3,7 +3,7 @@
  * jornadas jugadas o actas nuevas por copiar, la copia de
  * controllers/liga.controller.js se repite cada 30 minutos (cada vez con sus
  * límites y pausas) en vez de esperar al día siguiente. Al ponerse al día se
- * para; lo retoma la copia diaria de las 10:00 (utils/clasificacionAutomatica.js).
+ * para; lo retoma la copia de los lunes a las 09:00 (utils/clasificacionAutomatica.js).
  * Si una copia falla, se reintenta en la siguiente vuelta (a los 30 minutos),
  * como mucho MAX_FALLOS seguidos; si es por la sesión de RFAF caducada no se
  * reintenta (fallaría siempre): hay que poner una JSESSIONID nueva en
@@ -29,7 +29,7 @@ function trasCopia(r, log = console) {
   }
   fallosSeguidos += 1;
   if (fallosSeguidos >= MAX_FALLOS) {
-    log.warn(`⚠️  Liga: ${MAX_FALLOS} fallos seguidos; se reintenta en la copia diaria.`);
+    log.warn(`⚠️  Liga: ${MAX_FALLOS} fallos seguidos; se reintenta en la copia del lunes.`);
     fallosSeguidos = 0;
     return false;
   }
@@ -43,7 +43,7 @@ async function siguiente(log = console) {
   try {
     if (!(await liga.hayPendientes())) {
       fallosSeguidos = 0;
-      log.log('⚽ Liga: al día; a partir de ahora, solo la copia diaria.');
+      log.log('⚽ Liga: al día; a partir de ahora, solo la copia del lunes.');
       return;
     }
     trasCopia(await liga.actualizar({ log, soloNuevas: true }), log);
