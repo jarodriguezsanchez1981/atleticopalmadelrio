@@ -46,9 +46,13 @@ const ITEMS_FIJOS = {
 
 // Submenús anidados dentro de un apartado: sus secciones viven en la base de
 // datos con ese `grupo` (no es un apartado de primer nivel de GRUPOS_MENU) y se
-// dibujan plegables bajo el apartado padre. "Notificaciones" cuelga de "Club".
+// dibujan plegables bajo el apartado padre. "Notificaciones" e "Informes"
+// cuelgan de "Club".
 const SUBGRUPOS = {
-  club: [{ clave: 'notificaciones', label: 'Notificaciones', icon: 'pi pi-bell' }]
+  club: [
+    { clave: 'notificaciones', label: 'Notificaciones', icon: 'pi pi-bell' },
+    { clave: 'informes', label: 'Informes', icon: 'pi pi-file' }
+  ]
 };
 
 const catalogoSecciones = ref([]);

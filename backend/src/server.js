@@ -5,6 +5,7 @@ const { ensureSecciones } = require('./utils/secciones.seed');
 const { ensureTiposFutbol } = require('./utils/tipofutbol.seed');
 const { migrate } = require('./utils/migrate');
 const clasificacionAutomatica = require('./utils/clasificacionAutomatica');
+const informeSemanalAutomatico = require('./utils/informeSemanalAutomatico');
 
 const PORT = process.env.PORT || 4000;
 const MAX_RETRIES = 30;
@@ -123,6 +124,7 @@ async function start() {
     });
     // Clasificación de RFAF: cada día a las 10:00 (y al arrancar, lo pendiente).
     clasificacionAutomatica.iniciar();
+    informeSemanalAutomatico.iniciar();
   } catch (err) {
     console.error('❌ No se pudo iniciar el servidor:', err);
     process.exit(1);

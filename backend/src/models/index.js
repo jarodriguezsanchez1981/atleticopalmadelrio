@@ -38,6 +38,8 @@ const TipoPersonal = require('./TipoPersonal');
 const Clasificacion = require('./Clasificacion');
 const Cambio = require('./Cambio');
 const InformeSeguridad = require('./InformeSeguridad');
+const InformeSemanal = require('./InformeSemanal');
+const InformeSemanalDestinatario = require('./InformeSemanalDestinatario');
 const UsuarioCodigoRecuperacion = require('./UsuarioCodigoRecuperacion');
 const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
@@ -176,6 +178,10 @@ Jugador.hasMany(PartidoJugador, { foreignKey: 'id_jugador', sourceKey: 'id', as:
 PartidoJugador.belongsTo(EquipoJugador, { foreignKey: 'id_equipo_jugador', targetKey: 'id', as: 'equipoJugador', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 
 // ---- Generar Torneo ----
+// Informe semanal: quién lo envió a mano (null en los automáticos).
+InformeSemanal.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', constraints: false });
+InformeSemanalDestinatario.belongsTo(Usuario, { foreignKey: 'id_usuario', targetKey: 'id', as: 'usuario', constraints: false });
+
 TorneoGenerado.hasMany(TorneoGeneradoCategoria, { foreignKey: 'id_torneo_generado', sourceKey: 'id', as: 'categorias', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 TorneoGeneradoCategoria.belongsTo(TorneoGenerado, { foreignKey: 'id_torneo_generado', targetKey: 'id', as: 'torneo' });
 TorneoGeneradoCategoria.belongsTo(Categoria, { foreignKey: 'id_categoria', targetKey: 'id', as: 'categoria' });
@@ -379,6 +385,8 @@ module.exports = {
   Clasificacion,
   Cambio,
   InformeSeguridad,
+  InformeSemanal,
+  InformeSemanalDestinatario,
   UsuarioCodigoRecuperacion,
   EquipoJugador,
   Promocion,

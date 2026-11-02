@@ -8,7 +8,7 @@ const { esPalma } = require('./clasificacion.controller');
  * Actas de todos los partidos de la liga de Senior A (Estadísticas Rivales):
  * goles, minutos, jugadores y tarjetas de cada equipo, jornada a jornada.
  *
- * Se copian solas de RFAF después de la clasificación diaria de las 10:00
+ * Se copian solas de RFAF después de la clasificación de los lunes a las 09:00
  * (utils/clasificacionAutomatica.js), pidiendo a rfaf.es lo mínimo:
  * - una petición por jornada (NFG_CmpJornada) para saber sus partidos y el
  *   código del acta, una sola vez y solo de las jornadas cuya clasificación ya
@@ -21,7 +21,7 @@ const { esPalma } = require('./clasificacion.controller');
  *   utils/ligaRecuperacion.js).
  * Mientras queden jornadas o actas por copiar (p. ej. al empezar con la
  * temporada ya empezada) se repite cada 30 minutos hasta ponerse al día
- * (utils/ligaRecuperacion.js); después, solo la copia diaria.
+ * (utils/ligaRecuperacion.js); después, solo la copia del lunes.
  */
 
 // Solo la liga de Senior A: el resto de categorías son de menores y no se
@@ -128,7 +128,7 @@ async function guardarActa(ligaPartido, acta) {
  * Desde "Finalizar Acta": guarda también en la liga el partido del PALMA (con
  * el acta que ya se ha leído, sin pedir nada más a RFAF). Solo partidos de liga
  * (con jornada) de Senior A. Si la jornada aún no se había copiado de RFAF, se
- * crea el partido y la copia diaria le pondrá después los códigos de equipo.
+ * crea el partido y la copia del lunes le pondrá después los códigos de equipo.
  */
 async function guardarActaDelPalma({ partido, plantilla, codigoActa, acta }) {
   if (plantilla?.categoria?.nombre !== CATEGORIA_LIGA || !(Number(partido.jornada) > 0) || !codigoActa) return null;
@@ -179,7 +179,7 @@ async function jornadasPorCopiar(idPlantilla) {
 }
 
 /** Actas por descargar (sin la del PALMA). `soloNuevas`: solo las que aún no se
- * han pedido nunca (las de un partido aplazado se dejan para la copia diaria). */
+ * han pedido nunca (las de un partido aplazado se dejan para la copia del lunes). */
 async function actasPorCopiar(idPlantilla, { soloNuevas = false } = {}) {
   return (await LigaPartido.findAll({
     where: { id_plantilla: idPlantilla, acta_at: null, intentos: soloNuevas ? 0 : { [Op.lt]: MAX_INTENTOS } },
@@ -202,7 +202,7 @@ let enCurso = null;
  * Copia: primero los partidos de las jornadas ya jugadas que falten (como
  * mucho MAX_JORNADAS_POR_DIA), después las actas pendientes (como mucho
  * MAX_ACTAS_POR_DIA, sin la del PALMA), con una pausa entre peticiones. Al
- * primer error se para. Nunca dos a la vez (la diaria y la recuperación).
+ * primer error se para. Nunca dos a la vez (la del lunes y la recuperación).
  * Devuelve { jornadas, actas } guardadas y `error` si RFAF ha fallado.
  */
 function actualizar(opciones = {}) {

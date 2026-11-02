@@ -28,7 +28,10 @@ const SECCIONES = [
   { clave: 'entrenadores', nombre: 'Entrenadores', icono: 'pi pi-id-card', orden: 80, grupo: 'club' },
   { clave: 'categoria_calendario', nombre: 'Jornadas', icono: 'pi pi-calendar-plus', orden: 93, grupo: 'liga' },
   { clave: 'torneo', nombre: 'Torneo', icono: 'pi pi-trophy', orden: 94, grupo: 'competicion' },
-  { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98, grupo: 'competicion' },
+  // Informes: la página antigua (en construcción) queda fuera del menú; el
+  // submenú "Informes" de Club agrupa las secciones con grupo 'informes'.
+  { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98, grupo: null },
+  { clave: 'informe_semanal', nombre: 'Semanal', icono: 'pi pi-calendar', orden: 10, grupo: 'informes' },
   // Estadísticas (solo de la plantilla Senior A): una sección por tabla, en su
   // propio apartado del menú.
   { clave: 'estadisticas_convocatorias', nombre: 'Estadísticas Senior A Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas' },
