@@ -147,6 +147,9 @@ describe('informeSemanal · informe de Sanciones', () => {
     id_partido: idPartido, id_jugador: idJugador, amarilla, roja,
     partido: { id_plantilla: idPlantilla, jornada }, jugador: { nombre, apellidos: 'X' }
   });
+  // `n` partidos anteriores con una amarilla cada uno (una fila de Sanciones por partido).
+  const amarillasPrevias = (desdePartido, idJugador, nombre, n, jornada = 3) => Array.from({ length: n },
+    (_, i) => sancion(desdePartido + i, idJugador, nombre, 1, 0, jornada));
   beforeEach(() => {
     for (const m of [Temporada, Plantilla, Partido, Clasificacion, Sancion, PartidoGol, PartidoGolContra, PartidoTarjeta, Jugador]) {
       m.findAll.mockReset().mockResolvedValue([]);
@@ -162,11 +165,12 @@ describe('informeSemanal · informe de Sanciones', () => {
     Sancion.findAll.mockResolvedValue([
       sancion(11, 9, 'Eva', 0, 1), // roja este fin de semana
       sancion(11, 11, 'Leo', 1, 0), // 5ª amarilla este fin de semana
-      sancion(51, 11, 'Leo', 4, 0, 4),
-      sancion(52, 20, 'Ana', 4, 0, 5), // 4 amarillas: a una del ciclo
-      sancion(53, 21, 'Rui', 5, 0, 5), // 5 amarillas, pero no este fin de semana
-      sancion(54, 22, 'Sol', 9, 0, 6), // 9: a una del segundo ciclo
-      sancion(55, 12, 'Amistoso', 4, 0, null)
+      ...amarillasPrevias(100, 11, 'Leo', 4),
+      ...amarillasPrevias(200, 20, 'Ana', 4), // 4 amarillas: a una del ciclo
+      ...amarillasPrevias(300, 21, 'Rui', 5), // 5 amarillas, pero no este fin de semana
+      ...amarillasPrevias(400, 22, 'Sol', 7),
+      sancion(450, 22, 'Sol', 2, 0, 6), // doble amarilla (2 en un partido): 9, a una del segundo ciclo
+      ...amarillasPrevias(500, 12, 'Amistoso', 4, null)
     ]);
   });
 
@@ -178,12 +182,13 @@ describe('informeSemanal · informe de Sanciones', () => {
     const infantil = d.bloques[0].categorias[0];
     expect(infantil.partidos[0].eventos).toEqual([{ minuto: 60, tipo: 'roja', jugador: 'Eva X' }]);
     // De más a menos tarjetas; los partidos sin jornada (amistosos) no cuentan.
+    // doblesAmarillas: partidos con 2 amarillas.
     expect(infantil.sancionesTemporada).toEqual([
-      { jugador: 'Sol X', amarillas: 9, rojas: 0, total: 9 },
-      { jugador: 'Leo X', amarillas: 5, rojas: 0, total: 5 },
-      { jugador: 'Rui X', amarillas: 5, rojas: 0, total: 5 },
-      { jugador: 'Ana X', amarillas: 4, rojas: 0, total: 4 },
-      { jugador: 'Eva X', amarillas: 0, rojas: 1, total: 1 }
+      { jugador: 'Sol X', amarillas: 9, doblesAmarillas: 1, rojas: 0, total: 9 },
+      { jugador: 'Leo X', amarillas: 5, doblesAmarillas: 0, rojas: 0, total: 5 },
+      { jugador: 'Rui X', amarillas: 5, doblesAmarillas: 0, rojas: 0, total: 5 },
+      { jugador: 'Ana X', amarillas: 4, doblesAmarillas: 0, rojas: 0, total: 4 },
+      { jugador: 'Eva X', amarillas: 0, doblesAmarillas: 0, rojas: 1, total: 1 }
     ]);
     expect(d.bloques[0].categorias[1]).toMatchObject({ partidos: [], sancionesTemporada: [] });
     expect(d.hayJornada).toBe(true);
@@ -210,7 +215,13 @@ describe('informeSemanal · informe de Sanciones', () => {
     const texto = html.replace(/<[^>]+>/g, '|').replace(/\s+/g, ' ');
     expect(texto).toContain('Informe de sanciones');
     expect(texto).toContain('Sanciones de la temporada');
-    expect(texto).toMatch(/Leo X\|[| ]*5\|[| ]*0\|[| ]*5\|/);
+    // Jugador, Amarillas, Doble Amarilla, Rojas, Total.
+    expect(texto).toMatch(/Leo X\|[| ]*5\|[| ]*0\|[| ]*0\|[| ]*5\|/);
+    expect(texto).toMatch(/Sol X\|[| ]*9\|[| ]*1\|[| ]*0\|[| ]*9\|/);
+    expect(texto).toContain('Doble Amarilla');
+    // Cabeceras: el cuadro de color arriba y el nombre debajo.
+    expect(html).toMatch(/title="Tarjeta amarilla"><\/span><\/div>\s*<div[^>]*>Amarillas<\/div>/);
+    expect(html).toMatch(/title="Tarjeta roja"><\/span><\/div>\s*<div[^>]*>Rojas<\/div>/);
     expect(texto).toContain('Sin tarjetas en la temporada');
     for (const titulo of ['Jugador Ante Posible Sanción', 'Jugador con Partido de Sanción', 'Jugador Sanción Tarjeta Roja']) {
       // Solo en Infantil A (Cadete A no tiene a nadie).
