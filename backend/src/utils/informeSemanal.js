@@ -208,8 +208,10 @@ async function construirInforme(lunes, tipo = 'semanal') {
       if (!amarillas && !rojas) continue;
       const clave = sa.id_jugador ?? nombreJugador(sa.jugador);
       const fila = porJugador.get(clave)
-        || { jugador: nombreJugador(sa.jugador), amarillas: 0, rojas: 0, total: 0, amarillasFinde: 0, rojasFinde: 0 };
+        || { jugador: nombreJugador(sa.jugador), amarillas: 0, doblesAmarillas: 0, rojas: 0, total: 0, amarillasFinde: 0, rojasFinde: 0 };
       fila.amarillas += amarillas;
+      // Doble amarilla: 2 (o más) amarillas al jugador en el mismo partido.
+      if (amarillas >= 2) fila.doblesAmarillas += 1;
       fila.rojas += rojas;
       fila.total += amarillas + rojas;
       if (idsFinde.has(sa.id_partido)) {
@@ -220,7 +222,7 @@ async function construirInforme(lunes, tipo = 'semanal') {
     }
     const filas = [...porJugador.values()].sort((a, b) => b.total - a.total || b.rojas - a.rojas
       || a.jugador.localeCompare(b.jugador, 'es'));
-    const publica = ({ jugador, amarillas, rojas, total }) => ({ jugador, amarillas, rojas, total });
+    const publica = ({ jugador, amarillas, doblesAmarillas, rojas, total }) => ({ jugador, amarillas, doblesAmarillas, rojas, total });
     const cumpleCiclo = (f) => Math.floor(f.amarillas / CICLO_AMARILLAS) > Math.floor((f.amarillas - f.amarillasFinde) / CICLO_AMARILLAS);
     return {
       tabla: filas.map(publica),
@@ -327,22 +329,29 @@ function htmlPartido(p, srcEscudo) {
 /** Informe de Sanciones: una tabla de jugadores con sus tarjetas en la temporada. */
 function htmlTablaSanciones(titulo, filas, color = VERDE) {
   const celda = 'padding:3px 8px;border-bottom:1px solid #e5e7eb;';
-  const numero = `${celda}text-align:center;width:70px;`;
+  const numero = `${celda}text-align:center;width:76px;`;
+  // Cabecera de una columna de tarjetas: el color arriba y el nombre debajo.
+  const cabecera = (cuadros, nombre) => `<th style="${numero}vertical-align:bottom;">
+          <div style="line-height:1;">${cuadros}</div>
+          <div style="margin-top:3px;">${nombre}</div>
+        </th>`;
   const cuerpo = filas.length
     ? filas.map((f) => `<tr>
         <td style="${celda}">${escapar(f.jugador)}</td>
         <td style="${numero}">${f.amarillas}</td>
+        <td style="${numero}">${f.doblesAmarillas ?? 0}</td>
         <td style="${numero}">${f.rojas}</td>
         <td style="${numero}font-weight:700;">${f.total}</td>
       </tr>`).join('')
-    : `<tr><td colspan="4" style="${celda}color:#6b7280;">Sin tarjetas en la temporada</td></tr>`;
+    : `<tr><td colspan="5" style="${celda}color:#6b7280;">Sin tarjetas en la temporada</td></tr>`;
   return `<p style="margin:8px 0 4px;font-size:13px;font-weight:700;color:${color};">${titulo}</p>
     <table style="border-collapse:collapse;width:100%;font-size:13px;margin:0 0 4px;">
       <tr style="background:#cfe2d6;color:#0f3d22;">
-        <th style="${celda}text-align:left;">Jugador</th>
-        <th style="${numero}">${cuadroTarjeta('amarilla')} Amarillas</th>
-        <th style="${numero}">${cuadroTarjeta('roja')} Rojas</th>
-        <th style="${numero}">Total</th>
+        <th style="${celda}text-align:left;vertical-align:bottom;">Jugador</th>
+        ${cabecera(cuadroTarjeta('amarilla'), 'Amarillas')}
+        ${cabecera(`${cuadroTarjeta('amarilla')} ${cuadroTarjeta('amarilla')}`, 'Doble Amarilla')}
+        ${cabecera(cuadroTarjeta('roja'), 'Rojas')}
+        <th style="${numero}vertical-align:bottom;">Total</th>
       </tr>
       ${cuerpo}
     </table>`;
