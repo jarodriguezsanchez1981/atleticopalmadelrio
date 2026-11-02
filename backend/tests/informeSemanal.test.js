@@ -7,7 +7,10 @@ const { finDeSemana, ultimoLunes, construirInforme, htmlInforme } = require('../
 
 const F7 = 1;
 const F11 = 2;
-const plantilla = (id, nombre, orden, idTipo) => ({ id, categoria: { id: id * 10, nombre, orden, id_tipofutbol: idTipo } });
+const LIGA_RFAF = { codigo_primaria: '1', codigo_grupo: '2', codigo_competicion: '3' };
+const plantilla = (id, nombre, orden, idTipo, codigos = LIGA_RFAF) => ({
+  id, ...codigos, categoria: { id: id * 10, nombre, orden, id_tipofutbol: idTipo }
+});
 // La BD guarda la hora española; Sequelize la devuelve como si fuera UTC.
 const partido = (id, idPlantilla, fecha, extra = {}) => ({
   id, id_plantilla: idPlantilla, jornada: 7, fecha: new Date(`${fecha}Z`), resultado: '2-1', suspendido: false,
@@ -40,7 +43,8 @@ describe('informeSemanal · construirInforme', () => {
       plantilla(2, 'Infantil A', 14, F11),
       plantilla(1, 'Benjamin A', 7, F7),
       plantilla(4, 'Alevin A', 11, F7),
-      plantilla(5, 'Bebe', 1, F7)
+      plantilla(5, 'Bebe', 1, F7, { codigo_primaria: '1', codigo_grupo: null, codigo_competicion: null }),
+      plantilla(6, 'Prebenjamin A', 4, F7)
     ]);
     Partido.findAll.mockResolvedValue([
       partido(10, 1, '2026-10-30T00:00:00'),
@@ -84,7 +88,8 @@ describe('informeSemanal · construirInforme', () => {
     const d = await construirInforme('2026-11-02');
     expect(d).toMatchObject({ lunes: '2026-11-02', desde: '2026-10-30', hasta: '2026-11-01', hayJornada: true });
     expect(d.bloques.map((b) => b.tipo)).toEqual(['Fútbol 7', 'Fútbol 11']);
-    expect(d.bloques[0].categorias.map((c) => c.categoria)).toEqual(['Bebe', 'Benjamin A', 'Alevin A']);
+    // Sin liga de RFAF configurada (Bebe) no sale.
+    expect(d.bloques[0].categorias.map((c) => c.categoria)).toEqual(['Prebenjamin A', 'Benjamin A', 'Alevin A']);
 
     const benjamin = d.bloques[0].categorias[1];
     expect(benjamin.partidos).toEqual([{
@@ -191,6 +196,14 @@ describe('informeSemanal · htmlInforme', () => {
     const { html } = htmlInforme(datos, { srcEscudo: (id) => (datos.escudos[id] ? `cid:escudo-${id}` : null) });
     expect(html).toContain('src="cid:escudo-1"');
     expect(html).not.toContain('cid:escudo-2');
+  });
+
+  it('cabecera de cada categoría con su nombre y la clasificación, sin línea aparte al final', () => {
+    const { html } = htmlInforme(datos);
+    const sinEtiquetas = html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
+    expect(sinEtiquetas).toContain('Benjamin A · 3º con 18 puntos (jornada 7)');
+    expect(sinEtiquetas).toContain('Alevin A · Sin clasificación');
+    expect(html).not.toContain('Clasificación:');
   });
 
   it('escapa los textos de la BD', () => {

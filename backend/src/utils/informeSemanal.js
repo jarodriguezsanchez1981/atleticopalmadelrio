@@ -81,12 +81,14 @@ async function construirInforme(lunes) {
   const bloques = [{ tipo: 'Fútbol 7', categorias: [] }, { tipo: 'Fútbol 11', categorias: [] }];
 
   const temporada = await Temporada.findOne({ where: { actual: true }, attributes: ['id'] });
+  // Solo las categorías que juegan liga: plantillas con su competición de RFAF
+  // configurada (como la copia de la clasificación). Bebé, p. ej., no sale.
   const plantillas = temporada
-    ? await Plantilla.findAll({
+    ? (await Plantilla.findAll({
       where: { id_temporada: temporada.id },
-      attributes: ['id', 'id_categoria'],
+      attributes: ['id', 'id_categoria', 'codigo_primaria', 'codigo_grupo', 'codigo_competicion'],
       include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'orden', 'id_tipofutbol'] }]
-    }) || []
+    }) || []).filter((p) => p.codigo_primaria && p.codigo_grupo && p.codigo_competicion)
     : [];
   const ids = plantillas.map((p) => p.id);
 
@@ -257,10 +259,11 @@ function htmlCategoria(c, srcEscudo) {
   const partidos = c.partidos.length
     ? c.partidos.map((p) => htmlPartido(p, srcEscudo)).join('')
     : '<p style="margin:0 0 6px;font-size:13px;color:#6b7280;">Sin partido</p>';
+  // Cabecera: la categoría y su clasificación ("Benjamin A · 3º con 18 puntos (jornada 7)").
   return `<div style="margin:0 0 16px;">
-    <h3 style="margin:0 0 6px;font-size:15px;color:${VERDE};">${escapar(c.categoria)}</h3>
+    <h3 style="margin:0 0 6px;font-size:15px;color:${VERDE};">${escapar(c.categoria)}`
+    + `<span style="font-weight:400;color:#374151;"> · ${textoPuesto(c.puesto)}</span></h3>
     ${partidos}
-    <p style="margin:0;font-size:13px;"><strong>Clasificación:</strong> ${textoPuesto(c.puesto)}</p>
   </div>`;
 }
 
