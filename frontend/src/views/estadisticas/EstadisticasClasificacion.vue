@@ -96,7 +96,8 @@ const etiquetas = {
 
 const opciones = computed(() => ({
   maintainAspectRatio: false,
-  layout: { padding: { top: 16 } },
+  // Margen arriba para la etiqueta del 1º (va encima del punto, en el borde de la gráfica).
+  layout: { padding: { top: 28 } },
   plugins: {
     legend: { display: false },
     tooltip: {
