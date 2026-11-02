@@ -72,10 +72,14 @@ describe('informeSemanal · construirInforme', () => {
       { id_partido: 10, id_jugador: 8, tipo: 'roja', minuto: 88 },
       { id_partido: 10, id_jugador: 7, tipo: 'amarilla', minuto: 40 }
     ]);
+    // Sanciones de la temporada de las plantillas (con su partido).
     Sancion.findAll.mockResolvedValue([
-      { id_partido: 10, amarilla: 1, roja: 0, jugador: { nombre: 'Ana', apellidos: 'López' } },
-      { id_partido: 11, amarilla: 2, roja: 0, jugador: { nombre: 'Eva', apellidos: 'Ruiz' } },
-      { id_partido: 11, amarilla: 0, roja: 0, jugador: { nombre: 'Sin', apellidos: 'Tarjeta' } }
+      { id_partido: 10, id_jugador: 7, amarilla: 1, roja: 0, partido: { id_plantilla: 1, jornada: 7 }, jugador: { nombre: 'Ana', apellidos: 'López' } },
+      { id_partido: 11, id_jugador: 9, amarilla: 2, roja: 0, partido: { id_plantilla: 2, jornada: 7 }, jugador: { nombre: 'Eva', apellidos: 'Ruiz' } },
+      { id_partido: 11, id_jugador: 10, amarilla: 0, roja: 0, partido: { id_plantilla: 2, jornada: 7 }, jugador: { nombre: 'Sin', apellidos: 'Tarjeta' } },
+      { id_partido: 50, id_jugador: 9, amarilla: 1, roja: 1, partido: { id_plantilla: 2, jornada: 3 }, jugador: { nombre: 'Eva', apellidos: 'Ruiz' } },
+      { id_partido: 51, id_jugador: 11, amarilla: 1, roja: 0, partido: { id_plantilla: 2, jornada: 4 }, jugador: { nombre: 'Leo', apellidos: 'Gil' } },
+      { id_partido: 52, id_jugador: 12, amarilla: 3, roja: 0, partido: { id_plantilla: 2, jornada: null }, jugador: { nombre: 'Amistoso', apellidos: 'X' } }
     ]);
   });
 
@@ -135,6 +139,86 @@ describe('informeSemanal · construirInforme', () => {
     const d = await construirInforme('2026-11-02');
     expect(d.hayJornada).toBe(false);
     expect(d.bloques.every((b) => b.categorias.length === 0)).toBe(true);
+  });
+});
+
+describe('informeSemanal · informe de Sanciones', () => {
+  const sancion = (idPartido, idJugador, nombre, amarilla, roja, jornada = 7, idPlantilla = 2) => ({
+    id_partido: idPartido, id_jugador: idJugador, amarilla, roja,
+    partido: { id_plantilla: idPlantilla, jornada }, jugador: { nombre, apellidos: 'X' }
+  });
+  beforeEach(() => {
+    for (const m of [Temporada, Plantilla, Partido, Clasificacion, Sancion, PartidoGol, PartidoGolContra, PartidoTarjeta, Jugador]) {
+      m.findAll.mockReset().mockResolvedValue([]);
+      m.findOne.mockReset();
+    }
+    Temporada.findOne.mockResolvedValue({ id: 3 });
+    Plantilla.findAll.mockResolvedValue([plantilla(1, 'Benjamin A', 7, F7), plantilla(2, 'Infantil A', 14, F11), plantilla(3, 'Cadete A', 17, F11)]);
+    Partido.findAll.mockResolvedValue([partido(10, 1, '2026-10-31T10:00:00'), partido(11, 2, '2026-11-01T12:00:00')]);
+    Jugador.findAll.mockResolvedValue([{ id: 9, nombre: 'Eva', apellidos: 'X' }]);
+    PartidoGol.findAll.mockResolvedValue([{ id_partido: 11, id_jugador: 9, minuto: 30, tipo: 'normal' }]);
+    PartidoTarjeta.findAll.mockResolvedValue([{ id_partido: 11, id_jugador: 9, tipo: 'roja', minuto: 60 }]);
+    // Partido 11 es el del fin de semana de Infantil A.
+    Sancion.findAll.mockResolvedValue([
+      sancion(11, 9, 'Eva', 0, 1), // roja este fin de semana
+      sancion(11, 11, 'Leo', 1, 0), // 5ª amarilla este fin de semana
+      sancion(51, 11, 'Leo', 4, 0, 4),
+      sancion(52, 20, 'Ana', 4, 0, 5), // 4 amarillas: a una del ciclo
+      sancion(53, 21, 'Rui', 5, 0, 5), // 5 amarillas, pero no este fin de semana
+      sancion(54, 22, 'Sol', 9, 0, 6), // 9: a una del segundo ciclo
+      sancion(55, 12, 'Amistoso', 4, 0, null)
+    ]);
+  });
+
+  it('solo Fútbol 11, partidos solo con sus tarjetas y tabla de sanciones de la temporada (liga)', async () => {
+    const d = await construirInforme('2026-11-02', 'sanciones');
+    expect(d.tipo).toBe('sanciones');
+    expect(d.bloques.map((b) => b.tipo)).toEqual(['Fútbol 11']);
+    expect(d.bloques[0].categorias.map((c) => c.categoria)).toEqual(['Infantil A', 'Cadete A']);
+    const infantil = d.bloques[0].categorias[0];
+    expect(infantil.partidos[0].eventos).toEqual([{ minuto: 60, tipo: 'roja', jugador: 'Eva X' }]);
+    // De más a menos tarjetas; los partidos sin jornada (amistosos) no cuentan.
+    expect(infantil.sancionesTemporada).toEqual([
+      { jugador: 'Sol X', amarillas: 9, rojas: 0, total: 9 },
+      { jugador: 'Leo X', amarillas: 5, rojas: 0, total: 5 },
+      { jugador: 'Rui X', amarillas: 5, rojas: 0, total: 5 },
+      { jugador: 'Ana X', amarillas: 4, rojas: 0, total: 4 },
+      { jugador: 'Eva X', amarillas: 0, rojas: 1, total: 1 }
+    ]);
+    expect(d.bloques[0].categorias[1]).toMatchObject({ partidos: [], sancionesTemporada: [] });
+    expect(d.hayJornada).toBe(true);
+  });
+
+  it('alertas: a una amarilla del ciclo de 5, ciclo cumplido este fin de semana y roja este fin de semana', async () => {
+    const d = await construirInforme('2026-11-02', 'sanciones');
+    const { alertas } = d.bloques[0].categorias[0];
+    expect(alertas.posibleSancion.map((f) => f.jugador)).toEqual(['Sol X', 'Ana X']);
+    expect(alertas.partidoSancion.map((f) => f.jugador)).toEqual(['Leo X']);
+    expect(alertas.tarjetaRoja.map((f) => f.jugador)).toEqual(['Eva X']);
+    expect(d.bloques[0].categorias[1].alertas).toEqual({ posibleSancion: [], partidoSancion: [], tarjetaRoja: [] });
+  });
+
+  it('hayJornada solo con partidos de Fútbol 11', async () => {
+    Partido.findAll.mockResolvedValue([partido(10, 1, '2026-10-31T10:00:00')]);
+    expect((await construirInforme('2026-11-02', 'sanciones')).hayJornada).toBe(false);
+  });
+
+  it('HTML: asunto, tablas de la temporada y de alertas (solo si tienen jugadores), sin clasificación ni goles', async () => {
+    const d = await construirInforme('2026-11-02', 'sanciones');
+    const { asunto, html } = htmlInforme(d);
+    expect(asunto).toBe('Informe de sanciones · fin de semana del 30/10/2026');
+    const texto = html.replace(/<[^>]+>/g, '|').replace(/\s+/g, ' ');
+    expect(texto).toContain('Informe de sanciones');
+    expect(texto).toContain('Sanciones de la temporada');
+    expect(texto).toMatch(/Leo X\|[| ]*5\|[| ]*0\|[| ]*5\|/);
+    expect(texto).toContain('Sin tarjetas en la temporada');
+    for (const titulo of ['Jugador Ante Posible Sanción', 'Jugador con Partido de Sanción', 'Jugador Sanción Tarjeta Roja']) {
+      // Solo en Infantil A (Cadete A no tiene a nadie).
+      expect(texto.split(titulo).length - 1, titulo).toBe(1);
+    }
+    expect(texto).not.toContain('Fútbol 7');
+    expect(texto).not.toContain('Sin clasificación');
+    expect(texto).not.toContain('⚽');
   });
 });
 

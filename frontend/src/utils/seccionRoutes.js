@@ -20,6 +20,7 @@ export const RUTA_POR_SECCION = {
   personal: '/personal',
   generar_torneo: '/generar-torneo',
   informe_semanal: '/informes/semanal',
+  informe_sanciones: '/informes/sanciones',
   tipo_personal: '/tipo-personal',
   coordinadores: '/coordinadores',
   categorias: '/categorias',

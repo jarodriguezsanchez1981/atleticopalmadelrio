@@ -32,6 +32,7 @@ const SECCIONES = [
   // submenú "Informes" de Club agrupa las secciones con grupo 'informes'.
   { clave: 'informes', nombre: 'Informes', icono: 'pi pi-file', orden: 98, grupo: null },
   { clave: 'informe_semanal', nombre: 'Semanal', icono: 'pi pi-calendar', orden: 10, grupo: 'informes' },
+  { clave: 'informe_sanciones', nombre: 'Informe Sanciones', icono: 'pi pi-ban', orden: 20, grupo: 'informes' },
   // Estadísticas (solo de la plantilla Senior A): una sección por tabla, en su
   // propio apartado del menú.
   { clave: 'estadisticas_convocatorias', nombre: 'Estadísticas Senior A Convocatorias', icono: 'pi pi-list-check', orden: 96, grupo: 'estadisticas' },

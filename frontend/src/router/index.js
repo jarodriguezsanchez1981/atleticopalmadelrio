@@ -107,6 +107,13 @@ const routes = [
         meta: { seccion: 'informe_semanal' }
       },
       {
+        path: 'informes/sanciones',
+        name: 'informe_sanciones',
+        component: () => import('../views/informes/InformeSemanal.vue'),
+        props: { tipo: 'sanciones' },
+        meta: { seccion: 'informe_sanciones' }
+      },
+      {
         path: 'generar-torneo',
         name: 'generar_torneo',
         component: () => import('../views/generarTorneo/GenerarTorneo.vue'),
