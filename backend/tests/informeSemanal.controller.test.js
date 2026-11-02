@@ -11,7 +11,9 @@ const ctrl = require('../src/controllers/informeSemanal.controller.js');
 
 const conJornada = () => {
   Temporada.findOne.mockResolvedValue({ id: 3 });
-  Plantilla.findAll.mockResolvedValue([{ id: 1, categoria: { nombre: 'Benjamin A', orden: 7, id_tipofutbol: 1 } }]);
+  Plantilla.findAll.mockResolvedValue([{
+    id: 1, codigo_primaria: '1', codigo_grupo: '2', codigo_competicion: '3', categoria: { nombre: 'Benjamin A', orden: 7, id_tipofutbol: 1 }
+  }]);
   Partido.findAll.mockResolvedValue([{
     id: 10, id_plantilla: 1, jornada: 7, fecha: new Date('2026-10-31T10:00:00Z'), resultado: '2-1', suspendido: false,
     equipoLocal: { id: 1, nombre: 'A', escudo: 'data:image/png;base64,UEFMTUE=' }, equipoVisitante: { id: 2, nombre: 'B', escudo: null }
