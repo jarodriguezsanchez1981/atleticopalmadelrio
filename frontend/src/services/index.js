@@ -96,13 +96,16 @@ export const promocionesService = {
 };
 export const torneosService = crudService('torneos');
 export const torneosGeneradosService = crudService('torneos-generados');
-// Informes → Semanal: vista previa del email, historial y envío manual (solo en el servidor).
-export const informeSemanalService = {
-  vista: (lunes) => api.get('/informe-semanal', { params: lunes ? { lunes } : {} }).then(r => r.data),
-  historial: () => api.get('/informe-semanal/historial').then(r => r.data),
-  enviar: (lunes) => api.post('/informe-semanal/enviar', { lunes }).then(r => r.data),
-  guardarDestinatarios: (ids) => api.put('/informe-semanal/destinatarios', { ids }).then(r => r.data)
-};
+// Informes → Semanal / Sanciones: vista previa del email, destinatarios,
+// historial y envío manual (solo en el servidor).
+const informeService = (ruta) => ({
+  vista: (lunes) => api.get(`/${ruta}`, { params: lunes ? { lunes } : {} }).then(r => r.data),
+  historial: () => api.get(`/${ruta}/historial`).then(r => r.data),
+  enviar: (lunes) => api.post(`/${ruta}/enviar`, { lunes }).then(r => r.data),
+  guardarDestinatarios: (ids) => api.put(`/${ruta}/destinatarios`, { ids }).then(r => r.data)
+});
+export const informeSemanalService = informeService('informe-semanal');
+export const informeSancionesService = informeService('informe-sanciones');
 export const estadisticasService = {
   listar: (params = {}) => api.get('/estadisticas', { params }).then(r => r.data),
   equipo: (params = {}) => api.get('/estadisticas/equipo', { params }).then(r => r.data),

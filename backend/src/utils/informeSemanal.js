@@ -13,11 +13,23 @@ const { partesEspana } = require('./horaEspana');
  * del viernes al domingo anteriores. Solo usa datos de la BD (nada de rfaf.es).
  * Los destinatarios se eligen en la pantalla entre los usuarios activos con
  * email (tabla `informe_semanal_destinatarios`).
+ *
+ * Informe de Sanciones (Informes → Sanciones, `tipo` 'sanciones'): igual,
+ * pero solo de Fútbol 11, con solo las tarjetas de cada partido y, debajo, la
+ * tabla de sanciones de la temporada de cada plantilla. Se envía desde
+ * sanciones@ con sus propios destinatarios e historial (columna `tipo`).
  */
 
-const REMITENTE = 'notificaciones@atleticopalmadelrio.com';
+const TIPOS = {
+  semanal: { remitente: 'notificaciones@atleticopalmadelrio.com', titulo: 'Informe semanal' },
+  sanciones: { remitente: 'sanciones@atleticopalmadelrio.com', titulo: 'Informe de sanciones' }
+};
+const REMITENTE = TIPOS.semanal.remitente;
+const tipoValido = (tipo) => (TIPOS[tipo] ? tipo : 'semanal');
 
 const FUTBOL_7 = 1;
+// Amarillas que hacen un ciclo (partido de sanción al cumplirlo).
+const CICLO_AMARILLAS = 5;
 const VERDE = '#0B3D2E';
 
 const dosCifras = (n) => String(n).padStart(2, '0');
@@ -71,14 +83,17 @@ function esLunes(texto) {
   return f.toISOString().slice(0, 10) === texto && f.getUTCDay() === 1;
 }
 
-/** Datos del informe del fin de semana del lunes `lunes`. */
-async function construirInforme(lunes) {
+/** Datos del informe (`tipo` 'semanal' o 'sanciones') del fin de semana del lunes `lunes`. */
+async function construirInforme(lunes, tipo = 'semanal') {
+  const esSanciones = tipoValido(tipo) === 'sanciones';
   const {
     Temporada, Plantilla, Categoria, Partido, Equipo, Clasificacion, Sancion, Jugador,
     PartidoGol, PartidoGolContra, PartidoTarjeta
   } = require('../models');
   const { desde, hasta } = finDeSemana(lunes);
-  const bloques = [{ tipo: 'Fútbol 7', categorias: [] }, { tipo: 'Fútbol 11', categorias: [] }];
+  const bloques = esSanciones
+    ? [{ tipo: 'Fútbol 11', categorias: [] }]
+    : [{ tipo: 'Fútbol 7', categorias: [] }, { tipo: 'Fútbol 11', categorias: [] }];
 
   const temporada = await Temporada.findOne({ where: { actual: true }, attributes: ['id'] });
   // Solo las categorías que juegan liga: plantillas con su competición de RFAF
@@ -88,9 +103,12 @@ async function construirInforme(lunes) {
       where: { id_temporada: temporada.id },
       attributes: ['id', 'id_categoria', 'codigo_primaria', 'codigo_grupo', 'codigo_competicion'],
       include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'orden', 'id_tipofutbol'] }]
-    }) || []).filter((p) => p.codigo_primaria && p.codigo_grupo && p.codigo_competicion)
+    }) || []).filter((p) => p.codigo_primaria && p.codigo_grupo && p.codigo_competicion
+      // El de Sanciones, solo Fútbol 11.
+      && (!esSanciones || Number(p.categoria?.id_tipofutbol) !== FUTBOL_7))
     : [];
   const ids = plantillas.map((p) => p.id);
+  const idsSet = new Set(ids);
 
   // Partidos de liga (con jornada) cuyo día está entre el viernes y el domingo.
   const partidos = ids.length
@@ -102,7 +120,8 @@ async function construirInforme(lunes) {
         { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo'] }
       ],
       order: [['fecha', 'ASC']]
-    }) || []).filter((p) => Number(p.jornada) > 0 && diaPartido(p.fecha) >= desde && diaPartido(p.fecha) <= hasta)
+    }) || []).filter((p) => idsSet.has(p.id_plantilla) && Number(p.jornada) > 0
+      && diaPartido(p.fecha) >= desde && diaPartido(p.fecha) <= hasta)
     : [];
 
   // Puesto del PALMA: su fila en la jornada más alta copiada de cada plantilla.
@@ -125,18 +144,25 @@ async function construirInforme(lunes) {
   // jugador; del rival, solo el minuto (no está en la BD). Si un partido no
   // tiene tarjetas en el acta, salen las de la tabla Sanciones, sin minuto.
   const idsPartidos = partidos.map((p) => p.id);
-  const [goles, golesContra, tarjetas, sanciones] = idsPartidos.length
+  const [goles, golesContra, tarjetas] = idsPartidos.length
     ? await Promise.all([
       PartidoGol.findAll({ where: { id_partido: idsPartidos }, attributes: ['id_partido', 'id_jugador', 'minuto', 'tipo'] }),
       PartidoGolContra.findAll({ where: { id_partido: idsPartidos }, attributes: ['id_partido', 'minuto', 'tipo', 'propia'] }),
-      PartidoTarjeta.findAll({ where: { id_partido: idsPartidos }, attributes: ['id_partido', 'id_jugador', 'tipo', 'minuto'] }),
-      Sancion.findAll({
-        where: { id_partido: idsPartidos },
-        attributes: ['id_partido', 'amarilla', 'roja'],
-        include: [{ model: Jugador, as: 'jugador', attributes: ['nombre', 'apellidos'] }]
-      })
+      PartidoTarjeta.findAll({ where: { id_partido: idsPartidos }, attributes: ['id_partido', 'id_jugador', 'tipo', 'minuto'] })
     ]).then((r) => r.map((x) => x || []))
-    : [[], [], [], []];
+    : [[], [], []];
+  // Tabla Sanciones de las plantillas en la temporada (con su partido): para
+  // las tarjetas de un partido sin minutos en el acta y, en el informe de
+  // Sanciones, para la tabla de la temporada.
+  const sanciones = ids.length
+    ? await Sancion.findAll({
+      attributes: ['id_partido', 'id_jugador', 'amarilla', 'roja'],
+      include: [
+        { model: Partido, as: 'partido', attributes: ['id', 'id_plantilla', 'jornada'], where: { id_plantilla: ids } },
+        { model: Jugador, as: 'jugador', attributes: ['nombre', 'apellidos'] }
+      ]
+    }) || []
+    : [];
   const idsJugadores = [...new Set([...goles, ...tarjetas].map((x) => x.id_jugador).filter(Boolean))];
   const jugadores = idsJugadores.length
     ? await Jugador.findAll({ where: { id: idsJugadores }, attributes: ['id', 'nombre', 'apellidos'] }) || []
@@ -164,7 +190,46 @@ async function construirInforme(lunes) {
         ];
       });
     }
-    return [...golesPalma, ...golesRival, ...tarjetasPartido].sort(porMinuto);
+    // En el de Sanciones, solo las tarjetas.
+    return (esSanciones ? tarjetasPartido : [...golesPalma, ...golesRival, ...tarjetasPartido]).sort(porMinuto);
+  };
+
+  /** Tarjetas de la plantilla en la temporada (partidos de liga) por jugador,
+   * de más a menos, y alertas del informe de Sanciones: a una amarilla de
+   * cumplir ciclo (4, 9, 14…: posible sanción), ciclo cumplido con las de este
+   * fin de semana (5, 10…: partido de sanción) y roja este fin de semana.
+   * `idsFinde`: los partidos del fin de semana de esa plantilla. */
+  const resumenSanciones = (idPlantilla, idsFinde) => {
+    const porJugador = new Map();
+    for (const sa of sanciones) {
+      if (sa.partido?.id_plantilla !== idPlantilla || !(Number(sa.partido?.jornada) > 0)) continue;
+      const amarillas = Number(sa.amarilla) || 0;
+      const rojas = Number(sa.roja) || 0;
+      if (!amarillas && !rojas) continue;
+      const clave = sa.id_jugador ?? nombreJugador(sa.jugador);
+      const fila = porJugador.get(clave)
+        || { jugador: nombreJugador(sa.jugador), amarillas: 0, rojas: 0, total: 0, amarillasFinde: 0, rojasFinde: 0 };
+      fila.amarillas += amarillas;
+      fila.rojas += rojas;
+      fila.total += amarillas + rojas;
+      if (idsFinde.has(sa.id_partido)) {
+        fila.amarillasFinde += amarillas;
+        fila.rojasFinde += rojas;
+      }
+      porJugador.set(clave, fila);
+    }
+    const filas = [...porJugador.values()].sort((a, b) => b.total - a.total || b.rojas - a.rojas
+      || a.jugador.localeCompare(b.jugador, 'es'));
+    const publica = ({ jugador, amarillas, rojas, total }) => ({ jugador, amarillas, rojas, total });
+    const cumpleCiclo = (f) => Math.floor(f.amarillas / CICLO_AMARILLAS) > Math.floor((f.amarillas - f.amarillasFinde) / CICLO_AMARILLAS);
+    return {
+      tabla: filas.map(publica),
+      alertas: {
+        posibleSancion: filas.filter((f) => f.amarillas % CICLO_AMARILLAS === CICLO_AMARILLAS - 1).map(publica),
+        partidoSancion: filas.filter(cumpleCiclo).map(publica),
+        tarjetaRoja: filas.filter((f) => f.rojasFinde > 0).map(publica)
+      }
+    };
   };
 
   // Escudos (data URL) de los equipos que salen, por id.
@@ -176,7 +241,7 @@ async function construirInforme(lunes) {
   const ordenadas = [...plantillas].sort((a, b) => (a.categoria?.orden ?? 0) - (b.categoria?.orden ?? 0));
   for (const p of ordenadas) {
     const suyos = partidos.filter((x) => x.id_plantilla === p.id);
-    const bloque = Number(p.categoria?.id_tipofutbol) === FUTBOL_7 ? bloques[0] : bloques[1];
+    const bloque = esSanciones || Number(p.categoria?.id_tipofutbol) !== FUTBOL_7 ? bloques[bloques.length - 1] : bloques[0];
     bloque.categorias.push({
       categoria: p.categoria?.nombre || '',
       partidos: suyos.map((x) => ({
@@ -191,11 +256,15 @@ async function construirInforme(lunes) {
         golesVisitante: golesResultado(x.resultado)?.visitante ?? null,
         eventos: eventosDe(x)
       })),
-      puesto: puestos.get(p.id) || null
+      puesto: puestos.get(p.id) || null,
+      ...(esSanciones ? (() => {
+        const { tabla, alertas } = resumenSanciones(p.id, new Set(suyos.map((x) => x.id)));
+        return { sancionesTemporada: tabla, alertas };
+      })() : {})
     });
   }
 
-  return { lunes, desde, hasta, hayJornada: partidos.length > 0, escudos, bloques };
+  return { tipo: esSanciones ? 'sanciones' : 'semanal', lunes, desde, hasta, hayJornada: partidos.length > 0, escudos, bloques };
 }
 
 const escapar = (v) => String(v ?? '')
@@ -255,15 +324,54 @@ function htmlPartido(p, srcEscudo) {
   </table>`;
 }
 
-function htmlCategoria(c, srcEscudo) {
+/** Informe de Sanciones: una tabla de jugadores con sus tarjetas en la temporada. */
+function htmlTablaSanciones(titulo, filas, color = VERDE) {
+  const celda = 'padding:3px 8px;border-bottom:1px solid #e5e7eb;';
+  const numero = `${celda}text-align:center;width:70px;`;
+  const cuerpo = filas.length
+    ? filas.map((f) => `<tr>
+        <td style="${celda}">${escapar(f.jugador)}</td>
+        <td style="${numero}">${f.amarillas}</td>
+        <td style="${numero}">${f.rojas}</td>
+        <td style="${numero}font-weight:700;">${f.total}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" style="${celda}color:#6b7280;">Sin tarjetas en la temporada</td></tr>`;
+  return `<p style="margin:8px 0 4px;font-size:13px;font-weight:700;color:${color};">${titulo}</p>
+    <table style="border-collapse:collapse;width:100%;font-size:13px;margin:0 0 4px;">
+      <tr style="background:#cfe2d6;color:#0f3d22;">
+        <th style="${celda}text-align:left;">Jugador</th>
+        <th style="${numero}">${cuadroTarjeta('amarilla')} Amarillas</th>
+        <th style="${numero}">${cuadroTarjeta('roja')} Rojas</th>
+        <th style="${numero}">Total</th>
+      </tr>
+      ${cuerpo}
+    </table>`;
+}
+
+// Tablas de alertas del informe de Sanciones (solo salen si tienen jugadores).
+const ALERTAS = [
+  { clave: 'posibleSancion', titulo: 'Jugador Ante Posible Sanción', color: '#A07800' },
+  { clave: 'partidoSancion', titulo: 'Jugador con Partido de Sanción', color: '#7A2436' },
+  { clave: 'tarjetaRoja', titulo: 'Jugador Sanción Tarjeta Roja', color: '#dc2626' }
+];
+
+function htmlSancionesCategoria(c) {
+  return htmlTablaSanciones('Sanciones de la temporada', c.sancionesTemporada || [])
+    + ALERTAS.filter((a) => c.alertas?.[a.clave]?.length)
+      .map((a) => htmlTablaSanciones(a.titulo, c.alertas[a.clave], a.color)).join('');
+}
+
+function htmlCategoria(c, srcEscudo, esSanciones) {
   const partidos = c.partidos.length
     ? c.partidos.map((p) => htmlPartido(p, srcEscudo)).join('')
     : '<p style="margin:0 0 6px;font-size:13px;color:#6b7280;">Sin partido</p>';
-  // Cabecera: la categoría y su clasificación ("Benjamin A · 3º con 18 puntos (jornada 7)").
+  // Cabecera: la categoría y su clasificación ("Benjamin A · 3º con 18 puntos
+  // (jornada 7)"); en el de Sanciones, solo la categoría.
+  const puesto = esSanciones ? '' : `<span style="font-weight:400;color:#374151;"> · ${textoPuesto(c.puesto)}</span>`;
   return `<div style="margin:0 0 16px;">
-    <h3 style="margin:0 0 6px;font-size:15px;color:${VERDE};">${escapar(c.categoria)}`
-    + `<span style="font-weight:400;color:#374151;"> · ${textoPuesto(c.puesto)}</span></h3>
+    <h3 style="margin:0 0 6px;font-size:15px;color:${VERDE};">${escapar(c.categoria)}${puesto}</h3>
     ${partidos}
+    ${esSanciones ? htmlSancionesCategoria(c) : ''}
   </div>`;
 }
 
@@ -274,12 +382,14 @@ function htmlCategoria(c, srcEscudo) {
  * `cid:` de la imagen adjunta.
  */
 function htmlInforme(datos, { srcEscudo = (id) => datos.escudos?.[id] || null } = {}) {
-  const asunto = `Informe semanal · fin de semana del ${formatoDia(datos.desde)}`;
+  const esSanciones = datos.tipo === 'sanciones';
+  const { titulo } = TIPOS[tipoValido(datos.tipo)];
+  const asunto = `${titulo} · fin de semana del ${formatoDia(datos.desde)}`;
   const cuerpo = datos.bloques.filter((b) => b.categorias.length).map((b) => `
     <h2 style="margin:20px 0 8px;padding:6px 10px;font-size:17px;color:#fff;background:${VERDE};border-radius:6px;">${b.tipo}</h2>
-    ${b.categorias.map((c) => htmlCategoria(c, srcEscudo)).join('')}`).join('');
+    ${b.categorias.map((c) => htmlCategoria(c, srcEscudo, esSanciones)).join('')}`).join('');
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;color:#111827;max-width:720px;">
-    <h1 style="margin:0 0 4px;font-size:20px;color:${VERDE};">Informe semanal</h1>
+    <h1 style="margin:0 0 4px;font-size:20px;color:${VERDE};">${titulo}</h1>
     <p style="margin:0 0 12px;color:#4b5563;">Partidos del fin de semana del ${formatoDia(datos.desde)} al ${formatoDia(datos.hasta)}.</p>
     ${cuerpo || '<p>No hay categorías en la temporada actual.</p>'}
   </div>`;
@@ -300,10 +410,11 @@ async function usuariosConEmail() {
   return usuarios.filter(conEmail).map(datosUsuario);
 }
 
-/** Destinatarios elegidos que siguen activos y con email. */
-async function listaDestinatarios() {
+/** Destinatarios elegidos de un informe que siguen activos y con email. */
+async function listaDestinatarios(tipo = 'semanal') {
   const { InformeSemanalDestinatario, Usuario } = require('../models');
   const filas = await InformeSemanalDestinatario.findAll({
+    where: { tipo: tipoValido(tipo) },
     include: [{ model: Usuario, as: 'usuario', attributes: ['id', 'nombre', 'apellidos', 'email', 'activo'] }],
     order: [['id', 'ASC']]
   }) || [];
@@ -316,17 +427,18 @@ async function listaDestinatarios() {
  * o con el error). Sin destinatarios no envía (queda apuntado). No lanza si
  * falla el correo: devuelve la fila con `correcto: false`.
  */
-async function enviarInforme({ lunes, automatico, idUsuario = null }) {
+async function enviarInforme({ lunes, automatico, idUsuario = null, tipo = 'semanal' }) {
   const { InformeSemanal } = require('../models');
   const { enviarDesde } = require('./mailer');
   const { decodificarDataUrl } = require('./imagenes');
-  const to = (await listaDestinatarios()).map((d) => d.email).join(', ');
+  tipo = tipoValido(tipo);
+  const to = (await listaDestinatarios(tipo)).map((d) => d.email).join(', ');
   if (!to) {
     return InformeSemanal.create({
-      lunes, automatico: !!automatico, correcto: false, error: 'No hay destinatarios elegidos.', destinatarios: '', id_usuario: idUsuario
+      tipo, lunes, automatico: !!automatico, correcto: false, error: 'No hay destinatarios elegidos.', destinatarios: '', id_usuario: idUsuario
     });
   }
-  const datos = await construirInforme(lunes);
+  const datos = await construirInforme(lunes, tipo);
   // Escudos como imágenes adjuntas (cid): los clientes de correo bloquean las data URL.
   const attachments = [];
   for (const [id, valor] of Object.entries(datos.escudos || {})) {
@@ -339,12 +451,12 @@ async function enviarInforme({ lunes, automatico, idUsuario = null }) {
   const { asunto, html } = htmlInforme(datos, { srcEscudo: (id) => (conCid.has(`escudo-${id}`) ? `cid:escudo-${id}` : null) });
   let error = null;
   try {
-    await enviarDesde(REMITENTE, { to, subject: asunto, html, attachments });
+    await enviarDesde(TIPOS[tipo].remitente, { to, subject: asunto, html, attachments });
   } catch (err) {
     error = err.message || 'No se pudo enviar el email.';
   }
   return InformeSemanal.create({
-    lunes, automatico: !!automatico, correcto: !error, error, destinatarios: to, id_usuario: idUsuario
+    tipo, lunes, automatico: !!automatico, correcto: !error, error, destinatarios: to, id_usuario: idUsuario
   });
 }
 
@@ -353,15 +465,16 @@ async function enviarInforme({ lunes, automatico, idUsuario = null }) {
  * ese fin de semana hubo jornada y aún no se ha enviado bien (p. ej. a mano).
  * Devuelve la fila del envío o null si no tocaba enviar.
  */
-async function enviarAutomatico(ahora = new Date()) {
+async function enviarAutomatico(ahora = new Date(), tipo = 'semanal') {
   const { InformeSemanal } = require('../models');
+  tipo = tipoValido(tipo);
   const lunes = ultimoLunes(ahora);
-  const yaEnviado = await InformeSemanal.findOne({ where: { lunes, correcto: true }, attributes: ['id'] });
+  const yaEnviado = await InformeSemanal.findOne({ where: { tipo, lunes, correcto: true }, attributes: ['id'] });
   if (yaEnviado) return null;
-  if (!(await construirInforme(lunes)).hayJornada) return null;
-  return enviarInforme({ lunes, automatico: true });
+  if (!(await construirInforme(lunes, tipo)).hayJornada) return null;
+  return enviarInforme({ lunes, automatico: true, tipo });
 }
 
 module.exports = {
-  REMITENTE, finDeSemana, usuariosConEmail, listaDestinatarios, ultimoLunes, esLunes, construirInforme, htmlInforme, enviarInforme, enviarAutomatico
+  TIPOS, REMITENTE, finDeSemana, usuariosConEmail, listaDestinatarios, ultimoLunes, esLunes, construirInforme, htmlInforme, enviarInforme, enviarAutomatico
 };

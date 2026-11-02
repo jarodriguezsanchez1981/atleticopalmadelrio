@@ -92,8 +92,21 @@ describe('Informe semanal · envío', () => {
     conJornada();
     InformeSemanal.findOne.mockResolvedValue({ id: 7, correcto: true });
     expect(await informe.enviarAutomatico(new Date('2026-11-02T09:00:00Z'))).toBeNull();
-    expect(InformeSemanal.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { lunes: '2026-11-02', correcto: true } }));
+    expect(InformeSemanal.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { tipo: 'semanal', lunes: '2026-11-02', correcto: true } }));
     expect(mailer.enviarDesde).not.toHaveBeenCalled();
+  });
+
+  it('informe de Sanciones: desde sanciones@, a sus destinatarios, con su tipo', async () => {
+    conJornada();
+    Plantilla.findAll.mockResolvedValue([{
+      id: 1, codigo_primaria: '1', codigo_grupo: '2', codigo_competicion: '3', categoria: { nombre: 'Infantil A', orden: 14, id_tipofutbol: 2 }
+    }]);
+    const fila = await informe.enviarInforme({ lunes: '2026-11-02', automatico: true, tipo: 'sanciones' });
+    expect(InformeSemanalDestinatario.findAll).toHaveBeenCalledWith(expect.objectContaining({ where: { tipo: 'sanciones' } }));
+    expect(mailer.enviarDesde).toHaveBeenCalledWith('sanciones@atleticopalmadelrio.com', expect.objectContaining({
+      subject: 'Informe de sanciones · fin de semana del 30/10/2026'
+    }));
+    expect(fila).toMatchObject({ tipo: 'sanciones', correcto: true });
   });
 
   it('enviarAutomatico envía como automático', async () => {
@@ -131,7 +144,9 @@ describe('Informe semanal · envío', () => {
     InformeSemanal.findAll.mockResolvedValue([{ id: 2 }, { id: 1 }]);
     const res = await llamar(ctrl.historial, {});
     expect(res._json).toEqual([{ id: 2 }, { id: 1 }]);
-    expect(InformeSemanal.findAll).toHaveBeenCalledWith(expect.objectContaining({ order: [['created_at', 'DESC'], ['id', 'DESC']], limit: 50 }));
+    expect(InformeSemanal.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: { tipo: 'semanal' }, order: [['created_at', 'DESC'], ['id', 'DESC']], limit: 50
+    }));
   });
 
   it('enviar: 403 en local', async () => {
@@ -166,8 +181,9 @@ describe('Informe semanal · envío', () => {
     Usuario.findAll.mockResolvedValue([ANA, LUIS]);
     const res = await llamar(ctrl.guardarDestinatarios, { body: { ids: [5, 4, 5] } });
     expect(res._status).toBe(200);
-    expect(InformeSemanalDestinatario.destroy).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
-    expect(InformeSemanalDestinatario.bulkCreate).toHaveBeenCalledWith([{ id_usuario: 5 }, { id_usuario: 4 }], expect.anything());
+    expect(InformeSemanalDestinatario.destroy).toHaveBeenCalledWith(expect.objectContaining({ where: { tipo: 'semanal' } }));
+    expect(InformeSemanalDestinatario.bulkCreate).toHaveBeenCalledWith(
+      [{ tipo: 'semanal', id_usuario: 5 }, { tipo: 'semanal', id_usuario: 4 }], expect.anything());
   });
 
   it('guardarDestinatarios: 400 si algún usuario no existe o no tiene email', async () => {
@@ -184,6 +200,19 @@ describe('Informe semanal · envío', () => {
     const res = await llamar(ctrl.guardarDestinatarios, { body: { ids: [] } });
     expect(res._status).toBe(200);
     expect(InformeSemanalDestinatario.bulkCreate).not.toHaveBeenCalled();
+  });
+
+  it('controlador de Sanciones: remitente sanciones@ y destinatarios e historial de su tipo', async () => {
+    conJornada();
+    Plantilla.findAll.mockResolvedValue([{
+      id: 1, codigo_primaria: '1', codigo_grupo: '2', codigo_competicion: '3', categoria: { nombre: 'Infantil A', orden: 14, id_tipofutbol: 2 }
+    }]);
+    const sanciones = ctrl.crearControlador('sanciones');
+    const res = await llamar(sanciones.vista, { query: { lunes: '2026-11-02' } });
+    expect(res._json).toMatchObject({ remitente: 'sanciones@atleticopalmadelrio.com', asunto: 'Informe de sanciones · fin de semana del 30/10/2026' });
+    expect(InformeSemanalDestinatario.findAll).toHaveBeenCalledWith(expect.objectContaining({ where: { tipo: 'sanciones' } }));
+    await llamar(sanciones.historial, {});
+    expect(InformeSemanal.findAll).toHaveBeenCalledWith(expect.objectContaining({ where: { tipo: 'sanciones' } }));
   });
 
   it('enviar: en producción envía a mano con el usuario', async () => {

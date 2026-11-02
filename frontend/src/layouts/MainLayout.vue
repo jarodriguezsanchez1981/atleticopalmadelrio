@@ -87,9 +87,11 @@ function itemsDelGrupo(clave) {
 }
 
 /** En los apartados de Estadísticas sobra repetir "Estadísticas": "Estadísticas
- * Senior A Equipo" -> "Equipo", "Estadísticas Convocatorias" -> "Convocatorias"
- * (en Administración y demás sigue el nombre completo). */
+ * Senior A Equipo" -> "Equipo", "Estadísticas Convocatorias" -> "Convocatorias";
+ * y en el submenú Informes, "Informe": "Informe Sanciones" -> "Sanciones" (en
+ * Administración y demás sigue el nombre completo). */
 function etiquetaEnGrupo(nombre, grupo) {
+  if (grupo === 'informes') return String(nombre || '').replace(/^Informe\s+/i, '') || nombre;
   if (grupo !== 'estadisticas' && grupo !== 'estadisticas_cat') return nombre;
   return String(nombre || '').replace(/^Estad[íi]sticas(\s+Senior\s+A)?\s+/i, '') || nombre;
 }
