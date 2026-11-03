@@ -205,7 +205,7 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
     });
   });
 
-  describe('recuperación cada 30 minutos', () => {
+  describe('recuperación cada 10 minutos', () => {
     const log = { log: vi.fn(), warn: vi.fn() };
     const req = createRequire(import.meta.url);
     const ligaCjs = req('../src/controllers/liga.controller.js');
