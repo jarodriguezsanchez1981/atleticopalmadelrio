@@ -13,6 +13,7 @@ import PestanasLado from '../../components/PestanasLado.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
+import { nombreJugadorActa } from '../../utils/nombreActa';
 import { METRICAS_GOLES_RIVALES, METRICAS_SANCIONES } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, construirHojaSimple, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 
@@ -66,12 +67,7 @@ const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
 
-/** "GARCIA LOPEZ, JUAN" (como viene en el acta) -> "Juan Garcia Lopez". */
-function nombreJugador(nombre) {
-  const [apellidos, nombrePila] = String(nombre || '').split(',').map((t) => t.trim());
-  const capitalizar = (t) => t.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
-  return capitalizar(nombrePila ? `${nombrePila} ${apellidos}` : apellidos || '');
-}
+const nombreJugador = nombreJugadorActa;
 
 const COLUMNA_EQUIPO = { campo: 'equipo', titulo: 'Equipo' };
 const LADOS_TABLA = [

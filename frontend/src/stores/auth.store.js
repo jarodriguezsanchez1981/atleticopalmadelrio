@@ -34,7 +34,8 @@ const SECCIONES_SOLO_CATEGORIA_ESTADISTICAS = [
   'estadisticas_goles',
   'estadisticas_sanciones',
   'estadisticas_clasificacion',
-  'estadisticas_rivales'
+  'estadisticas_rivales',
+  'estadisticas_proximo_rival'
 ];
 
 /** Estadísticas por categoría: su público es el resto (entrenadores de otras

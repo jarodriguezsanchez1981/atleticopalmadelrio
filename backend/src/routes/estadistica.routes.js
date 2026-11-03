@@ -28,6 +28,8 @@ router.get('/equipo', authorize('estadisticas_goles', 'estadisticas_cat_goles', 
 router.get('/goles-contra', authorize('estadisticas_goles', 'estadisticas_cat_goles'), ctrl.golesContra);
 // Goles y tarjetas de cada equipo contrario (Estadísticas Senior A Rivales).
 router.get('/rivales', authorize('estadisticas_rivales'), ctrl.rivales);
+// Siguiente rival de liga con sus goles, minutos y tarjetas (Estadísticas Senior A Próximo Rival).
+router.get('/proximo-rival', authorize('estadisticas_proximo_rival'), ctrl.proximoRival);
 // Clasificación de la liga por jornada (se copia sola de RFAF: utils/clasificacionAutomatica.js).
 router.get('/clasificacion', authorize('estadisticas_clasificacion', 'estadisticas_cat_clasificacion'), clasificacion.listar);
 // Gráficas de balance por plantilla del Dashboard.

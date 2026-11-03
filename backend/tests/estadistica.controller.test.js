@@ -754,4 +754,98 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       ]);
     });
   });
+
+
+  describe('proximoRival (siguiente partido de liga y estadísticas del rival)', () => {
+    const ligaPartido = (id, local, visitante, extra = {}) => ({
+      id, jornada: 1, acta_at: new Date(),
+      equipo_local: local, codigo_equipo_local: `c-${local}`,
+      equipo_visitante: visitante, codigo_equipo_visitante: `c-${visitante}`,
+      jugadores: [], goles: [], tarjetas: [], ...extra
+    });
+    function llamar(query = { id_plantilla: '5' }) {
+      const { req, res, next } = mockReqRes({ query });
+      return { promesa: ctrl.proximoRival(req, res, next), res };
+    }
+    beforeEach(() => {
+      LigaPartido.findAll.mockReset();
+      Partido.findOne.mockReset();
+    });
+
+    it('exige la plantilla', async () => {
+      const { promesa, res } = llamar({});
+      await promesa;
+      expect(res._status).toBe(400);
+    });
+
+    it('sin próximo partido de liga devuelve partido null', async () => {
+      Partido.findOne.mockResolvedValue(null);
+      const { promesa, res } = llamar();
+      await promesa;
+      expect(res._json).toMatchObject({ partido: null, equipo: null, jugadores: [] });
+      // Solo partidos de liga desde hoy, el más cercano primero.
+      const opciones = Partido.findOne.mock.calls[0][0];
+      expect(opciones.where.id_plantilla).toBe(5);
+      expect(opciones.order).toEqual([['fecha', 'ASC']]);
+    });
+
+    it('rival fuera de casa: su fila de equipo y sus jugadores por lado (goles, minutos y tarjetas)', async () => {
+      Partido.findOne.mockResolvedValue({
+        id: 9, fecha: '2026-11-08T11:00:00', jornada: 10, id_equipo_local: 73, id_equipo_visitante: 4, suspendido: false,
+        equipoLocal: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.' }, equipoVisitante: { id: 4, nombre: 'Uno C.F.' }
+      });
+      LigaPartido.findAll.mockResolvedValue([
+        ligaPartido(1, 'UNO C.F.', 'DOS C.F.', {
+          goles_local: 2, goles_visitante: 0,
+          jugadores: [
+            { lado: 'local', nombre: 'A, A', titular: true, minutos: 90 },
+            { lado: 'local', nombre: 'B, B', titular: false, minutos: 30 },
+            { lado: 'visitante', nombre: 'Z, Z', titular: true, minutos: 90 }
+          ],
+          goles: [
+            { lado: 'local', nombre: 'A, A', minuto: 10, tipo: 'normal', titular: true },
+            { lado: 'local', nombre: 'A, A', minuto: 80, tipo: 'penalti', titular: true },
+            { lado: 'visitante', nombre: 'Z, Z', minuto: 50, tipo: 'propia', titular: null }
+          ],
+          tarjetas: [
+            { lado: 'local', nombre: 'B, B', tipo: 'amarilla', minuto: 70, titular: false, goles_favor: 1, goles_contra: 0 },
+            { lado: 'local', nombre: 'B, B', tipo: 'amarilla', minuto: 75, titular: false, goles_favor: 1, goles_contra: 0 }
+          ]
+        }),
+        ligaPartido(2, 'DOS C.F.', 'UNO C.F.', {
+          jugadores: [{ lado: 'visitante', nombre: 'A, A', titular: true, minutos: 45 }]
+        }),
+        ligaPartido(3, 'TRES C.F.', 'UNO C.F.', { acta_at: null })
+      ]);
+      const { promesa, res } = llamar();
+      await promesa;
+      const { partido, equipo, jugadores } = res._json;
+      expect(partido).toMatchObject({ jornada: 10, es_local: true, rival: 'Uno C.F.' });
+      expect(equipo).toMatchObject({ equipo: 'UNO C.F.', partidos: 2, partidos_local: 1, goles: 2 });
+      expect(equipo.jugadores).toBeUndefined();
+      expect(jugadores.map((j) => j.nombre)).toEqual(['A, A', 'B, B']);
+      const [a, b] = jugadores;
+      expect(a).toMatchObject({
+        convocatorias: 2, partidos: 2, partidos_local: 1, partidos_visitante: 1, minutos: 135, minutos_titular: 135,
+        goles: 2, goles_local: 2, goles_1t1: 1, goles_2t3: 1, goles_titular: 2, porcentaje_goles_local: 100,
+        porcentaje_goles_partido: 50, porcentaje_goles_partido_local: 100, minutos_por_partido: 67.5,
+        porcentaje_minutos: 75, porcentaje_minutos_equipo: 75, porcentaje_minutos_equipo_visitante: 50
+      });
+      expect(b).toMatchObject({
+        partidos: 1, minutos_banquillo: 30, tarjetas_amarillas: 2, tarjetas_amarillas_local: 2,
+        amarillas_suplente: 2, amarillas_segunda: 2, amarillas_ganando: 2, dobles_amarillas: 1
+      });
+    });
+
+    it('rival sin actas: equipo sin datos y sin jugadores', async () => {
+      Partido.findOne.mockResolvedValue({
+        id: 9, fecha: '2026-11-08T11:00:00', jornada: 10, id_equipo_local: 4, id_equipo_visitante: 73,
+        equipoLocal: { id: 4, nombre: 'NUEVO C.F.' }, equipoVisitante: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.' }
+      });
+      LigaPartido.findAll.mockResolvedValue([]);
+      const { promesa, res } = llamar();
+      await promesa;
+      expect(res._json).toMatchObject({ partido: { es_local: false, rival: 'NUEVO C.F.' }, equipo: null, jugadores: [] });
+    });
+  });
 });
