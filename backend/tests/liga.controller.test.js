@@ -88,10 +88,20 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
       leer.mockRestore();
     });
 
-    it('no guarda nada de otras categorías (menores) ni de partidos sin jornada', async () => {
-      await liga.guardarActaDelPalma({ partido: { id_plantilla: 5, jornada: 3 }, plantilla: { categoria: { nombre: 'Infantil B' } }, codigoActa: '1', acta: ACTA });
+    it('no guarda partidos sin jornada (amistosos) ni sin código de acta', async () => {
       await liga.guardarActaDelPalma({ partido: { id_plantilla: 36, jornada: 0 }, plantilla: { categoria: { nombre: 'Senior A' } }, codigoActa: '1', acta: ACTA });
+      await liga.guardarActaDelPalma({ partido: { id_plantilla: 36, jornada: 2 }, plantilla: { categoria: { nombre: 'Senior A' } }, codigoActa: null, acta: ACTA });
       expect(LigaPartido.findOrCreate).not.toHaveBeenCalled();
+    });
+
+    it('también otras categorías; en Fútbol 7 los minutos son sobre 60', async () => {
+      LigaPartido.findOrCreate.mockResolvedValue([{ id: 4 }, true]);
+      await liga.guardarActaDelPalma({
+        partido: { id_plantilla: 5, jornada: 3 }, plantilla: { categoria: { nombre: 'Benjamin A', id_tipofutbol: 1 } }, codigoActa: '9', acta: ACTA
+      });
+      const jugadores = LigaJugador.bulkCreate.mock.calls[0][0];
+      // Titular sin salir: los 60 minutos; suplente que entra en el 70 (en F7 no llega): 0.
+      expect(jugadores.find((j) => j.nombre === 'DEFENSA, EVA').minutos).toBe(60);
     });
   });
 
@@ -104,7 +114,7 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
       log.log.mockReset();
       log.warn.mockReset();
       pausa.mockReset();
-      Plantilla.findOne.mockResolvedValue(SENIOR_A);
+      Plantilla.findAll.mockResolvedValue([SENIOR_A]);
       leerJornada = vi.spyOn(rfafActa, 'leerJornada');
       leerJornada.mockReset();
       leerActa = vi.spyOn(rfafActa, 'leerActa');
@@ -114,8 +124,8 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
 
     const pendiente = (id, local, visitante, extra = {}) => ({ id, jornada: 1, codigo_acta: String(1000 + id), equipo_local: local, equipo_visitante: visitante, intentos: 0, ...extra });
 
-    it('sin plantilla de Senior A con sus códigos no pide nada', async () => {
-      Plantilla.findOne.mockResolvedValue(null);
+    it('sin plantillas con sus códigos no pide nada', async () => {
+      Plantilla.findAll.mockResolvedValue([]);
       expect(await liga.actualizar({ log, pausa })).toEqual({ jornadas: [], actas: 0 });
       expect(leerJornada).not.toHaveBeenCalled();
     });
@@ -142,6 +152,28 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
       expect(r).toEqual({ jornadas: [2, 3], actas: 1 });
       // 3 peticiones: 2 pausas (ninguna antes de la primera).
       expect(pausa).toHaveBeenCalledTimes(2);
+    });
+
+    it('varias plantillas: Senior A primero y los límites son para toda la copia', async () => {
+      const INFANTIL = { ...SENIOR_A, id: 40, categoria: { nombre: 'Infantil A', orden: 14, id_tipofutbol: 2 }, codigo_primaria: '2000' };
+      Plantilla.findAll.mockResolvedValue([INFANTIL, { ...SENIOR_A, categoria: { nombre: 'Senior A', orden: 21, id_tipofutbol: 2 } }]);
+      // Senior A: le falta la jornada 3; Infantil A: las jornadas 1 y 2.
+      Clasificacion.findAll
+        .mockResolvedValueOnce([{ jornada: 1 }, { jornada: 2 }, { jornada: 3 }])
+        .mockResolvedValueOnce([{ jornada: 1 }, { jornada: 2 }]);
+      LigaPartido.findAll
+        .mockResolvedValueOnce([{ jornada: 1 }, { jornada: 2 }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([pendiente(1, 'UNO C.F.', 'DOS C.F.')])
+        .mockResolvedValueOnce([pendiente(2, 'TRES C.F.', 'CUATRO C.F.')]);
+      leerJornada.mockImplementation(async (_c, jornada) => ({ jornada, partidos: [] }));
+      leerActa.mockResolvedValue(ACTA);
+
+      const r = await liga.actualizar({ log, pausa });
+      // 2 jornadas en total: la 3 de Senior A y la 1 de Infantil A.
+      expect(leerJornada.mock.calls.map((c) => [c[0].codPrimaria, c[1]])).toEqual([['1000120', 3], ['2000', 1]]);
+      expect(leerActa.mock.calls).toEqual([['1000120', '1001'], ['2000', '1002']]);
+      expect(r).toEqual({ jornadas: [3, 1], actas: 2 });
     });
 
     it('un acta sin jugadores (partido aplazado) suma un intento y sigue con la siguiente', async () => {
@@ -182,7 +214,7 @@ describe('Liga (actas de toda la liga) · liga.controller', () => {
     beforeEach(() => {
       log.log.mockReset();
       log.warn.mockReset();
-      Plantilla.findOne.mockResolvedValue(SENIOR_A);
+      Plantilla.findAll.mockResolvedValue([SENIOR_A]);
       leerActa = vi.spyOn(rfafActa, 'leerActa');
       leerActa.mockReset();
     });

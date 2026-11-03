@@ -288,6 +288,13 @@ const routes = [
         meta: { seccion: 'estadisticas_cat_clasificacion' }
       },
       {
+        path: 'estadisticas-categoria/proximo-rival',
+        name: 'estadisticas_cat_proximo_rival',
+        component: () => import('../views/estadisticas/EstadisticasProximoRival.vue'),
+        props: { porCategoria: true },
+        meta: { seccion: 'estadisticas_cat_proximo_rival' }
+      },
+      {
         path: 'informes',
         name: 'informes',
         component: () => import('../views/informes/Informes.vue'),

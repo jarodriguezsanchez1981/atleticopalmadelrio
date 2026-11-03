@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import Select from 'primevue/select';
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
@@ -13,18 +14,30 @@ import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { nombreJugadorActa } from '../../utils/nombreActa';
 import {
-  METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS
+  METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
+  duracionJuego, etiquetasTramos
 } from '../../utils/estadisticasMetricas';
 
-/** Estadísticas Senior A → Próximo Rival: el siguiente partido de liga del
- * Senior A de la temporada actual y, del rival, sus goles, minutos y tarjetas
- * (equipo y jugadores) en todos sus partidos de la liga, según las actas de
- * RFAF ya copiadas (las mismas de Rivales). Local / Visitante: el rival en
- * casa / fuera. */
-const SECCION = 'estadisticas_proximo_rival';
+/** Próximo Rival: el siguiente partido de liga de la plantilla y, del rival,
+ * sus goles, minutos y tarjetas (equipo y jugadores) en todos sus partidos de
+ * la liga, según las actas de RFAF ya copiadas. Local / Visitante: el rival en
+ * casa / fuera. En Estadísticas Senior A es siempre la de Senior A; en
+ * Estadísticas (`porCategoria`), la categoría del entrenador o la que elija el
+ * coordinador. Fuera de Senior A las actas no dicen bien quién fue titular ni
+ * los minutos (como en las demás Estadísticas por categoría): sin Tiempo ni
+ * columnas de titular / suplente, y "Conv." en lugar de partidos jugados. */
+const props = defineProps({
+  porCategoria: { type: Boolean, default: false }
+});
+const SECCION = props.porCategoria ? 'estadisticas_cat_proximo_rival' : 'estadisticas_proximo_rival';
 const CATEGORIA = CATEGORIA_CON_MINUTOS;
 
 const plantilla = ref(null);
+// Estadísticas por categoría: plantillas disponibles (las del entrenador, o todas).
+const plantillas = ref([]);
+const idPlantilla = ref(null);
+const opcionesPlantillas = computed(() => plantillas.value
+  .map((p) => ({ value: p.id, label: `${p.categoria?.nombre || 'Sin categoría'} / ${p.temporada?.nombre || ''}` })));
 const partido = ref(null);
 const equipo = ref(null);
 const jugadores = ref([]);
@@ -38,9 +51,16 @@ async function cargar() {
   cargando.value = true;
   error.value = '';
   try {
-    const [plantillas, temporadas] = await Promise.all([plantillasService.listar({ basico: 1 }), temporadasService.listar()]);
-    plantilla.value = filtrarPlantillasTemporadaActual(plantillas, temporadas)
-      .find((p) => p.categoria?.nombre === CATEGORIA) || null;
+    if (props.porCategoria) {
+      // Las demás categorías: Senior A tiene su propio apartado.
+      plantillas.value = (await estadisticasService.plantillas()).filter((p) => p.categoria?.nombre !== CATEGORIA);
+      if (!plantillas.value.some((p) => p.id === idPlantilla.value)) idPlantilla.value = plantillas.value[0]?.id ?? null;
+      plantilla.value = plantillas.value.find((p) => p.id === idPlantilla.value) || null;
+    } else {
+      const [lista, temporadas] = await Promise.all([plantillasService.listar({ basico: 1 }), temporadasService.listar()]);
+      plantilla.value = filtrarPlantillasTemporadaActual(lista, temporadas)
+        .find((p) => p.categoria?.nombre === CATEGORIA) || null;
+    }
     const datos = plantilla.value
       ? await estadisticasService.proximoRival({ id_plantilla: plantilla.value.id })
       : {};
@@ -78,6 +98,24 @@ function textoFecha(fecha) {
     ? ` a las ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
     : '';
   return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}${hora}`;
+}
+
+const esSeniorA = computed(() => plantilla.value?.categoria?.nombre === CATEGORIA);
+// Fuera de Senior A: sin titular / suplente ni % por partido jugado, y Conv.
+// (está en el acta) en lugar de Partidos (con minutos).
+const CAMPOS_SOLO_SENIOR = new Set([
+  'titular', 'goles_titular', 'porcentaje_goles_titular', 'goles_banquillo', 'porcentaje_goles_banquillo',
+  'porcentaje_goles_partido', 'amarillas_titular', 'amarillas_suplente', 'rojas_titular', 'rojas_suplente'
+]);
+const CONVOCATORIAS = { campo: 'convocatorias', titulo: 'Conv.', descripcion: 'Convocatorias (en el acta)' };
+// Los tramos de goles, según la duración de la categoría (Fútbol 7: 60').
+function metricasDe(metricas, deJugadores) {
+  if (!metricas) return metricas;
+  const tramos = etiquetasTramos(duracionJuego(plantilla.value?.categoria?.id_tipofutbol));
+  const conTramos = metricas.map((m) => (tramos[m.campo] ? { ...m, titulo: tramos[m.campo] } : m));
+  if (esSeniorA.value) return conTramos;
+  return conTramos.filter((m) => !CAMPOS_SOLO_SENIOR.has(m.campo))
+    .map((m) => (deJugadores && m.campo === 'partidos' ? CONVOCATORIAS : m));
 }
 
 const COLUMNA_EQUIPO = { campo: 'equipo', titulo: 'Equipo' };
@@ -119,7 +157,14 @@ const BLOQUES = [
     vacio: 'Ningún jugador del rival ha visto tarjeta.'
   }
 ];
+const bloques = computed(() => BLOQUES.filter((b) => esSeniorA.value || b.clave !== 'tiempo')
+  .map((b) => ({ ...b, metricasEquipo: metricasDe(b.metricasEquipo, false), metricas: metricasDe(b.metricas, true) })));
 const pestana = ref(BLOQUES[0].clave);
+
+async function cambiarPlantilla() {
+  pestana.value = BLOQUES[0].clave;
+  await cargar();
+}
 
 onMounted(async () => {
   await cargar();
@@ -146,7 +191,13 @@ onBeforeUnmount(() => {
       {{ error }} Recarga la página; si sigue pasando, revisa tus permisos de Estadísticas.
     </div>
     <div v-else-if="!cargando && !plantilla" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
-      No hay plantilla {{ CATEGORIA }} en la temporada actual.
+      {{ porCategoria ? 'No hay ninguna plantilla disponible en la temporada actual.' : `No hay plantilla ${CATEGORIA} en la temporada actual.` }}
+    </div>
+    <!-- Estadísticas por categoría: selector (coordinadores/admin ven varias; un entrenador, solo la suya). -->
+    <div v-if="porCategoria && plantillas.length > 1 && !error" class="flex items-center gap-2">
+      <label for="filtro-plantilla" class="text-sm font-medium text-ink-secondary">Categoría</label>
+      <Select inputId="filtro-plantilla" v-model="idPlantilla" :options="opcionesPlantillas" optionLabel="label"
+              optionValue="value" :disabled="cargando" @change="cambiarPlantilla" class="w-full sm:w-72" />
     </div>
     <div v-else-if="!cargando && !partido" class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
       No hay próximo partido de liga de {{ titulo }}.
@@ -181,10 +232,10 @@ onBeforeUnmount(() => {
 
       <Tabs v-if="equipo" v-model:value="pestana">
         <TabList>
-          <Tab v-for="b in BLOQUES" :key="b.clave" :value="b.clave">{{ b.titulo }}</Tab>
+          <Tab v-for="b in bloques" :key="b.clave" :value="b.clave">{{ b.titulo }}</Tab>
         </TabList>
         <TabPanels class="!px-0">
-          <TabPanel v-for="b in BLOQUES" :key="b.clave" :value="b.clave">
+          <TabPanel v-for="b in bloques" :key="b.clave" :value="b.clave">
             <div class="flex flex-col gap-2">
               <p class="text-sm text-ink-tertiary">{{ b.descripcion }}</p>
               <PestanasLado v-slot="{ lado }">

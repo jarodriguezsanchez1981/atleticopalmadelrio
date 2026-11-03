@@ -48,6 +48,7 @@ const SECCIONES = [
   { clave: 'estadisticas_cat_goles', nombre: 'Estadísticas Goles', icono: 'pi pi-bullseye', orden: 98, grupo: 'estadisticas_cat' },
   { clave: 'estadisticas_cat_sanciones', nombre: 'Estadísticas Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'estadisticas_cat' },
   { clave: 'estadisticas_cat_clasificacion', nombre: 'Estadísticas Clasificación', icono: 'pi pi-sort-numeric-down', orden: 100, grupo: 'estadisticas_cat' },
+  { clave: 'estadisticas_cat_proximo_rival', nombre: 'Estadísticas Próximo Rival', icono: 'pi pi-forward', orden: 101, grupo: 'estadisticas_cat' },
   { clave: 'sanciones', nombre: 'Sanciones', icono: 'pi pi-ban', orden: 99, grupo: 'liga' },
   // Notificaciones: submenú dentro del apartado "Club" (grupo 'notificaciones',
   // que MainLayout.vue dibuja anidado bajo Club). Generan documentos PDF del

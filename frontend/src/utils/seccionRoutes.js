@@ -43,6 +43,7 @@ export const RUTA_POR_SECCION = {
   estadisticas_cat_goles: '/estadisticas-categoria/goles',
   estadisticas_cat_sanciones: '/estadisticas-categoria/sanciones',
   estadisticas_cat_clasificacion: '/estadisticas-categoria/clasificacion',
+  estadisticas_cat_proximo_rival: '/estadisticas-categoria/proximo-rival',
   informes: '/informes',
   invitacion_torneo: '/notificaciones/invitacion-torneo',
   nota_prensa: '/notificaciones/nota-prensa',

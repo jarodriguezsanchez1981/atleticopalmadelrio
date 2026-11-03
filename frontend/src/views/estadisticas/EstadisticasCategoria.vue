@@ -7,7 +7,7 @@ import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import PestanasLado from '../../components/PestanasLado.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
-import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS } from '../../utils/estadisticasMetricas';
+import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS, duracionJuego, etiquetasTramos } from '../../utils/estadisticasMetricas';
 
 /** Estadísticas de Convocatorias, Goles y Sanciones de la categoría del usuario (a
  * diferencia de views/estadisticas/Estadisticas.vue, que son siempre de Senior
@@ -58,6 +58,7 @@ const TABLAS = {
 
 // Sanciones: solo plantillas de Fútbol 11, sin Senior A (tiene su propio apartado).
 const CATEGORIA_SENIOR_A = 'Senior A';
+const TIPO_FUTBOL_7 = 1;
 function plantillaDeLaTabla(p) {
   if (props.tabla !== 'sanciones') return true;
   return Number(p.categoria?.id_tipofutbol) !== TIPO_FUTBOL_7 && p.categoria?.nombre !== CATEGORIA_SENIOR_A;
@@ -77,19 +78,6 @@ let unsubCambio = null;
 const plantillaActual = computed(() => plantillas.value.find((p) => p.id === idPlantilla.value) || null);
 const hayVariasPlantillas = computed(() => plantillas.value.length > 1);
 
-// Duración de juego por tipo de fútbol (Fútbol 7 no juega 90'); igual que en el
-// backend. Los 6 tramos de Goles se reparten en 3 por parte sobre esa duración.
-const TIPO_FUTBOL_7 = 1;
-const duracionJuego = (idTipo) => (Number(idTipo) === TIPO_FUTBOL_7 ? 60 : 90);
-const CAMPOS_TRAMO = ['goles_1t1', 'goles_1t2', 'goles_1t3', 'goles_2t1', 'goles_2t2', 'goles_2t3'];
-function etiquetasTramos(dur) {
-  const sexto = dur / 6;
-  const m = {};
-  CAMPOS_TRAMO.forEach((c, i) => {
-    m[c] = `${i === 0 ? 0 : Math.round(i * sexto) + 1}-${Math.round((i + 1) * sexto)}`;
-  });
-  return m;
-}
 // La tabla de Goles reetiqueta los tramos según la duración de la categoría elegida.
 const config = computed(() => {
   const base = TABLAS[props.tabla];
