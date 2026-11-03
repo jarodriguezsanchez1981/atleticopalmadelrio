@@ -47,7 +47,7 @@ const BLOQUEO_MIN = 15;
 
 /** Token de sesión con los permisos del usuario en este momento. `inicio` es
  * cuándo se inició sesión (segundos): renovar el token en /auth/me no alarga
- * la sesión, que caduca como máximo 1 hora después de entrar. */
+ * la sesión, que caduca como máximo 2 horas después de entrar. */
 function tokenPara(user, payload, inicio = ahoraSeg()) {
   return signToken({
     id: user.id,

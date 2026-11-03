@@ -245,12 +245,12 @@ describe('Autenticación · auth.controller', () => {
     }));
   });
 
-  it('me renueva el token sin alargar la sesión (1 hora desde el login)', async () => {
+  it('me renueva el token sin alargar la sesión (2 horas desde el login)', async () => {
     Usuario.findByPk.mockResolvedValue({ id: 1, usuario: 'admin', rol: 'coordinador', secciones: [] });
     const ini = Math.floor(Date.now() / 1000) - 1800;
     const { promesa } = llamar(ctrl.me, { user: { id: 1, ini, iat: ini + 1000 } });
     await promesa;
-    expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({ ini, exp: ini + 3600 }));
+    expect(jwtUtils.signToken).toHaveBeenCalledWith(expect.objectContaining({ ini, exp: ini + 7200 }));
   });
 
   it('me rechaza a un usuario desactivado', async () => {
