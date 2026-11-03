@@ -258,3 +258,7 @@ h1, h2, h3, .font-display {
   background: #E53935 !important;
   color: #fff !important;
 }
+/* El nombre del rival en sus dos líneas (nombreEnDosLineas), sin partirlo más. */
+.ar-datatable .p-datatable-thead > tr > th:is(.ar-dt-equipo-casa, .ar-dt-equipo-fuera) .p-datatable-column-title {
+  white-space: pre;
+}

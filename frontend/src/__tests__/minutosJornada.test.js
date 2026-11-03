@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { construirMinutosPorJornada, hojaMinutosPorJornada, estiloCss, valorCelda } from '../utils/minutosJornada';
+import { construirMinutosPorJornada, hojaMinutosPorJornada, estiloCss, valorCelda, nombreEnDosLineas } from '../utils/minutosJornada';
 
 const filas = [
   { id_jugador: 1, jugador: 'Ana', partidos_minutos: [
@@ -65,7 +65,7 @@ describe('minutosJornada · construirMinutosPorJornada', () => {
     expect(hoja.cabeceras).toEqual([
       ['Jornada', 'J1', 'J2', 'J3', 'Total'],
       ['Fecha', '06/09/2026', '', '', ''],
-      ['Equipo', 'RIVAL A', 'RIVAL B', 'RIVAL C', '']
+      ['Equipo', 'RIVAL\nA', 'RIVAL\nB', 'RIVAL\nC', '']
     ]);
     expect(hoja.combinadas).toEqual([[0, 4, 2, 4]]);
     expect(hoja.estilosCabecera[2].slice(1).map((e) => e.fondo)).toEqual(['FF1E88E5', 'FFE53935', 'FF1E88E5']);
@@ -101,5 +101,12 @@ describe('minutosJornada · construirMinutosPorJornada', () => {
     expect(estiloCss(null)).toBeNull();
     const fila = { celdas: { p1: { minutos: 0 } }, ausencias: { p2: 'lesion', p3: 'sancion' } };
     expect(['p1', 'p2', 'p3', 'p4'].map((c) => valorCelda(fila, c))).toEqual([0, 'L', null, null]);
+  });
+
+  it('nombre del rival en dos líneas parejas', () => {
+    expect(nombreEnDosLineas('C.D. ATLETICO ESPELEÑO')).toBe('C.D. ATLETICO\nESPELEÑO');
+    expect(nombreEnDosLineas('  U.D.  LA CARLOTA ')).toBe('U.D. LA\nCARLOTA');
+    expect(nombreEnDosLineas('ESPELEÑO')).toBe('ESPELEÑO');
+    expect(nombreEnDosLineas(null)).toBe('');
   });
 });
