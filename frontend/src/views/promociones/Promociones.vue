@@ -2,6 +2,9 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
 import { estiloTabla } from '../../utils/estiloTabla';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { promocionesService, plantillasService, categoriasService, jugadoresService, temporadasService } from '../../services';
@@ -82,6 +85,16 @@ const seccionesPorTipo = computed(() => {
   }
   return [...porTipo.values()].sort((a, b) => (a.id ?? 99) - (b.id ?? 99));
 });
+
+// Pestañas Fútbol 7 / Fútbol 11 (tipofutbol: 1 = Fútbol 7, 2 = Fútbol 11),
+// como en Plantillas: solo se ven las tablas del tipo elegido.
+const PESTANAS_TIPO_FUTBOL = [
+  { valor: 1, titulo: 'Fútbol 7' },
+  { valor: 2, titulo: 'Fútbol 11' }
+];
+const tipoFutbolPestana = ref(1);
+const tablasPestana = computed(() =>
+  seccionesPorTipo.value.find((s) => Number(s.id) === tipoFutbolPestana.value)?.tablas || []);
 
 function formatoFecha(fecha) {
   const d = new Date(fecha);
@@ -167,11 +180,17 @@ function jugadorLabel(id) {
         mismo grupo que la del jugador, <strong>Promoción Categoría</strong> si es de otro grupo (o no tiene grupo).
       </p>
     </div>
-    <!-- Una sección por tipo de fútbol; dentro, una tabla debajo de otra por orden de categoría. -->
-    <div v-for="s in seccionesPorTipo" :key="s.id ?? 'sin-tipo'" class="mb-6 last:mb-0">
-    <h3 class="font-display text-base font-bold text-club-green border-b border-line pb-1 mb-3">{{ s.titulo }}</h3>
+    <Tabs v-model:value="tipoFutbolPestana">
+      <TabList>
+        <Tab v-for="t in PESTANAS_TIPO_FUTBOL" :key="t.valor" :value="t.valor">{{ t.titulo }}</Tab>
+      </TabList>
+    </Tabs>
+    <div v-if="!tablasPestana.length" class="py-6 text-center text-sm text-ink-tertiary">
+      No hay promociones en las plantillas de este tipo de fútbol.
+    </div>
+    <!-- Una tabla debajo de otra por orden de categoría. -->
     <div class="flex flex-col gap-4">
-      <div v-for="t in s.tablas" :key="t.id">
+      <div v-for="t in tablasPestana" :key="t.id">
         <div class="flex items-center justify-between gap-2 mb-2">
           <h3 class="text-sm font-semibold text-ink-primary">{{ t.titulo }}</h3>
           <span class="text-xs text-ink-tertiary">Grupo {{ t.grupo ?? '—' }}</span>
@@ -225,7 +244,6 @@ function jugadorLabel(id) {
           </template>
         </DataTable>
       </div>
-    </div>
     </div>
   </section>
   </div>
