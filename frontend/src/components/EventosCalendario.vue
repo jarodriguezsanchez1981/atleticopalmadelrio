@@ -14,6 +14,9 @@ import DatePicker from 'primevue/datepicker';
 import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import Button from 'primevue/button';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import { estiloTabla } from '../utils/estiloTabla';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
@@ -766,27 +769,25 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 
       <div v-if="eventoSeleccionado" class="space-y-3">
         <template v-if="eventoSeleccionado.tipo === 'partido'">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2 border-b border-line">
-            <div>
-              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
-              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
-              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-ink-tertiary font-medium">Lugar</p>
-              <p class="text-sm text-ink-secondary">{{ lugarPartido }}</p>
-            </div>
-            <div>
-              <p v-if="eventoSeleccionado.jornada" class="text-xs text-ink-tertiary font-medium">Jornada</p>
-              <p v-if="eventoSeleccionado.jornada" class="text-sm text-ink-secondary">{{ eventoSeleccionado.jornada }}</p>
-              <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
-                <i class="pi pi-handshake"></i> Amistoso
-              </span>
-            </div>
-          </div>
+          <DataTable v-bind="estiloTabla" :value="[eventoSeleccionado]" dataKey="id" :rowHover="false">
+            <Column header="Fecha" headerClass="text-center" bodyClass="text-center">
+              <template #body="{ data }">{{ formatearFechaCorta(data.inicio) }}</template>
+            </Column>
+            <Column header="Hora" headerClass="text-center" bodyClass="text-center">
+              <template #body="{ data }">{{ formatearHora(data.inicio) }}</template>
+            </Column>
+            <Column header="Lugar" headerClass="text-center" bodyClass="text-center">
+              <template #body>{{ lugarPartido }}</template>
+            </Column>
+            <Column header="Jornada" headerClass="text-center" bodyClass="text-center">
+              <template #body="{ data }">
+                <span v-if="data.jornada">{{ data.jornada }}</span>
+                <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                  <i class="pi pi-handshake"></i> Amistoso
+                </span>
+              </template>
+            </Column>
+          </DataTable>
         </template>
 
         <template v-if="eventoSeleccionado.tipo === 'entrenamiento'">
@@ -859,7 +860,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
           </div>
         </div>
 
-        <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" />
+        <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" :conNotas="false" />
 
         <div v-if="eventoSeleccionado.tipo !== 'partido'" class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">

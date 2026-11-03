@@ -6,9 +6,11 @@ import { partidosService } from '../services';
  * los que no), incidencias y observaciones, para la vista del partido
  * (calendarios y ficha de Jornadas), debajo de los escudos con los goles.
  * El partido se pide al abrirla; sin permiso de Partidos no se ven los
- * jugadores, y las incidencias/observaciones salen de los datos del evento. */
+ * jugadores, y las incidencias/observaciones salen de los datos del evento.
+ * `conNotas` = false las oculta (detalle de Partidos). */
 const props = defineProps({
-  evento: { type: Object, required: true }
+  evento: { type: Object, required: true },
+  conNotas: { type: Boolean, default: true }
 });
 
 const partido = ref(null);
@@ -122,7 +124,7 @@ const observaciones = computed(() => partido.value?.observaciones ?? props.event
       </template>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 text-sm">
+    <div v-if="conNotas" class="grid gap-3 sm:grid-cols-2 text-sm">
       <div>
         <p class="text-xs font-semibold text-club-green mb-0.5"><i class="pi pi-exclamation-circle mr-1"></i>Incidencias</p>
         <p v-if="incidencias" class="text-ink-secondary whitespace-pre-line">{{ incidencias }}</p>
