@@ -173,7 +173,7 @@ export function createJwtUtilsMock() {
   return {
     signToken: vi.fn(),
     verifyToken: vi.fn(),
-    DURACION_SESION_SEG: 3600
+    DURACION_SESION_SEG: 7200
   };
 }
 
