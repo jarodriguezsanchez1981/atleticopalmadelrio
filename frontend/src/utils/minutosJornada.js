@@ -1,18 +1,17 @@
-import { construirHojaSimple } from './excelEstadisticas';
-
 /**
  * Estadísticas Tiempo, pestaña Jugadores: minutos de cada jugador en el
  * partido de cada jornada (partidos_minutos de GET /estadisticas). Una columna
  * por partido con acta, en orden de jornada; la celda no existe si el jugador
  * no está en el acta de ese partido (0 = convocado sin jugar). Cada celda
- * lleva también las tarjetas de ese partido (amarillas, rojas).
+ * lleva también las tarjetas de ese partido (amarillas, rojas). `ausencias`:
+ * partidos en los que estaba lesionado o sancionado ('lesion' | 'sancion').
  */
 export function construirMinutosPorJornada(filas = []) {
   const porPartido = new Map();
   for (const f of filas) {
-    for (const p of f.partidos_minutos || []) {
+    for (const p of [...(f.partidos_minutos || []), ...(f.partidos_ausencias || [])]) {
       if (!porPartido.has(p.id_partido)) {
-        porPartido.set(p.id_partido, { clave: `p${p.id_partido}`, jornada: p.jornada, rival: p.rival, es_local: p.es_local });
+        porPartido.set(p.id_partido, { clave: `p${p.id_partido}`, jornada: p.jornada, fecha: p.fecha, rival: p.rival, es_local: p.es_local });
       }
     }
   }
@@ -30,25 +29,78 @@ export function construirMinutosPorJornada(filas = []) {
         };
         total += minutos;
       }
-      return { id_jugador: f.id_jugador, jugador: f.jugador, celdas, total };
+      const ausencias = {};
+      for (const a of f.partidos_ausencias || []) {
+        if (a.lesion || a.sancion) ausencias[`p${a.id_partido}`] = a.lesion ? 'lesion' : 'sancion';
+      }
+      return { id_jugador: f.id_jugador, jugador: f.jugador, celdas, ausencias, total };
     })
   };
 }
 
-/** Hoja de Excel de la pestaña Jugadores: Jugador, una columna por jornada y Total. */
+// Colores de las celdas del Excel (ARGB).
+const COLOR = {
+  amarilla: 'FFFFEB3B', dobleAmarilla: 'FFFF9800', roja: 'FFE53935', sancion: 'FF1E88E5',
+  casa: 'FF1E88E5', fuera: 'FFE53935'
+};
+const BLANCO = 'FFFFFFFF';
+// Fondo de una celda y, sobre rojo o azul, el texto en blanco.
+const estilo = (fondo) => ({ fondo, colorTexto: fondo === COLOR.roja || fondo === COLOR.sancion ? BLANCO : null });
+
+/** '2026-10-12T16:00:00Z' -> '12/10/2026' (en hora española). */
+function formatoFecha(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/** Color de la celda de un partido: doble amarilla (naranja), roja, amarilla o
+ * sancionado (azul); sin nada de eso, sin color. */
+function colorCelda(celda, ausencia) {
+  if (celda) {
+    if (celda.amarillas >= 2) return COLOR.dobleAmarilla;
+    if (celda.rojas > 0) return COLOR.roja;
+    if (celda.amarillas > 0) return COLOR.amarilla;
+    return null;
+  }
+  return ausencia === 'sancion' ? COLOR.sancion : null;
+}
+
+/** Hoja de Excel de la pestaña Jugadores: tres filas de cabecera por partido
+ * (Jornada, Fecha y Equipo rival: en azul si el PALMA jugaba en casa, en rojo
+ * si fuera), una fila por jugador con sus minutos ("L" si estaba lesionado) y
+ * la celda coloreada según sus tarjetas o si estaba sancionado, y Total. */
 export function hojaMinutosPorJornada(filas = []) {
   const { jornadas, filas: tabla } = construirMinutosPorJornada(filas);
-  const planas = tabla.map((f) => ({
-    jugador: f.jugador,
-    total: f.total,
-    ...Object.fromEntries(jornadas.map((j) => [j.clave, f.celdas[j.clave]?.minutos ?? null]))
-  }));
-  return construirHojaSimple({
-    columnas: [
-      { campo: 'jugador', titulo: 'Jugador' },
-      ...jornadas.map((j) => ({ campo: j.clave, titulo: `J${j.jornada} ${j.rival}`.trim() })),
-      { campo: 'total', titulo: 'Total' }
+  const total = jornadas.length + 1;
+  return {
+    cabeceras: [
+      ['Jornada', ...jornadas.map((j) => `J${j.jornada}`), 'Total'],
+      ['Fecha', ...jornadas.map((j) => formatoFecha(j.fecha)), ''],
+      ['Equipo', ...jornadas.map((j) => j.rival || ''), '']
     ],
-    filas: planas
-  });
+    estilosCabecera: [[], [], [null, ...jornadas.map((j) => ({ fondo: j.es_local ? COLOR.casa : COLOR.fuera, colorTexto: BLANCO }))]],
+    combinadas: [[0, total, 2, total]],
+    formatos: [null, ...jornadas.map(() => null), null],
+    filas: tabla.map((f) => [
+      f.jugador,
+      ...jornadas.map((j) => f.celdas[j.clave]?.minutos ?? (f.ausencias[j.clave] === 'lesion' ? 'L' : null)),
+      f.total
+    ]),
+    estilos: tabla.map((f) => [null, ...jornadas.map((j) => {
+      const fondo = colorCelda(f.celdas[j.clave], f.ausencias[j.clave]);
+      return fondo ? estilo(fondo) : null;
+    }), null]),
+    leyenda: [
+      { etiqueta: 'Tarjeta amarilla', ...estilo(COLOR.amarilla) },
+      { etiqueta: 'Doble amarilla', ...estilo(COLOR.dobleAmarilla) },
+      { etiqueta: 'Tarjeta roja', ...estilo(COLOR.roja) },
+      { etiqueta: 'Sancionado', ...estilo(COLOR.sancion) },
+      { etiqueta: 'L: lesionado' },
+      { etiqueta: 'Equipo en azul: en casa', fondo: COLOR.casa, colorTexto: BLANCO },
+      { etiqueta: 'Equipo en rojo: fuera', fondo: COLOR.fuera, colorTexto: BLANCO },
+      { etiqueta: 'Celda vacía: no está en el acta; 0: convocado sin jugar' }
+    ]
+  };
 }

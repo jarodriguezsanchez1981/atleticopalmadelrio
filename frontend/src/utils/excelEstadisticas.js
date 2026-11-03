@@ -95,9 +95,19 @@ export function nombreHoja(nombre, usados = new Set()) {
 }
 
 const VERDE = 'FF0B3D2E';
+
+/** Fondo (y color del texto) propio de una celda: { fondo, colorTexto } en ARGB. */
+function pintar(celda, estilo) {
+  if (!estilo?.fondo) return;
+  celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estilo.fondo } };
+  if (estilo.colorTexto) celda.font = { color: { argb: estilo.colorTexto } };
+}
 const FORMATO_NUMERO = { porcentaje: '0.0" %"', decimal: '0.00', unDecimal: '0.#' };
 
-/** Escribe y descarga el libro. hojas: [{ nombre, titulo, ...hoja construida }]. */
+/** Escribe y descarga el libro. hojas: [{ nombre, titulo, ...hoja construida }].
+ * Opcionales en la hoja: `estilosCabecera` / `estilos` (por fila y columna,
+ * como `cabeceras` / `filas`: { fondo, colorTexto } en ARGB o null) y
+ * `leyenda` ([{ etiqueta, fondo?, colorTexto? }], una fila por entrada bajo la tabla). */
 export async function descargarExcel(nombreFichero, hojas) {
   const { default: ExcelJS } = await import('exceljs');
   const libro = new ExcelJS.Workbook();
@@ -112,12 +122,13 @@ export async function descargarExcel(nombreFichero, hojas) {
     ws.addRow([hoja.titulo || hoja.nombre]).font = { bold: true, size: 13, color: { argb: VERDE } };
     ws.addRow([]);
     const desplazamiento = 3;
-    hoja.cabeceras.forEach((c) => {
+    hoja.cabeceras.forEach((c, f) => {
       const fila = ws.addRow(c);
       fila.eachCell({ includeEmpty: true }, (celda, col) => {
         if (col > ancho) return;
-        celda.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE } };
+        const propio = hoja.estilosCabecera?.[f]?.[col - 1];
+        celda.font = { bold: true, color: { argb: propio?.colorTexto || 'FFFFFFFF' } };
+        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: propio?.fondo || VERDE } };
         celda.alignment = { horizontal: col === 1 ? 'left' : 'center', vertical: 'middle', wrapText: true };
         celda.border = { top: { style: 'thin', color: { argb: 'FFFFFFFF' } }, left: { style: 'thin', color: { argb: 'FFFFFFFF' } },
           bottom: { style: 'thin', color: { argb: 'FFFFFFFF' } }, right: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
@@ -126,16 +137,24 @@ export async function descargarExcel(nombreFichero, hojas) {
     for (const [f1, c1, f2, c2] of hoja.combinadas) {
       ws.mergeCells(f1 + desplazamiento, c1 + 1, f2 + desplazamiento, c2 + 1);
     }
-    hoja.filas.forEach((valores) => {
+    hoja.filas.forEach((valores, f) => {
       const fila = ws.addRow(valores);
       hoja.formatos.forEach((formato, i) => {
         const celda = fila.getCell(i + 1);
         if (formato) celda.numFmt = FORMATO_NUMERO[formato];
         if (i > 0) celda.alignment = { horizontal: 'center' };
+        pintar(celda, hoja.estilos?.[f]?.[i]);
       });
     });
+    if (hoja.leyenda?.length) {
+      ws.addRow([]);
+      ws.addRow(['Leyenda']).font = { bold: true };
+      for (const e of hoja.leyenda) pintar(ws.addRow([e.etiqueta]).getCell(1), e);
+    }
     // Anchos: la primera columna según el texto más largo; el resto, fijas.
-    const largoNombre = Math.max(10, ...hoja.filas.map((f) => String(f[0] ?? '').length), String(hoja.cabeceras[0]?.[0] ?? '').length);
+    // (y las entradas de la leyenda con color, que no pueden desbordar a la celda de al lado).
+    const largoNombre = Math.max(10, ...hoja.filas.map((f) => String(f[0] ?? '').length), String(hoja.cabeceras[0]?.[0] ?? '').length,
+      ...(hoja.leyenda || []).filter((e) => e.fondo).map((e) => e.etiqueta.length));
     ws.getColumn(1).width = Math.min(45, largoNombre + 2);
     for (let c = 2; c <= ancho; c++) ws.getColumn(c).width = 11;
     // Cabeceras y nombre fijos al desplazarse.
