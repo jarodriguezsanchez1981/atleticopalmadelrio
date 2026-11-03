@@ -143,10 +143,11 @@ async function listar(req, res, next) {
         // partidos_goles / partidos_tarjetas: partidos en los que marcó / vio
         // alguna tarjeta (desplegables de Estadísticas Goles y Sanciones).
         // partidos_minutos: minutos (y tarjetas) de cada partido en cuya acta
-        // está (Estadísticas Tiempo, pestaña Jugadores).
+        // está; partidos_ausencias: partidos en los que estaba lesionado o
+        // sancionado (Estadísticas Tiempo, pestaña Jugadores).
         fila = {
           id_jugador: idJugador, nombre: jugador?.nombre || '', apellidos: jugador?.apellidos || '',
-          partidos_goles: [], partidos_tarjetas: [], partidos_minutos: []
+          partidos_goles: [], partidos_tarjetas: [], partidos_minutos: [], partidos_ausencias: []
         };
         for (const c of CONTADORES) {
           fila[c] = 0;
@@ -302,6 +303,7 @@ async function listar(req, res, next) {
         const fila = filaDe(a.id_jugador, a.jugador);
         if (a.lesion) sumar(fila, 'lesiones', 1, lado);
         else if (a.sancion) sumar(fila, 'sanciones', 1, lado);
+        fila.partidos_ausencias.push({ ...datosPartido(partidoDeConvocatoria.get(a.id_convocatoria), lado), lesion: !!a.lesion, sancion: !a.lesion && !!a.sancion });
       }
     }
 
@@ -309,6 +311,7 @@ async function listar(req, res, next) {
       f.partidos_tarjetas.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
       f.partidos_goles.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
       f.partidos_minutos.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
+      f.partidos_ausencias.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
       for (const x of f.partidos_goles) x.minutos_goles.sort((a, b) => a.minuto - b.minuto);
       for (const x of f.partidos_tarjetas) {
         x.minutos_amarillas.sort((a, b) => a - b);

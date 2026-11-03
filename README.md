@@ -372,12 +372,12 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (813 tests, 61 archivos)
+# Backend (818 tests, 61 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (129 tests, 19 archivos)
+# Frontend (130 tests, 19 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```

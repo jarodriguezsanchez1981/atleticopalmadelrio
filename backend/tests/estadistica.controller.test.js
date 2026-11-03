@@ -70,6 +70,11 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     });
     // Luis no es de la plantilla (promoción): no cuenta como sin convocar.
     expect(porId[8].sin_convocar).toBe(0);
+    // Partidos en los que estaba lesionado / sancionado (Excel de Tiempo → Jugadores), por jornada.
+    expect(porId[7].partidos_ausencias).toEqual([
+      expect.objectContaining({ id_partido: 2, jornada: 2, es_local: false, lesion: false, sancion: true }),
+      expect.objectContaining({ id_partido: 3, jornada: 3, es_local: true, lesion: true, sancion: false })
+    ]);
   });
 
   function llamar(overrides = {}) {

@@ -39,9 +39,42 @@ describe('minutosJornada · construirMinutosPorJornada', () => {
     expect(construirMinutosPorJornada([])).toEqual({ jornadas: [], filas: [] });
   });
 
-  it('hoja de Excel: Jugador, J1…, Total; vacío si no está en el acta', () => {
-    const hoja = hojaMinutosPorJornada(filas);
-    expect(hoja.cabeceras).toEqual([['Jugador', 'J1 RIVAL A', 'J2 RIVAL B', 'J3 RIVAL C', 'Total']]);
-    expect(hoja.filas).toEqual([['Ana', 90, null, 0, 90], ['Luis', 65, 25, null, 90]]);
+  it('lesionado / sancionado: en ausencias, también con columna aunque nadie esté en ese acta', () => {
+    const { jornadas, filas: res } = construirMinutosPorJornada([{ id_jugador: 3, jugador: 'Eva', partidos_minutos: [], partidos_ausencias: [
+      { id_partido: 40, jornada: 4, es_local: false, rival: 'RIVAL D', fecha: '2026-10-12T16:00:00Z', lesion: true, sancion: false },
+      { id_partido: 50, jornada: 5, es_local: true, rival: 'RIVAL E', lesion: false, sancion: true }
+    ] }]);
+    expect(jornadas.map((j) => j.clave)).toEqual(['p40', 'p50']);
+    expect(res[0].ausencias).toEqual({ p40: 'lesion', p50: 'sancion' });
+  });
+
+  it('hoja de Excel: Jornada, Fecha y Equipo (azul en casa, rojo fuera), "L" lesionado y colores por tarjeta / sanción', () => {
+    const hoja = hojaMinutosPorJornada([
+      { id_jugador: 1, jugador: 'Ana', partidos_minutos: [
+        { id_partido: 10, jornada: 1, fecha: '2026-09-06T16:00:00Z', es_local: true, rival: 'RIVAL A', minutos: 90, amarillas: 1 },
+        { id_partido: 20, jornada: 2, es_local: false, rival: 'RIVAL B', minutos: 70, amarillas: 2, rojas: 1 },
+        { id_partido: 30, jornada: 3, es_local: true, rival: 'RIVAL C', minutos: 30, rojas: 1 }
+      ] },
+      { id_jugador: 2, jugador: 'Luis', partidos_minutos: [
+        { id_partido: 10, jornada: 1, es_local: true, rival: 'RIVAL A', minutos: 0 }
+      ], partidos_ausencias: [
+        { id_partido: 20, jornada: 2, es_local: false, rival: 'RIVAL B', lesion: true },
+        { id_partido: 30, jornada: 3, es_local: true, rival: 'RIVAL C', sancion: true }
+      ] }
+    ]);
+    expect(hoja.cabeceras).toEqual([
+      ['Jornada', 'J1', 'J2', 'J3', 'Total'],
+      ['Fecha', '06/09/2026', '', '', ''],
+      ['Equipo', 'RIVAL A', 'RIVAL B', 'RIVAL C', '']
+    ]);
+    expect(hoja.combinadas).toEqual([[0, 4, 2, 4]]);
+    expect(hoja.estilosCabecera[2].slice(1).map((e) => e.fondo)).toEqual(['FF1E88E5', 'FFE53935', 'FF1E88E5']);
+    expect(hoja.filas).toEqual([['Ana', 90, 70, 30, 190], ['Luis', 0, 'L', null, 0]]);
+    const fondos = hoja.estilos.map((f) => f.map((e) => e?.fondo ?? null));
+    // Amarilla, doble amarilla (aunque el acta traiga también la roja) y roja.
+    expect(fondos[0]).toEqual([null, 'FFFFEB3B', 'FFFF9800', 'FFE53935', null]);
+    // Lesionado sin color; sancionado en azul.
+    expect(fondos[1]).toEqual([null, null, null, 'FF1E88E5', null]);
+    expect(hoja.leyenda.map((e) => e.etiqueta)).toContain('L: lesionado');
   });
 });
