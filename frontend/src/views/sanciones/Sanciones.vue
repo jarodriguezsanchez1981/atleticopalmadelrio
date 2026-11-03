@@ -106,7 +106,7 @@ const PESTANAS = [
     descripcion: 'Jugadores que han llegado a 5 amarillas (o 10, 15…) con las del último partido: tienen partido de sanción.',
     vacio: 'Ningún jugador ha cumplido ciclo de amarillas en el último partido.' },
   { valor: 'tarjetaRoja', titulo: 'Tarjeta Roja',
-    descripcion: 'Jugadores que vieron tarjeta roja en el último partido de su plantilla.',
+    descripcion: 'Jugadores que vieron tarjeta roja (o doble amarilla) en el último partido de su plantilla.',
     vacio: 'Ninguna tarjeta roja en el último partido.' }
 ];
 const pestana = ref('acumuladas');

@@ -208,7 +208,7 @@ async function construirInforme(lunes, tipo = 'semanal') {
       if (!amarillas && !rojas) continue;
       const clave = sa.id_jugador ?? nombreJugador(sa.jugador);
       const fila = porJugador.get(clave)
-        || { jugador: nombreJugador(sa.jugador), amarillas: 0, doblesAmarillas: 0, rojas: 0, total: 0, amarillasFinde: 0, rojasFinde: 0 };
+        || { jugador: nombreJugador(sa.jugador), amarillas: 0, doblesAmarillas: 0, rojas: 0, total: 0, amarillasFinde: 0, rojasFinde: 0, doblesFinde: 0 };
       fila.amarillas += amarillas;
       // Doble amarilla: 2 (o más) amarillas al jugador en el mismo partido.
       if (amarillas >= 2) fila.doblesAmarillas += 1;
@@ -217,6 +217,8 @@ async function construirInforme(lunes, tipo = 'semanal') {
       if (idsFinde.has(sa.id_partido)) {
         fila.amarillasFinde += amarillas;
         fila.rojasFinde += rojas;
+        // Doble amarilla el fin de semana: expulsión, sale con las rojas.
+        if (amarillas >= 2) fila.doblesFinde += 1;
       }
       porJugador.set(clave, fila);
     }
@@ -229,7 +231,7 @@ async function construirInforme(lunes, tipo = 'semanal') {
       alertas: {
         posibleSancion: filas.filter((f) => f.amarillas % CICLO_AMARILLAS === CICLO_AMARILLAS - 1).map(publica),
         partidoSancion: filas.filter(cumpleCiclo).map(publica),
-        tarjetaRoja: filas.filter((f) => f.rojasFinde > 0).map(publica)
+        tarjetaRoja: filas.filter((f) => f.rojasFinde > 0 || f.doblesFinde > 0).map(publica)
       }
     };
   };
