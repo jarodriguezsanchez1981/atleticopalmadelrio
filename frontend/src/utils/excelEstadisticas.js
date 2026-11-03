@@ -99,11 +99,13 @@ const VERDE = 'FF0B3D2E';
 const LINEA_DATOS = { style: 'thin', color: { argb: 'FFBFBFBF' } };
 const BORDE_DATOS = { top: LINEA_DATOS, left: LINEA_DATOS, bottom: LINEA_DATOS, right: LINEA_DATOS };
 
-/** Fondo (y color del texto) propio de una celda: { fondo, colorTexto } en ARGB. */
+/** Estilo propio de una celda: { fondo, colorTexto } en ARGB y negrita. */
 function pintar(celda, estilo) {
-  if (!estilo?.fondo) return;
-  celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estilo.fondo } };
-  if (estilo.colorTexto) celda.font = { color: { argb: estilo.colorTexto } };
+  if (!estilo) return;
+  if (estilo.fondo) celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estilo.fondo } };
+  if (estilo.colorTexto || estilo.negrita) {
+    celda.font = { bold: !!estilo.negrita, ...(estilo.colorTexto ? { color: { argb: estilo.colorTexto } } : {}) };
+  }
 }
 const FORMATO_NUMERO = { porcentaje: '0.0" %"', decimal: '0.00', unDecimal: '0.#' };
 

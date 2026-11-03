@@ -77,4 +77,21 @@ describe('minutosJornada · construirMinutosPorJornada', () => {
     expect(fondos[1]).toEqual([null, null, null, 'FF1E88E5', null]);
     expect(hoja.leyenda.map((e) => e.etiqueta)).toContain('L: lesionado');
   });
+
+  it('hoja de Excel: titular en negrita negra, suplente que entra en negrita roja y suplente con roja en blanco sobre rojo', () => {
+    const hoja = hojaMinutosPorJornada([{ id_jugador: 1, jugador: 'Ana', partidos_minutos: [
+      { id_partido: 10, jornada: 1, titular: true, minutos: 90 },
+      { id_partido: 20, jornada: 2, titular: false, minutos: 25 },
+      { id_partido: 30, jornada: 3, titular: false, minutos: 0, rojas: 1 },
+      { id_partido: 40, jornada: 4, titular: false, minutos: 0 },
+      { id_partido: 50, jornada: 5, titular: false, minutos: 20, amarillas: 1 }
+    ] }]);
+    const [, j1, j2, j3, j4, j5] = hoja.estilos[0];
+    expect(j1).toEqual({ fondo: null, colorTexto: null, negrita: true });
+    expect(j2).toEqual({ fondo: null, colorTexto: 'FFE53935', negrita: true });
+    expect(j3).toEqual({ fondo: 'FFE53935', colorTexto: 'FFFFFFFF' });
+    // Suplente sin jugar ni tarjetas: sin estilo.
+    expect(j4).toBeNull();
+    expect(j5).toEqual({ fondo: 'FFFFEB3B', colorTexto: 'FFE53935', negrita: true });
+  });
 });

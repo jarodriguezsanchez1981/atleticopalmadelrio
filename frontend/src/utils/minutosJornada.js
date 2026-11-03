@@ -67,10 +67,23 @@ function colorCelda(celda, ausencia) {
   return ausencia === 'sancion' ? COLOR.sancion : null;
 }
 
+/** Estilo de la celda de un partido: el fondo de colorCelda (sobre rojo o
+ * azul, texto en blanco, p. ej. un suplente con roja) y la letra en negrita si
+ * fue titular (negra) o si entró de suplente (roja). */
+function estiloCelda(celda, ausencia) {
+  const fondo = colorCelda(celda, ausencia);
+  const base = fondo ? estilo(fondo) : { fondo: null, colorTexto: null };
+  if (!celda) return fondo ? base : null;
+  const entroDeSuplente = !celda.titular && celda.minutos > 0;
+  if (!celda.titular && !entroDeSuplente) return fondo ? base : null;
+  return { ...base, negrita: true, colorTexto: base.colorTexto || (entroDeSuplente ? COLOR.roja : null) };
+}
+
 /** Hoja de Excel de la pestaña Jugadores: tres filas de cabecera por partido
  * (Jornada, Fecha y Equipo rival: en azul si el PALMA jugaba en casa, en rojo
- * si fuera), una fila por jugador con sus minutos ("L" si estaba lesionado) y
- * la celda coloreada según sus tarjetas o si estaba sancionado, y Total. */
+ * si fuera), una fila por jugador con sus minutos ("L" si estaba lesionado),
+ * la celda coloreada según sus tarjetas o si estaba sancionado y la letra
+ * según fuera titular o suplente (estiloCelda), y Total. */
 export function hojaMinutosPorJornada(filas = []) {
   const { jornadas, filas: tabla } = construirMinutosPorJornada(filas);
   const total = jornadas.length + 1;
@@ -89,8 +102,7 @@ export function hojaMinutosPorJornada(filas = []) {
       f.total
     ]),
     estilos: tabla.map((f) => [null, ...jornadas.map((j) => {
-      const fondo = colorCelda(f.celdas[j.clave], f.ausencias[j.clave]);
-      return fondo ? estilo(fondo) : null;
+      return estiloCelda(f.celdas[j.clave], f.ausencias[j.clave]);
     }), null]),
     leyenda: [
       { etiqueta: 'Tarjeta amarilla', ...estilo(COLOR.amarilla) },
@@ -98,6 +110,8 @@ export function hojaMinutosPorJornada(filas = []) {
       { etiqueta: 'Tarjeta roja', ...estilo(COLOR.roja) },
       { etiqueta: 'Sancionado', ...estilo(COLOR.sancion) },
       { etiqueta: 'L: lesionado' },
+      { etiqueta: 'Negrita: titular', negrita: true },
+      { etiqueta: 'Roja en negrita: entra de suplente', negrita: true, colorTexto: COLOR.roja },
       { etiqueta: 'Equipo en azul: en casa', fondo: COLOR.casa, colorTexto: BLANCO },
       { etiqueta: 'Equipo en rojo: fuera', fondo: COLOR.fuera, colorTexto: BLANCO },
       { etiqueta: 'Celda vacía: no está en el acta; 0: convocado sin jugar' }
