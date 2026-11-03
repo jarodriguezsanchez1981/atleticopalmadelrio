@@ -33,7 +33,7 @@ export const METRICAS_CONVOCATORIAS = [
   { campo: 'convocatorias', titulo: 'Conv.', descripcion: 'Convocatorias' },
   { campo: 'titular', titulo: 'Tit.', descripcion: 'Titular' },
   { campo: 'suplente', titulo: 'Supl.', descripcion: 'Suplente' },
-  { campo: 'banquillo_no_jugados', titulo: 'Sin jugar' },
+  { campo: 'banquillo_no_jugados', titulo: 'Sin jugar', descripcion: 'Suplente sin llegar a jugar' },
   { campo: 'sustituciones', titulo: 'Sust.', descripcion: 'Sustitución' },
   { campo: 'sustituciones_primera', titulo: 'Sust. 1 Parte', descripcion: 'Sustituido en la 1ª parte (hasta el minuto 45)' },
   { campo: 'sustituciones_segunda', titulo: 'Sust. 2 Parte', descripcion: 'Sustituido en la 2ª parte' }
@@ -48,7 +48,7 @@ export const METRICAS_CONVOCATORIAS_SENIOR = [
   ...METRICAS_CONVOCATORIAS.slice(1)
 ];
 export const METRICAS_TIEMPO = [
-  { campo: 'partidos', titulo: 'Partidos' },
+  { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
   { campo: 'minutos', titulo: 'Min.', descripcion: 'Minutos' },
   { campo: 'minutos_por_partido', titulo: 'Min. por\npartido', descripcion: 'Minutos por partido jugado', unDecimal: true, calculo: 'Min. / Partidos' },
   { campo: 'porcentaje_minutos', titulo: '% Min.\njugados', descripcion: '% Minutos jugados', porcentaje: true, calculo: 'Min. / (Partidos\njugados × 90) × 100' },
@@ -57,11 +57,11 @@ export const METRICAS_TIEMPO = [
   { campo: 'minutos_banquillo', titulo: 'Min.\nSupl.', descripcion: 'Minutos Suplente' }
 ];
 export const METRICAS_GOLES = [
-  { campo: 'partidos', titulo: 'Partidos' },
-  { campo: 'goles', titulo: 'Goles' },
+  { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
+  { campo: 'goles', titulo: 'Goles', descripcion: 'Goles marcados (sin los de propia puerta)' },
   // % por partido justo después de Goles.
   { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true, calculo: 'Partidos con gol /\nPartidos × 100' },
-  { campo: 'porcentaje_goles', titulo: '% de sus\ngoles', porcentaje: true, soloLados: true, calculo: 'Goles / Goles\nde Total × 100' },
+  { campo: 'porcentaje_goles', titulo: '% de sus\ngoles', descripcion: '% de sus goles (los de Total) marcados en casa / fuera', porcentaje: true, soloLados: true, calculo: 'Goles / Goles\nde Total × 100' },
   // Títulos por defecto para 90' (Fútbol 11 / Senior A); la vista por categoría
   // los recalcula según la duración del tipo de fútbol (Fútbol 7 no juega 90').
   { campo: 'goles_1t1', titulo: '0-15', subgrupo: '1ª Parte', descripcionSubgrupo: 'Goles por tramo en la 1ª parte', descripcion: 'Goles en el 1er tramo de la 1ª parte' },
@@ -70,10 +70,10 @@ export const METRICAS_GOLES = [
   { campo: 'goles_2t1', titulo: '46-60', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles por tramo en la 2ª parte', descripcion: 'Goles en el 1er tramo de la 2ª parte' },
   { campo: 'goles_2t2', titulo: '61-75', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles por tramo en la 2ª parte', descripcion: 'Goles en el 2º tramo de la 2ª parte' },
   { campo: 'goles_2t3', titulo: '76-90', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles por tramo en la 2ª parte', descripcion: 'Goles en el 3er tramo de la 2ª parte (incluye el añadido)' },
-  { campo: 'goles_titular', titulo: 'Goles', subgrupo: 'Tit.', descripcionSubgrupo: 'Titular' },
-  { campo: 'porcentaje_goles_titular', titulo: '% Goles', porcentaje: true, subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', calculo: 'Goles Tit. /\nGoles × 100' },
-  { campo: 'goles_banquillo', titulo: 'Goles', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente' },
-  { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', porcentaje: true, subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente', calculo: 'Goles Supl. /\nGoles × 100' }
+  { campo: 'goles_titular', titulo: 'Goles', subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', descripcion: 'Goles marcados siendo titular' },
+  { campo: 'porcentaje_goles_titular', titulo: '% Goles', descripcion: '% de sus goles marcados siendo titular', porcentaje: true, subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', calculo: 'Goles Tit. /\nGoles × 100' },
+  { campo: 'goles_banquillo', titulo: 'Goles', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente', descripcion: 'Goles marcados saliendo de suplente' },
+  { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', descripcion: '% de sus goles marcados saliendo de suplente', porcentaje: true, subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente', calculo: 'Goles Supl. /\nGoles × 100' }
 ];
 // Estadísticas Rivales → Goles: como Goles, con los resultados del equipo
 // (goles a favor / en contra y su diferencia) tras Partidos, sin la columna Goles.
@@ -103,23 +103,23 @@ export const METRICAS_GOLES_CONTRA = [
   { campo: 'contra_2t3', titulo: '76-90', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 2ª parte', descripcion: 'Goles en contra en el 3er tramo de la 2ª parte (incluye el añadido)' }
 ];
 export const METRICAS_SANCIONES = [
-  { campo: 'partidos', titulo: 'Partidos' },
-  { campo: 'tarjetas_amarillas', titulo: 'Total', subgrupo: 'Amarillas' },
+  { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
+  { campo: 'tarjetas_amarillas', titulo: 'Total', subgrupo: 'Amarillas', descripcion: 'Tarjetas amarillas' },
   // Siendo titular o suplente (las del suplente, aunque no llegara a entrar).
   { campo: 'amarillas_titular', titulo: 'Tit.', subgrupo: 'Amarillas', descripcion: 'Amarillas siendo titular' },
   { campo: 'amarillas_suplente', titulo: 'Supl.', subgrupo: 'Amarillas', descripcion: 'Amarillas siendo suplente (haya entrado o no)' },
-  { campo: 'amarillas_primera', titulo: '1ª Parte', subgrupo: 'Amarillas' },
-  { campo: 'amarillas_segunda', titulo: '2ª Parte', subgrupo: 'Amarillas' },
-  { campo: 'amarillas_ganando', titulo: 'Ganando', subgrupo: 'Amarillas' },
-  { campo: 'amarillas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Amarillas' },
+  { campo: 'amarillas_primera', titulo: '1ª Parte', subgrupo: 'Amarillas', descripcion: 'Amarillas en la 1ª parte (hasta el minuto 45)' },
+  { campo: 'amarillas_segunda', titulo: '2ª Parte', subgrupo: 'Amarillas', descripcion: 'Amarillas en la 2ª parte' },
+  { campo: 'amarillas_ganando', titulo: 'Ganando', subgrupo: 'Amarillas', descripcion: 'Amarillas yendo ganando' },
+  { campo: 'amarillas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Amarillas', descripcion: 'Amarillas yendo perdiendo' },
   { campo: 'dobles_amarillas', titulo: 'Dobles', subgrupo: 'Amarillas', descripcion: 'Partidos en los que vio 2 o más amarillas (doble amarilla)' },
-  { campo: 'tarjetas_rojas', titulo: 'Total', subgrupo: 'Rojas' },
+  { campo: 'tarjetas_rojas', titulo: 'Total', subgrupo: 'Rojas', descripcion: 'Tarjetas rojas' },
   { campo: 'rojas_titular', titulo: 'Tit.', subgrupo: 'Rojas', descripcion: 'Rojas siendo titular' },
   { campo: 'rojas_suplente', titulo: 'Supl.', subgrupo: 'Rojas', descripcion: 'Rojas siendo suplente (haya entrado o no)' },
-  { campo: 'rojas_primera', titulo: '1ª Parte', subgrupo: 'Rojas' },
-  { campo: 'rojas_segunda', titulo: '2ª Parte', subgrupo: 'Rojas' },
-  { campo: 'rojas_ganando', titulo: 'Ganando', subgrupo: 'Rojas' },
-  { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas' }
+  { campo: 'rojas_primera', titulo: '1ª Parte', subgrupo: 'Rojas', descripcion: 'Rojas en la 1ª parte (hasta el minuto 45)' },
+  { campo: 'rojas_segunda', titulo: '2ª Parte', subgrupo: 'Rojas', descripcion: 'Rojas en la 2ª parte' },
+  { campo: 'rojas_ganando', titulo: 'Ganando', subgrupo: 'Rojas', descripcion: 'Rojas yendo ganando' },
+  { campo: 'rojas_perdiendo', titulo: 'Perdiendo', subgrupo: 'Rojas', descripcion: 'Rojas yendo perdiendo' }
 ];
 
 // Solo Estadísticas Senior A (las demás categorías no registran minutos):

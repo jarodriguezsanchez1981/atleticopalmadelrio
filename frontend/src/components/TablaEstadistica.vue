@@ -136,6 +136,23 @@ function ayuda(c) {
   return [c.descripcion || (calculo ? c.titulo.replace(/\s*\n\s*/g, ' ') : ''), calculo].filter(Boolean).join(' · ');
 }
 
+const sinSaltos = (texto) => texto.replace(/\s*\n\s*/g, ' ');
+
+// Leyenda bajo la tabla: cada columna con su nombre completo y, si lo tiene, el
+// cálculo (lo mismo que el tooltip de la cabecera, pero siempre a la vista).
+const leyenda = computed(() => {
+  const vistas = new Set();
+  return ordenMetricas.value
+    .map((campo) => props.metricas.find((m) => m.campo === campo))
+    .filter((m) => m && (m.descripcion || m.calculo))
+    .map((m) => ({
+      campo: m.campo,
+      titulo: sinSaltos(m.subgrupo ? `${m.subgrupo} ${m.titulo}` : m.titulo),
+      texto: [m.descripcion, m.calculo ? `cálculo: ${sinSaltos(m.calculo)}` : ''].filter(Boolean).join('; ')
+    }))
+    .filter((e) => (vistas.has(e.titulo) ? false : vistas.add(e.titulo)));
+});
+
 function arrastrable(tipo, clave, descripcion = '') {
   return {
     headerCell: {
@@ -168,6 +185,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
 </script>
 
 <template>
+  <div class="flex flex-col gap-2">
   <DataTable v-bind="estiloTabla" class="ar-dt-cabecera-multilinea ar-dt-agrupada" :value="filas" :loading="cargando"
              :dataKey="dataKey" :sortField="campoOrden" :sortOrder="-1" v-model:expandedRows="filasAbiertas">
     <ColumnGroup type="header">
@@ -227,4 +245,14 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
       <div class="text-center text-ink-tertiary py-4 text-sm">{{ textoVacio }}</div>
     </template>
   </DataTable>
+
+  <dl class="text-xs text-ink-tertiary flex flex-wrap gap-x-4 gap-y-1">
+    <div v-if="!soloGrupo">
+      <dt class="inline font-semibold text-ink-secondary">Total / Local / Visitante:</dt> <dd class="inline">todos los partidos / en casa / fuera</dd>
+    </div>
+    <div v-for="e in leyenda" :key="e.campo">
+      <dt class="inline font-semibold text-ink-secondary">{{ e.titulo }}:</dt> <dd class="inline">{{ e.texto }}</dd>
+    </div>
+  </dl>
+  </div>
 </template>

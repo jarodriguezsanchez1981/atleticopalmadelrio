@@ -123,3 +123,34 @@ describe('TablaEstadistica con subgrupos', () => {
     expect(textos(w.findAll('tbody tr')[0].findAll('td'))).toEqual(['Ana López', '2', '66,7 %', '1']);
   });
 });
+
+describe('TablaEstadistica: leyenda', () => {
+  it('pone bajo la tabla cada columna con su descripción y su cálculo', async () => {
+    const w = mount(TablaEstadistica, {
+      props: {
+        filas: FILAS,
+        soloGrupo: 'total',
+        metricas: [
+          { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
+          { campo: 'goles', titulo: 'Goles' },
+          { campo: 'media', titulo: 'Media\npor partido', descripcion: 'Media de goles', decimal: true, calculo: 'Goles\n/ Partidos' },
+          { campo: 'amarillas_primera', titulo: '1ª Parte', subgrupo: 'Amarillas', descripcion: 'Amarillas en la 1ª parte' }
+        ]
+      },
+      global: { plugins: [PrimeVue] }
+    });
+    await nextTick();
+    // Las columnas sin descripción ni cálculo (Goles) no salen.
+    expect(textos(w.findAll('dl > div'))).toEqual([
+      'Partidos: Partidos jugados',
+      'Media por partido: Media de goles; cálculo: Goles / Partidos',
+      'Amarillas 1ª Parte: Amarillas en la 1ª parte'
+    ]);
+  });
+
+  it('con los tres grupos, explica Total / Local / Visitante', async () => {
+    const w = montar();
+    await nextTick();
+    expect(w.find('dl').text()).toContain('Total / Local / Visitante');
+  });
+});
