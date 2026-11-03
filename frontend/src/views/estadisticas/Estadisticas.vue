@@ -138,7 +138,8 @@ const TABLAS = {
     seccion: 'estadisticas_goles',
     titulo: 'Estadísticas Goles',
     descripcion: 'Goles de cada jugador por tramos de 15 minutos dentro de cada parte (1ª parte: 0-15, 16-30, 31-45; 2ª parte: 46-60, 61-75, 76-90; el tiempo añadido se suma al último tramo de su parte) y según jugara de titular o de suplente (en Tit. / Supl., "% Goles" es la parte de sus goles marcados de titular / de suplente). En Local / Visitante, "% de sus goles" es la parte del total de goles del jugador marcados en casa / fuera. "% por partido": partidos jugados en los que marca algún gol (si marca en 2 de 4 partidos, 50 %; marcar varios en un partido cuenta como uno). Los goles en propia puerta no cuentan. Pulsa en un jugador para ver en qué partidos marcó (y en qué minuto; (p) = de penalti). "Min. por Goles": minutos jugados entre goles marcados.',
-    metricas: [...METRICAS_GOLES, MINUTOS_POR_GOL],
+    // Min. por Goles y % por partido justo después de Goles.
+    metricas: [...METRICAS_GOLES.slice(0, 2), MINUTOS_POR_GOL, ...METRICAS_GOLES.slice(2)],
     sortField: 'goles',
     porLado: true
   },

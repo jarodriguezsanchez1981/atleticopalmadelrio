@@ -59,6 +59,8 @@ export const METRICAS_TIEMPO = [
 export const METRICAS_GOLES = [
   { campo: 'partidos', titulo: 'Partidos' },
   { campo: 'goles', titulo: 'Goles' },
+  // % por partido justo después de Goles.
+  { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true, calculo: 'Partidos con gol /\nPartidos × 100' },
   { campo: 'porcentaje_goles', titulo: '% de sus\ngoles', porcentaje: true, soloLados: true, calculo: 'Goles / Goles\nde Total × 100' },
   // Títulos por defecto para 90' (Fútbol 11 / Senior A); la vista por categoría
   // los recalcula según la duración del tipo de fútbol (Fútbol 7 no juega 90').
@@ -71,8 +73,7 @@ export const METRICAS_GOLES = [
   { campo: 'goles_titular', titulo: 'Goles', subgrupo: 'Tit.', descripcionSubgrupo: 'Titular' },
   { campo: 'porcentaje_goles_titular', titulo: '% Goles', porcentaje: true, subgrupo: 'Tit.', descripcionSubgrupo: 'Titular', calculo: 'Goles Tit. /\nGoles × 100' },
   { campo: 'goles_banquillo', titulo: 'Goles', subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente' },
-  { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', porcentaje: true, subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente', calculo: 'Goles Supl. /\nGoles × 100' },
-  { campo: 'porcentaje_goles_partido', titulo: '% por\npartido', descripcion: '% de partidos jugados en los que marca', porcentaje: true, calculo: 'Partidos con gol /\nPartidos × 100' }
+  { campo: 'porcentaje_goles_banquillo', titulo: '% Goles', porcentaje: true, subgrupo: 'Supl.', descripcionSubgrupo: 'Suplente', calculo: 'Goles Supl. /\nGoles × 100' }
 ];
 // Estadísticas Rivales → Goles: como Goles, con los resultados del equipo
 // (goles a favor / en contra y su diferencia) tras Partidos, sin la columna Goles.
