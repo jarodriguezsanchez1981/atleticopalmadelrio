@@ -14,6 +14,9 @@ import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import { estiloTabla } from '../../utils/estiloTabla';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
@@ -173,9 +176,33 @@ const escudoVisitante = computed(() => {
   return escudoEquipo(e.equipoVisitante?.id) || '/escudo.png';
 });
 
+// Puesto de cada equipo en la clasificación antes del partido (solo liga).
+const clasificacionPartido = ref(null);
+const textoPuesto = (lado) => {
+  const puesto = clasificacionPartido.value?.[lado];
+  return puesto ? `${puesto.posicion}º` : null;
+};
+const tituloPuesto = (lado) => {
+  const c = clasificacionPartido.value;
+  const puesto = c?.[lado];
+  return puesto ? `${puesto.posicion}º de ${c.total_equipos} con ${puesto.puntos} puntos (clasificación de la jornada ${c.jornada})` : '';
+};
+const puestoLocal = computed(() => textoPuesto('local'));
+const puestoVisitante = computed(() => textoPuesto('visitante'));
+
 // Los escudos no vienen en los eventos: se piden al abrir el detalle.
-watch(eventoSeleccionado, (e) => {
-  if (e?.tipo === 'partido') cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
+watch(eventoSeleccionado, async (e) => {
+  clasificacionPartido.value = null;
+  if (e?.tipo !== 'partido') return;
+  cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
+  const id = idDeEvento(e);
+  if (!e.jornada || !id) return;
+  try {
+    const c = await partidosService.clasificacion(id);
+    if (eventoSeleccionado.value === e) clasificacionPartido.value = c;
+  } catch {
+    // Sin clasificación (o sin permiso de Partidos): no se muestra el puesto.
+  }
 });
 
 const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);
@@ -777,27 +804,25 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 
       <div v-if="eventoSeleccionado" class="space-y-3">
         <template v-if="eventoSeleccionado.tipo === 'partido'">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pb-2 border-b border-line">
-            <div>
-              <p class="text-xs text-ink-tertiary font-medium">Fecha</p>
-              <p class="text-sm text-ink-secondary">{{ formatearFechaCorta(eventoSeleccionado.inicio) }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-ink-tertiary font-medium">Hora</p>
-              <p class="text-sm text-ink-secondary">{{ formatearHora(eventoSeleccionado.inicio) }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-ink-tertiary font-medium">Lugar</p>
-              <p class="text-sm text-ink-secondary">{{ lugarPartido }}</p>
-            </div>
-            <div>
-              <p v-if="eventoSeleccionado.jornada" class="text-xs text-ink-tertiary font-medium">Jornada</p>
-              <p v-if="eventoSeleccionado.jornada" class="text-sm text-ink-secondary">{{ eventoSeleccionado.jornada }}</p>
-              <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
-                <i class="pi pi-handshake"></i> Amistoso
-              </span>
-            </div>
-          </div>
+          <DataTable v-bind="estiloTabla" :value="[eventoSeleccionado]" dataKey="id" :rowHover="false">
+            <Column header="Fecha" headerClass="text-center" bodyClass="text-center">
+              <template #body="{ data }">{{ formatearFechaCorta(data.inicio) }}</template>
+            </Column>
+            <Column header="Hora" headerClass="text-center" bodyClass="text-center">
+              <template #body="{ data }">{{ formatearHora(data.inicio) }}</template>
+            </Column>
+            <Column header="Lugar" headerClass="text-center" bodyClass="text-center">
+              <template #body>{{ lugarPartido }}</template>
+            </Column>
+            <Column header="Jornada" headerClass="text-center" bodyClass="text-center">
+              <template #body="{ data }">
+                <span v-if="data.jornada">{{ data.jornada }}</span>
+                <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                  <i class="pi pi-handshake"></i> Amistoso
+                </span>
+              </template>
+            </Column>
+          </DataTable>
         </template>
 
         <template v-if="eventoSeleccionado.tipo === 'entrenamiento'">
@@ -872,6 +897,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 
         <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">
           <div class="flex flex-col items-center gap-2">
+            <span v-if="puestoLocal" class="text-sm font-bold text-club-green tabular-nums leading-none" :title="tituloPuesto('local')">{{ puestoLocal }}</span>
             <img :src="escudoLocal" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
             <div class="flex items-center gap-2">
               <EquipacionPrenda tipo="camiseta" :color="camisetaLocal" :size="28" />
@@ -882,6 +908,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
             <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).local }}</span>
           </div>
           <div class="flex flex-col items-center gap-2">
+            <span v-if="puestoVisitante" class="text-sm font-bold text-club-green tabular-nums leading-none" :title="tituloPuesto('visitante')">{{ puestoVisitante }}</span>
             <img :src="escudoVisitante" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
             <div class="flex items-center gap-2">
               <EquipacionPrenda tipo="camiseta" :color="camisetaVisitante" :size="28" />
@@ -893,7 +920,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
           </div>
         </div>
 
-        <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" />
+        <ResultadoJugadoresPartido v-if="eventoSeleccionado.tipo === 'partido'" :evento="eventoSeleccionado" :conNotas="false" />
 
         <div v-if="eventoSeleccionado.tipo !== 'partido'" class="text-sm text-ink-secondary space-y-1.5">
           <p v-if="eventoSeleccionado.incidencias">
