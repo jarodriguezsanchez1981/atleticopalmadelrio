@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import PrimeVue from 'primevue/config';
 import TablaEstadistica from '../components/TablaEstadistica.vue';
+import { leyendaMetricas } from '../utils/estadisticasMetricas';
 
 const METRICAS = [
   { campo: 'goles', titulo: 'Goles' },
@@ -152,5 +153,19 @@ describe('TablaEstadistica: leyenda', () => {
     const w = montar();
     await nextTick();
     expect(w.find('dl').text()).toContain('Total / Local / Visitante');
+  });
+
+  it('no repite las entradas que ya salen bajo otra tabla que se ve a la vez (leyendaOmitir)', async () => {
+    const metricas = [
+      { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
+      { campo: 'goles', titulo: 'Goles', descripcion: 'Goles marcados' }
+    ];
+    const w = mount(TablaEstadistica, {
+      props: { filas: FILAS, soloGrupo: 'total', metricas,
+        leyendaOmitir: leyendaMetricas([{ campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' }]) },
+      global: { plugins: [PrimeVue] }
+    });
+    await nextTick();
+    expect(textos(w.findAll('dl > div'))).toEqual(['Goles: Goles marcados']);
   });
 });

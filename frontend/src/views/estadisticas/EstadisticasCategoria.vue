@@ -7,7 +7,7 @@ import TablaEstadistica from '../../components/TablaEstadistica.vue';
 import PestanasLado from '../../components/PestanasLado.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
-import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS, duracionJuego, etiquetasTramos } from '../../utils/estadisticasMetricas';
+import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS, duracionJuego, etiquetasTramos, leyendaMetricas } from '../../utils/estadisticasMetricas';
 
 /** Estadísticas de Convocatorias, Goles y Sanciones de la categoría del usuario (a
  * diferencia de views/estadisticas/Estadisticas.vue, que son siempre de Senior
@@ -270,7 +270,8 @@ onBeforeUnmount(() => {
         <PestanasLado v-slot="{ lado }">
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
                             :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacio"
-                            :expandible="expandibleLado(lado.clave)">
+                            :expandible="expandibleLado(lado.clave)"
+                            :leyendaOmitir="tabla === 'sanciones' ? leyendaMetricas(METRICAS_EQUIPO_RESUMEN) : []">
             <template #detalle="{ data }">
               <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" :conTitular="false" />
             </template>

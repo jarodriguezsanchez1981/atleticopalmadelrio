@@ -15,7 +15,7 @@ import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { nombreJugadorActa } from '../../utils/nombreActa';
 import {
   METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
-  duracionJuego, etiquetasTramos
+  duracionJuego, etiquetasTramos, leyendaMetricas
 } from '../../utils/estadisticasMetricas';
 
 /** Próximo Rival: el siguiente partido de liga de la plantilla y, del rival,
@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
                     <h3 class="font-display text-base text-ink-secondary">Jugadores</h3>
                     <TablaEstadistica :filas="jugadores.filter((j) => b.tiene(j, lado.sufijo))" :metricas="b.metricas"
                                       :soloGrupo="lado.clave" :sortField="b.sortField" :cargando="cargando"
-                                      :textoVacio="b.vacio" />
+                                      :textoVacio="b.vacio" :leyendaOmitir="leyendaMetricas(b.metricasEquipo)" />
                   </div>
                 </div>
               </PestanasLado>

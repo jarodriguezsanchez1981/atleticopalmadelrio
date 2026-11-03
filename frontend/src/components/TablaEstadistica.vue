@@ -5,6 +5,7 @@ import Column from 'primevue/column';
 import ColumnGroup from 'primevue/columngroup';
 import Row from 'primevue/row';
 import { estiloTabla } from '../utils/estiloTabla';
+import { leyendaMetricas } from '../utils/estadisticasMetricas';
 
 /** Tabla de la sección Estadísticas con las columnas agrupadas en Total, Local
  * y Visitante (el PALMA en casa / fuera): cada métrica sale en los tres grupos
@@ -29,7 +30,10 @@ const props = defineProps({
   soloGrupo: { type: String, default: null },
   // Filas desplegables: función (fila) => true si la fila tiene detalle; el
   // detalle se pinta con el slot #detalle="{ data }".
-  expandible: { type: Function, default: null }
+  expandible: { type: Function, default: null },
+  // Entradas de leyenda (leyendaMetricas) que ya salen bajo otra tabla que se
+  // ve a la vez (p. ej. la del equipo encima de la de jugadores): no se repiten.
+  leyendaOmitir: { type: Array, default: () => [] }
 });
 
 // Filas desplegadas, por su dataKey.
@@ -136,21 +140,13 @@ function ayuda(c) {
   return [c.descripcion || (calculo ? c.titulo.replace(/\s*\n\s*/g, ' ') : ''), calculo].filter(Boolean).join(' · ');
 }
 
-const sinSaltos = (texto) => texto.replace(/\s*\n\s*/g, ' ');
-
 // Leyenda bajo la tabla: cada columna con su nombre completo y, si lo tiene, el
-// cálculo (lo mismo que el tooltip de la cabecera, pero siempre a la vista).
+// cálculo (lo mismo que el tooltip de la cabecera, pero siempre a la vista), sin
+// las entradas que ya salen bajo otra tabla que se ve a la vez (leyendaOmitir).
 const leyenda = computed(() => {
-  const vistas = new Set();
-  return ordenMetricas.value
-    .map((campo) => props.metricas.find((m) => m.campo === campo))
-    .filter((m) => m && (m.descripcion || m.calculo))
-    .map((m) => ({
-      campo: m.campo,
-      titulo: sinSaltos(m.subgrupo ? `${m.subgrupo} ${m.titulo}` : m.titulo),
-      texto: [m.descripcion, m.calculo ? `cálculo: ${sinSaltos(m.calculo)}` : ''].filter(Boolean).join('; ')
-    }))
-    .filter((e) => (vistas.has(e.titulo) ? false : vistas.add(e.titulo)));
+  const omitir = new Set(props.leyendaOmitir.map((e) => e.clave));
+  return leyendaMetricas(ordenMetricas.value.map((campo) => props.metricas.find((m) => m.campo === campo)))
+    .filter((e) => !omitir.has(e.clave));
 });
 
 function arrastrable(tipo, clave, descripcion = '') {
@@ -246,7 +242,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
     </template>
   </DataTable>
 
-  <dl class="text-xs text-ink-tertiary flex flex-wrap gap-x-4 gap-y-1">
+  <dl v-if="!soloGrupo || leyenda.length" class="text-xs text-ink-tertiary flex flex-wrap gap-x-4 gap-y-1">
     <div v-if="!soloGrupo">
       <dt class="inline font-semibold text-ink-secondary">Total / Local / Visitante:</dt> <dd class="inline">todos los partidos / en casa / fuera</dd>
     </div>
