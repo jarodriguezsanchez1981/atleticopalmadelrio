@@ -111,12 +111,18 @@ async function cargarPartidosDePlantilla(idPlantilla) {
   cargarEscudos(idsEquipos).catch(() => {});
 }
 
-/** Partidos que se muestran: al crear, los disponibles de hoy en adelante; al
- * editar o ver, solo el de la convocatoria (no se puede cambiar). */
+// Senior A puede hacer también la convocatoria de jornadas ya jugadas (pedido
+// por el usuario el 03/11/2026); el resto, solo de hoy en adelante.
+const CATEGORIA_CON_ANTERIORES = 'Senior A';
+const conJornadasAnteriores = computed(() => plantillaSeleccionada.value?.categoria?.nombre === CATEGORIA_CON_ANTERIORES);
+
+/** Partidos que se muestran: al crear, los disponibles de hoy en adelante (en
+ * Senior A, también los ya jugados); al editar o ver, solo el de la
+ * convocatoria (no se puede cambiar). */
 const partidosVisibles = computed(() =>
   (modoEdicion.value || props.soloLectura)
     ? partidosPlantilla.value.filter((p) => p.id === form.value.id_partido)
-    : partidosPlantilla.value.filter((p) => !esPasado(p))
+    : partidosPlantilla.value.filter((p) => conJornadasAnteriores.value || !esPasado(p))
 );
 
 /** Con hora asignada, el partido ha pasado en cuanto llega esa hora; sin hora
@@ -508,7 +514,7 @@ async function guardar() {
       </div>
       <div v-else-if="!partidosVisibles.length"
            class="rounded-xl border border-dashed border-line-strong py-6 text-center text-sm text-ink-tertiary">
-        Esta plantilla no tiene partidos de liga pendientes sin convocatoria.
+        {{ conJornadasAnteriores ? 'Esta plantilla no tiene partidos de liga sin convocatoria.' : 'Esta plantilla no tiene partidos de liga pendientes sin convocatoria.' }}
       </div>
       <div v-else class="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1 -mr-1">
         <button
@@ -534,6 +540,10 @@ async function guardar() {
                 <span class="font-semibold capitalize text-ink-secondary">{{ diaPartido(p.fecha) }}</span>
                 <span>·</span>
                 <span>{{ horaPartido(p.fecha) }}</span>
+                <template v-if="esPasado(p)">
+                  <span>·</span>
+                  <span class="font-semibold text-ink-secondary">Jugado</span>
+                </template>
                 <template v-if="p.lugar?.nombre">
                   <span class="hidden sm:inline">·</span>
                   <span class="hidden sm:inline truncate max-w-[14rem]"><i class="pi pi-map-marker text-[0.65rem]"></i> {{ p.lugar.nombre }}</span>
