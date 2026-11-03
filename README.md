@@ -159,11 +159,13 @@ atleticopalmadelrio/
 | Incidencias    | Sí   | write | Incidencias de partidos |
 | Jugadores      | Sí   | write | Jugadores del club |
 | Plantillas     | Sí   | write | Plantillas por categoría y temporada, con coordinador y posiciones por temporada. Filtradas por defecto a la temporada actual |
-| Promociones    | Sí   | write | Ascensos de jugadores entre plantillas |
+| Promociones    | Sí   | write | Ascensos de jugadores entre plantillas, con pestañas Fútbol 7 / Fútbol 11 |
 | Entrenadores   | Sí   | write | Entrenadores del club |
 | Jornadas       | Sí   | write | Jornadas con jugadores convocados (tarjetas y goles) |
 | Torneo         | Sí   | write | Torneos y partidos amistosos |
-| Sanciones      | Sí   | write | Sanciones a jugadores (autogeneradas desde Jornadas para el equipo local del club) |
+| Sanciones      | Sí   | write | Sanciones a jugadores (autogeneradas desde Jornadas para el equipo local del club), con avisos de amarillas y rojas |
+| Convocatorias  | Sí   | write | Convocatorias de cada partido de liga |
+| Estadísticas   | No   | read  | Estadísticas del Senior A y de las demás categorías (incluido Próximo Rival) |
 | Informes       | —    | read  | En construcción |
 | Administración | Sí   | write | Gestión de usuarios y permisos |
 | **Cambios**    | **No** | **read** | **Auditoría de todos los cambios realizados** |
@@ -231,6 +233,34 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
   1. Tabla resumen (2 filas × 4 col): **Temporada | Categoría | Fecha y Hora | Jornada**
   2. Tabla de equipos (4 filas × 2 col): **Equipo Local | Equipo Visitante**, con nombres, escudos y la **suma de goles** de cada lado
   3. Tablas **Jugadores Equipo Local** y **Jugadores Equipo Visitante** (jugador, T. Amarilla, T. Roja, Goles)
+
+### Promociones
+- **Pestañas Fútbol 7 / Fútbol 11**: cada una muestra las promociones de las plantillas de ese tipo de fútbol
+
+### Sanciones
+- **Acumuladas**: tarjetas de cada jugador en la temporada
+- **Aviso Acumulación Tarjeta Amarillas**: jugadores con 4 amarillas en el ciclo (a una de la sanción)
+- **Sanción Tarjetas Amarillas**: jugadores que llegan a 5 amarillas contando las del último partido de liga
+- **Tarjeta Roja**: jugadores con roja o doble amarilla en el último partido de liga (la doble amarilla cuenta también para el ciclo de amarillas)
+- Las mismas alertas salen en el **Informe de Sanciones**
+
+### Convocatorias
+- Se crean para los partidos de liga de la plantilla que aún no tienen convocatoria, desde hoy en adelante
+- **Senior A**: también puede crear la convocatoria de jornadas ya jugadas (marcadas «Jugado»). No sobrescribe los minutos, goles ni tarjetas ya leídos del acta
+- Borrar la convocatoria de un partido ya jugado solo lo puede hacer un administrador
+
+### Estadísticas
+- **Senior A** (Convocatorias, Tiempo, Goles, Sanciones, Clasificación, Rivales, Próximo Rival) y **por categoría** (Convocatorias, Goles, Sanciones, Clasificación, Próximo Rival)
+- **Pestañas Total / Local / Visitante** en todas las tablas que separan por lado
+- Columnas derivadas: **Min. por tarjeta** (tras Partidos), **Min. por Goles** y **% por partido** (tras Goles)
+- **Próximo Rival**: datos del rival del siguiente partido de liga (goles, tiempo y sanciones, del equipo y de sus jugadores, total/local/visitante) sacados de las actas de la liga. En las categorías de menores no hay tabla de Tiempo (sus actas no traen minutos fiables) y los tramos de gol son de 60' en Fútbol 7
+- Mensaje **«Cargando datos...»** mientras se piden los datos
+
+### Actas de la liga (RFAF)
+- De cada plantilla de la temporada actual con códigos de RFAF se copian las jornadas jugadas y las actas de todos los partidos de su liga (tablas `liga_*`), para Rivales y Próximo Rival
+- Como mucho **2 jornadas y 20 actas por copia** entre todas las plantillas (Senior A primero), cada lunes a las 09:00 tras la clasificación y, mientras haya atrasos, **10 minutos** después de terminar la anterior (`backend/src/controllers/liga.controller.js`, `backend/src/utils/ligaRecuperacion.js`)
+- Una copia fallida (no por sesión caducada) se reintenta a los 10 minutos, como mucho 3 veces seguidas
+- La sesión de rfaf.es se pasa con `RFAF_COOKIE` (caduca a la media hora sin uso)
 
 ### Responsive móvil
 - **Sidebar → Drawer** en dispositivos ≤767px
@@ -312,6 +342,7 @@ Sistema de diseño escandinavo aplicado:
 - `promociones` — Ascensos de jugadores entre plantillas
 - `torneo` — Torneos y partidos amistosos
 - **`cambios`** — Auditoría de todas las acciones CRUD (entidad, acción, antes/después, usuario)
+- `liga_partidos`, `liga_jugadores`, `liga_goles`, `liga_tarjetas` — Partidos y actas de la liga de cada plantilla copiados de RFAF (Rivales y Próximo Rival)
 
 ### Relaciones
 - `plantilla_jugadores` / `plantilla_entrenadores` / `plantilla_delegados` — Muchos a muchos
@@ -340,12 +371,12 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (648 tests, 52 archivos)
+# Backend (813 tests, 61 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (56 tests, 11 archivos)
+# Frontend (127 tests, 19 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```
