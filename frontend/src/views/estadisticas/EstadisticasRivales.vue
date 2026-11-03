@@ -163,6 +163,10 @@ onBeforeUnmount(() => {
               :loading="exportando" :disabled="cargando || !equipos.length" @click="exportarExcel" />
     </div>
 
+    <!-- Mientras se piden los datos al servidor. -->
+    <div v-if="cargando" role="status" class="flex items-center gap-2 rounded-xl border border-line bg-white py-3 px-4 text-sm text-ink-secondary">
+      <i class="pi pi-spin pi-spinner" aria-hidden="true" /> Cargando datos...
+    </div>
     <div v-if="error" class="rounded-xl border border-red-200 bg-red-50 py-3 px-4 text-sm text-red-700">
       {{ error }} Recarga la página; si sigue pasando, revisa tus permisos de Estadísticas.
     </div>
