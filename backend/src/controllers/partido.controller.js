@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const { filasPlanas } = require('../utils/filasPlanas');
 const { limiteConsulta } = require('../utils/limiteConsulta');
-const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Promocion, Entrenador, Delegado } = require('../models');
+const { Partido, Plantilla, Categoria, Lugar, Equipo, Entrenamiento, Torneo, Jornada, PartidoJugador, Jugador, PlantillaJugador, EquipoJugador, Sancion, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, Promocion, Entrenador, Delegado, Clasificacion } = require('../models');
 const { guardarJugadores } = require('../utils/partidoJugadores');
 const { categoriaDelUsuario, includesConCategoria } = require('../utils/filtroCategoria');
 const { otroTipoDeEventoMismoDia } = require('../utils/calendarioConflictos');
@@ -301,6 +301,78 @@ async function actualizar(req, res, next) {
     }
     const actualizado = await Partido.findByPk(partido.id, { include: includesBase });
     res.json(serialize(actualizado));
+  } catch (err) { next(err); }
+}
+
+// Palabras que no distinguen a un club en los nombres de RFAF (siglas del tipo
+// de sociedad; las letras sueltas —"C.D.", el "A"/"B" del equipo— se quitan aparte).
+const SIGLAS_CLUB = new Set(['CD', 'CF', 'FC', 'AD', 'UD', 'SD']);
+
+/** Palabras significativas de un nombre de equipo, sin acentos, puntuación,
+ * letras sueltas ni siglas: "PACO PRADAS C.D." y 'C.D. PACO PRADAS "A"' dan
+ * las mismas. */
+function palabrasEquipo(nombre) {
+  return new Set(String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ').split(' ')
+    .filter((w) => w.length > 1 && !SIGLAS_CLUB.has(w)));
+}
+
+const mismasPalabras = (a, b) => a.size === b.size && [...a].every((w) => b.has(w));
+const contenidas = (a, b) => a.size > 0 && [...a].every((w) => b.has(w));
+
+/** Fila de la clasificación de un equipo del partido: la del PALMA para el
+ * PALMA; para el rival, la única con sus mismas palabras o, si no hay, la
+ * única en la que unas estén contenidas en las otras. null si no se sabe. */
+function filaDeEquipo(filas, equipo) {
+  if (!equipo) return null;
+  if (Number(equipo.id) === PALMA_ID) return filas.find((f) => f.es_palma) || null;
+  const palabras = palabrasEquipo(equipo.nombre);
+  const rivales = filas.filter((f) => !f.es_palma).map((f) => ({ f, p: palabrasEquipo(f.equipo) }));
+  const iguales = rivales.filter((r) => mismasPalabras(r.p, palabras));
+  if (iguales.length) return iguales.length === 1 ? iguales[0].f : null;
+  const parecidas = rivales.filter((r) => contenidas(palabras, r.p) || contenidas(r.p, palabras));
+  return parecidas.length === 1 ? parecidas[0].f : null;
+}
+
+/** GET /partidos/:id/clasificacion: puesto de cada equipo antes del partido,
+ * de la última clasificación guardada de una jornada anterior a la suya.
+ * { jornada, total_equipos, local: { posicion, puntos } | null, visitante }. */
+async function clasificacionPrevia(req, res, next) {
+  try {
+    const partido = await Partido.findByPk(req.params.id, {
+      attributes: ['id', 'id_plantilla', 'jornada'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre'] }
+      ]
+    });
+    if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
+    const vacia = { jornada: null, total_equipos: 0, local: null, visitante: null };
+    const jornada = Number(partido.jornada);
+    if (!(jornada > 1)) return res.json(vacia);
+
+    const anterior = await Clasificacion.findOne({
+      where: { id_plantilla: partido.id_plantilla, jornada: { [Op.lt]: jornada } },
+      attributes: ['jornada'],
+      order: [['jornada', 'DESC']],
+      raw: true
+    });
+    if (!anterior) return res.json(vacia);
+    const filas = await Clasificacion.findAll({
+      where: { id_plantilla: partido.id_plantilla, jornada: anterior.jornada },
+      attributes: ['posicion', 'puntos', 'equipo', 'es_palma'],
+      raw: true
+    }) || [];
+    const puesto = (equipo) => {
+      const f = filaDeEquipo(filas, equipo);
+      return f ? { posicion: f.posicion, puntos: f.puntos } : null;
+    };
+    res.json({
+      jornada: anterior.jornada,
+      total_equipos: filas.length,
+      local: puesto(partido.equipoLocal),
+      visitante: puesto(partido.equipoVisitante)
+    });
   } catch (err) { next(err); }
 }
 
@@ -650,4 +722,4 @@ async function finalizarActa(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar, finalizarActa };
+module.exports = { listar, obtener, crear, actualizar, eliminar, finalizarActa, clasificacionPrevia, palabrasEquipo };

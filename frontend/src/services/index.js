@@ -52,7 +52,8 @@ export const entrenamientosService = {
 };
 export const partidosService = {
   ...crudService('partidos'),
-  finalizarActa: (id, payload = {}) => api.post(`/partidos/${id}/finalizar-acta`, payload).then(r => r.data)
+  finalizarActa: (id, payload = {}) => api.post(`/partidos/${id}/finalizar-acta`, payload).then(r => r.data),
+  clasificacion: (id) => api.get(`/partidos/${id}/clasificacion`).then(r => r.data)
 };
 export const convocatoriasService = {
   ...crudService('convocatorias'),
