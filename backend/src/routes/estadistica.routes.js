@@ -19,6 +19,8 @@ const SECCIONES_LISTADO = [
   'estadisticas_cat_convocatorias', 'estadisticas_cat_goles', 'estadisticas_cat_sanciones'
 ];
 router.get('/', authorize(...SECCIONES_LISTADO), ctrl.listar);
+// Jornadas en las que el PALMA descansa (Estadísticas Tiempo → Jugadores).
+router.get('/descansos', authorize('estadisticas_tiempo'), ctrl.descansos);
 // Plantillas (con jugadores) para el selector de las Estadísticas por categoría.
 router.get('/plantillas', authorize(...SECCIONES_LISTADO, 'estadisticas_cat_proximo_rival'), ctrl.plantillasEstadisticas);
 // Datos del equipo: los leen Estadísticas Goles (la parte de goles) y

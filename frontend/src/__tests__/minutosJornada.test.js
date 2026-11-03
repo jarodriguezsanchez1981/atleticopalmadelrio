@@ -109,4 +109,18 @@ describe('minutosJornada · construirMinutosPorJornada', () => {
     expect(nombreEnDosLineas('ESPELEÑO')).toBe('ESPELEÑO');
     expect(nombreEnDosLineas(null)).toBe('');
   });
+
+  it('jornada de descanso: columna en su sitio, "DESCANSA" en gris y celdas en gris', () => {
+    const datos = [{ id_jugador: 1, jugador: 'Ana', partidos_minutos: [
+      { id_partido: 10, jornada: 1, es_local: true, rival: 'RIVAL A', titular: true, minutos: 90 },
+      { id_partido: 30, jornada: 3, es_local: false, rival: 'RIVAL C', titular: true, minutos: 90 }
+    ] }];
+    const { jornadas } = construirMinutosPorJornada(datos, [{ jornada: 2, fecha: '2026-09-13' }]);
+    expect(jornadas.map((j) => j.clave)).toEqual(['p10', 'd2', 'p30']);
+    const hoja = hojaMinutosPorJornada(datos, [{ jornada: 2, fecha: '2026-09-13' }]);
+    expect(hoja.cabeceras.map((c) => c[2])).toEqual(['J2', '13/09/2026', 'DESCANSA']);
+    expect(hoja.estilosCabecera[2][2].fondo).toBe('FFE0E0E0');
+    expect(hoja.filas[0]).toEqual(['Ana', 90, null, 90, 180]);
+    expect(hoja.estilos[0][2].fondo).toBe('FFE0E0E0');
+  });
 });
