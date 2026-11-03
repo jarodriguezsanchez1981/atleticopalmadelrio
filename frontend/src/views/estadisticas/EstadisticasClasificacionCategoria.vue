@@ -229,6 +229,10 @@ onBeforeUnmount(() => {
           </Column>
         </DataTable>
         <p class="text-xs text-ink-tertiary">
+          Pos.: posición · Pts: puntos · J: jugados · G: ganados · E: empatados · P: perdidos · GF: goles a favor ·
+          GC: goles en contra · Dif.: diferencia de goles (GF - GC). En verde, el PALMA.
+        </p>
+        <p class="text-xs text-ink-tertiary">
           Últimos partidos: los 5 últimos resultados de cada equipo (el más reciente a la derecha): G ganado, E empate y
           P perdido. Salen de comparar cada jornada guardada con la anterior; las jornadas en las que descansa no cuentan. Pasa el ratón por un cuadrado para ver el partido y su marcador.
         </p>

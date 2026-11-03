@@ -389,13 +389,6 @@ onBeforeUnmount(() => {
           <!-- Estadísticas Tiempo: minutos de cada jugador en el partido de cada jornada. -->
           <TabPanel v-if="tabla === 'tiempo'" value="jornadas">
             <div class="flex flex-col gap-2">
-              <p class="text-sm text-ink-tertiary">
-                Minutos jugados por cada jugador en el partido de cada jornada (<i class="pi pi-home text-xs" aria-label="en casa" /> en casa,
-                <i class="pi pi-car text-xs" aria-label="fuera" /> fuera). En negrita, los
-                partidos en los que fue titular; 0, convocado sin llegar a jugar; —, no está en el acta.
-                <span class="inline-block w-2 h-3 rounded-[2px] bg-yellow-400 align-middle" aria-hidden="true" /> amarilla,
-                <span class="inline-block w-2 h-3 rounded-[2px] bg-red-600 align-middle" aria-hidden="true" /> roja.
-              </p>
               <DataTable v-bind="estiloTabla" class="ar-dt-centrada" :value="minutosPorJornada.filas" dataKey="id_jugador" :loading="cargando"
                          scrollable>
                 <template #empty>
@@ -430,6 +423,13 @@ onBeforeUnmount(() => {
                 </Column>
                 <Column field="total" header="Total" headerClass="text-center" bodyClass="text-center font-semibold" />
               </DataTable>
+              <p class="text-xs text-ink-tertiary">
+                Minutos jugados por cada jugador en el partido de cada jornada (<i class="pi pi-home text-xs" aria-label="en casa" /> en casa,
+                <i class="pi pi-car text-xs" aria-label="fuera" /> fuera). En negrita, los
+                partidos en los que fue titular; 0, convocado sin llegar a jugar; —, no está en el acta.
+                <span class="inline-block w-2 h-3 rounded-[2px] bg-yellow-400 align-middle" aria-hidden="true" /> amarilla,
+                <span class="inline-block w-2 h-3 rounded-[2px] bg-red-600 align-middle" aria-hidden="true" /> roja.
+              </p>
             </div>
           </TabPanel>
         </TabPanels>
