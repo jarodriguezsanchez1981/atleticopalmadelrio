@@ -4,6 +4,7 @@ import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
 import { estadisticasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
+import PestanasLado from '../../components/PestanasLado.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS } from '../../utils/estadisticasMetricas';
@@ -265,19 +266,16 @@ onBeforeUnmount(() => {
           Tarjetas del equipo por partido. TA / TR: amarillas y rojas de los jugadores del PALMA. Las medias son por
           partido jugado.
         </p>
-        <div v-for="lado in LADOS_TABLA" :key="`eqresumen-${lado.clave}`" class="flex flex-col gap-2">
-          <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+        <PestanasLado v-slot="{ lado }">
           <TablaEstadistica :filas="filasEquipo" :metricas="METRICAS_EQUIPO_RESUMEN" :soloGrupo="lado.clave"
                             :cargando="cargando" textoVacio="Todavía no hay partidos con resultado."
                             :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
-        </div>
+        </PestanasLado>
       </div>
 
       <h2 v-if="tabla === 'sanciones'" class="mt-4 font-display text-lg text-club-green">Jugadores</h2>
       <template v-if="config.porLado">
-        <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
-          <h3 v-if="tabla === 'sanciones'" class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
-          <h2 v-else class="font-display text-lg text-club-green">{{ lado.titulo }}</h2>
+        <PestanasLado v-slot="{ lado }">
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
                             :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacio"
                             :expandible="expandibleLado(lado.clave)">
@@ -285,10 +283,12 @@ onBeforeUnmount(() => {
               <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" :conTitular="false" />
             </template>
           </TablaEstadistica>
-        </div>
+        </PestanasLado>
       </template>
-      <TablaEstadistica v-else :key="tabla" :filas="filasTabla" :metricas="config.metricas" :sortField="config.sortField"
-                        :cargando="cargando" :textoVacio="textoVacio" />
+      <PestanasLado v-else :key="tabla" v-slot="{ lado }">
+        <TablaEstadistica :filas="filasTabla" :metricas="config.metricas" :soloGrupo="lado.clave" :sortField="config.sortField"
+                          :cargando="cargando" :textoVacio="textoVacio" />
+      </PestanasLado>
     </template>
   </div>
 </SectionGuard>

@@ -9,6 +9,7 @@ import TabPanel from 'primevue/tabpanel';
 import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
+import PestanasLado from '../../components/PestanasLado.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
@@ -191,8 +192,7 @@ onBeforeUnmount(() => {
           <TabPanel v-for="b in BLOQUES" :key="b.clave" :value="b.clave">
             <div class="flex flex-col gap-2">
               <p class="text-sm text-ink-tertiary">{{ b.descripcion }}</p>
-              <div v-for="lado in LADOS_TABLA" :key="`${b.clave}-${lado.clave}`" class="flex flex-col gap-2">
-                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+              <PestanasLado v-slot="{ lado }">
                 <TablaEstadistica :filas="equipos" :metricas="b.metricas" :soloGrupo="lado.clave"
                                   :sortField="b.sortField" :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo"
                                   textoVacio="Todavía no hay actas de la liga." :expandible="lado.clave === 'total' ? conJugadores : null">
@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
                     </div>
                   </template>
                 </TablaEstadistica>
-              </div>
+              </PestanasLado>
             </div>
           </TabPanel>
         </TabPanels>

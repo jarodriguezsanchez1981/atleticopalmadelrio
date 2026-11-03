@@ -12,6 +12,7 @@ import Column from 'primevue/column';
 import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
+import PestanasLado from '../../components/PestanasLado.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
@@ -323,18 +324,16 @@ onBeforeUnmount(() => {
           <TabPanel value="equipo">
             <div class="flex flex-col gap-2">
               <p class="text-sm text-ink-tertiary">{{ descripcionEquipoResumen }}</p>
-              <div v-for="lado in LADOS_TABLA" :key="`eqresumen-${lado.clave}`" class="flex flex-col gap-2">
-                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+              <PestanasLado v-slot="{ lado }">
                 <TablaEstadistica :filas="filasEquipo" :metricas="metricasEquipoResumen" :soloGrupo="lado.clave"
                                   :cargando="cargando" textoVacio="Todavía no hay partidos con resultado."
                                   :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
-              </div>
+              </PestanasLado>
             </div>
           </TabPanel>
           <TabPanel value="jugadores">
             <div class="flex flex-col gap-2">
-              <div v-for="lado in LADOS_TABLA" :key="`${tabla}-${lado.clave}`" class="flex flex-col gap-2">
-                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+              <PestanasLado v-slot="{ lado }">
                 <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
                                   :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacioTabla"
                                   :expandible="expandibleLado(lado.clave)">
@@ -342,7 +341,7 @@ onBeforeUnmount(() => {
                     <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" />
                   </template>
                 </TablaEstadistica>
-              </div>
+              </PestanasLado>
             </div>
           </TabPanel>
           <!-- Estadísticas Goles: goles que nos marca el equipo contrario, por periodo. -->
@@ -354,8 +353,7 @@ onBeforeUnmount(() => {
                 suma al total pero no a los tramos. Pulsa en la fila para ver en qué partidos nos marcó y en qué minuto
                 ((p) = de penalti, (pp) = en propia puerta de un jugador nuestro).
               </p>
-              <div v-for="lado in LADOS_TABLA" :key="`contra-${lado.clave}`" class="flex flex-col gap-2">
-                <h3 class="font-display text-base text-ink-secondary">{{ lado.titulo }}</h3>
+              <PestanasLado v-slot="{ lado }">
                 <TablaEstadistica :filas="filasContra" :metricas="METRICAS_CONTRA" :soloGrupo="lado.clave"
                                   :cargando="cargando" textoVacio="Todavía no hay goles en contra."
                                   :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla"
@@ -364,7 +362,7 @@ onBeforeUnmount(() => {
                     <PartidosJugadorEstadistica :partidos="partidosContra(data, lado.clave)" tipo="goles" :conTitular="false" />
                   </template>
                 </TablaEstadistica>
-              </div>
+              </PestanasLado>
             </div>
           </TabPanel>
         </TabPanels>
