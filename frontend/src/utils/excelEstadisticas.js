@@ -95,6 +95,9 @@ export function nombreHoja(nombre, usados = new Set()) {
 }
 
 const VERDE = 'FF0B3D2E';
+// Líneas finas grises alrededor de cada celda de datos.
+const LINEA_DATOS = { style: 'thin', color: { argb: 'FFBFBFBF' } };
+const BORDE_DATOS = { top: LINEA_DATOS, left: LINEA_DATOS, bottom: LINEA_DATOS, right: LINEA_DATOS };
 
 /** Fondo (y color del texto) propio de una celda: { fondo, colorTexto } en ARGB. */
 function pintar(celda, estilo) {
@@ -143,6 +146,7 @@ export async function descargarExcel(nombreFichero, hojas) {
         const celda = fila.getCell(i + 1);
         if (formato) celda.numFmt = FORMATO_NUMERO[formato];
         if (i > 0) celda.alignment = { horizontal: 'center' };
+        celda.border = BORDE_DATOS;
         pintar(celda, hoja.estilos?.[f]?.[i]);
       });
     });
