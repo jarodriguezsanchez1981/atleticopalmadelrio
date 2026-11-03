@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { construirMinutosPorJornada, hojaMinutosPorJornada } from '../utils/minutosJornada';
+import { construirMinutosPorJornada, hojaMinutosPorJornada, estiloCss, valorCelda } from '../utils/minutosJornada';
 
 const filas = [
   { id_jugador: 1, jugador: 'Ana', partidos_minutos: [
@@ -93,5 +93,13 @@ describe('minutosJornada · construirMinutosPorJornada', () => {
     // Suplente sin jugar ni tarjetas: sin estilo.
     expect(j4).toBeNull();
     expect(j5).toEqual({ fondo: 'FFFFEB3B', colorTexto: 'FFE53935', negrita: true });
+  });
+
+  it('en pantalla, el mismo estilo que en el Excel como CSS, y el valor de la celda', () => {
+    expect(estiloCss({ fondo: 'FFE53935', colorTexto: 'FFFFFFFF', negrita: true }))
+      .toEqual({ backgroundColor: '#E53935', color: '#FFFFFF', fontWeight: 600 });
+    expect(estiloCss(null)).toBeNull();
+    const fila = { celdas: { p1: { minutos: 0 } }, ausencias: { p2: 'lesion', p3: 'sancion' } };
+    expect(['p1', 'p2', 'p3', 'p4'].map((c) => valorCelda(fila, c))).toEqual([0, 'L', null, null]);
   });
 });

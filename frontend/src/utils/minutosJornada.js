@@ -38,7 +38,8 @@ export function construirMinutosPorJornada(filas = []) {
   };
 }
 
-// Colores de las celdas del Excel (ARGB).
+// Colores de las celdas (ARGB, como los pide exceljs; en pantalla, con estiloCss).
+// La tabla de la pestaña Jugadores y su hoja de Excel se pintan igual.
 const COLOR = {
   amarilla: 'FFFFEB3B', dobleAmarilla: 'FFFF9800', roja: 'FFE53935', sancion: 'FF1E88E5',
   casa: 'FF1E88E5', fuera: 'FFE53935'
@@ -48,7 +49,7 @@ const BLANCO = 'FFFFFFFF';
 const estilo = (fondo) => ({ fondo, colorTexto: fondo === COLOR.roja || fondo === COLOR.sancion ? BLANCO : null });
 
 /** '2026-10-12T16:00:00Z' -> '12/10/2026' (en hora española). */
-function formatoFecha(fecha) {
+export function formatoFecha(fecha) {
   if (!fecha) return '';
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return '';
@@ -70,13 +71,42 @@ function colorCelda(celda, ausencia) {
 /** Estilo de la celda de un partido: el fondo de colorCelda (sobre rojo o
  * azul, texto en blanco, p. ej. un suplente con roja) y la letra en negrita si
  * fue titular (negra) o si entró de suplente (roja). */
-function estiloCelda(celda, ausencia) {
+export function estiloCelda(celda, ausencia) {
   const fondo = colorCelda(celda, ausencia);
   const base = fondo ? estilo(fondo) : { fondo: null, colorTexto: null };
   if (!celda) return fondo ? base : null;
   const entroDeSuplente = !celda.titular && celda.minutos > 0;
   if (!celda.titular && !entroDeSuplente) return fondo ? base : null;
   return { ...base, negrita: true, colorTexto: base.colorTexto || (entroDeSuplente ? COLOR.roja : null) };
+}
+
+/** Celda del rival en la cabecera: azul si el PALMA jugaba en casa, roja si fuera. */
+export const estiloEquipo = (j) => ({ fondo: j.es_local ? COLOR.casa : COLOR.fuera, colorTexto: BLANCO });
+
+/** Valor de la celda de un partido: los minutos, "L" si estaba lesionado o nada. */
+export const valorCelda = (fila, clave) => fila.celdas[clave]?.minutos ?? (fila.ausencias[clave] === 'lesion' ? 'L' : null);
+
+export const LEYENDA_MINUTOS = [
+  { etiqueta: 'Tarjeta amarilla', ...estilo(COLOR.amarilla) },
+  { etiqueta: 'Doble amarilla', ...estilo(COLOR.dobleAmarilla) },
+  { etiqueta: 'Tarjeta roja', ...estilo(COLOR.roja) },
+  { etiqueta: 'Sancionado', ...estilo(COLOR.sancion) },
+  { etiqueta: 'L: lesionado' },
+  { etiqueta: 'Negrita: titular', negrita: true },
+  { etiqueta: 'Roja en negrita: entra de suplente', negrita: true, colorTexto: COLOR.roja },
+  { etiqueta: 'Equipo en azul: en casa', fondo: COLOR.casa, colorTexto: BLANCO },
+  { etiqueta: 'Equipo en rojo: fuera', fondo: COLOR.fuera, colorTexto: BLANCO },
+  { etiqueta: 'Celda vacía: no está en el acta; 0: convocado sin jugar' }
+];
+
+/** { fondo, colorTexto, negrita } -> estilo CSS en línea ('FFE53935' -> '#E53935'). */
+export function estiloCss(e) {
+  if (!e) return null;
+  const css = {};
+  if (e.fondo) css.backgroundColor = `#${e.fondo.slice(2)}`;
+  if (e.colorTexto) css.color = `#${e.colorTexto.slice(2)}`;
+  if (e.negrita) css.fontWeight = 600;
+  return css;
 }
 
 /** Hoja de Excel de la pestaña Jugadores: tres filas de cabecera por partido
@@ -93,28 +123,15 @@ export function hojaMinutosPorJornada(filas = []) {
       ['Fecha', ...jornadas.map((j) => formatoFecha(j.fecha)), ''],
       ['Equipo', ...jornadas.map((j) => j.rival || ''), '']
     ],
-    estilosCabecera: [[], [], [null, ...jornadas.map((j) => ({ fondo: j.es_local ? COLOR.casa : COLOR.fuera, colorTexto: BLANCO }))]],
+    estilosCabecera: [[], [], [null, ...jornadas.map(estiloEquipo)]],
     combinadas: [[0, total, 2, total]],
     formatos: [null, ...jornadas.map(() => null), null],
     filas: tabla.map((f) => [
       f.jugador,
-      ...jornadas.map((j) => f.celdas[j.clave]?.minutos ?? (f.ausencias[j.clave] === 'lesion' ? 'L' : null)),
+      ...jornadas.map((j) => valorCelda(f, j.clave)),
       f.total
     ]),
-    estilos: tabla.map((f) => [null, ...jornadas.map((j) => {
-      return estiloCelda(f.celdas[j.clave], f.ausencias[j.clave]);
-    }), null]),
-    leyenda: [
-      { etiqueta: 'Tarjeta amarilla', ...estilo(COLOR.amarilla) },
-      { etiqueta: 'Doble amarilla', ...estilo(COLOR.dobleAmarilla) },
-      { etiqueta: 'Tarjeta roja', ...estilo(COLOR.roja) },
-      { etiqueta: 'Sancionado', ...estilo(COLOR.sancion) },
-      { etiqueta: 'L: lesionado' },
-      { etiqueta: 'Negrita: titular', negrita: true },
-      { etiqueta: 'Roja en negrita: entra de suplente', negrita: true, colorTexto: COLOR.roja },
-      { etiqueta: 'Equipo en azul: en casa', fondo: COLOR.casa, colorTexto: BLANCO },
-      { etiqueta: 'Equipo en rojo: fuera', fondo: COLOR.fuera, colorTexto: BLANCO },
-      { etiqueta: 'Celda vacía: no está en el acta; 0: convocado sin jugar' }
-    ]
+    estilos: tabla.map((f) => [null, ...jornadas.map((j) => estiloCelda(f.celdas[j.clave], f.ausencias[j.clave])), null]),
+    leyenda: LEYENDA_MINUTOS
   };
 }
