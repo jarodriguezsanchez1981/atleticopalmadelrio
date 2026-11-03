@@ -45,7 +45,8 @@ const SECCIONES_OCULTAS_AL_ENTRENADOR_ESTADISTICAS = [
   'estadisticas_cat_convocatorias',
   'estadisticas_cat_goles',
   'estadisticas_cat_sanciones',
-  'estadisticas_cat_clasificacion'
+  'estadisticas_cat_clasificacion',
+  'estadisticas_cat_proximo_rival'
 ];
 
 function leerUsuario() {

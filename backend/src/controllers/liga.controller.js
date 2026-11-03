@@ -5,8 +5,10 @@ const { minutosJugados } = require('../utils/minutosActa');
 const { esPalma } = require('./clasificacion.controller');
 
 /**
- * Actas de todos los partidos de la liga de Senior A (Estadísticas Rivales):
- * goles, minutos, jugadores y tarjetas de cada equipo, jornada a jornada.
+ * Actas de todos los partidos de la liga de cada plantilla de la temporada
+ * actual con sus códigos de RFAF (Estadísticas Rivales y Próximo Rival): goles,
+ * minutos, jugadores y tarjetas de cada equipo, jornada a jornada. Todas las
+ * categorías, también las de menores (aprobado por el usuario el 03/11/2026).
  *
  * Se copian solas de RFAF después de la clasificación de los lunes a las 09:00
  * (utils/clasificacionAutomatica.js), pidiendo a rfaf.es lo mínimo:
@@ -16,7 +18,9 @@ const { esPalma } = require('./clasificacion.controller');
  * - una petición por acta, una sola vez (lo guardado no se vuelve a pedir);
  * - el partido del PALMA no se pide: lo guarda "Finalizar Acta" con el acta
  *   que ya ha leído;
- * - una pausa entre peticiones y un máximo por ejecución; al primer error se
+ * - una pausa entre peticiones y un máximo por ejecución entre todas las
+ *   plantillas (Senior A primero, después por orden de categoría de mayor a
+ *   menor); al primer error se
  *   para (se reintenta a los 30 minutos, salvo sesión caducada; ver
  *   utils/ligaRecuperacion.js).
  * Mientras queden jornadas o actas por copiar (p. ej. al empezar con la
@@ -24,15 +28,16 @@ const { esPalma } = require('./clasificacion.controller');
  * (utils/ligaRecuperacion.js); después, solo la copia del lunes.
  */
 
-// Solo la liga de Senior A: el resto de categorías son de menores y no se
-// guardan datos de sus rivales.
-const CATEGORIA_LIGA = 'Senior A';
+// Límites de cada copia, entre todas las plantillas.
 const MAX_JORNADAS_POR_DIA = 2;
 const MAX_ACTAS_POR_DIA = 20;
 // Días que se pide un acta que no trae jugadores (partido aplazado…) antes de dejarla.
 const MAX_INTENTOS = 3;
 const PAUSA_MS = 60 * 1000;
 const MINUTOS_PARTIDO = 90;
+const TIPO_FUTBOL_7 = 1;
+// Duración del juego: 60 minutos en Fútbol 7, 90 en Fútbol 11.
+const duracionPlantilla = (plantilla) => (Number(plantilla?.categoria?.id_tipofutbol) === TIPO_FUTBOL_7 ? 60 : MINUTOS_PARTIDO);
 const LADOS = ['local', 'visitante'];
 
 const pausaPorDefecto = (ms) => new Promise((resolve) => { setTimeout(resolve, ms).unref?.(); });
@@ -47,8 +52,9 @@ function golesResultado(resultado) {
  * Guarda el acta (ya leída de RFAF) de un partido de la liga: sus jugadores con
  * minutos, goles y tarjetas de los dos equipos, sus goles con el minuto y sus
  * tarjetas con el marcador justo antes. Sustituye lo que hubiera. Sin fotos.
+ * `duracion`: minutos del partido (60 en Fútbol 7).
  */
-async function guardarActa(ligaPartido, acta) {
+async function guardarActa(ligaPartido, acta, duracion = MINUTOS_PARTIDO) {
   const id = ligaPartido.id;
   const golesActa = Array.isArray(acta.goles) ? acta.goles : [];
   const clave = (nombre) => rfafActa.normalizarNombre(nombre);
@@ -67,7 +73,7 @@ async function guardarActa(ligaPartido, acta) {
         titular: !!j.titular,
         minuto_entrada: j.minuto_entrada ?? null,
         minuto_salida: j.minuto_salida ?? null,
-        minutos: minutosJugados(j, MINUTOS_PARTIDO),
+        minutos: minutosJugados(j, duracion),
         goles: Number(j.goles) || 0,
         amarillas: Number(j.tarjeta_amarilla) || 0,
         rojas: Number(j.tarjeta_roja) || 0
@@ -127,11 +133,11 @@ async function guardarActa(ligaPartido, acta) {
 /**
  * Desde "Finalizar Acta": guarda también en la liga el partido del PALMA (con
  * el acta que ya se ha leído, sin pedir nada más a RFAF). Solo partidos de liga
- * (con jornada) de Senior A. Si la jornada aún no se había copiado de RFAF, se
- * crea el partido y la copia del lunes le pondrá después los códigos de equipo.
+ * (con jornada). Si la jornada aún no se había copiado de RFAF, se crea el
+ * partido y la copia del lunes le pondrá después los códigos de equipo.
  */
 async function guardarActaDelPalma({ partido, plantilla, codigoActa, acta }) {
-  if (plantilla?.categoria?.nombre !== CATEGORIA_LIGA || !(Number(partido.jornada) > 0) || !codigoActa) return null;
+  if (!(Number(partido.jornada) > 0) || !codigoActa) return null;
   const fecha = partido.fecha ? new Date(partido.fecha).toISOString().slice(0, 10) : null;
   const [ligaPartido] = await LigaPartido.findOrCreate({
     where: { id_plantilla: partido.id_plantilla, codigo_acta: String(codigoActa) },
@@ -144,13 +150,13 @@ async function guardarActaDelPalma({ partido, plantilla, codigoActa, acta }) {
       equipo_visitante: acta.visitante?.nombre || '—'
     }
   });
-  return guardarActa(ligaPartido, acta);
+  return guardarActa(ligaPartido, acta, duracionPlantilla(plantilla));
 }
 
-/** La plantilla de Senior A de la temporada actual con sus códigos de RFAF
- * (los cuatro de la URL de la jornada). null si no hay o le falta alguno. */
-async function plantillaLiga() {
-  const plantilla = await Plantilla.findOne({
+/** Las plantillas de la temporada actual con sus códigos de RFAF (los cuatro
+ * de la URL de la jornada), de la categoría mayor a la menor (Senior A primero). */
+async function plantillasLiga() {
+  const plantillas = await Plantilla.findAll({
     where: {
       codigo_primaria: { [Op.ne]: null },
       codigo_grupo: { [Op.ne]: null },
@@ -158,11 +164,11 @@ async function plantillaLiga() {
       codigo_temporada: { [Op.ne]: null }
     },
     include: [
-      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre'], where: { nombre: CATEGORIA_LIGA } },
+      { model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'orden', 'id_tipofutbol'] },
       { model: Temporada, as: 'temporada', attributes: ['id', 'actual'], where: { actual: true } }
     ]
-  });
-  return plantilla || null;
+  }) || [];
+  return [...plantillas].sort((a, b) => Number(b.categoria?.orden ?? 0) - Number(a.categoria?.orden ?? 0));
 }
 
 /** Jornadas jugadas (con la clasificación guardada) sin copiar todavía. */
@@ -190,18 +196,20 @@ async function actasPorCopiar(idPlantilla, { soloNuevas = false } = {}) {
 /** true si quedan jornadas jugadas o actas nuevas por copiar (para la
  * recuperación cada 30 minutos). */
 async function hayPendientes() {
-  const plantilla = await plantillaLiga();
-  if (!plantilla) return false;
-  return (await jornadasPorCopiar(plantilla.id)).length > 0
-    || (await actasPorCopiar(plantilla.id, { soloNuevas: true })).length > 0;
+  for (const plantilla of await plantillasLiga()) {
+    if ((await jornadasPorCopiar(plantilla.id)).length > 0
+      || (await actasPorCopiar(plantilla.id, { soloNuevas: true })).length > 0) return true;
+  }
+  return false;
 }
 
 let enCurso = null;
 
 /**
  * Copia: primero los partidos de las jornadas ya jugadas que falten (como
- * mucho MAX_JORNADAS_POR_DIA), después las actas pendientes (como mucho
- * MAX_ACTAS_POR_DIA, sin la del PALMA), con una pausa entre peticiones. Al
+ * mucho MAX_JORNADAS_POR_DIA entre todas las plantillas), después las actas
+ * pendientes (como mucho MAX_ACTAS_POR_DIA, sin la del PALMA), con una pausa
+ * entre peticiones. Al
  * primer error se para. Nunca dos a la vez (la del lunes y la recuperación).
  * Devuelve { jornadas, actas } guardadas y `error` si RFAF ha fallado.
  */
@@ -212,70 +220,83 @@ function actualizar(opciones = {}) {
 
 async function copiar({ log = console, pausa = pausaPorDefecto, pausaMs = PAUSA_MS, soloNuevas = false } = {}) {
   const hecho = { jornadas: [], actas: 0 };
-  const plantilla = await plantillaLiga();
-  if (!plantilla) return hecho;
-  const competicion = {
+  const plantillas = await plantillasLiga();
+  if (!plantillas.length) return hecho;
+  const competicionDe = (plantilla) => ({
     codPrimaria: plantilla.codigo_primaria,
     codGrupo: plantilla.codigo_grupo,
     codCompeticion: plantilla.codigo_competicion,
     codTemporada: plantilla.codigo_temporada
-  };
-  const idPlantilla = plantilla.id;
+  });
   let peticiones = 0;
   const esperarTurno = async () => {
     if (peticiones++ > 0) await pausa(pausaMs + Math.floor(Math.random() * pausaMs / 2));
   };
+  let categoria = '';
 
   try {
-    for (const jornada of (await jornadasPorCopiar(idPlantilla)).slice(0, MAX_JORNADAS_POR_DIA)) {
-      await esperarTurno();
-      const datos = await rfafActa.leerJornada(competicion, jornada);
-      if (datos.jornada != null && Number(datos.jornada) !== jornada) {
-        throw new Error(`RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${jornada}.`);
+    let quedanJornadas = MAX_JORNADAS_POR_DIA;
+    for (const plantilla of plantillas) {
+      if (quedanJornadas <= 0) break;
+      categoria = plantilla.categoria?.nombre || '';
+      for (const jornada of (await jornadasPorCopiar(plantilla.id)).slice(0, quedanJornadas)) {
+        quedanJornadas -= 1;
+        await esperarTurno();
+        const datos = await rfafActa.leerJornada(competicionDe(plantilla), jornada);
+        if (datos.jornada != null && Number(datos.jornada) !== jornada) {
+          throw new Error(`RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${jornada}.`);
+        }
+        const filas = (datos.partidos || []).map((p) => ({ ...p, id_plantilla: plantilla.id, jornada }));
+        await LigaPartido.bulkCreate(filas, {
+          updateOnDuplicate: ['jornada', 'fecha', 'hora', 'equipo_local', 'codigo_equipo_local', 'equipo_visitante', 'codigo_equipo_visitante']
+        });
+        hecho.jornadas.push(jornada);
+        log.log(`⚽ Liga ${categoria}: jornada ${jornada} copiada (${filas.length} partidos).`);
       }
-      const filas = (datos.partidos || []).map((p) => ({ ...p, id_plantilla: idPlantilla, jornada }));
-      await LigaPartido.bulkCreate(filas, {
-        updateOnDuplicate: ['jornada', 'fecha', 'hora', 'equipo_local', 'codigo_equipo_local', 'equipo_visitante', 'codigo_equipo_visitante']
-      });
-      hecho.jornadas.push(jornada);
-      log.log(`⚽ Liga ${CATEGORIA_LIGA}: jornada ${jornada} copiada (${filas.length} partidos).`);
     }
 
-    const pendientes = (await actasPorCopiar(idPlantilla, { soloNuevas })).slice(0, MAX_ACTAS_POR_DIA);
-
-    for (const p of pendientes) {
-      await esperarTurno();
-      let acta;
-      try {
-        acta = await rfafActa.leerActa(competicion.codPrimaria, p.codigo_acta);
-      } catch (err) {
-        // Acta sin los dos equipos (partido aún sin acta): otro día.
-        if (/formato esperado/i.test(err.message)) {
+    let quedanActas = MAX_ACTAS_POR_DIA;
+    for (const plantilla of plantillas) {
+      if (quedanActas <= 0) break;
+      categoria = plantilla.categoria?.nombre || '';
+      const codPrimaria = plantilla.codigo_primaria;
+      let guardadas = 0;
+      for (const p of (await actasPorCopiar(plantilla.id, { soloNuevas })).slice(0, quedanActas)) {
+        quedanActas -= 1;
+        await esperarTurno();
+        let acta;
+        try {
+          acta = await rfafActa.leerActa(codPrimaria, p.codigo_acta);
+        } catch (err) {
+          // Acta sin los dos equipos (partido aún sin acta): otro día.
+          if (/formato esperado/i.test(err.message)) {
+            await LigaPartido.update({ intentos: (p.intentos || 0) + 1 }, { where: { id: p.id } });
+            continue;
+          }
+          // Si la sesión ha caducado no es culpa del acta: no cuenta como intento.
+          if (!/sesi[oó]n/i.test(err.message)) await LigaPartido.update({ intentos: (p.intentos || 0) + 1 }, { where: { id: p.id } });
+          throw err;
+        }
+        const conJugadores = LADOS.some((l) => (acta[l]?.jugadores || []).length > 0);
+        if (!conJugadores) {
+          // Aún sin acta (partido aplazado o no jugado): se vuelve a mirar otro día.
           await LigaPartido.update({ intentos: (p.intentos || 0) + 1 }, { where: { id: p.id } });
           continue;
         }
-        // Si la sesión ha caducado no es culpa del acta: no cuenta como intento.
-        if (!/sesi[oó]n/i.test(err.message)) await LigaPartido.update({ intentos: (p.intentos || 0) + 1 }, { where: { id: p.id } });
-        throw err;
+        await guardarActa(p, acta, duracionPlantilla(plantilla));
+        guardadas += 1;
+        hecho.actas += 1;
       }
-      const conJugadores = LADOS.some((l) => (acta[l]?.jugadores || []).length > 0);
-      if (!conJugadores) {
-        // Aún sin acta (partido aplazado o no jugado): se vuelve a mirar otro día.
-        await LigaPartido.update({ intentos: (p.intentos || 0) + 1 }, { where: { id: p.id } });
-        continue;
-      }
-      await guardarActa(p, acta);
-      hecho.actas += 1;
+      if (guardadas) log.log(`⚽ Liga ${categoria}: ${guardadas} actas guardadas.`);
     }
-    if (hecho.actas) log.log(`⚽ Liga ${CATEGORIA_LIGA}: ${hecho.actas} actas guardadas.`);
   } catch (err) {
-    log.warn(`⚠️  Liga ${CATEGORIA_LIGA}: ${err.message} (se sigue mañana).`);
+    log.warn(`⚠️  Liga ${categoria}: ${err.message} (se sigue en la siguiente copia).`);
     hecho.error = err.message;
   }
   return hecho;
 }
 
 module.exports = {
-  guardarActa, guardarActaDelPalma, actualizar, hayPendientes, plantillaLiga,
-  CATEGORIA_LIGA, MAX_JORNADAS_POR_DIA, MAX_ACTAS_POR_DIA, MAX_INTENTOS
+  guardarActa, guardarActaDelPalma, actualizar, hayPendientes, plantillasLiga,
+  MAX_JORNADAS_POR_DIA, MAX_ACTAS_POR_DIA, MAX_INTENTOS
 };

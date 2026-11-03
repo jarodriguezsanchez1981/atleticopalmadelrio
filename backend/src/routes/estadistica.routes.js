@@ -20,7 +20,7 @@ const SECCIONES_LISTADO = [
 ];
 router.get('/', authorize(...SECCIONES_LISTADO), ctrl.listar);
 // Plantillas (con jugadores) para el selector de las Estadísticas por categoría.
-router.get('/plantillas', authorize(...SECCIONES_LISTADO), ctrl.plantillasEstadisticas);
+router.get('/plantillas', authorize(...SECCIONES_LISTADO, 'estadisticas_cat_proximo_rival'), ctrl.plantillasEstadisticas);
 // Datos del equipo: los leen Estadísticas Goles (la parte de goles) y
 // Estadísticas Sanciones (la parte de tarjetas), de Senior A y por categoría.
 router.get('/equipo', authorize('estadisticas_goles', 'estadisticas_cat_goles', 'estadisticas_sanciones', 'estadisticas_cat_sanciones'), ctrl.equipo);
@@ -28,8 +28,9 @@ router.get('/equipo', authorize('estadisticas_goles', 'estadisticas_cat_goles', 
 router.get('/goles-contra', authorize('estadisticas_goles', 'estadisticas_cat_goles'), ctrl.golesContra);
 // Goles y tarjetas de cada equipo contrario (Estadísticas Senior A Rivales).
 router.get('/rivales', authorize('estadisticas_rivales'), ctrl.rivales);
-// Siguiente rival de liga con sus goles, minutos y tarjetas (Estadísticas Senior A Próximo Rival).
-router.get('/proximo-rival', authorize('estadisticas_proximo_rival'), ctrl.proximoRival);
+// Siguiente rival de liga con sus goles, minutos y tarjetas (Próximo Rival de
+// Senior A y de las demás categorías).
+router.get('/proximo-rival', authorize('estadisticas_proximo_rival', 'estadisticas_cat_proximo_rival'), ctrl.proximoRival);
 // Clasificación de la liga por jornada (se copia sola de RFAF: utils/clasificacionAutomatica.js).
 router.get('/clasificacion', authorize('estadisticas_clasificacion', 'estadisticas_cat_clasificacion'), clasificacion.listar);
 // Gráficas de balance por plantilla del Dashboard.

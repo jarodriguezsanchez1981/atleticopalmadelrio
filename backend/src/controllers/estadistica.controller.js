@@ -552,6 +552,11 @@ async function rivales(req, res, next) {
 /** Cálculo de `rivales` (lo reutiliza Próximo Rival): además de las filas,
  * devuelve los partidos de la liga y cómo se reconoce a cada equipo. */
 async function datosRivales(idPlantilla) {
+  // Duración del juego (60 minutos en Fútbol 7) para los tramos y las partes.
+  const plantilla = await Plantilla.findByPk(idPlantilla, {
+    attributes: ['id'], include: [{ model: Categoria, as: 'categoria', attributes: ['id_tipofutbol'] }]
+  });
+  const dur = duracionJuego(plantilla?.categoria?.id_tipofutbol);
   const partidos = await LigaPartido.findAll({
     where: { id_plantilla: idPlantilla },
     include: [
@@ -624,7 +629,7 @@ async function datosRivales(idPlantilla) {
       golesEn[g.lado] += 1;
       if (g.titular === true || g.titular === 1) sumar(fila, 'goles_titular', 1, g.lado);
       else if (g.titular === false || g.titular === 0) sumar(fila, 'goles_banquillo', 1, g.lado);
-      if (g.minuto != null) sumar(fila, tramoGol(g.minuto, MINUTOS_PARTIDO), 1, g.lado);
+      if (g.minuto != null) sumar(fila, tramoGol(g.minuto, dur), 1, g.lado);
     }
     for (const lado of LADOS) if (filas[lado] && golesEn[lado] > 0) sumar(filas[lado], 'partidos_con_gol', 1, lado);
 
@@ -636,7 +641,7 @@ async function datosRivales(idPlantilla) {
       sumar(fila, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, t.lado);
       if (t.titular === true || t.titular === 1) sumar(fila, `${tipo}_titular`, 1, t.lado);
       else if (t.titular === false || t.titular === 0) sumar(fila, `${tipo}_suplente`, 1, t.lado);
-      if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, t.lado);
+      if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= dur / 2 ? 'primera' : 'segunda'}`, 1, t.lado);
       if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, t.lado);
       else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, t.lado);
       if (tipo === 'amarillas') {
@@ -678,7 +683,7 @@ async function datosRivales(idPlantilla) {
     return { ...f, jugadores };
   }).sort((a, b) => b.goles - a.goles || a.equipo.localeCompare(b.equipo, 'es'));
 
-  return { equipos, jornadas: [...jornadas].sort((a, b) => a - b), actasPendientes, partidos, claveEquipo, normal };
+  return { equipos, jornadas: [...jornadas].sort((a, b) => a - b), actasPendientes, partidos, claveEquipo, normal, dur };
 }
 
 // Contadores de cada jugador del próximo rival, en total y en casa / fuera.
@@ -691,8 +696,9 @@ const CONTADORES_JUGADOR_PROXIMO = [
 /** Jugadores del equipo `clave` en sus partidos de la liga (con acta), con las
  * mismas columnas que las tablas Goles, Tiempo y Sanciones de los nuestros, en
  * total y con el equipo en casa (_local) o fuera (_visitante). Goles (sin
- * propia puerta) y tarjetas salen de los eventos del acta, por su nombre. */
-function jugadoresDelRival(partidos, clave, claveEquipo, normal) {
+ * propia puerta) y tarjetas salen de los eventos del acta, por su nombre.
+ * `dur`: minutos del partido (60 en Fútbol 7). */
+function jugadoresDelRival(partidos, clave, claveEquipo, normal, dur = MINUTOS_PARTIDO) {
   const porJugador = new Map();
   const partidosEquipo = { '': 0, _local: 0, _visitante: 0 };
   const jugadorDe = (nombre) => {
@@ -736,7 +742,7 @@ function jugadoresDelRival(partidos, clave, claveEquipo, normal) {
         sumar(jug, 'goles', 1, lado);
         if (g.titular === true || g.titular === 1) sumar(jug, 'goles_titular', 1, lado);
         else if (g.titular === false || g.titular === 0) sumar(jug, 'goles_banquillo', 1, lado);
-        if (g.minuto != null) sumar(jug, tramoGol(g.minuto, MINUTOS_PARTIDO), 1, lado);
+        if (g.minuto != null) sumar(jug, tramoGol(g.minuto, dur), 1, lado);
         conGol.add(jug);
       }
       for (const jug of conGol) sumar(jug, 'partidos_con_gol', 1, lado);
@@ -748,7 +754,7 @@ function jugadoresDelRival(partidos, clave, claveEquipo, normal) {
         sumar(jug, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, lado);
         if (t.titular === true || t.titular === 1) sumar(jug, `${tipo}_titular`, 1, lado);
         else if (t.titular === false || t.titular === 0) sumar(jug, `${tipo}_suplente`, 1, lado);
-        if (t.minuto != null) sumar(jug, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, lado);
+        if (t.minuto != null) sumar(jug, `${tipo}_${t.minuto <= dur / 2 ? 'primera' : 'segunda'}`, 1, lado);
         if (t.goles_favor > t.goles_contra) sumar(jug, `${tipo}_ganando`, 1, lado);
         else if (t.goles_favor < t.goles_contra) sumar(jug, `${tipo}_perdiendo`, 1, lado);
         if (tipo === 'amarillas') {
@@ -766,8 +772,8 @@ function jugadoresDelRival(partidos, clave, claveEquipo, normal) {
       j[`porcentaje_goles_titular${sufijo}`] = porcentaje(j[`goles_titular${sufijo}`], j[`goles${sufijo}`]);
       j[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(j[`goles_banquillo${sufijo}`], j[`goles${sufijo}`]);
       j[`minutos_por_partido${sufijo}`] = minutosPor(j[`minutos${sufijo}`], j[`partidos${sufijo}`]);
-      j[`porcentaje_minutos${sufijo}`] = porcentaje(j[`minutos${sufijo}`], j[`partidos${sufijo}`] * MINUTOS_PARTIDO);
-      j[`porcentaje_minutos_equipo${sufijo}`] = porcentaje(j[`minutos${sufijo}`], partidosEquipo[sufijo] * MINUTOS_PARTIDO);
+      j[`porcentaje_minutos${sufijo}`] = porcentaje(j[`minutos${sufijo}`], j[`partidos${sufijo}`] * dur);
+      j[`porcentaje_minutos_equipo${sufijo}`] = porcentaje(j[`minutos${sufijo}`], partidosEquipo[sufijo] * dur);
     }
     for (const l of LADOS) j[`porcentaje_goles_${l}`] = porcentaje(j[`goles_${l}`], j.goles);
     return j;
@@ -795,7 +801,7 @@ async function proximoRival(req, res, next) {
 
     const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
     const rival = esLocal ? partido.equipoVisitante : partido.equipoLocal;
-    const { equipos, jornadas, actasPendientes, partidos, claveEquipo, normal } = await datosRivales(idPlantilla);
+    const { equipos, jornadas, actasPendientes, partidos, claveEquipo, normal, dur } = await datosRivales(idPlantilla);
     const clave = claveEquipo(rival?.nombre, null);
     const fila = equipos.find((e) => e.id_equipo === clave);
     const { jugadores: _basicos, ...equipo } = fila || {};
@@ -805,7 +811,7 @@ async function proximoRival(req, res, next) {
         equipoLocal: partido.equipoLocal, equipoVisitante: partido.equipoVisitante, rival: rival?.nombre || null
       },
       equipo: fila ? equipo : null,
-      jugadores: fila ? jugadoresDelRival(partidos, clave, claveEquipo, normal) : [],
+      jugadores: fila ? jugadoresDelRival(partidos, clave, claveEquipo, normal, dur) : [],
       jornadas,
       actas_pendientes: actasPendientes
     });
