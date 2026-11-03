@@ -854,3 +854,42 @@ describe('Sección Estadísticas · estadistica.controller', () => {
     });
   });
 });
+
+describe('Sección Estadísticas · estadistica.controller.descansos', () => {
+  beforeEach(() => {
+    Partido.findAll.mockReset();
+  });
+
+  function llamar(overrides = {}) {
+    const { req, res, next } = mockReqRes(overrides);
+    return { promesa: ctrl.descansos(req, res, next), res };
+  }
+
+  it('exige la plantilla', async () => {
+    const { promesa, res } = llamar({ query: {} });
+    await promesa;
+    expect(res._status).toBe(400);
+  });
+
+  it('jornadas sin partido del PALMA hasta la última con acta, con fecha una semana después de la anterior', async () => {
+    const acta = new Date();
+    Partido.findAll.mockResolvedValue([
+      { jornada: 1, fecha: '2026-09-06T16:00:00Z', acta_finalizada_at: acta },
+      // 2 y 3: descansa (dos seguidas).
+      { jornada: 4, fecha: '2026-09-27T16:00:00Z', acta_finalizada_at: acta },
+      // 5: suspendido, no es descanso.
+      { jornada: 5, fecha: '2026-10-04T16:00:00Z', acta_finalizada_at: null, suspendido: true },
+      // 6: descansa; 7, con acta; 8: sin partido pero después de la última con acta.
+      { jornada: 7, fecha: '2026-10-18T16:00:00Z', acta_finalizada_at: acta },
+      { jornada: 9, fecha: '2026-11-01T16:00:00Z', acta_finalizada_at: null },
+      { jornada: 0, fecha: '2026-08-20T16:00:00Z', acta_finalizada_at: acta }
+    ]);
+    const { promesa, res } = llamar({ query: { id_plantilla: '5' } });
+    await promesa;
+    expect(res._json).toEqual([
+      { jornada: 2, fecha: '2026-09-13' },
+      { jornada: 3, fecha: '2026-09-20' },
+      { jornada: 6, fecha: '2026-10-11' }
+    ]);
+  });
+});

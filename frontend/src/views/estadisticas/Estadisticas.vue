@@ -25,7 +25,7 @@ import {
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 import {
-  construirMinutosPorJornada, hojaMinutosPorJornada, formatoFecha, estiloCelda, estiloCss, nombreEnDosLineas, valorCelda, LEYENDA_MINUTOS
+  construirMinutosPorJornada, hojaMinutosPorJornada, formatoFecha, estiloCelda, estiloCss, nombreEnDosLineas, ESTILO_DESCANSO, valorCelda, LEYENDA_MINUTOS
 } from '../../utils/minutosJornada';
 import { estiloTabla } from '../../utils/estiloTabla';
 
@@ -44,6 +44,8 @@ const filas = ref([]);
 const equipo = ref(null);
 // Estadísticas Goles: goles del equipo contrario por periodo (tabla aparte).
 const golesContra = ref(null);
+// Estadísticas Tiempo: jornadas en las que el PALMA descansa ([{ jornada, fecha }]).
+const descansos = ref([]);
 const cargando = ref(false);
 const error = ref('');
 // Jugadores elegidos en el filtro (ids); vacío = todos.
@@ -60,6 +62,7 @@ async function cargar() {
     filas.value = [];
     equipo.value = null;
     golesContra.value = null;
+    descansos.value = [];
     if (plantilla.value) {
       filas.value = (await estadisticasService.listar({ id_plantilla: plantilla.value.id }))
         // El alias del jugador en la plantilla (Plantillas) o, sin él, su nombre.
@@ -74,6 +77,9 @@ async function cargar() {
         ]);
       } else if (props.tabla === 'sanciones') {
         equipo.value = await estadisticasService.equipo({ id_plantilla: plantilla.value.id });
+      } else if (props.tabla === 'tiempo') {
+        // Jornadas en las que descansa (columna en la pestaña Jugadores).
+        descansos.value = await estadisticasService.descansos({ id_plantilla: plantilla.value.id });
       }
     }
   } catch (err) {
@@ -231,7 +237,7 @@ function hojasExcel() {
     }
     if (props.tabla === 'tiempo') {
       hojas.push({ nombre: 'Jugadores', titulo: `${config.value.titulo} · ${titulo.value} · Jugadores por jornada`,
-        ...hojaMinutosPorJornada(filasTabla.value) });
+        ...hojaMinutosPorJornada(filasTabla.value, descansos.value) });
     }
   } else {
     agregar(config.value.titulo.replace(/^Estadísticas\s+/, ''), { metricas: config.value.metricas,
@@ -274,7 +280,7 @@ const pestanaLado = ref('total');
 // de cada jornada (una columna por jornada).
 // Sin ordenar por columna: de más a menos minutos en total.
 const minutosPorJornada = computed(() => {
-  const tabla = construirMinutosPorJornada(props.tabla === 'tiempo' ? filasTabla.value : []);
+  const tabla = construirMinutosPorJornada(props.tabla === 'tiempo' ? filasTabla.value : [], descansos.value);
   return { ...tabla, filas: [...tabla.filas].sort((a, b) => b.total - a.total || a.jugador.localeCompare(b.jugador, 'es')) };
 });
 
@@ -414,14 +420,14 @@ onBeforeUnmount(() => {
                   <Row>
                     <Column header="Equipo" frozen />
                     <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" :header="nombreEnDosLineas(j.rival)"
-                            :headerClass="`text-center text-xs ${j.es_local ? 'ar-dt-equipo-casa' : 'ar-dt-equipo-fuera'}`" />
+                            :headerClass="`text-center text-xs ${j.descanso ? 'ar-dt-equipo-descanso' : j.es_local ? 'ar-dt-equipo-casa' : 'ar-dt-equipo-fuera'}`" />
                   </Row>
                 </ColumnGroup>
                 <Column field="jugador" frozen class="whitespace-nowrap" />
                 <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" bodyClass="text-center relative">
                   <template #body="{ data }">
                     <span class="absolute inset-0 flex items-center justify-center"
-                          :style="estiloCss(estiloCelda(data.celdas[j.clave], data.ausencias[j.clave]))">
+                          :style="estiloCss(j.descanso ? ESTILO_DESCANSO : estiloCelda(data.celdas[j.clave], data.ausencias[j.clave]))">
                       {{ valorCelda(data, j.clave) ?? '' }}
                     </span>
                   </template>

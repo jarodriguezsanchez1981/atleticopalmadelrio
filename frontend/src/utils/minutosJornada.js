@@ -5,8 +5,10 @@
  * no está en el acta de ese partido (0 = convocado sin jugar). Cada celda
  * lleva también las tarjetas de ese partido (amarillas, rojas). `ausencias`:
  * partidos en los que estaba lesionado o sancionado ('lesion' | 'sancion').
+ * `descansos` (GET /estadisticas/descansos): jornadas en las que el PALMA
+ * descansa, con su columna (descanso: true) en su sitio.
  */
-export function construirMinutosPorJornada(filas = []) {
+export function construirMinutosPorJornada(filas = [], descansos = []) {
   const porPartido = new Map();
   for (const f of filas) {
     for (const p of [...(f.partidos_minutos || []), ...(f.partidos_ausencias || [])]) {
@@ -15,7 +17,10 @@ export function construirMinutosPorJornada(filas = []) {
       }
     }
   }
-  const jornadas = [...porPartido.values()].sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
+  const jornadas = [
+    ...porPartido.values(),
+    ...descansos.map((d) => ({ clave: `d${d.jornada}`, jornada: d.jornada, fecha: d.fecha, rival: 'DESCANSA', descanso: true }))
+  ].sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
 
   return {
     jornadas,
@@ -42,7 +47,7 @@ export function construirMinutosPorJornada(filas = []) {
 // La tabla de la pestaña Jugadores y su hoja de Excel se pintan igual.
 const COLOR = {
   amarilla: 'FFFFEB3B', dobleAmarilla: 'FFFF9800', roja: 'FFE53935', sancion: 'FF1E88E5',
-  casa: 'FF1E88E5', fuera: 'FFE53935'
+  casa: 'FF1E88E5', fuera: 'FFE53935', descanso: 'FFE0E0E0'
 };
 const BLANCO = 'FFFFFFFF';
 // Fondo de una celda y, sobre rojo o azul, el texto en blanco.
@@ -92,8 +97,13 @@ export function nombreEnDosLineas(nombre) {
   return mejor ? `${texto.slice(0, mejor.i)}\n${texto.slice(mejor.i + 1)}` : texto;
 }
 
-/** Celda del rival en la cabecera: azul si el PALMA jugaba en casa, roja si fuera. */
-export const estiloEquipo = (j) => ({ fondo: j.es_local ? COLOR.casa : COLOR.fuera, colorTexto: BLANCO });
+/** Celda del rival en la cabecera: azul si el PALMA jugaba en casa, roja si
+ * fuera y gris si descansa. */
+export const estiloEquipo = (j) => (j.descanso
+  ? { fondo: COLOR.descanso, colorTexto: null }
+  : { fondo: j.es_local ? COLOR.casa : COLOR.fuera, colorTexto: BLANCO });
+// Celdas de los jugadores en la jornada de descanso: en gris.
+export const ESTILO_DESCANSO = { fondo: COLOR.descanso, colorTexto: null };
 
 /** Valor de la celda de un partido: los minutos, "L" si estaba lesionado o nada. */
 export const valorCelda = (fila, clave) => fila.celdas[clave]?.minutos ?? (fila.ausencias[clave] === 'lesion' ? 'L' : null);
@@ -108,6 +118,7 @@ export const LEYENDA_MINUTOS = [
   { etiqueta: 'Roja en negrita: entra de suplente', negrita: true, colorTexto: COLOR.roja },
   { etiqueta: 'Equipo en azul: en casa', fondo: COLOR.casa, colorTexto: BLANCO },
   { etiqueta: 'Equipo en rojo: fuera', fondo: COLOR.fuera, colorTexto: BLANCO },
+  { etiqueta: 'Gris: el PALMA descansa', fondo: COLOR.descanso },
   { etiqueta: 'Celda vacía: no está en el acta; 0: convocado sin jugar' }
 ];
 
@@ -126,8 +137,8 @@ export function estiloCss(e) {
  * si fuera), una fila por jugador con sus minutos ("L" si estaba lesionado),
  * la celda coloreada según sus tarjetas o si estaba sancionado y la letra
  * según fuera titular o suplente (estiloCelda), y Total. */
-export function hojaMinutosPorJornada(filas = []) {
-  const { jornadas, filas: tabla } = construirMinutosPorJornada(filas);
+export function hojaMinutosPorJornada(filas = [], descansos = []) {
+  const { jornadas, filas: tabla } = construirMinutosPorJornada(filas, descansos);
   const total = jornadas.length + 1;
   return {
     cabeceras: [
@@ -143,7 +154,9 @@ export function hojaMinutosPorJornada(filas = []) {
       ...jornadas.map((j) => valorCelda(f, j.clave)),
       f.total
     ]),
-    estilos: tabla.map((f) => [null, ...jornadas.map((j) => estiloCelda(f.celdas[j.clave], f.ausencias[j.clave])), null]),
+    estilos: tabla.map((f) => [null, ...jornadas.map((j) => (j.descanso
+      ? ESTILO_DESCANSO
+      : estiloCelda(f.celdas[j.clave], f.ausencias[j.clave]))), null]),
     leyenda: LEYENDA_MINUTOS
   };
 }

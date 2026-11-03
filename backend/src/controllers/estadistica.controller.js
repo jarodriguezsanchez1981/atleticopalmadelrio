@@ -960,4 +960,46 @@ async function plantillasEstadisticas(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, equipo, golesContra, rivales, proximoRival, balance, plantillasEstadisticas };
+/** Día ('YYYY-MM-DD') `n` días después de otro. */
+function sumarDiasDia(dia, n) {
+  const [y, m, d] = dia.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/** GET /estadisticas/descansos?id_plantilla=: jornadas de liga en las que el
+ * PALMA descansa (ningún partido de la plantilla con ese número de jornada),
+ * hasta la última jornada con acta (las columnas de Estadísticas Tiempo →
+ * Jugadores). Un partido suspendido o aún sin acta no es descanso. `fecha`:
+ * una semana después de la jornada anterior (como en la Clasificación), o null
+ * si no la hay. */
+async function descansos(req, res, next) {
+  try {
+    const idPlantilla = Number(req.query.id_plantilla);
+    if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+    const partidos = await Partido.findAll({
+      where: { id_plantilla: idPlantilla },
+      attributes: ['jornada', 'fecha', 'acta_finalizada_at', 'suspendido']
+    }) || [];
+    const diaDeJornada = new Map();
+    let ultima = 0;
+    for (const p of partidos) {
+      const j = Number(p.jornada);
+      if (!(j > 0)) continue;
+      if (!diaDeJornada.has(j)) diaDeJornada.set(j, p.fecha ? diaEspana(new Date(p.fecha)) : null);
+      if (p.acta_finalizada_at != null && !p.suspendido) ultima = Math.max(ultima, j);
+    }
+    const resultado = [];
+    let dia = null;
+    for (let j = 1; j <= ultima; j++) {
+      if (diaDeJornada.has(j)) {
+        dia = diaDeJornada.get(j);
+        continue;
+      }
+      dia = dia ? sumarDiasDia(dia, 7) : null;
+      resultado.push({ jornada: j, fecha: dia });
+    }
+    res.json(resultado);
+  } catch (err) { next(err); }
+}
+
+module.exports = { listar, equipo, golesContra, rivales, proximoRival, balance, plantillasEstadisticas, descansos };

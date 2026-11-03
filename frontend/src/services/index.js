@@ -109,6 +109,8 @@ export const informeSemanalService = informeService('informe-semanal');
 export const informeSancionesService = informeService('informe-sanciones');
 export const estadisticasService = {
   listar: (params = {}) => api.get('/estadisticas', { params }).then(r => r.data),
+  // Jornadas en las que el PALMA descansa (Estadísticas Tiempo → Jugadores).
+  descansos: (params = {}) => api.get('/estadisticas/descansos', { params }).then(r => r.data),
   equipo: (params = {}) => api.get('/estadisticas/equipo', { params }).then(r => r.data),
   // Goles del equipo contrario por periodo (tabla aparte en Estadísticas Goles).
   golesContra: (params = {}) => api.get('/estadisticas/goles-contra', { params }).then(r => r.data),
