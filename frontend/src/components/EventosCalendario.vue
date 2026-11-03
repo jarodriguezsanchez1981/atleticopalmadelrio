@@ -80,9 +80,35 @@ const escudoVisitante = computed(() => {
   return escudoEquipo(e.equipoVisitante?.id) || '/escudo.png';
 });
 
+// Puesto de cada equipo en la clasificación antes del partido (solo liga).
+const clasificacionPartido = ref(null);
+const idPartidoDe = (e) => e?.base_id ?? Number(String(e?.id || '').split('-').pop());
+const textoPuesto = (lado) => {
+  const c = clasificacionPartido.value;
+  const puesto = c?.[lado];
+  return puesto ? `${puesto.posicion}º` : null;
+};
+const tituloPuesto = (lado) => {
+  const c = clasificacionPartido.value;
+  const puesto = c?.[lado];
+  return puesto ? `${puesto.posicion}º de ${c.total_equipos} con ${puesto.puntos} puntos (clasificación de la jornada ${c.jornada})` : '';
+};
+const puestoLocal = computed(() => textoPuesto('local'));
+const puestoVisitante = computed(() => textoPuesto('visitante'));
+
 // Los escudos no vienen en los eventos: se piden al abrir el detalle.
-watch(eventoSeleccionado, (e) => {
-  if (e?.tipo === 'partido') cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
+watch(eventoSeleccionado, async (e) => {
+  clasificacionPartido.value = null;
+  if (e?.tipo !== 'partido') return;
+  cargarEscudos([e.equipoLocal?.id, e.equipoVisitante?.id]).catch(() => {});
+  const id = idPartidoDe(e);
+  if (!e.jornada || !id) return;
+  try {
+    const c = await partidosService.clasificacion(id);
+    if (eventoSeleccionado.value === e) clasificacionPartido.value = c;
+  } catch {
+    // Sin clasificación (o sin permiso): no se muestra el puesto.
+  }
 });
 
 const camisetaLocal = computed(() => eventoSeleccionado.value?.equipoLocal?.camiseta || null);
@@ -810,6 +836,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
 
         <div v-if="eventoSeleccionado.tipo === 'partido'" class="grid grid-cols-2 gap-4 py-3">
           <div class="flex flex-col items-center gap-2">
+            <span v-if="puestoLocal" class="text-sm font-bold text-club-green tabular-nums leading-none" :title="tituloPuesto('local')">{{ puestoLocal }}</span>
             <img :src="escudoLocal" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
             <div class="flex items-center gap-2">
               <EquipacionPrenda tipo="camiseta" :color="camisetaLocal" :size="28" />
@@ -820,6 +847,7 @@ watch(esMovil, (v) => { if (v && !eventosLista.value.length) fetchEventosMobile(
             <span v-if="golesPartido(eventoSeleccionado.resultado)" class="font-display text-3xl font-extrabold text-club-green tabular-nums leading-none">{{ golesPartido(eventoSeleccionado.resultado).local }}</span>
           </div>
           <div class="flex flex-col items-center gap-2">
+            <span v-if="puestoVisitante" class="text-sm font-bold text-club-green tabular-nums leading-none" :title="tituloPuesto('visitante')">{{ puestoVisitante }}</span>
             <img :src="escudoVisitante" alt="Escudo" class="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
             <div class="flex items-center gap-2">
               <EquipacionPrenda tipo="camiseta" :color="camisetaVisitante" :size="28" />

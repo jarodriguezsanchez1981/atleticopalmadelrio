@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Op } from 'sequelize';
-import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, LigaPartido, LigaJugador, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador, Delegado } from './helpers/models.js';
+import { Partido, Plantilla, Categoria, Entrenamiento, Torneo, Jornada, PartidoJugador, PartidoTarjeta, PartidoGol, PartidoGolContra, PartidoTarjetaContra, LigaPartido, LigaJugador, Jugador, PlantillaJugador, Sancion, Promocion, Entrenador, Delegado, Clasificacion } from './helpers/models.js';
 import { mockReqRes } from './helpers/http.js';
 
 import * as ctrl from '../src/controllers/partido.controller.js';
@@ -1180,6 +1180,69 @@ describe('Sección Partidos · partido.controller', () => {
       expect(PartidoJugador.destroy).not.toHaveBeenCalled();
       expect(partido.save).not.toHaveBeenCalled();
       expect(partido.acta_finalizada_at).toBeUndefined();
+    });
+  });
+
+  describe('clasificacionPrevia', () => {
+    const filas = [
+      { posicion: 1, puntos: 12, equipo: 'C.D. PACO PRADAS "A"', es_palma: false },
+      { posicion: 2, puntos: 10, equipo: 'SENECA C.F. "B"', es_palma: false },
+      { posicion: 3, puntos: 9, equipo: 'ATLETICO SENECA "B"', es_palma: false },
+      { posicion: 5, puntos: 7, equipo: 'PALMA DEL RIO ATLETICO C.F. "A"', es_palma: true }
+    ];
+    const partido = (rival, jornada = 5) => ({
+      id: 1, id_plantilla: 22, jornada,
+      equipoLocal: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.' },
+      equipoVisitante: { id: 9, nombre: rival }
+    });
+    beforeEach(() => {
+      Clasificacion.findOne.mockReset();
+      Clasificacion.findAll.mockReset();
+    });
+
+    it('da el puesto de cada equipo en la última jornada guardada anterior al partido', async () => {
+      Partido.findByPk.mockResolvedValue(partido('PACO PRADAS C.D.'));
+      Clasificacion.findOne.mockResolvedValue({ jornada: 4 });
+      Clasificacion.findAll.mockResolvedValue(filas);
+      const { promesa, res } = llamar(ctrl.clasificacionPrevia, { params: { id: '1' } });
+      await promesa;
+      expect(Clasificacion.findOne.mock.calls[0][0].where).toEqual({ id_plantilla: 22, jornada: { [Op.lt]: 5 } });
+      expect(res._json).toEqual({
+        jornada: 4, total_equipos: 4, local: { posicion: 5, puntos: 7 }, visitante: { posicion: 1, puntos: 12 }
+      });
+    });
+
+    it('no confunde clubes parecidos (SENECA C.F. y ATLETICO SENECA)', async () => {
+      Partido.findByPk.mockResolvedValue(partido('SENECA C.F.'));
+      Clasificacion.findOne.mockResolvedValue({ jornada: 4 });
+      Clasificacion.findAll.mockResolvedValue(filas);
+      const { promesa, res } = llamar(ctrl.clasificacionPrevia, { params: { id: '1' } });
+      await promesa;
+      expect(res._json.visitante).toEqual({ posicion: 2, puntos: 10 });
+    });
+
+    it('rival sin fila en la clasificación: null', async () => {
+      Partido.findByPk.mockResolvedValue(partido('C.D. OTRO EQUIPO'));
+      Clasificacion.findOne.mockResolvedValue({ jornada: 4 });
+      Clasificacion.findAll.mockResolvedValue(filas);
+      const { promesa, res } = llamar(ctrl.clasificacionPrevia, { params: { id: '1' } });
+      await promesa;
+      expect(res._json.visitante).toBeNull();
+    });
+
+    it('jornada 1 o sin clasificación anterior: sin puestos', async () => {
+      Partido.findByPk.mockResolvedValue(partido('PACO PRADAS C.D.', 1));
+      const { promesa, res } = llamar(ctrl.clasificacionPrevia, { params: { id: '1' } });
+      await promesa;
+      expect(Clasificacion.findOne).not.toHaveBeenCalled();
+      expect(res._json).toEqual({ jornada: null, total_equipos: 0, local: null, visitante: null });
+    });
+
+    it('404 si el partido no existe', async () => {
+      Partido.findByPk.mockResolvedValue(null);
+      const { promesa, res } = llamar(ctrl.clasificacionPrevia, { params: { id: '99' } });
+      await promesa;
+      expect(res._status).toBe(404);
     });
   });
 });

@@ -14,6 +14,8 @@ router.use(restringirACategoria(porPlantilla(Partido)));
 
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.obtener);
+// Puesto de cada equipo en la clasificación antes del partido.
+router.get('/:id/clasificacion', ctrl.clasificacionPrevia);
 router.post('/', requireEditar('partidos'), ctrl.crear);
 router.put('/:id', requireEditar('partidos'), ctrl.actualizar);
 router.delete('/:id', requireEditar('partidos'), ctrl.eliminar);
