@@ -80,6 +80,18 @@ export function estiloCelda(celda, ausencia) {
   return { ...base, negrita: true, colorTexto: base.colorTexto || (entroDeSuplente ? COLOR.roja : null) };
 }
 
+/** Nombre del rival en dos líneas lo más parejas posible, partiendo por un
+ * espacio: 'C.D. ATLETICO ESPELEÑO' -> 'C.D. ATLETICO\nESPELEÑO'. Una sola palabra, igual. */
+export function nombreEnDosLineas(nombre) {
+  const texto = String(nombre || '').trim().replace(/\s+/g, ' ');
+  let mejor = null;
+  for (let i = texto.indexOf(' '); i > 0; i = texto.indexOf(' ', i + 1)) {
+    const largo = Math.max(i, texto.length - i - 1);
+    if (!mejor || largo < mejor.largo) mejor = { i, largo };
+  }
+  return mejor ? `${texto.slice(0, mejor.i)}\n${texto.slice(mejor.i + 1)}` : texto;
+}
+
 /** Celda del rival en la cabecera: azul si el PALMA jugaba en casa, roja si fuera. */
 export const estiloEquipo = (j) => ({ fondo: j.es_local ? COLOR.casa : COLOR.fuera, colorTexto: BLANCO });
 
@@ -121,7 +133,7 @@ export function hojaMinutosPorJornada(filas = []) {
     cabeceras: [
       ['Jornada', ...jornadas.map((j) => `J${j.jornada}`), 'Total'],
       ['Fecha', ...jornadas.map((j) => formatoFecha(j.fecha)), ''],
-      ['Equipo', ...jornadas.map((j) => j.rival || ''), '']
+      ['Equipo', ...jornadas.map((j) => nombreEnDosLineas(j.rival)), '']
     ],
     estilosCabecera: [[], [], [null, ...jornadas.map(estiloEquipo)]],
     combinadas: [[0, total, 2, total]],

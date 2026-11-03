@@ -25,7 +25,7 @@ import {
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 import {
-  construirMinutosPorJornada, hojaMinutosPorJornada, formatoFecha, estiloCelda, estiloCss, valorCelda, LEYENDA_MINUTOS
+  construirMinutosPorJornada, hojaMinutosPorJornada, formatoFecha, estiloCelda, estiloCss, nombreEnDosLineas, valorCelda, LEYENDA_MINUTOS
 } from '../../utils/minutosJornada';
 import { estiloTabla } from '../../utils/estiloTabla';
 
@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
             <div class="flex flex-col gap-2">
               <!-- Igual que su hoja de Excel (utils/minutosJornada.js): cabecera con
                    Jornada, Fecha y Equipo, y celdas coloreadas por tarjetas / sanción. -->
-              <DataTable v-bind="estiloTabla" class="ar-dt-centrada" :value="minutosPorJornada.filas" dataKey="id_jugador" :loading="cargando"
+              <DataTable v-bind="estiloTabla" class="ar-dt-centrada ar-dt-cabecera-multilinea" :value="minutosPorJornada.filas" dataKey="id_jugador" :loading="cargando"
                          scrollable showGridlines>
                 <template #empty>
                   <div class="py-6 text-center text-sm text-ink-tertiary">{{ textoVacioTabla }}</div>
@@ -413,7 +413,7 @@ onBeforeUnmount(() => {
                   </Row>
                   <Row>
                     <Column header="Equipo" frozen />
-                    <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" :header="j.rival"
+                    <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" :header="nombreEnDosLineas(j.rival)"
                             :headerClass="`text-center text-xs ${j.es_local ? 'ar-dt-equipo-casa' : 'ar-dt-equipo-fuera'}`" />
                   </Row>
                 </ColumnGroup>
