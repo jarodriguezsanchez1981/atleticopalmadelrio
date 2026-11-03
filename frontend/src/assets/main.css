@@ -247,3 +247,14 @@ h1, h2, h3, .font-display {
 .ar-datatable.ar-dt-centrada .p-datatable-tbody > tr > td.text-center {
   text-align: center;
 }
+
+/* Estadísticas Tiempo → Jugadores: rival en la cabecera, azul si el PALMA juega
+   en casa y rojo si fuera (los mismos colores que su Excel, utils/minutosJornada.js). */
+.ar-datatable .p-datatable-thead > tr > th.ar-dt-equipo-casa {
+  background: #1E88E5 !important;
+  color: #fff !important;
+}
+.ar-datatable .p-datatable-thead > tr > th.ar-dt-equipo-fuera {
+  background: #E53935 !important;
+  color: #fff !important;
+}
