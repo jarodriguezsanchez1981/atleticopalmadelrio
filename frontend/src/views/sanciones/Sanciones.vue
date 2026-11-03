@@ -2,11 +2,15 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import Tabs from 'primevue/tabs';
+import TabList from 'primevue/tablist';
+import Tab from 'primevue/tab';
 import { estiloTabla } from '../../utils/estiloTabla';
 import CrudDataTable from '../../components/CrudDataTable.vue';
 import { sancionesService, partidosService, jugadoresService, plantillasService, temporadasService } from '../../services';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
+import { alertasSanciones } from '../../utils/alertasSanciones';
 
 const TIPO_FUTBOL_11 = 2;
 const PALMA_ID = 73;
@@ -34,13 +38,16 @@ async function cargarOpciones() {
   sanciones.value = sancs;
 }
 
+/** Plantillas de Fútbol 11 de la temporada actual, por orden de categoría. */
+const plantillasFutbol11 = computed(() => filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
+  .filter((p) => p.categoria?.id_tipofutbol === TIPO_FUTBOL_11)
+  .sort((a, b) => Number(a.categoria?.orden ?? 999) - Number(b.categoria?.orden ?? 999)
+    || (a.categoria?.nombre || '').localeCompare(b.categoria?.nombre || '', 'es')));
+
 /** Una tabla por plantilla de Fútbol 11 de la temporada actual, con las
  * tarjetas de los partidos de esa plantilla sumadas por jugador. */
 const acumuladosFutbol11 = computed(() => {
-  const plantillasF11 = filtrarPlantillasTemporadaActual(plantillas.value, temporadas.value)
-    .filter((p) => p.categoria?.id_tipofutbol === TIPO_FUTBOL_11)
-    .sort((a, b) => Number(a.categoria?.orden ?? 999) - Number(b.categoria?.orden ?? 999)
-      || (a.categoria?.nombre || '').localeCompare(b.categoria?.nombre || '', 'es'));
+  const plantillasF11 = plantillasFutbol11.value;
   const plantillaDePartido = new Map(partidos.value.map((p) => [p.id, p.id_plantilla]));
 
   return plantillasF11.map((plantilla) => {
@@ -87,6 +94,31 @@ const acumuladosFutbol11 = computed(() => {
     };
   });
 });
+
+// Pestañas: tarjetas acumuladas y los avisos (como en el Informe de Sanciones,
+// solo partidos de liga y el último partido de liga ya jugado de cada plantilla).
+const PESTANAS = [
+  { valor: 'acumuladas', titulo: 'Tarjetas Acumuladas' },
+  { valor: 'avisoAmarillas', titulo: 'Aviso Acumulación Tarjeta Amarillas',
+    descripcion: 'Jugadores con 4 amarillas (o 9, 14…): una más y cumplen ciclo de sanción.',
+    vacio: 'Ningún jugador a una amarilla de la sanción.' },
+  { valor: 'sancionAmarillas', titulo: 'Sanción Tarjetas Amarillas',
+    descripcion: 'Jugadores que han llegado a 5 amarillas (o 10, 15…) con las del último partido: tienen partido de sanción.',
+    vacio: 'Ningún jugador ha cumplido ciclo de amarillas en el último partido.' },
+  { valor: 'tarjetaRoja', titulo: 'Tarjeta Roja',
+    descripcion: 'Jugadores que vieron tarjeta roja en el último partido de su plantilla.',
+    vacio: 'Ninguna tarjeta roja en el último partido.' }
+];
+const pestana = ref('acumuladas');
+const pestanaActual = computed(() => PESTANAS.find((p) => p.valor === pestana.value));
+const alertas = computed(() => alertasSanciones(sanciones.value, partidos.value, plantillasFutbol11.value));
+
+function textoUltimoPartido(p) {
+  if (!p) return '—';
+  const esLocal = Number(p.id_equipo_local) === PALMA_ID;
+  const rival = (esLocal ? p.equipoVisitante?.nombre : p.equipoLocal?.nombre) || '—';
+  return `J${p.jornada} · ${formatoFecha(p.fecha)} · ${esLocal ? 'vs' : '@'} ${rival}`;
+}
 
 onMounted(async () => {
   await cargarOpciones();
@@ -202,7 +234,48 @@ function nombreJugador(id) {
     </template>
   </CrudDataTable>
 
-  <section v-if="acumuladosFutbol11.length" class="flex flex-col gap-4">
+  <Tabs v-model:value="pestana">
+    <TabList>
+      <Tab v-for="t in PESTANAS" :key="t.valor" :value="t.valor">{{ t.titulo }}</Tab>
+    </TabList>
+  </Tabs>
+
+  <section v-if="pestana !== 'acumuladas'" class="flex flex-col gap-4">
+    <div>
+      <h2 class="font-display text-lg font-bold text-club-green">{{ pestanaActual.titulo }} · Fútbol 11</h2>
+      <p class="text-sm text-ink-tertiary">{{ pestanaActual.descripcion }} Solo partidos de liga de la temporada actual.</p>
+    </div>
+    <DataTable v-bind="estiloTabla" :value="alertas[pestana]" dataKey="id" :tableStyle="{ minWidth: '640px' }">
+      <Column field="categoria" header="Categoría" />
+      <Column field="jugador" header="Jugador" />
+      <Column header="Amarillas" class="text-center">
+        <template #body="{ data }">
+          <span v-if="data.amarillas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
+            <span class="tarjeta tarjeta-amarilla" aria-hidden="true"></span>{{ data.amarillas }}
+          </span>
+          <span v-else class="text-ink-tertiary">0</span>
+        </template>
+      </Column>
+      <Column header="Rojas" class="text-center">
+        <template #body="{ data }">
+          <span v-if="data.rojas" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
+            <span class="tarjeta tarjeta-roja" aria-hidden="true"></span>{{ data.rojas }}
+          </span>
+          <span v-else class="text-ink-tertiary">0</span>
+        </template>
+      </Column>
+      <Column header="Último partido">
+        <template #body="{ data }">
+          <span class="whitespace-nowrap">{{ textoUltimoPartido(data.ultimo) }}</span>
+        </template>
+      </Column>
+      <template #empty>
+        <div class="text-center text-ink-tertiary py-3 text-sm">{{ pestanaActual.vacio }}</div>
+      </template>
+    </DataTable>
+  </section>
+
+  <section v-else-if="acumuladosFutbol11.length" class="flex flex-col gap-4">
     <div>
       <h2 class="font-display text-lg font-bold text-club-green">Tarjetas acumuladas · Fútbol 11</h2>
       <p class="text-sm text-ink-tertiary">Suma de tarjetas por jugador en los partidos de cada plantilla de la temporada actual.</p>
