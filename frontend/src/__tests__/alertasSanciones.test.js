@@ -40,4 +40,10 @@ describe('alertasSanciones', () => {
     expect(r.tarjetaRoja.map((f) => f.jugador)).toEqual(['J1 X']);
     expect(r.tarjetaRoja[0].ultimo.id).toBe(12);
   });
+
+  it('doble amarilla en el último partido: sale en Tarjeta Roja y cuenta para el ciclo', () => {
+    const r = alertasSanciones([s(1, 10, 1), s(1, 11, 1), s(1, 12, 2), s(2, 11, 2)], partidos, plantillas, ahora);
+    expect(r.tarjetaRoja.map((f) => f.jugador)).toEqual(['J1 X']);
+    expect(r.avisoAmarillas.map((f) => f.jugador)).toEqual(['J1 X']);
+  });
 });

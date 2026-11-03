@@ -40,13 +40,15 @@ export function alertasSanciones(sanciones, partidos, plantillas, ahora = new Da
         id: `${plantilla.id}-${s.id_jugador}`,
         categoria: plantilla.categoria?.nombre || '',
         jugador: s.jugador ? `${s.jugador.nombre} ${s.jugador.apellidos}` : '—',
-        amarillas: 0, rojas: 0, amarillasUltimo: 0, rojasUltimo: 0, ultimo
+        amarillas: 0, rojas: 0, amarillasUltimo: 0, rojasUltimo: 0, doblesUltimo: 0, ultimo
       };
       fila.amarillas += amarillas;
       fila.rojas += rojas;
       if (ultimo && (partido.id ?? s.id_partido) === ultimo.id) {
         fila.amarillasUltimo += amarillas;
         fila.rojasUltimo += rojas;
+        // Doble amarilla (2 o más en el partido): expulsión, como una roja.
+        if (amarillas >= 2) fila.doblesUltimo += 1;
       }
       porJugador.set(s.id_jugador, fila);
     }
@@ -57,7 +59,7 @@ export function alertasSanciones(sanciones, partidos, plantillas, ahora = new Da
       if (Math.floor(f.amarillas / CICLO_AMARILLAS) > Math.floor((f.amarillas - f.amarillasUltimo) / CICLO_AMARILLAS)) {
         resultado.sancionAmarillas.push(f);
       }
-      if (f.rojasUltimo > 0) resultado.tarjetaRoja.push(f);
+      if (f.rojasUltimo > 0 || f.doblesUltimo > 0) resultado.tarjetaRoja.push(f);
     }
   }
   return resultado;

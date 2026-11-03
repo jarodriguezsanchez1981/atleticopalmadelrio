@@ -203,6 +203,13 @@ describe('informeSemanal · informe de Sanciones', () => {
     expect(d.bloques[0].categorias[1].alertas).toEqual({ posibleSancion: [], partidoSancion: [], tarjetaRoja: [] });
   });
 
+  it('doble amarilla este fin de semana: sale en Tarjeta Roja y sus amarillas cuentan para el ciclo', async () => {
+    Sancion.findAll.mockResolvedValue([sancion(11, 30, 'Tom', 2, 0), ...amarillasPrevias(600, 30, 'Tom', 2)]);
+    const { alertas } = (await construirInforme('2026-11-02', 'sanciones')).bloques[0].categorias[0];
+    expect(alertas.tarjetaRoja.map((f) => f.jugador)).toEqual(['Tom X']);
+    expect(alertas.posibleSancion.map((f) => f.jugador)).toEqual(['Tom X']);
+  });
+
   it('hayJornada solo con partidos de Fútbol 11', async () => {
     Partido.findAll.mockResolvedValue([partido(10, 1, '2026-10-31T10:00:00')]);
     expect((await construirInforme('2026-11-02', 'sanciones')).hayJornada).toBe(false);
