@@ -25,7 +25,7 @@ import {
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
 import {
-  construirMinutosPorJornada, hojaMinutosPorJornada, formatoFecha, estiloCelda, estiloEquipo, estiloCss, valorCelda, LEYENDA_MINUTOS
+  construirMinutosPorJornada, hojaMinutosPorJornada, formatoFecha, estiloCelda, estiloCss, valorCelda, LEYENDA_MINUTOS
 } from '../../utils/minutosJornada';
 import { estiloTabla } from '../../utils/estiloTabla';
 
@@ -414,7 +414,7 @@ onBeforeUnmount(() => {
                   <Row>
                     <Column header="Equipo" frozen />
                     <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" :header="j.rival"
-                            headerClass="text-center text-xs" :headerStyle="estiloCss(estiloEquipo(j))" />
+                            :headerClass="`text-center text-xs ${j.es_local ? 'ar-dt-equipo-casa' : 'ar-dt-equipo-fuera'}`" />
                   </Row>
                 </ColumnGroup>
                 <Column field="jugador" frozen class="whitespace-nowrap" />
