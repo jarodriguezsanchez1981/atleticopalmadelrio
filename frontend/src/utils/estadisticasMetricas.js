@@ -140,3 +140,21 @@ export function etiquetasTramos(dur) {
   });
   return m;
 }
+
+const sinSaltos = (texto) => String(texto ?? '').replace(/\s*\n\s*/g, ' ');
+
+/** Leyenda de una tabla de Estadísticas (la que va debajo de TablaEstadistica):
+ * cada columna con descripción o cálculo, con su nombre completo, sin repetir.
+ * `clave` identifica la entrada para no repetirla en otra tabla que se ve a la
+ * vez (prop `leyendaOmitir` de TablaEstadistica). */
+export function leyendaMetricas(metricas = []) {
+  const vistas = new Set();
+  return metricas
+    .filter((m) => m && (m.descripcion || m.calculo))
+    .map((m) => {
+      const titulo = sinSaltos(m.subgrupo ? `${m.subgrupo} ${m.titulo}` : m.titulo);
+      const texto = [m.descripcion, m.calculo ? `cálculo: ${sinSaltos(m.calculo)}` : ''].filter(Boolean).join('; ');
+      return { campo: m.campo, titulo, texto, clave: `${titulo}|${texto}` };
+    })
+    .filter((e) => (vistas.has(e.titulo) ? false : vistas.add(e.titulo)));
+}
