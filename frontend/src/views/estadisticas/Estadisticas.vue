@@ -9,6 +9,8 @@ import TabPanels from 'primevue/tabpanels';
 import TabPanel from 'primevue/tabpanel';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import ColumnGroup from 'primevue/columngroup';
+import Row from 'primevue/row';
 import { useToast } from 'primevue/usetoast';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
@@ -22,7 +24,9 @@ import {
   METRICAS_SANCIONES, MINUTOS_POR_GOL, MINUTOS_POR_TARJETA
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica, descargarExcel, nombreFicheroExcel } from '../../utils/excelEstadisticas';
-import { construirMinutosPorJornada, hojaMinutosPorJornada } from '../../utils/minutosJornada';
+import {
+  construirMinutosPorJornada, hojaMinutosPorJornada, formatoFecha, estiloCelda, estiloEquipo, estiloCss, valorCelda, LEYENDA_MINUTOS
+} from '../../utils/minutosJornada';
 import { estiloTabla } from '../../utils/estiloTabla';
 
 /** Estadísticas en los partidos de la plantilla Senior A de la temporada
@@ -389,47 +393,45 @@ onBeforeUnmount(() => {
           <!-- Estadísticas Tiempo: minutos de cada jugador en el partido de cada jornada. -->
           <TabPanel v-if="tabla === 'tiempo'" value="jornadas">
             <div class="flex flex-col gap-2">
+              <!-- Igual que su hoja de Excel (utils/minutosJornada.js): cabecera con
+                   Jornada, Fecha y Equipo, y celdas coloreadas por tarjetas / sanción. -->
               <DataTable v-bind="estiloTabla" class="ar-dt-centrada" :value="minutosPorJornada.filas" dataKey="id_jugador" :loading="cargando"
-                         scrollable>
+                         scrollable showGridlines>
                 <template #empty>
                   <div class="py-6 text-center text-sm text-ink-tertiary">{{ textoVacioTabla }}</div>
                 </template>
-                <Column field="jugador" header="Jugador" frozen class="whitespace-nowrap" />
-                <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave"
-                        headerClass="text-center" bodyClass="text-center">
-                  <template #header>
-                    <div class="flex flex-col items-center leading-tight" :title="j.rival">
-                      <span class="inline-flex items-center gap-1">
-                        J{{ j.jornada }}
-                        <i :class="['pi text-xs', j.es_local ? 'pi-home' : 'pi-car']"
-                           :aria-label="j.es_local ? 'En casa' : 'Fuera'" :title="j.es_local ? 'En casa' : 'Fuera'" />
-                      </span>
-                      <span class="text-[11px] font-normal text-ink-tertiary max-w-[7rem] truncate">{{ j.rival }}</span>
-                    </div>
-                  </template>
+                <ColumnGroup type="header">
+                  <Row>
+                    <Column header="Jornada" frozen headerClass="whitespace-nowrap" />
+                    <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" :header="`J${j.jornada}`" headerClass="text-center" />
+                    <Column header="Total" :rowspan="3" headerClass="text-center" />
+                  </Row>
+                  <Row>
+                    <Column header="Fecha" frozen />
+                    <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" :header="formatoFecha(j.fecha)"
+                            headerClass="text-center whitespace-nowrap !font-normal" />
+                  </Row>
+                  <Row>
+                    <Column header="Equipo" frozen />
+                    <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" :header="j.rival"
+                            headerClass="text-center text-xs" :headerStyle="estiloCss(estiloEquipo(j))" />
+                  </Row>
+                </ColumnGroup>
+                <Column field="jugador" frozen class="whitespace-nowrap" />
+                <Column v-for="j in minutosPorJornada.jornadas" :key="j.clave" bodyClass="text-center relative">
                   <template #body="{ data }">
-                    <span v-if="data.celdas[j.clave]" class="inline-flex items-center gap-1">
-                      <span :class="{ 'font-semibold': data.celdas[j.clave].titular }"
-                            :title="data.celdas[j.clave].titular ? 'Titular' : 'Suplente'">
-                        {{ data.celdas[j.clave].minutos }}
-                      </span>
-                      <span v-for="n in data.celdas[j.clave].amarillas" :key="`a${n}`"
-                            class="inline-block w-2 h-3 rounded-[2px] bg-yellow-400" title="Tarjeta amarilla" />
-                      <span v-for="n in data.celdas[j.clave].rojas" :key="`r${n}`"
-                            class="inline-block w-2 h-3 rounded-[2px] bg-red-600" title="Tarjeta roja" />
+                    <span class="absolute inset-0 flex items-center justify-center"
+                          :style="estiloCss(estiloCelda(data.celdas[j.clave], data.ausencias[j.clave]))">
+                      {{ valorCelda(data, j.clave) ?? '' }}
                     </span>
-                    <span v-else class="text-ink-tertiary">—</span>
                   </template>
                 </Column>
-                <Column field="total" header="Total" headerClass="text-center" bodyClass="text-center font-semibold" />
+                <Column field="total" bodyClass="text-center font-semibold" />
               </DataTable>
-              <p class="text-xs text-ink-tertiary">
-                Minutos jugados por cada jugador en el partido de cada jornada (<i class="pi pi-home text-xs" aria-label="en casa" /> en casa,
-                <i class="pi pi-car text-xs" aria-label="fuera" /> fuera). En negrita, los
-                partidos en los que fue titular; 0, convocado sin llegar a jugar; —, no está en el acta.
-                <span class="inline-block w-2 h-3 rounded-[2px] bg-yellow-400 align-middle" aria-hidden="true" /> amarilla,
-                <span class="inline-block w-2 h-3 rounded-[2px] bg-red-600 align-middle" aria-hidden="true" /> roja.
-              </p>
+              <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-secondary">
+                <span v-for="e in LEYENDA_MINUTOS" :key="e.etiqueta" class="px-1.5 py-0.5 rounded"
+                      :class="{ 'border border-line': e.fondo }" :style="estiloCss(e)">{{ e.etiqueta }}</span>
+              </div>
             </div>
           </TabPanel>
         </TabPanels>
