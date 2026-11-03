@@ -544,134 +544,271 @@ async function rivales(req, res, next) {
   try {
     const idPlantilla = Number(req.query.id_plantilla);
     if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+    const { equipos, jornadas, actasPendientes } = await datosRivales(idPlantilla);
+    res.json({ equipos, jornadas, actas_pendientes: actasPendientes });
+  } catch (err) { next(err); }
+}
 
-    const partidos = await LigaPartido.findAll({
-      where: { id_plantilla: idPlantilla },
-      include: [
-        { model: LigaJugador, as: 'jugadores' },
-        { model: LigaGol, as: 'goles' },
-        { model: LigaTarjeta, as: 'tarjetas' }
-      ]
-    }) || [];
+/** Cálculo de `rivales` (lo reutiliza Próximo Rival): además de las filas,
+ * devuelve los partidos de la liga y cómo se reconoce a cada equipo. */
+async function datosRivales(idPlantilla) {
+  const partidos = await LigaPartido.findAll({
+    where: { id_plantilla: idPlantilla },
+    include: [
+      { model: LigaJugador, as: 'jugadores' },
+      { model: LigaGol, as: 'goles' },
+      { model: LigaTarjeta, as: 'tarjetas' }
+    ]
+  }) || [];
 
-    // Un equipo se reconoce por su código de RFAF; si un partido aún no lo
-    // tiene (lo creó "Finalizar Acta"), por el nombre.
-    const normal = (n) => String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
-    const codigoPorNombre = new Map();
-    for (const p of partidos) {
-      if (p.codigo_equipo_local) codigoPorNombre.set(normal(p.equipo_local), p.codigo_equipo_local);
-      if (p.codigo_equipo_visitante) codigoPorNombre.set(normal(p.equipo_visitante), p.codigo_equipo_visitante);
+  // Un equipo se reconoce por su código de RFAF; si un partido aún no lo
+  // tiene (lo creó "Finalizar Acta"), por el nombre.
+  const normal = (n) => String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+  const codigoPorNombre = new Map();
+  for (const p of partidos) {
+    if (p.codigo_equipo_local) codigoPorNombre.set(normal(p.equipo_local), p.codigo_equipo_local);
+    if (p.codigo_equipo_visitante) codigoPorNombre.set(normal(p.equipo_visitante), p.codigo_equipo_visitante);
+  }
+  const claveEquipo = (nombre, codigo) => codigo || codigoPorNombre.get(normal(nombre)) || `n:${normal(nombre)}`;
+
+  const porEquipo = new Map();
+  const filaEquipo = (nombre, codigo) => {
+    const clave = claveEquipo(nombre, codigo);
+    let fila = porEquipo.get(clave);
+    if (!fila) {
+      fila = { id_equipo: clave, equipo: nombre, jugadores: new Map() };
+      for (const c of CONTADORES_RIVAL) {
+        fila[c] = 0;
+        for (const l of LADOS) fila[`${c}_${l}`] = 0;
+      }
+      porEquipo.set(clave, fila);
     }
-    const claveEquipo = (nombre, codigo) => codigo || codigoPorNombre.get(normal(nombre)) || `n:${normal(nombre)}`;
+    return fila;
+  };
+  const sumar = (fila, campo, valor, lado) => {
+    fila[campo] += valor;
+    fila[`${campo}_${lado}`] += valor;
+  };
 
-    const porEquipo = new Map();
-    const filaEquipo = (nombre, codigo) => {
-      const clave = claveEquipo(nombre, codigo);
-      let fila = porEquipo.get(clave);
-      if (!fila) {
-        fila = { id_equipo: clave, equipo: nombre, jugadores: new Map() };
-        for (const c of CONTADORES_RIVAL) {
-          fila[c] = 0;
-          for (const l of LADOS) fila[`${c}_${l}`] = 0;
-        }
-        porEquipo.set(clave, fila);
-      }
-      return fila;
+  let actasPendientes = 0;
+  const jornadas = new Set();
+  for (const p of partidos) {
+    const filas = {
+      local: esPalmaEquipo(p.equipo_local) ? null : filaEquipo(p.equipo_local, p.codigo_equipo_local),
+      visitante: esPalmaEquipo(p.equipo_visitante) ? null : filaEquipo(p.equipo_visitante, p.codigo_equipo_visitante)
     };
-    const sumar = (fila, campo, valor, lado) => {
-      fila[campo] += valor;
-      fila[`${campo}_${lado}`] += valor;
-    };
-
-    let actasPendientes = 0;
-    const jornadas = new Set();
-    for (const p of partidos) {
-      const filas = {
-        local: esPalmaEquipo(p.equipo_local) ? null : filaEquipo(p.equipo_local, p.codigo_equipo_local),
-        visitante: esPalmaEquipo(p.equipo_visitante) ? null : filaEquipo(p.equipo_visitante, p.codigo_equipo_visitante)
-      };
-      if (!p.acta_at) {
-        actasPendientes += 1;
-        continue;
+    if (!p.acta_at) {
+      actasPendientes += 1;
+      continue;
+    }
+    jornadas.add(Number(p.jornada));
+    const golesEn = { local: 0, visitante: 0 };
+    for (const lado of LADOS) if (filas[lado]) sumar(filas[lado], 'partidos', 1, lado);
+    // Resultado del acta: ganados / empatados / perdidos y goles a favor y en
+    // contra (estos, con las propias puertas, como en la clasificación).
+    if (p.goles_local != null && p.goles_visitante != null) {
+      for (const lado of LADOS) {
+        if (!filas[lado]) continue;
+        const favor = Number(lado === 'local' ? p.goles_local : p.goles_visitante);
+        const contra = Number(lado === 'local' ? p.goles_visitante : p.goles_local);
+        sumar(filas[lado], favor > contra ? 'victorias' : favor < contra ? 'derrotas' : 'empates', 1, lado);
+        sumar(filas[lado], 'goles_favor', favor, lado);
+        sumar(filas[lado], 'goles_contra', contra, lado);
       }
-      jornadas.add(Number(p.jornada));
-      const golesEn = { local: 0, visitante: 0 };
-      for (const lado of LADOS) if (filas[lado]) sumar(filas[lado], 'partidos', 1, lado);
-      // Resultado del acta: ganados / empatados / perdidos y goles a favor y en
-      // contra (estos, con las propias puertas, como en la clasificación).
-      if (p.goles_local != null && p.goles_visitante != null) {
-        for (const lado of LADOS) {
-          if (!filas[lado]) continue;
-          const favor = Number(lado === 'local' ? p.goles_local : p.goles_visitante);
-          const contra = Number(lado === 'local' ? p.goles_visitante : p.goles_local);
-          sumar(filas[lado], favor > contra ? 'victorias' : favor < contra ? 'derrotas' : 'empates', 1, lado);
-          sumar(filas[lado], 'goles_favor', favor, lado);
-          sumar(filas[lado], 'goles_contra', contra, lado);
-        }
-      }
+    }
 
-      for (const g of p.goles || []) {
-        const fila = filas[g.lado];
-        if (!fila || g.tipo === 'propia') continue;
-        sumar(fila, 'goles', 1, g.lado);
-        golesEn[g.lado] += 1;
-        if (g.titular === true || g.titular === 1) sumar(fila, 'goles_titular', 1, g.lado);
-        else if (g.titular === false || g.titular === 0) sumar(fila, 'goles_banquillo', 1, g.lado);
-        if (g.minuto != null) sumar(fila, tramoGol(g.minuto, MINUTOS_PARTIDO), 1, g.lado);
-      }
-      for (const lado of LADOS) if (filas[lado] && golesEn[lado] > 0) sumar(filas[lado], 'partidos_con_gol', 1, lado);
+    for (const g of p.goles || []) {
+      const fila = filas[g.lado];
+      if (!fila || g.tipo === 'propia') continue;
+      sumar(fila, 'goles', 1, g.lado);
+      golesEn[g.lado] += 1;
+      if (g.titular === true || g.titular === 1) sumar(fila, 'goles_titular', 1, g.lado);
+      else if (g.titular === false || g.titular === 0) sumar(fila, 'goles_banquillo', 1, g.lado);
+      if (g.minuto != null) sumar(fila, tramoGol(g.minuto, MINUTOS_PARTIDO), 1, g.lado);
+    }
+    for (const lado of LADOS) if (filas[lado] && golesEn[lado] > 0) sumar(filas[lado], 'partidos_con_gol', 1, lado);
 
-      const amarillasJugador = new Map();
-      for (const t of p.tarjetas || []) {
-        const fila = filas[t.lado];
-        if (!fila) continue;
-        const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
-        sumar(fila, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, t.lado);
-        if (t.titular === true || t.titular === 1) sumar(fila, `${tipo}_titular`, 1, t.lado);
-        else if (t.titular === false || t.titular === 0) sumar(fila, `${tipo}_suplente`, 1, t.lado);
-        if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, t.lado);
-        if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, t.lado);
-        else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, t.lado);
-        if (tipo === 'amarillas') {
-          const clave = `${t.lado}-${normal(t.nombre)}`;
-          const n = (amarillasJugador.get(clave) || 0) + 1;
-          amarillasJugador.set(clave, n);
-          if (n === 2) sumar(fila, 'dobles_amarillas', 1, t.lado);
-        }
+    const amarillasJugador = new Map();
+    for (const t of p.tarjetas || []) {
+      const fila = filas[t.lado];
+      if (!fila) continue;
+      const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
+      sumar(fila, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, t.lado);
+      if (t.titular === true || t.titular === 1) sumar(fila, `${tipo}_titular`, 1, t.lado);
+      else if (t.titular === false || t.titular === 0) sumar(fila, `${tipo}_suplente`, 1, t.lado);
+      if (t.minuto != null) sumar(fila, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, t.lado);
+      if (t.goles_favor > t.goles_contra) sumar(fila, `${tipo}_ganando`, 1, t.lado);
+      else if (t.goles_favor < t.goles_contra) sumar(fila, `${tipo}_perdiendo`, 1, t.lado);
+      if (tipo === 'amarillas') {
+        const clave = `${t.lado}-${normal(t.nombre)}`;
+        const n = (amarillasJugador.get(clave) || 0) + 1;
+        amarillasJugador.set(clave, n);
+        if (n === 2) sumar(fila, 'dobles_amarillas', 1, t.lado);
       }
+    }
 
+    for (const j of p.jugadores || []) {
+      const fila = filas[j.lado];
+      if (!fila) continue;
+      const clave = normal(j.nombre);
+      let jug = fila.jugadores.get(clave);
+      if (!jug) {
+        jug = { nombre: j.nombre, ...Object.fromEntries(CONTADORES_JUGADOR_RIVAL.map((c) => [c, 0])) };
+        fila.jugadores.set(clave, jug);
+      }
+      jug.convocatorias += 1;
+      if (Number(j.minutos) > 0) jug.partidos += 1;
+      if (j.titular) jug.titular += 1;
+      jug.minutos += Number(j.minutos) || 0;
+      jug.goles += Number(j.goles) || 0;
+      jug.tarjetas_amarillas += Number(j.amarillas) || 0;
+      jug.tarjetas_rojas += Number(j.rojas) || 0;
+    }
+  }
+
+  const equipos = [...porEquipo.values()].map((f) => {
+    for (const sufijo of ['', '_local', '_visitante']) {
+      f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`partidos_con_gol${sufijo}`], f[`partidos${sufijo}`]);
+      f[`porcentaje_goles_titular${sufijo}`] = porcentaje(f[`goles_titular${sufijo}`], f[`goles${sufijo}`]);
+      f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
+    }
+    for (const l of LADOS) f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
+    const jugadores = [...f.jugadores.values()]
+      .sort((a, b) => b.minutos - a.minutos || b.convocatorias - a.convocatorias || a.nombre.localeCompare(b.nombre, 'es'));
+    return { ...f, jugadores };
+  }).sort((a, b) => b.goles - a.goles || a.equipo.localeCompare(b.equipo, 'es'));
+
+  return { equipos, jornadas: [...jornadas].sort((a, b) => a - b), actasPendientes, partidos, claveEquipo, normal };
+}
+
+// Contadores de cada jugador del próximo rival, en total y en casa / fuera.
+const CONTADORES_JUGADOR_PROXIMO = [
+  'convocatorias', 'partidos', 'titular', 'minutos', 'minutos_titular', 'minutos_banquillo',
+  'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', ...CAMPOS_GOLES_TRAMO,
+  'tarjetas_amarillas', 'tarjetas_rojas', 'dobles_amarillas', ...CAMPOS_TARJETAS
+];
+
+/** Jugadores del equipo `clave` en sus partidos de la liga (con acta), con las
+ * mismas columnas que las tablas Goles, Tiempo y Sanciones de los nuestros, en
+ * total y con el equipo en casa (_local) o fuera (_visitante). Goles (sin
+ * propia puerta) y tarjetas salen de los eventos del acta, por su nombre. */
+function jugadoresDelRival(partidos, clave, claveEquipo, normal) {
+  const porJugador = new Map();
+  const partidosEquipo = { '': 0, _local: 0, _visitante: 0 };
+  const jugadorDe = (nombre) => {
+    const k = normal(nombre);
+    let jug = porJugador.get(k);
+    if (!jug) {
+      jug = { nombre };
+      for (const c of CONTADORES_JUGADOR_PROXIMO) {
+        jug[c] = 0;
+        for (const l of LADOS) jug[`${c}_${l}`] = 0;
+      }
+      porJugador.set(k, jug);
+    }
+    return jug;
+  };
+  const sumar = (jug, campo, valor, lado) => {
+    jug[campo] += valor;
+    jug[`${campo}_${lado}`] += valor;
+  };
+
+  for (const p of partidos) {
+    if (!p.acta_at) continue;
+    for (const lado of LADOS) {
+      if (claveEquipo(p[`equipo_${lado}`], p[`codigo_equipo_${lado}`]) !== clave) continue;
+      partidosEquipo[''] += 1;
+      partidosEquipo[`_${lado}`] += 1;
       for (const j of p.jugadores || []) {
-        const fila = filas[j.lado];
-        if (!fila) continue;
-        const clave = normal(j.nombre);
-        let jug = fila.jugadores.get(clave);
-        if (!jug) {
-          jug = { nombre: j.nombre, ...Object.fromEntries(CONTADORES_JUGADOR_RIVAL.map((c) => [c, 0])) };
-          fila.jugadores.set(clave, jug);
+        if (j.lado !== lado) continue;
+        const jug = jugadorDe(j.nombre);
+        const minutos = Number(j.minutos) || 0;
+        sumar(jug, 'convocatorias', 1, lado);
+        if (minutos > 0) sumar(jug, 'partidos', 1, lado);
+        if (j.titular) sumar(jug, 'titular', 1, lado);
+        sumar(jug, 'minutos', minutos, lado);
+        sumar(jug, j.titular ? 'minutos_titular' : 'minutos_banquillo', minutos, lado);
+      }
+      const conGol = new Set();
+      for (const g of p.goles || []) {
+        if (g.lado !== lado || g.tipo === 'propia' || !g.nombre) continue;
+        const jug = jugadorDe(g.nombre);
+        sumar(jug, 'goles', 1, lado);
+        if (g.titular === true || g.titular === 1) sumar(jug, 'goles_titular', 1, lado);
+        else if (g.titular === false || g.titular === 0) sumar(jug, 'goles_banquillo', 1, lado);
+        if (g.minuto != null) sumar(jug, tramoGol(g.minuto, MINUTOS_PARTIDO), 1, lado);
+        conGol.add(jug);
+      }
+      for (const jug of conGol) sumar(jug, 'partidos_con_gol', 1, lado);
+      const amarillas = new Map();
+      for (const t of p.tarjetas || []) {
+        if (t.lado !== lado) continue;
+        const jug = jugadorDe(t.nombre);
+        const tipo = t.tipo === 'roja' ? 'rojas' : 'amarillas';
+        sumar(jug, tipo === 'rojas' ? 'tarjetas_rojas' : 'tarjetas_amarillas', 1, lado);
+        if (t.titular === true || t.titular === 1) sumar(jug, `${tipo}_titular`, 1, lado);
+        else if (t.titular === false || t.titular === 0) sumar(jug, `${tipo}_suplente`, 1, lado);
+        if (t.minuto != null) sumar(jug, `${tipo}_${t.minuto <= FIN_PRIMERA_PARTE ? 'primera' : 'segunda'}`, 1, lado);
+        if (t.goles_favor > t.goles_contra) sumar(jug, `${tipo}_ganando`, 1, lado);
+        else if (t.goles_favor < t.goles_contra) sumar(jug, `${tipo}_perdiendo`, 1, lado);
+        if (tipo === 'amarillas') {
+          const n = (amarillas.get(jug) || 0) + 1;
+          amarillas.set(jug, n);
+          if (n === 2) sumar(jug, 'dobles_amarillas', 1, lado);
         }
-        jug.convocatorias += 1;
-        if (Number(j.minutos) > 0) jug.partidos += 1;
-        if (j.titular) jug.titular += 1;
-        jug.minutos += Number(j.minutos) || 0;
-        jug.goles += Number(j.goles) || 0;
-        jug.tarjetas_amarillas += Number(j.amarillas) || 0;
-        jug.tarjetas_rojas += Number(j.rojas) || 0;
       }
     }
+  }
 
-    const equipos = [...porEquipo.values()].map((f) => {
-      for (const sufijo of ['', '_local', '_visitante']) {
-        f[`porcentaje_goles_partido${sufijo}`] = porcentaje(f[`partidos_con_gol${sufijo}`], f[`partidos${sufijo}`]);
-        f[`porcentaje_goles_titular${sufijo}`] = porcentaje(f[`goles_titular${sufijo}`], f[`goles${sufijo}`]);
-        f[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(f[`goles_banquillo${sufijo}`], f[`goles${sufijo}`]);
-      }
-      for (const l of LADOS) f[`porcentaje_goles_${l}`] = porcentaje(f[`goles_${l}`], f.goles);
-      const jugadores = [...f.jugadores.values()]
-        .sort((a, b) => b.minutos - a.minutos || b.convocatorias - a.convocatorias || a.nombre.localeCompare(b.nombre, 'es'));
-      return { ...f, jugadores };
-    }).sort((a, b) => b.goles - a.goles || a.equipo.localeCompare(b.equipo, 'es'));
+  return [...porJugador.values()].map((j) => {
+    for (const sufijo of ['', '_local', '_visitante']) {
+      j[`porcentaje_goles_partido${sufijo}`] = porcentaje(j[`partidos_con_gol${sufijo}`], j[`partidos${sufijo}`]);
+      j[`porcentaje_goles_titular${sufijo}`] = porcentaje(j[`goles_titular${sufijo}`], j[`goles${sufijo}`]);
+      j[`porcentaje_goles_banquillo${sufijo}`] = porcentaje(j[`goles_banquillo${sufijo}`], j[`goles${sufijo}`]);
+      j[`minutos_por_partido${sufijo}`] = minutosPor(j[`minutos${sufijo}`], j[`partidos${sufijo}`]);
+      j[`porcentaje_minutos${sufijo}`] = porcentaje(j[`minutos${sufijo}`], j[`partidos${sufijo}`] * MINUTOS_PARTIDO);
+      j[`porcentaje_minutos_equipo${sufijo}`] = porcentaje(j[`minutos${sufijo}`], partidosEquipo[sufijo] * MINUTOS_PARTIDO);
+    }
+    for (const l of LADOS) j[`porcentaje_goles_${l}`] = porcentaje(j[`goles_${l}`], j.goles);
+    return j;
+  }).sort((a, b) => b.minutos - a.minutos || b.convocatorias - a.convocatorias || a.nombre.localeCompare(b.nombre, 'es'));
+}
 
-    res.json({ equipos, jornadas: [...jornadas].sort((a, b) => a - b), actas_pendientes: actasPendientes });
+/** Estadísticas Senior A → Próximo Rival: el siguiente partido de liga de la
+ * plantilla (desde hoy) y, del rival, su fila de Rivales (goles y tarjetas del
+ * equipo) y sus jugadores (Goles, Tiempo y Sanciones), con las actas de la liga
+ * ya copiadas (no pide nada a RFAF). */
+async function proximoRival(req, res, next) {
+  try {
+    const idPlantilla = Number(req.query.id_plantilla);
+    if (!idPlantilla) return res.status(400).json({ message: 'Indica la plantilla.' });
+    const partido = await Partido.findOne({
+      where: { id_plantilla: idPlantilla, jornada: { [Op.gt]: 0 }, fecha: { [Op.gte]: `${diaEspana(new Date())} 00:00:00` } },
+      attributes: ['id', 'fecha', 'jornada', 'id_equipo_local', 'id_equipo_visitante', 'suspendido'],
+      include: [
+        { model: Equipo, as: 'equipoLocal', attributes: ['id', 'nombre', 'escudo'] },
+        { model: Equipo, as: 'equipoVisitante', attributes: ['id', 'nombre', 'escudo'] }
+      ],
+      order: [['fecha', 'ASC']]
+    });
+    if (!partido) return res.json({ partido: null, equipo: null, jugadores: [], jornadas: [], actas_pendientes: 0 });
+
+    const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
+    const rival = esLocal ? partido.equipoVisitante : partido.equipoLocal;
+    const { equipos, jornadas, actasPendientes, partidos, claveEquipo, normal } = await datosRivales(idPlantilla);
+    const clave = claveEquipo(rival?.nombre, null);
+    const fila = equipos.find((e) => e.id_equipo === clave);
+    const { jugadores: _basicos, ...equipo } = fila || {};
+    res.json({
+      partido: {
+        id: partido.id, fecha: partido.fecha, jornada: partido.jornada, es_local: esLocal, suspendido: !!partido.suspendido,
+        equipoLocal: partido.equipoLocal, equipoVisitante: partido.equipoVisitante, rival: rival?.nombre || null
+      },
+      equipo: fila ? equipo : null,
+      jugadores: fila ? jugadoresDelRival(partidos, clave, claveEquipo, normal) : [],
+      jornadas,
+      actas_pendientes: actasPendientes
+    });
   } catch (err) { next(err); }
 }
 
@@ -814,4 +951,4 @@ async function plantillasEstadisticas(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, equipo, golesContra, rivales, balance, plantillasEstadisticas };
+module.exports = { listar, equipo, golesContra, rivales, proximoRival, balance, plantillasEstadisticas };
