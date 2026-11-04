@@ -574,10 +574,15 @@ async function datosRivales(idPlantilla) {
   const normal = (n) => String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
   const codigoPorNombre = new Map();
   // Si el nombre no coincide tal cual (en la intranet "C.D. GRANADAL FIGUEROA"
-  // y en RFAF 'C.D. GRANADAL FIGUEROA "A"', o "PACO PRADAS C.D." y "C.D. PACO
-  // PRADAS"): sus palabras sin la letra del equipo, si solo hay uno así en la liga.
-  const palabras = (n) => normal(n).replace(/"\s*[A-Z]\s*"$/, '').replace(/"/g, ' ')
-    .split(' ').filter(Boolean).sort().join(' ');
+  // y en RFAF 'C.D. GRANADAL FIGUEROA "A"', "PACO PRADAS C.D." y "C.D. PACO
+  // PRADAS", o "C.D. APADEMAR" y "APADEMAR"): sus palabras sin la letra del
+  // equipo ni siglas como C.D. o U.D., si solo hay uno así en la liga.
+  const SIGLAS = /^([A-Z]\.)+[A-Z]?\.?$|^(CD|CF|UD|FC|SD|AD)$/;
+  const palabras = (n) => {
+    const todas = normal(n).replace(/"\s*[A-Z]\s*"$/, '').replace(/"/g, ' ').split(' ').filter(Boolean);
+    const sinSiglas = todas.filter((w) => !SIGLAS.test(w));
+    return (sinSiglas.length ? sinSiglas : todas).sort().join(' ');
+  };
   const codigosPorPalabras = new Map();
   for (const p of partidos) {
     for (const lado of LADOS) {
