@@ -700,6 +700,7 @@ const CONTADORES_JUGADOR_PROXIMO = [
  * mismas columnas que las tablas Goles, Tiempo y Sanciones de los nuestros, en
  * total y con el equipo en casa (_local) o fuera (_visitante). Goles (sin
  * propia puerta) y tarjetas salen de los eventos del acta, por su nombre.
+ * `dorsal`: el de su acta más reciente (la de mayor jornada) que lo traiga.
  * `dur`: minutos del partido (60 en Fútbol 7). */
 function jugadoresDelRival(partidos, clave, claveEquipo, normal, dur = MINUTOS_PARTIDO) {
   const porJugador = new Map();
@@ -708,7 +709,7 @@ function jugadoresDelRival(partidos, clave, claveEquipo, normal, dur = MINUTOS_P
     const k = normal(nombre);
     let jug = porJugador.get(k);
     if (!jug) {
-      jug = { nombre };
+      jug = { nombre, dorsal: null };
       for (const c of CONTADORES_JUGADOR_PROXIMO) {
         jug[c] = 0;
         for (const l of LADOS) jug[`${c}_${l}`] = 0;
@@ -721,6 +722,8 @@ function jugadoresDelRival(partidos, clave, claveEquipo, normal, dur = MINUTOS_P
     jug[campo] += valor;
     jug[`${campo}_${lado}`] += valor;
   };
+  // Jornada del acta de la que sale el dorsal de cada jugador.
+  const jornadaDorsal = new Map();
 
   for (const p of partidos) {
     if (!p.acta_at) continue;
@@ -731,6 +734,11 @@ function jugadoresDelRival(partidos, clave, claveEquipo, normal, dur = MINUTOS_P
       for (const j of p.jugadores || []) {
         if (j.lado !== lado) continue;
         const jug = jugadorDe(j.nombre);
+        const jornada = Number(p.jornada) || 0;
+        if (j.dorsal != null && !(jornadaDorsal.get(jug) > jornada)) {
+          jug.dorsal = j.dorsal;
+          jornadaDorsal.set(jug, jornada);
+        }
         const minutos = Number(j.minutos) || 0;
         sumar(jug, 'convocatorias', 1, lado);
         if (minutos > 0) sumar(jug, 'partidos', 1, lado);

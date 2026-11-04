@@ -842,6 +842,30 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       });
     });
 
+    it('dorsal de cada jugador: el de su acta de mayor jornada que lo traiga', async () => {
+      Partido.findOne.mockResolvedValue({
+        id: 9, fecha: '2026-11-08T11:00:00', jornada: 10, id_equipo_local: 73, id_equipo_visitante: 4,
+        equipoLocal: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.' }, equipoVisitante: { id: 4, nombre: 'Uno C.F.' }
+      });
+      LigaPartido.findAll.mockResolvedValue([
+        ligaPartido(1, 'UNO C.F.', 'DOS C.F.', { jornada: 3, jugadores: [
+          { lado: 'local', nombre: 'A, A', dorsal: 7, minutos: 90 },
+          { lado: 'local', nombre: 'B, B', dorsal: null, minutos: 90 }
+        ] }),
+        ligaPartido(2, 'DOS C.F.', 'UNO C.F.', { jornada: 1, jugadores: [
+          { lado: 'visitante', nombre: 'A, A', dorsal: 9, minutos: 90 },
+          { lado: 'visitante', nombre: 'B, B', dorsal: 4, minutos: 90 }
+        ] }),
+        ligaPartido(3, 'TRES C.F.', 'UNO C.F.', { jornada: 2, jugadores: [
+          { lado: 'visitante', nombre: 'C, C', minutos: 90 }
+        ] })
+      ]);
+      const { promesa, res } = llamar();
+      await promesa;
+      const dorsal = Object.fromEntries(res._json.jugadores.map((j) => [j.nombre, j.dorsal]));
+      expect(dorsal).toEqual({ 'A, A': 7, 'B, B': 4, 'C, C': null });
+    });
+
     it('rival sin actas: equipo sin datos y sin jugadores', async () => {
       Partido.findOne.mockResolvedValue({
         id: 9, fecha: '2026-11-08T11:00:00', jornada: 10, id_equipo_local: 4, id_equipo_visitante: 73,

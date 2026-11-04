@@ -25,6 +25,8 @@ const props = defineProps({
   // Primera columna (fija) y clave de cada fila: el jugador, o p.ej. el equipo.
   columnaNombre: { type: Object, default: () => ({ campo: 'jugador', titulo: 'Jugador' }) },
   dataKey: { type: String, default: 'id_jugador' },
+  // Columna Dorsal (campo `dorsal`) delante del nombre, p. ej. en los jugadores del rival.
+  columnaDorsal: { type: Boolean, default: false },
   // Solo uno de los grupos ('total' | 'local' | 'visitante'): la tabla es la de
   // ese grupo, sin la fila de títulos de grupo (y sortField se refiere a él).
   soloGrupo: { type: String, default: null },
@@ -186,11 +188,13 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
              :dataKey="dataKey" :sortField="campoOrden" :sortOrder="-1" v-model:expandedRows="filasAbiertas">
     <ColumnGroup type="header">
       <Row v-if="!soloGrupo">
+        <Column v-if="columnaDorsal" header="Dorsal" field="dorsal" sortable :rowspan="niveles" headerClass="text-center" />
         <Column :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <Column v-for="g in grupos" :key="g.clave" :header="g.titulo" :colspan="g.columnas.length"
                 :headerClass="`ar-dt-titulo-grupo ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
       </Row>
       <Row>
+        <Column v-if="soloGrupo && columnaDorsal" header="Dorsal" field="dorsal" sortable :rowspan="niveles" headerClass="text-center" />
         <Column v-if="soloGrupo" :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <template v-for="g in grupos" :key="g.clave">
           <template v-for="t in g.tramos" :key="t.columna?.field || `${g.clave}-${t.subgrupo}`">
@@ -214,6 +218,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
       </Row>
     </ColumnGroup>
 
+    <Column v-if="columnaDorsal" field="dorsal" bodyClass="text-center" />
     <!-- El nombre en una sola línea: la columna no se estrecha al ensanchar la tabla. -->
     <Column :field="columnaNombre.campo" bodyClass="whitespace-nowrap">
       <template v-if="expandible" #body="{ data }">

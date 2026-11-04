@@ -130,7 +130,8 @@ export const MINUTOS_POR_TARJETA = { campo: 'minutos_por_tarjeta', titulo: 'Min.
 // Duración de juego por tipo de fútbol (Fútbol 7 no juega 90'); igual que en el
 // backend. Los 6 tramos de Goles se reparten en 3 por parte sobre esa duración.
 const TIPO_FUTBOL_7 = 1;
-export const duracionJuego = (idTipo) => (Number(idTipo) === TIPO_FUTBOL_7 ? 60 : 90);
+export const esFutbol7 = (idTipo) => Number(idTipo) === TIPO_FUTBOL_7;
+export const duracionJuego = (idTipo) => (esFutbol7(idTipo) ? 60 : 90);
 const CAMPOS_TRAMO = ['goles_1t1', 'goles_1t2', 'goles_1t3', 'goles_2t1', 'goles_2t2', 'goles_2t3'];
 export function etiquetasTramos(dur) {
   const sexto = dur / 6;

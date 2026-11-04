@@ -254,7 +254,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **Pestañas Total / Local / Visitante** en todas las tablas que separan por lado
 - Columnas derivadas: **Min. por tarjeta** (tras Partidos), **Min. por Goles** y **% por partido** (tras Goles)
 - **Leyenda bajo cada tabla**: qué significa cada columna (abreviaturas) y, en medias y porcentajes, cómo se calcula
-- **Próximo Rival**: datos del rival del siguiente partido de liga (goles, tiempo y sanciones, del equipo y de sus jugadores, total/local/visitante) sacados de las actas de la liga. En las categorías de menores no hay tabla de Tiempo (sus actas no traen minutos fiables) y los tramos de gol son de 60' en Fútbol 7
+- **Próximo Rival**: datos del rival del siguiente partido de liga (goles, tiempo y sanciones, del equipo y de sus jugadores, total/local/visitante) sacados de las actas de la liga. En las categorías de menores no hay tabla de Tiempo (sus actas no traen minutos fiables) y los tramos de gol son de 60' en Fútbol 7; Sanciones solo sale en Fútbol 11. En la tabla de jugadores del rival, su dorsal (el de su acta más reciente)
 - Mensaje **«Cargando datos...»** mientras se piden los datos
 
 ### Actas de la liga (RFAF)
@@ -372,12 +372,12 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (820 tests, 61 archivos)
+# Backend (821 tests, 61 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (135 tests, 19 archivos)
+# Frontend (137 tests, 19 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```

@@ -15,7 +15,7 @@ import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { nombreJugadorActa } from '../../utils/nombreActa';
 import {
   METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
-  duracionJuego, etiquetasTramos, leyendaMetricas
+  duracionJuego, etiquetasTramos, leyendaMetricas, esFutbol7
 } from '../../utils/estadisticasMetricas';
 
 /** Próximo Rival: el siguiente partido de liga de la plantilla y, del rival,
@@ -25,7 +25,8 @@ import {
  * Estadísticas (`porCategoria`), la categoría del entrenador o la que elija el
  * coordinador. Fuera de Senior A las actas no dicen bien quién fue titular ni
  * los minutos (como en las demás Estadísticas por categoría): sin Tiempo ni
- * columnas de titular / suplente, y "Conv." en lugar de partidos jugados. */
+ * columnas de titular / suplente, y "Conv." en lugar de partidos jugados.
+ * Sanciones, solo en Fútbol 11. */
 const props = defineProps({
   porCategoria: { type: Boolean, default: false }
 });
@@ -157,7 +158,9 @@ const BLOQUES = [
     vacio: 'Ningún jugador del rival ha visto tarjeta.'
   }
 ];
-const bloques = computed(() => BLOQUES.filter((b) => esSeniorA.value || b.clave !== 'tiempo')
+const bloques = computed(() => BLOQUES
+  .filter((b) => (esSeniorA.value || b.clave !== 'tiempo')
+    && !(b.clave === 'sanciones' && esFutbol7(plantilla.value?.categoria?.id_tipofutbol)))
   .map((b) => ({ ...b, metricasEquipo: metricasDe(b.metricasEquipo, false), metricas: metricasDe(b.metricas, true) })));
 const pestana = ref(BLOQUES[0].clave);
 
@@ -251,7 +254,7 @@ onBeforeUnmount(() => {
                   </div>
                   <div class="flex flex-col gap-2">
                     <h3 class="font-display text-base text-ink-secondary">Jugadores</h3>
-                    <TablaEstadistica :filas="jugadores.filter((j) => b.tiene(j, lado.sufijo))" :metricas="b.metricas"
+                    <TablaEstadistica :filas="jugadores.filter((j) => b.tiene(j, lado.sufijo))" :metricas="b.metricas" columnaDorsal
                                       :soloGrupo="lado.clave" :sortField="b.sortField" :cargando="cargando"
                                       :textoVacio="b.vacio" :leyendaOmitir="leyendaMetricas(b.metricasEquipo)" />
                   </div>
