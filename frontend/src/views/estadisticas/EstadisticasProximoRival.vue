@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import Select from 'primevue/select';
+import Button from 'primevue/button';
+import { useToast } from 'primevue/usetoast';
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
@@ -17,6 +19,7 @@ import {
   METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
   duracionJuego, etiquetasTramos, leyendaMetricas, esFutbol7
 } from '../../utils/estadisticasMetricas';
+import { construirHojaEstadistica } from '../../utils/excelEstadisticas';
 
 /** Próximo Rival: el siguiente partido de liga de la plantilla y, del rival,
  * sus goles, minutos y tarjetas (equipo y jugadores) en todos sus partidos de
@@ -164,6 +167,63 @@ const bloques = computed(() => BLOQUES
   .map((b) => ({ ...b, metricasEquipo: metricasDe(b.metricasEquipo, false), metricas: metricasDe(b.metricas, true) })));
 const pestana = ref(BLOQUES[0].clave);
 
+// PDF: el partido y, por cada pestaña, sus tablas de Total / Local / Visitante
+// (equipo y jugadores, como en pantalla) con la leyenda.
+const LADOS = [
+  { clave: 'total', titulo: 'Total', sufijo: '' },
+  { clave: 'local', titulo: 'Local (el rival en casa)', sufijo: '_local' },
+  { clave: 'visitante', titulo: 'Visitante (el rival fuera)', sufijo: '_visitante' }
+];
+const toast = useToast();
+const exportando = ref(false);
+async function exportarPdf() {
+  exportando.value = true;
+  try {
+    const { generarPdfProximoRival } = await import('../../utils/pdfProximoRival');
+    const p = partido.value;
+    const info = [
+      jornadas.value.length ? `Con actas de las jornadas ${jornadas.value[0]} a ${jornadas.value[jornadas.value.length - 1]}.` : '',
+      actasPendientes.value ? `Quedan ${actasPendientes.value} actas de la liga por copiar de RFAF.` : '',
+      'Local / Visitante: el rival en casa / fuera.'
+    ].filter(Boolean).join(' ');
+    const secciones = bloques.value.map((b) => {
+      const vistas = new Set();
+      const leyenda = [...leyendaMetricas(b.metricasEquipo || []), ...leyendaMetricas(b.metricas)]
+        .filter((e) => (vistas.has(e.clave) ? false : vistas.add(e.clave)))
+        .map((e) => `${e.titulo}: ${e.texto}`).join(' · ');
+      const tablas = LADOS.flatMap((lado) => [
+        ...(b.metricasEquipo ? [{
+          subtitulo: `${lado.titulo} · Equipo`,
+          hoja: construirHojaEstadistica({ metricas: b.metricasEquipo, filas: [equipo.value], soloGrupo: lado.clave, columnaNombre: COLUMNA_EQUIPO })
+        }] : []),
+        {
+          subtitulo: `${lado.titulo} · Jugadores`,
+          hoja: construirHojaEstadistica({
+            metricas: b.metricas, filas: jugadores.value.filter((j) => b.tiene(j, lado.sufijo)),
+            soloGrupo: lado.clave, sortField: b.sortField, columnaDorsal: true
+          }),
+          textoVacio: b.vacio
+        }
+      ]);
+      return { titulo: b.titulo, descripcion: b.descripcion, leyenda, tablas };
+    });
+    await generarPdfProximoRival({
+      titulo: titulo.value,
+      categoria: plantilla.value?.categoria?.nombre,
+      partido: {
+        jornada: p.jornada, textoFecha: textoFecha(p.fecha), lugar: p.es_local ? 'en casa' : 'fuera',
+        suspendido: p.suspendido, local: p.equipoLocal, visitante: p.equipoVisitante, rival: p.rival
+      },
+      info,
+      secciones
+    });
+  } catch {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo generar el PDF.', life: 4000 });
+  } finally {
+    exportando.value = false;
+  }
+}
+
 async function cambiarPlantilla() {
   pestana.value = BLOQUES[0].clave;
   await cargar();
@@ -181,13 +241,17 @@ onBeforeUnmount(() => {
 <template>
 <SectionGuard :seccion="SECCION">
   <div class="flex flex-col gap-4">
-    <div>
-      <h1 class="font-display text-xl text-club-green">Estadísticas Próximo Rival</h1>
-      <p class="text-sm text-ink-tertiary">
-        El siguiente partido de liga de <strong>{{ titulo }}</strong> y lo que lleva el rival en toda la liga (no solo
-        contra el PALMA), según las actas de RFAF. Local / Visitante: el rival en casa / fuera. Se puede mover una
-        columna arrastrando su título.
-      </p>
+    <div class="flex flex-col sm:flex-row sm:items-start gap-2">
+      <div>
+        <h1 class="font-display text-xl text-club-green">Estadísticas Próximo Rival</h1>
+        <p class="text-sm text-ink-tertiary">
+          El siguiente partido de liga de <strong>{{ titulo }}</strong> y lo que lleva el rival en toda la liga (no solo
+          contra el PALMA), según las actas de RFAF. Local / Visitante: el rival en casa / fuera. Se puede mover una
+          columna arrastrando su título.
+        </p>
+      </div>
+      <Button v-if="plantilla && partido && equipo && !error" label="Exportar a PDF" icon="pi pi-file-pdf" class="sm:ml-auto shrink-0"
+              :loading="exportando" :disabled="cargando" @click="exportarPdf" />
     </div>
 
     <!-- Mientras se piden los datos al servidor. -->

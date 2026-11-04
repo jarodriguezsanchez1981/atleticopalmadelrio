@@ -866,6 +866,34 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       expect(dorsal).toEqual({ 'A, A': 7, 'B, B': 4, 'C, C': null });
     });
 
+    it('reconoce al rival aunque en RFAF lleve la letra del equipo o las palabras en otro orden', async () => {
+      const proximo = (nombre) => ({
+        id: 9, fecha: '2026-11-08T11:00:00', jornada: 8, id_equipo_local: 4, id_equipo_visitante: 73,
+        equipoLocal: { id: 4, nombre }, equipoVisitante: { id: 73, nombre: 'PALMA DEL RIO ATLETICO C.F.' }
+      });
+      LigaPartido.findAll.mockResolvedValue([
+        ligaPartido(1, 'C.D. GRANADAL FIGUEROA "A"', 'C.D. PACO PRADAS', {
+          jugadores: [{ lado: 'local', nombre: 'G, G', dorsal: 5, minutos: 60 }, { lado: 'visitante', nombre: 'P, P', minutos: 60 }]
+        }),
+        // Dos equipos con el mismo nombre salvo la letra: no se adivina.
+        ligaPartido(2, 'SENECA C.F. "A"', 'SENECA C.F. "B"')
+      ]);
+      for (const [nombre, equipo, jugador] of [
+        ['C.D. GRANADAL FIGUEROA', 'C.D. GRANADAL FIGUEROA "A"', 'G, G'],
+        ['PACO PRADAS C.D.', 'C.D. PACO PRADAS', 'P, P']
+      ]) {
+        Partido.findOne.mockResolvedValue(proximo(nombre));
+        const { promesa, res } = llamar();
+        await promesa;
+        expect(res._json.equipo).toMatchObject({ equipo });
+        expect(res._json.jugadores.map((j) => j.nombre)).toEqual([jugador]);
+      }
+      Partido.findOne.mockResolvedValue(proximo('SENECA C.F.'));
+      const { promesa, res } = llamar();
+      await promesa;
+      expect(res._json.equipo).toBeNull();
+    });
+
     it('rival sin actas: equipo sin datos y sin jugadores', async () => {
       Partido.findOne.mockResolvedValue({
         id: 9, fecha: '2026-11-08T11:00:00', jornada: 10, id_equipo_local: 4, id_equipo_visitante: 73,
