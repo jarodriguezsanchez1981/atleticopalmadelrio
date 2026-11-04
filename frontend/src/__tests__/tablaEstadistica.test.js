@@ -169,3 +169,21 @@ describe('TablaEstadistica: leyenda', () => {
     expect(textos(w.findAll('dl > div'))).toEqual(['Goles: Goles marcados']);
   });
 });
+
+describe('TablaEstadistica: columna Dorsal', () => {
+  it('con columnaDorsal pone el dorsal delante del nombre', async () => {
+    const w = mount(TablaEstadistica, {
+      props: { filas: [{ ...FILAS[0], dorsal: 10 }], metricas: METRICAS, soloGrupo: 'total', columnaDorsal: true },
+      global: { plugins: [PrimeVue] }
+    });
+    await nextTick();
+    expect(textos(w.findAll('thead th')).slice(0, 2)).toEqual(['Dorsal', 'Jugador']);
+    expect(textos(w.findAll('tbody td')).slice(0, 2)).toEqual(['10', 'Ana López']);
+  });
+
+  it('sin columnaDorsal no sale', async () => {
+    const w = montar();
+    await nextTick();
+    expect(w.find('thead').text()).not.toContain('Dorsal');
+  });
+});
