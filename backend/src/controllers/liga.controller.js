@@ -21,10 +21,10 @@ const { esPalma } = require('./clasificacion.controller');
  * - una pausa entre peticiones y un máximo por ejecución entre todas las
  *   plantillas (Senior A primero, después por orden de categoría de mayor a
  *   menor); al primer error se
- *   para (se reintenta a los 10 minutos, salvo sesión caducada; ver
+ *   para (se reintenta a los 5 minutos, salvo sesión caducada; ver
  *   utils/ligaRecuperacion.js).
  * Mientras queden jornadas o actas por copiar (p. ej. al empezar con la
- * temporada ya empezada) se repite cada 10 minutos hasta ponerse al día
+ * temporada ya empezada) se repite cada 5 minutos hasta ponerse al día
  * (utils/ligaRecuperacion.js); después, solo la copia del lunes.
  */
 
@@ -194,7 +194,7 @@ async function actasPorCopiar(idPlantilla, { soloNuevas = false } = {}) {
 }
 
 /** true si quedan jornadas jugadas o actas nuevas por copiar (para la
- * recuperación cada 10 minutos). */
+ * recuperación cada 5 minutos). */
 async function hayPendientes() {
   for (const plantilla of await plantillasLiga()) {
     if ((await jornadasPorCopiar(plantilla.id)).length > 0
