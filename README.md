@@ -259,8 +259,8 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 
 ### Actas de la liga (RFAF)
 - De cada plantilla de la temporada actual con códigos de RFAF se copian las jornadas jugadas y las actas de todos los partidos de su liga (tablas `liga_*`), para Rivales y Próximo Rival
-- Como mucho **2 jornadas y 20 actas por copia** entre todas las plantillas (Senior A primero), cada lunes a las 09:00 tras la clasificación y, mientras haya atrasos, **10 minutos** después de terminar la anterior (`backend/src/controllers/liga.controller.js`, `backend/src/utils/ligaRecuperacion.js`)
-- Una copia fallida (no por sesión caducada) se reintenta a los 10 minutos, como mucho 3 veces seguidas
+- Como mucho **2 jornadas y 20 actas por copia** entre todas las plantillas (Senior A primero), cada lunes a las 09:00 tras la clasificación y, mientras haya atrasos, **5 minutos** después de terminar la anterior (`backend/src/controllers/liga.controller.js`, `backend/src/utils/ligaRecuperacion.js`)
+- Una copia fallida (no por sesión caducada) se reintenta a los 5 minutos, como mucho 3 veces seguidas
 - La sesión de rfaf.es se pasa con `RFAF_COOKIE` (caduca a la media hora sin uso)
 
 ### Responsive móvil
