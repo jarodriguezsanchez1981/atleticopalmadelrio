@@ -242,7 +242,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
     </template>
   </DataTable>
 
-  <dl v-if="!soloGrupo || leyenda.length" class="text-xs text-ink-tertiary flex flex-wrap gap-x-4 gap-y-1">
+  <dl v-if="!soloGrupo || leyenda.length" class="ar-leyenda text-xs text-ink-tertiary">
     <div v-if="!soloGrupo">
       <dt class="inline font-semibold text-ink-secondary">Total / Local / Visitante:</dt> <dd class="inline">todos los partidos / en casa / fuera</dd>
     </div>

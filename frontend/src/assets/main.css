@@ -265,3 +265,13 @@ h1, h2, h3, .font-display {
 .ar-datatable .p-datatable-thead > tr > th:is(.ar-dt-equipo-casa, .ar-dt-equipo-fuera, .ar-dt-equipo-descanso) .p-datatable-column-title {
   white-space: pre;
 }
+
+/* Leyenda bajo las tablas de Estadísticas: las entradas van seguidas, como un
+   párrafo (separadas por «·»), y no saltan de línea al llegar a la siguiente. */
+.ar-leyenda > div {
+  display: inline;
+}
+.ar-leyenda > div + div::before {
+  content: '·';
+  margin: 0 0.5rem;
+}
