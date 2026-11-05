@@ -7,8 +7,10 @@
 #      de backend y frontend) con Trivy en modo filesystem.
 #
 # Escribe un informe con fecha en ~/seguridad-docker/ (umask 077) y conserva
-# los de los últimos 30 días. NO recrea ni reinicia contenedores: solo hace
-# `docker pull` de los tags (descarga capas nuevas si las hay) y escanea.
+# los de los últimos 30 días. Hace `docker pull` de los tags, APLICA los
+# parches (reconstruye y recrea solo los contenedores cuya imagen ha cambiado;
+# permiso del usuario del 05/11/2026; APLICAR_PARCHES=0 para solo comprobar)
+# y escanea.
 #
 # Pensado para una tarea programada cada 2 días (cron). Idempotente.
 # Uso manual:  scripts/comprobar-parches-docker.sh
@@ -82,6 +84,108 @@ for img in "${IMAGENES[@]}"; do
 done
 log ""
 
+# ---- 1b) Aplicar parches (permiso del usuario del 05/11/2026) ----
+# backend, frontend y reverse-proxy hacen `apk upgrade` al construir: si su
+# contenedor tiene paquetes de Alpine por actualizar se reconstruyen sin caché.
+# El resto (db, backup, binlog-backup, certbot) cambia solo si su imagen base es
+# nueva. Se recrean únicamente los contenedores cuya imagen ha cambiado; antes
+# de tocar la BD se hace una copia. Solo en el EC2 (con .env.development).
+APLICAR_PARCHES="${APLICAR_PARCHES:-1}"
+parches_aplicados=""
+aplicar_parches() {
+  local env_file="$PROYECTO_DIR/.env.development"
+  if [ "$APLICAR_PARCHES" != "1" ]; then
+    log "  ℹ️  APLICAR_PARCHES=$APLICAR_PARCHES: solo se comprueba."
+    return
+  fi
+  if [ ! -f "$env_file" ]; then
+    log "  ℹ️  No se aplican: no se encuentra $env_file (¿fuera del EC2?)."
+    return
+  fi
+  local dc=(docker compose --project-directory "$PROYECTO_DIR" --env-file "$env_file")
+  local proyecto s n actual nueva
+  proyecto="$(basename "$PROYECTO_DIR")"
+  declare -A contenedor=(
+    [db]=apr_mysql [backup]=apr_mysql_backup [binlog-backup]=apr_mysql_binlog_backup
+    [backend]=apr_backend [frontend]=apr_frontend [reverse-proxy]=apr_reverse_proxy [certbot]=apr_certbot
+  )
+  declare -A imagen=(
+    [db]=mysql:8.4 [certbot]=certbot/certbot
+    [backup]="$proyecto-backup" [binlog-backup]="$proyecto-binlog-backup"
+    [backend]="$proyecto-backend" [frontend]="$proyecto-frontend" [reverse-proxy]="$proyecto-reverse-proxy"
+  )
+
+  local sin_cache=()
+  for s in backend frontend reverse-proxy; do
+    n="$(docker exec -u 0 "${contenedor[$s]}" apk --no-cache -U list -u 2>/dev/null | grep -c .)"
+    if [ "${n:-0}" -gt 0 ]; then
+      log "  · $s: $n paquetes de Alpine por actualizar."
+      sin_cache+=("$s")
+    fi
+  done
+  if [ ${#sin_cache[@]} -gt 0 ] && ! "${dc[@]}" build --pull --no-cache "${sin_cache[@]}" >>"$LOG" 2>&1; then
+    log "  ⚠️  Falló la construcción sin caché de: ${sin_cache[*]} (no se recrea nada)."
+    return
+  fi
+  if ! "${dc[@]}" build --pull backend frontend reverse-proxy backup binlog-backup >>"$LOG" 2>&1; then
+    log "  ⚠️  Falló la construcción de las imágenes (no se recrea nada)."
+    return
+  fi
+
+  local recrear=()
+  for s in db backup binlog-backup backend frontend reverse-proxy certbot; do
+    actual="$(docker inspect -f '{{.Image}}' "${contenedor[$s]}" 2>/dev/null)"
+    nueva="$(docker image inspect -f '{{.Id}}' "${imagen[$s]}" 2>/dev/null)"
+    [ -n "$actual" ] && [ -n "$nueva" ] && [ "$actual" != "$nueva" ] && recrear+=("$s")
+  done
+  if [ ${#recrear[@]} -eq 0 ]; then
+    log "  ✅ Todos los contenedores ya usan la imagen más reciente."
+    return
+  fi
+  log "  🔄 Se recrean: ${recrear[*]}"
+  local objetivo=("${recrear[@]}")
+
+  if [[ " ${recrear[*]} " == *" db "* ]]; then
+    if docker exec apr_mysql_backup bash /scripts/db-backup.sh --once >>"$LOG" 2>&1; then
+      log "  ✅ Copia de la BD hecha antes de recrear db."
+      "${dc[@]}" up -d --no-deps --force-recreate db >>"$LOG" 2>&1
+      for _ in $(seq 1 24); do
+        [ "$(docker inspect -f '{{.State.Health.Status}}' apr_mysql 2>/dev/null)" = "healthy" ] && break
+        sleep 5
+      done
+      log "  · db: $(docker inspect -f '{{.State.Health.Status}}' apr_mysql 2>/dev/null)"
+    else
+      log "  ⚠️  Falló la copia de la BD: no se recrea db."
+    fi
+    local resto=()
+    for s in "${recrear[@]}"; do [ "$s" != "db" ] && resto+=("$s"); done
+    recrear=("${resto[@]}")
+  fi
+  if [ ${#recrear[@]} -gt 0 ]; then
+    "${dc[@]}" up -d --no-deps --force-recreate "${recrear[@]}" >>"$LOG" 2>&1
+  fi
+  docker rm -f apr_backend_test >/dev/null 2>&1
+
+  sleep 20
+  local mal=()
+  for s in db backup binlog-backup backend frontend reverse-proxy certbot; do
+    [ "$(docker inspect -f '{{.State.Running}}' "${contenedor[$s]}" 2>/dev/null)" = "true" ] || mal+=("$s")
+    actual="$(docker inspect -f '{{.Image}}' "${contenedor[$s]}" 2>/dev/null)"
+    nueva="$(docker image inspect -f '{{.Id}}' "${imagen[$s]}" 2>/dev/null)"
+    [ "$actual" = "$nueva" ] && [[ " ${objetivo[*]} " == *" $s "* ]] && parches_aplicados+="$s "
+  done
+  if [ ${#mal[@]} -gt 0 ]; then
+    log "  ❌ No están en marcha tras actualizar: ${mal[*]}"
+    parches_aplicados+="(ERROR: parados ${mal[*]}) "
+  else
+    log "  ✅ Parches aplicados; todos los contenedores en marcha."
+    hay_actualizaciones=0
+  fi
+}
+log "-- 1b) Aplicar parches --"
+aplicar_parches
+log ""
+
 # ---- 2) Vulnerabilidades HIGH/CRITICAL (Trivy en contenedor) ----
 # La BD de CVEs se cachea en $TRIVY_CACHE entre ejecuciones (menos descargas).
 log "-- 2) Vulnerabilidades HIGH/CRITICAL (Trivy) --"
@@ -151,6 +255,7 @@ log ""
 # ---- Resumen ----
 log "== Resumen =="
 log "Imágenes con versión nueva disponible: $([ "$hay_actualizaciones" -eq 1 ] && echo 'SÍ — conviene reconstruir/redeplegar' || echo 'no')"
+log "Parches aplicados: ${parches_aplicados:-ninguno}"
 log "Vulnerabilidades HIGH/CRITICAL (imágenes y dependencias npm):"
 printf "%b" "$resumen_vulns" | tee -a "$LOG"
 log "Informe completo: $LOG"
@@ -196,6 +301,7 @@ guardar_en_bd() {
   # para no romper el INSERT (los valores son cifras y texto controlado).
   local resumen_bd resumen_sql
   resumen_bd="Actualizaciones de imagen: $([ "$hay_actualizaciones" -eq 1 ] && echo 'SÍ' || echo 'no'). "
+  [ -n "$parches_aplicados" ] && resumen_bd+="Parches aplicados: ${parches_aplicados% }. "
   resumen_bd+="$(printf '%b' "$resumen_vulns" | sed 's/^ *//; /^$/d' | paste -sd '|' -)"
   resumen_sql="${resumen_bd//\'/\'\'}"
 
