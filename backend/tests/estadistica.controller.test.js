@@ -884,11 +884,11 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         ligaPartido(3, 'APADEMAR "B"', 'OTRO C.F.', { jugadores: [{ lado: 'local', nombre: 'Q, Q', minutos: 60 }] })
       ]);
       for (const [nombre, equipo, jugador] of [
-        ['C.D. GRANADAL FIGUEROA', 'C.D. GRANADAL FIGUEROA "A"', 'G, G'],
+        ['C.D. GRANADAL FIGUEROA', 'C.D. GRANADAL FIGUEROA', 'G, G'],
         ['PACO PRADAS C.D.', 'C.D. PACO PRADAS', 'P, P'],
-        ['C.D. APADEMAR', 'APADEMAR "B"', 'Q, Q'],
+        ['C.D. APADEMAR', 'APADEMAR', 'Q, Q'],
         // La letra no hace otro equipo: el "B" de la intranet es el "A" de RFAF.
-        ['SENECA C.F. "B"', 'SENECA C.F. "A"', null]
+        ['SENECA C.F. "B"', 'SENECA C.F.', null]
       ]) {
         Partido.findOne.mockResolvedValue(proximo(nombre));
         const { promesa, res } = llamar();

@@ -600,11 +600,14 @@ async function datosRivales(idPlantilla) {
     || `n:${normal(nombre)}`;
 
   const porEquipo = new Map();
+  // El nombre que se enseña, sin la letra del equipo ('SENECA C.F. "B"' ->
+  // "SENECA C.F."): es el mismo club.
+  const sinLetra = (nombre) => String(nombre || '').replace(/\s*"\s*[A-Za-z]\s*"\s*$/, '').trim() || nombre;
   const filaEquipo = (nombre, codigo) => {
     const clave = claveEquipo(nombre, codigo);
     let fila = porEquipo.get(clave);
     if (!fila) {
-      fila = { id_equipo: clave, equipo: nombre, jugadores: new Map() };
+      fila = { id_equipo: clave, equipo: sinLetra(nombre), jugadores: new Map() };
       for (const c of CONTADORES_RIVAL) {
         fila[c] = 0;
         for (const l of LADOS) fila[`${c}_${l}`] = 0;
