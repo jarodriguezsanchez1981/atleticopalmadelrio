@@ -104,6 +104,9 @@ aplicar_parches() {
   fi
   local dc=(docker compose --project-directory "$PROYECTO_DIR" --env-file "$env_file")
   local proyecto s n actual nueva
+  # Sin las attestations de buildx, una imagen sin cambios conserva su ID (con
+  # ellas cada build da un ID nuevo y se recrearía todo cada 2 días).
+  export BUILDX_NO_DEFAULT_ATTESTATIONS=1
   proyecto="$(basename "$PROYECTO_DIR")"
   declare -A contenedor=(
     [db]=apr_mysql [backup]=apr_mysql_backup [binlog-backup]=apr_mysql_binlog_backup
