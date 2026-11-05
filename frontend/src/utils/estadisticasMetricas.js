@@ -108,7 +108,8 @@ const tramosRival = (prefijo, texto) => [['1t1', '0-15', '1er', '1ª'], ['1t2', 
   ['2t1', '46-60', '1er', '2ª'], ['2t2', '61-75', '2º', '2ª'], ['2t3', '76-90', '3er', '2ª']]
   .map(([t, titulo, n, parte]) => ({
     campo: `${prefijo}_${t}`, titulo, subgrupo: `${parte} Parte`, descripcionSubgrupo: `${texto} por tramo en la ${parte} parte`,
-    descripcion: `${texto} en el ${n} tramo de la ${parte} parte${n === '3er' ? ' (incluye el añadido)' : ''}`
+    // Igual que en METRICAS_GOLES: la leyenda de la sección los explica una sola vez.
+    descripcion: `Goles en el ${n} tramo de la ${parte} parte${n === '3er' ? ' (incluye el añadido)' : ''}`
   }));
 export const METRICAS_RIVAL_GOLES_FAVOR = [
   { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
@@ -168,7 +169,7 @@ const sinSaltos = (texto) => String(texto ?? '').replace(/\s*\n\s*/g, ' ');
 /** Leyenda de una tabla de Estadísticas (la que va debajo de TablaEstadistica):
  * cada columna con descripción o cálculo, con su nombre completo, sin repetir.
  * `clave` identifica la entrada para no repetirla en otra tabla que se ve a la
- * vez (prop `leyendaOmitir` de TablaEstadistica). */
+ * vez (ver leyendaSeccion). */
 export function leyendaMetricas(metricas = []) {
   const vistas = new Set();
   return metricas
@@ -179,4 +180,22 @@ export function leyendaMetricas(metricas = []) {
       return { campo: m.campo, titulo, texto, clave: `${titulo}|${texto}` };
     })
     .filter((e) => (vistas.has(e.titulo) ? false : vistas.add(e.titulo)));
+}
+
+/** Leyenda de una sección con varias tablas ([{ titulo, metricas }]), para
+ * ponerla una sola vez al final: cada entrada una vez y, si varias tablas usan
+ * el mismo título para cosas distintas (p. ej. "Goles"), con el de su tabla delante. */
+export function leyendaSeccion(tablas = []) {
+  const vistas = new Set();
+  const entradas = [];
+  for (const { titulo: tabla, metricas } of tablas) {
+    for (const e of leyendaMetricas(metricas || [])) {
+      if (vistas.has(e.clave)) continue;
+      vistas.add(e.clave);
+      entradas.push({ ...e, tabla });
+    }
+  }
+  const veces = new Map();
+  for (const e of entradas) veces.set(e.titulo, (veces.get(e.titulo) || 0) + 1);
+  return entradas.map(({ tabla, ...e }) => (veces.get(e.titulo) > 1 && tabla ? { ...e, titulo: `${tabla} · ${e.titulo}` } : e));
 }
