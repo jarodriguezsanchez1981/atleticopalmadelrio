@@ -136,8 +136,10 @@ const CAMPOS_TRAMO = ['goles_1t1', 'goles_1t2', 'goles_1t3', 'goles_2t1', 'goles
 export function etiquetasTramos(dur) {
   const sexto = dur / 6;
   const m = {};
+  // Los mismos tramos para los goles a favor y en contra (contra_1t1…).
   CAMPOS_TRAMO.forEach((c, i) => {
     m[c] = `${i === 0 ? 0 : Math.round(i * sexto) + 1}-${Math.round((i + 1) * sexto)}`;
+    m[c.replace('goles_', 'contra_')] = m[c];
   });
   return m;
 }

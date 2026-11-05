@@ -530,6 +530,7 @@ async function golesContra(req, res, next) {
 // en casa o fuera.
 const CONTADORES_RIVAL = [
   'partidos', 'victorias', 'empates', 'derrotas', 'goles_favor', 'goles_contra', 'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', ...CAMPOS_GOLES_TRAMO,
+  ...CAMPOS_CONTRA_TRAMO,
   'tarjetas_amarillas', 'tarjetas_rojas', 'dobles_amarillas', ...CAMPOS_TARJETAS
 ];
 const CONTADORES_JUGADOR_RIVAL = ['convocatorias', 'partidos', 'titular', 'minutos', 'goles', 'tarjetas_amarillas', 'tarjetas_rojas'];
@@ -657,6 +658,14 @@ async function datosRivales(idPlantilla) {
       if (g.minuto != null) sumar(fila, tramoGol(g.minuto, dur), 1, g.lado);
     }
     for (const lado of LADOS) if (filas[lado] && golesEn[lado] > 0) sumar(filas[lado], 'partidos_con_gol', 1, lado);
+    // Goles en contra por tramo: los del otro equipo y los que se marca en
+    // propia puerta (el acta pone cada gol en el equipo del jugador).
+    for (const g of p.goles || []) {
+      if (g.minuto == null) continue;
+      const contra = g.tipo === 'propia' ? g.lado : (g.lado === 'local' ? 'visitante' : 'local');
+      if (!filas[contra]) continue;
+      sumar(filas[contra], CAMPOS_CONTRA_TRAMO[CAMPOS_GOLES_TRAMO.indexOf(tramoGol(g.minuto, dur))], 1, contra);
+    }
 
     const amarillasJugador = new Map();
     for (const t of p.tarjetas || []) {

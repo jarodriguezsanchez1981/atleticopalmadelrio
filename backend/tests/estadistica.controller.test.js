@@ -810,7 +810,10 @@ describe('Sección Estadísticas · estadistica.controller', () => {
           goles: [
             { lado: 'local', nombre: 'A, A', minuto: 10, tipo: 'normal', titular: true },
             { lado: 'local', nombre: 'A, A', minuto: 80, tipo: 'penalti', titular: true },
-            { lado: 'visitante', nombre: 'Z, Z', minuto: 50, tipo: 'propia', titular: null }
+            { lado: 'visitante', nombre: 'Z, Z', minuto: 50, tipo: 'propia', titular: null },
+            // En contra de UNO: uno de DOS y uno en su propia puerta.
+            { lado: 'visitante', nombre: 'Z, Z', minuto: 20, tipo: 'normal', titular: true },
+            { lado: 'local', nombre: 'B, B', minuto: 88, tipo: 'propia', titular: false }
           ],
           tarjetas: [
             { lado: 'local', nombre: 'B, B', tipo: 'amarilla', minuto: 70, titular: false, goles_favor: 1, goles_contra: 0 },
@@ -828,6 +831,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       expect(partido).toMatchObject({ jornada: 10, es_local: true, rival: 'Uno C.F.' });
       expect(equipo).toMatchObject({ equipo: 'UNO C.F.', partidos: 2, partidos_local: 1, goles: 2 });
       expect(equipo.jugadores).toBeUndefined();
+      // Goles en contra por tramo (la propia puerta de Z, a los 50', es en contra de DOS).
+      expect(equipo).toMatchObject({ contra_1t2: 1, contra_1t2_local: 1, contra_2t3: 1, contra_2t1: 0, contra_1t1: 0 });
       expect(jugadores.map((j) => j.nombre)).toEqual(['A, A', 'B, B']);
       const [a, b] = jugadores;
       expect(a).toMatchObject({
