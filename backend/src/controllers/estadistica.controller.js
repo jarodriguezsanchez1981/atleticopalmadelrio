@@ -577,28 +577,25 @@ async function datosRivales(idPlantilla) {
   // Si el nombre no coincide tal cual (en la intranet "C.D. GRANADAL FIGUEROA"
   // y en RFAF 'C.D. GRANADAL FIGUEROA "A"', "PACO PRADAS C.D." y "C.D. PACO
   // PRADAS", o "C.D. APADEMAR" y "APADEMAR"): sus palabras sin la letra del
-  // equipo ni siglas como C.D. o U.D., si solo hay uno así en la liga.
+  // equipo ni siglas como C.D. o U.D. La letra ("A", "B", "C") no hace otro
+  // equipo: es el mismo club.
   const SIGLAS = /^([A-Z]\.)+[A-Z]?\.?$|^(CD|CF|UD|FC|SD|AD)$/;
   const palabras = (n) => {
     const todas = normal(n).replace(/"\s*[A-Z]\s*"$/, '').replace(/"/g, ' ').split(' ').filter(Boolean);
     const sinSiglas = todas.filter((w) => !SIGLAS.test(w));
     return (sinSiglas.length ? sinSiglas : todas).sort().join(' ');
   };
-  const codigosPorPalabras = new Map();
+  const codigoPorPalabras = new Map();
   for (const p of partidos) {
     for (const lado of LADOS) {
       const codigo = p[`codigo_equipo_${lado}`];
       if (!codigo) continue;
       codigoPorNombre.set(normal(p[`equipo_${lado}`]), codigo);
       const k = palabras(p[`equipo_${lado}`]);
-      if (!codigosPorPalabras.has(k)) codigosPorPalabras.set(k, new Set());
-      codigosPorPalabras.get(k).add(codigo);
+      if (!codigoPorPalabras.has(k)) codigoPorPalabras.set(k, codigo);
     }
   }
-  const porPalabras = (nombre) => {
-    const codigos = codigosPorPalabras.get(palabras(nombre));
-    return codigos?.size === 1 ? [...codigos][0] : null;
-  };
+  const porPalabras = (nombre) => codigoPorPalabras.get(palabras(nombre)) || null;
   const claveEquipo = (nombre, codigo) => codigo || codigoPorNombre.get(normal(nombre)) || porPalabras(nombre)
     || `n:${normal(nombre)}`;
 

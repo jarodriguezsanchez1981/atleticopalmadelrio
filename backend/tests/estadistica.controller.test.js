@@ -880,25 +880,22 @@ describe('Sección Estadísticas · estadistica.controller', () => {
         ligaPartido(1, 'C.D. GRANADAL FIGUEROA "A"', 'C.D. PACO PRADAS', {
           jugadores: [{ lado: 'local', nombre: 'G, G', dorsal: 5, minutos: 60 }, { lado: 'visitante', nombre: 'P, P', minutos: 60 }]
         }),
-        // Dos equipos con el mismo nombre salvo la letra: no se adivina.
-        ligaPartido(2, 'SENECA C.F. "A"', 'SENECA C.F. "B"'),
+        ligaPartido(2, 'SENECA C.F. "A"', 'OTRO C.F.'),
         ligaPartido(3, 'APADEMAR "B"', 'OTRO C.F.', { jugadores: [{ lado: 'local', nombre: 'Q, Q', minutos: 60 }] })
       ]);
       for (const [nombre, equipo, jugador] of [
         ['C.D. GRANADAL FIGUEROA', 'C.D. GRANADAL FIGUEROA "A"', 'G, G'],
         ['PACO PRADAS C.D.', 'C.D. PACO PRADAS', 'P, P'],
-        ['C.D. APADEMAR', 'APADEMAR "B"', 'Q, Q']
+        ['C.D. APADEMAR', 'APADEMAR "B"', 'Q, Q'],
+        // La letra no hace otro equipo: el "B" de la intranet es el "A" de RFAF.
+        ['SENECA C.F. "B"', 'SENECA C.F. "A"', null]
       ]) {
         Partido.findOne.mockResolvedValue(proximo(nombre));
         const { promesa, res } = llamar();
         await promesa;
         expect(res._json.equipo).toMatchObject({ equipo });
-        expect(res._json.jugadores.map((j) => j.nombre)).toEqual([jugador]);
+        expect(res._json.jugadores.map((j) => j.nombre)).toEqual(jugador ? [jugador] : []);
       }
-      Partido.findOne.mockResolvedValue(proximo('SENECA C.F.'));
-      const { promesa, res } = llamar();
-      await promesa;
-      expect(res._json.equipo).toBeNull();
     });
 
     it('rival sin actas: equipo sin datos y sin jugadores', async () => {
