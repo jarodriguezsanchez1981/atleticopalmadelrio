@@ -128,7 +128,11 @@ services:
       # botón "Finalizar Acta" (desde la IP del EC2 RFAF no crea sesiones).
       # Caduca: cuando falle, poner una nueva y recrear el backend.
       RFAF_COOKIE: ${RFAF_COOKIE:-}
+      # Entrenamientos → Videos: los ficheros van a este volumen, no a la BD.
+      VIDEOS_DIR: /app/videos
+      VIDEOS_MAX_MB: ${VIDEOS_MAX_MB:-200}
     volumes:
+      - apr_videos_data:/app/videos
       # migrate.js busca database/migrations en la raíz del contenedor
       # (../../../database/migrations desde backend/src/utils); sin este
       # mount, database/migrations/*.sql nunca se aplican en Docker.
@@ -271,6 +275,7 @@ services:
 
 volumes:
   apr_mysql_data:
+  apr_videos_data:
 
 networks:
   apr_net:

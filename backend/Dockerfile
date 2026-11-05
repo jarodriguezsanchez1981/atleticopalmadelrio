@@ -11,7 +11,9 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-RUN chown -R node:node /app
+# Carpeta de Entrenamientos → Videos (volumen apr_videos_data): al crearse el
+# volumen hereda este dueño.
+RUN mkdir -p /app/videos && chown -R node:node /app
 
 USER node
 
