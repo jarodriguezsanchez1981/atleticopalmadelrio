@@ -1,6 +1,8 @@
 FROM node:20-alpine
 
-RUN apk add --no-cache python3 make g++ py3-requests py3-beautifulsoup4
+# apk upgrade: aplica los parches de Alpine (p. ej. openssl) publicados después
+# de la imagen base, sin esperar a un node:20-alpine nuevo.
+RUN apk upgrade --no-cache && apk add --no-cache python3 make g++ py3-requests py3-beautifulsoup4
 
 WORKDIR /app
 
