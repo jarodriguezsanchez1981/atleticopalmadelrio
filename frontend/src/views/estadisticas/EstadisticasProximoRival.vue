@@ -10,13 +10,14 @@ import TabPanels from 'primevue/tabpanels';
 import TabPanel from 'primevue/tabpanel';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
+import LeyendaEstadistica from '../../components/LeyendaEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { nombreJugadorActa } from '../../utils/nombreActa';
 import {
   METRICAS_GOLES, METRICAS_RIVAL_GOLES_FAVOR, METRICAS_RIVAL_GOLES_CONTRA, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
-  duracionJuego, etiquetasTramos, leyendaMetricas, esFutbol7
+  duracionJuego, etiquetasTramos, leyendaSeccion, esFutbol7
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica } from '../../utils/excelEstadisticas';
 
@@ -176,11 +177,9 @@ const bloques = computed(() => BLOQUES
     && !(b.clave === 'sanciones' && esFutbol7(plantilla.value?.categoria?.id_tipofutbol)))
   .map((b) => {
     const tablasEquipo = b.tablasEquipo.map((t) => ({ ...t, metricas: metricasDe(t.metricas, false) }));
-    return {
-      ...b, tablasEquipo, metricas: metricasDe(b.metricas, true),
-      // Lo que ya explica la leyenda de las tablas del equipo no se repite debajo de la de jugadores.
-      leyendaEquipo: tablasEquipo.flatMap((t) => leyendaMetricas(t.metricas))
-    };
+    const metricas = metricasDe(b.metricas, true);
+    // Una sola leyenda al final de la pestaña, sin repetir lo que comparten sus tablas.
+    return { ...b, tablasEquipo, metricas, leyenda: leyendaSeccion([...tablasEquipo, { titulo: 'Jugadores', metricas }]) };
   }));
 const pestana = ref(BLOQUES[0].clave);
 
@@ -199,10 +198,7 @@ async function exportarPdf() {
       `Estadísticas de ${p.rival} ${lado.value.titulo.toLowerCase()}, como juega este partido.`
     ].filter(Boolean).join(' ');
     const secciones = bloques.value.map((b) => {
-      const vistas = new Set();
-      const leyenda = [...b.leyendaEquipo, ...leyendaMetricas(b.metricas)]
-        .filter((e) => (vistas.has(e.clave) ? false : vistas.add(e.clave)))
-        .map((e) => `${e.titulo}: ${e.texto}`).join('\n');
+      const leyenda = b.leyenda.map((e) => `${e.titulo}: ${e.texto}`).join('\n');
       const tablas = [
         ...b.tablasEquipo.map((t) => ({
           subtitulo: t.titulo,
@@ -324,18 +320,18 @@ onBeforeUnmount(() => {
               <p class="text-sm font-semibold text-ink-secondary">{{ partido.rival }} {{ lado.titulo.toLowerCase() }}, como juega este partido</p>
               <!-- TablaEstadistica toma soloGrupo al crearse: se vuelve a montar si cambia el lado. -->
               <div :key="lado.clave" class="flex flex-col gap-4">
-                <div v-for="(t, i) in b.tablasEquipo" :key="t.titulo" class="flex flex-col gap-2">
+                <div v-for="t in b.tablasEquipo" :key="t.titulo" class="flex flex-col gap-2">
                   <h3 class="font-display text-base text-ink-secondary">{{ t.titulo }}</h3>
                   <TablaEstadistica :filas="[equipo]" :metricas="t.metricas" :soloGrupo="lado.clave" :cargando="cargando"
-                                    :columnaNombre="null" dataKey="id_equipo"
-                                    :leyendaOmitir="b.tablasEquipo.slice(0, i).flatMap((x) => leyendaMetricas(x.metricas))" />
+                                    :columnaNombre="null" dataKey="id_equipo" sinLeyenda />
                 </div>
                 <div class="flex flex-col gap-2">
                   <h3 class="font-display text-base text-ink-secondary">Jugadores</h3>
                   <TablaEstadistica :filas="jugadores.filter((j) => b.tiene(j, lado.sufijo))" :metricas="b.metricas" columnaDorsal
                                     :soloGrupo="lado.clave" :sortField="b.sortField" :cargando="cargando"
-                                    :textoVacio="b.vacio" :leyendaOmitir="b.leyendaEquipo" />
+                                    :textoVacio="b.vacio" sinLeyenda />
                 </div>
+                <LeyendaEstadistica :entradas="b.leyenda" />
               </div>
             </div>
           </TabPanel>

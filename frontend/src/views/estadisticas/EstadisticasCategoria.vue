@@ -4,10 +4,11 @@ import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
 import { estadisticasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
+import LeyendaEstadistica from '../../components/LeyendaEstadistica.vue';
 import PestanasLado from '../../components/PestanasLado.vue';
 import PartidosJugadorEstadistica from '../../components/PartidosJugadorEstadistica.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
-import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS, duracionJuego, etiquetasTramos, leyendaMetricas } from '../../utils/estadisticasMetricas';
+import { METRICAS_CONVOCATORIAS, METRICAS_GOLES, METRICAS_SANCIONES, METRICAS_EQUIPO_TARJETAS, duracionJuego, etiquetasTramos, leyendaSeccion } from '../../utils/estadisticasMetricas';
 
 /** Estadísticas de Convocatorias, Goles y Sanciones de la categoría del usuario (a
  * diferencia de views/estadisticas/Estadisticas.vue, que son siempre de Senior
@@ -261,7 +262,7 @@ onBeforeUnmount(() => {
         <PestanasLado v-slot="{ lado }">
           <TablaEstadistica :filas="filasEquipo" :metricas="METRICAS_EQUIPO_RESUMEN" :soloGrupo="lado.clave"
                             :cargando="cargando" textoVacio="Todavía no hay partidos con resultado."
-                            :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" />
+                            :columnaNombre="{ campo: 'equipo', titulo: 'Equipo' }" dataKey="id_plantilla" sinLeyenda />
         </PestanasLado>
       </div>
 
@@ -271,12 +272,15 @@ onBeforeUnmount(() => {
           <TablaEstadistica :filas="filasDelLado(lado.sufijo)" :metricas="config.metricas" :soloGrupo="lado.clave"
                             :sortField="config.sortField" :cargando="cargando" :textoVacio="textoVacio"
                             :expandible="expandibleLado(lado.clave)"
-                            :leyendaOmitir="tabla === 'sanciones' ? leyendaMetricas(METRICAS_EQUIPO_RESUMEN) : []">
+                            :sinLeyenda="tabla === 'sanciones'">
             <template #detalle="{ data }">
               <PartidosJugadorEstadistica :partidos="partidosDelJugador(data, lado.clave)" :tipo="tabla" :conTitular="false" />
             </template>
           </TablaEstadistica>
         </PestanasLado>
+        <!-- Sanciones: una sola leyenda para las dos tablas, al final. -->
+        <LeyendaEstadistica v-if="tabla === 'sanciones'"
+                            :entradas="leyendaSeccion([{ titulo: 'Equipo', metricas: METRICAS_EQUIPO_RESUMEN }, { titulo: 'Jugadores', metricas: config.metricas }])" />
       </template>
       <PestanasLado v-else :key="tabla" v-slot="{ lado }">
         <TablaEstadistica :filas="filasTabla" :metricas="config.metricas" :soloGrupo="lado.clave" :sortField="config.sortField"

@@ -6,6 +6,7 @@ import ColumnGroup from 'primevue/columngroup';
 import Row from 'primevue/row';
 import { estiloTabla } from '../utils/estiloTabla';
 import { leyendaMetricas } from '../utils/estadisticasMetricas';
+import LeyendaEstadistica from './LeyendaEstadistica.vue';
 
 /** Tabla de la sección Estadísticas con las columnas agrupadas en Total, Local
  * y Visitante (el PALMA en casa / fuera): cada métrica sale en los tres grupos
@@ -34,9 +35,8 @@ const props = defineProps({
   // Filas desplegables: función (fila) => true si la fila tiene detalle; el
   // detalle se pinta con el slot #detalle="{ data }".
   expandible: { type: Function, default: null },
-  // Entradas de leyenda (leyendaMetricas) que ya salen bajo otra tabla que se
-  // ve a la vez (p. ej. la del equipo encima de la de jugadores): no se repiten.
-  leyendaOmitir: { type: Array, default: () => [] }
+  // Sin leyenda debajo: la pone la vista al final de la sección (varias tablas).
+  sinLeyenda: { type: Boolean, default: false }
 });
 
 // Filas desplegadas, por su dataKey.
@@ -144,13 +144,9 @@ function ayuda(c) {
 }
 
 // Leyenda bajo la tabla: cada columna con su nombre completo y, si lo tiene, el
-// cálculo (lo mismo que el tooltip de la cabecera, pero siempre a la vista), sin
-// las entradas que ya salen bajo otra tabla que se ve a la vez (leyendaOmitir).
-const leyenda = computed(() => {
-  const omitir = new Set(props.leyendaOmitir.map((e) => e.clave));
-  return leyendaMetricas(ordenMetricas.value.map((campo) => props.metricas.find((m) => m.campo === campo)))
-    .filter((e) => !omitir.has(e.clave));
-});
+// cálculo (lo mismo que el tooltip de la cabecera, pero siempre a la vista), en
+// el orden de las columnas.
+const leyenda = computed(() => leyendaMetricas(ordenMetricas.value.map((campo) => props.metricas.find((m) => m.campo === campo))));
 
 function arrastrable(tipo, clave, descripcion = '') {
   return {
@@ -248,13 +244,6 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
     </template>
   </DataTable>
 
-  <dl v-if="!soloGrupo || leyenda.length" class="ar-leyenda text-xs text-ink-tertiary">
-    <div v-if="!soloGrupo">
-      <dt class="inline font-semibold text-ink-secondary">Total / Local / Visitante:</dt> <dd class="inline">todos los partidos / en casa / fuera</dd>
-    </div>
-    <div v-for="e in leyenda" :key="e.campo">
-      <dt class="inline font-semibold text-ink-secondary">{{ e.titulo }}:</dt> <dd class="inline">{{ e.texto }}</dd>
-    </div>
-  </dl>
+  <LeyendaEstadistica v-if="!sinLeyenda" :entradas="leyenda" :conLados="!soloGrupo" />
   </div>
 </template>

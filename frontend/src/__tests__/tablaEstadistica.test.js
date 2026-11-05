@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import PrimeVue from 'primevue/config';
 import TablaEstadistica from '../components/TablaEstadistica.vue';
-import { leyendaMetricas } from '../utils/estadisticasMetricas';
+import { leyendaSeccion } from '../utils/estadisticasMetricas';
 
 const METRICAS = [
   { campo: 'goles', titulo: 'Goles' },
@@ -155,19 +155,26 @@ describe('TablaEstadistica: leyenda', () => {
     expect(w.find('dl').text()).toContain('Total / Local / Visitante');
   });
 
-  it('no repite las entradas que ya salen bajo otra tabla que se ve a la vez (leyendaOmitir)', async () => {
-    const metricas = [
-      { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
-      { campo: 'goles', titulo: 'Goles', descripcion: 'Goles marcados' }
-    ];
+  it('con sinLeyenda no pone leyenda debajo (la pone la vista al final de la sección)', async () => {
     const w = mount(TablaEstadistica, {
-      props: { filas: FILAS, soloGrupo: 'total', metricas,
-        leyendaOmitir: leyendaMetricas([{ campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' }]) },
+      props: { filas: FILAS, soloGrupo: 'total', sinLeyenda: true,
+        metricas: [{ campo: 'goles', titulo: 'Goles', descripcion: 'Goles marcados' }] },
       global: { plugins: [PrimeVue] }
     });
     await nextTick();
-    expect(textos(w.findAll('dl > div'))).toEqual(['Goles: Goles marcados']);
+    expect(w.find('dl').exists()).toBe(false);
   });
+
+  it('leyendaSeccion: cada entrada una vez y, si el título se repite con otro significado, con el de su tabla', () => {
+    const leyenda = leyendaSeccion([
+      { titulo: 'Goles a favor', metricas: [{ campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' }, { campo: 'goles_favor', titulo: 'Goles', descripcion: 'Goles a favor' }] },
+      { titulo: 'Goles en contra', metricas: [{ campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' }, { campo: 'goles_contra', titulo: 'Goles', descripcion: 'Goles en contra' }] }
+    ]);
+    expect(leyenda.map((e) => `${e.titulo}: ${e.texto}`)).toEqual([
+      'Partidos: Partidos jugados', 'Goles a favor · Goles: Goles a favor', 'Goles en contra · Goles: Goles en contra'
+    ]);
+  });
+
 });
 
 describe('TablaEstadistica: columna Dorsal', () => {
