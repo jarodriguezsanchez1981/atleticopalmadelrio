@@ -833,6 +833,8 @@ describe('Sección Estadísticas · estadistica.controller', () => {
       expect(equipo.jugadores).toBeUndefined();
       // Goles en contra por tramo (la propia puerta de Z, a los 50', es en contra de DOS).
       expect(equipo).toMatchObject({ contra_1t2: 1, contra_1t2_local: 1, contra_2t3: 1, contra_2t1: 0, contra_1t1: 0 });
+      // A favor: sus dos goles y la propia puerta de Z (50'), a diferencia de "goles_*" (de sus jugadores).
+      expect(equipo).toMatchObject({ favor_1t1: 1, favor_2t1: 1, favor_2t3: 1, favor_2t1_local: 1, goles_2t1: 0 });
       expect(jugadores.map((j) => j.nombre)).toEqual(['A, A', 'B, B']);
       const [a, b] = jugadores;
       expect(a).toMatchObject({

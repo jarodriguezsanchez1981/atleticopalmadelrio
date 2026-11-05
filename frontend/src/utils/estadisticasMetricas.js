@@ -102,6 +102,24 @@ export const METRICAS_GOLES_CONTRA = [
   { campo: 'contra_2t2', titulo: '61-75', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 2ª parte', descripcion: 'Goles en contra en el 2º tramo de la 2ª parte' },
   { campo: 'contra_2t3', titulo: '76-90', subgrupo: '2ª Parte', descripcionSubgrupo: 'Goles en contra por tramo en la 2ª parte', descripcion: 'Goles en contra en el 3er tramo de la 2ª parte (incluye el añadido)' }
 ];
+// Próximo Rival: goles a favor y en contra del equipo rival, con las mismas
+// columnas (partidos, goles del resultado y por tramo, con las propias puertas).
+const tramosRival = (prefijo, texto) => [['1t1', '0-15', '1er', '1ª'], ['1t2', '16-30', '2º', '1ª'], ['1t3', '31-45', '3er', '1ª'],
+  ['2t1', '46-60', '1er', '2ª'], ['2t2', '61-75', '2º', '2ª'], ['2t3', '76-90', '3er', '2ª']]
+  .map(([t, titulo, n, parte]) => ({
+    campo: `${prefijo}_${t}`, titulo, subgrupo: `${parte} Parte`, descripcionSubgrupo: `${texto} por tramo en la ${parte} parte`,
+    descripcion: `${texto} en el ${n} tramo de la ${parte} parte${n === '3er' ? ' (incluye el añadido)' : ''}`
+  }));
+export const METRICAS_RIVAL_GOLES_FAVOR = [
+  { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
+  { campo: 'goles_favor', titulo: 'Goles', descripcion: 'Goles a favor (del resultado, con las propias puertas del contrario)' },
+  ...tramosRival('favor', 'Goles a favor')
+];
+export const METRICAS_RIVAL_GOLES_CONTRA = [
+  { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
+  { campo: 'goles_contra', titulo: 'Goles', descripcion: 'Goles en contra (del resultado, con los de su propia puerta)' },
+  ...tramosRival('contra', 'Goles en contra')
+];
 export const METRICAS_SANCIONES = [
   { campo: 'partidos', titulo: 'Partidos', descripcion: 'Partidos jugados' },
   { campo: 'tarjetas_amarillas', titulo: 'Total', subgrupo: 'Amarillas', descripcion: 'Tarjetas amarillas' },
@@ -140,6 +158,7 @@ export function etiquetasTramos(dur) {
   CAMPOS_TRAMO.forEach((c, i) => {
     m[c] = `${i === 0 ? 0 : Math.round(i * sexto) + 1}-${Math.round((i + 1) * sexto)}`;
     m[c.replace('goles_', 'contra_')] = m[c];
+    m[c.replace('goles_', 'favor_')] = m[c];
   });
   return m;
 }

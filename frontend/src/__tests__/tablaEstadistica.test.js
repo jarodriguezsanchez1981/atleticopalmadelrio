@@ -187,3 +187,15 @@ describe('TablaEstadistica: columna Dorsal', () => {
     expect(w.find('thead').text()).not.toContain('Dorsal');
   });
 });
+
+describe('TablaEstadistica: sin columna de nombre', () => {
+  it('con columnaNombre null solo salen las métricas', async () => {
+    const w = mount(TablaEstadistica, {
+      props: { filas: FILAS, metricas: METRICAS, soloGrupo: 'total', columnaNombre: null },
+      global: { plugins: [PrimeVue] }
+    });
+    await nextTick();
+    expect(textos(w.findAll('thead th'))).toEqual(['Goles', 'Partidos']);
+    expect(textos(w.findAll('tbody td'))).toEqual(['3', '2']);
+  });
+});

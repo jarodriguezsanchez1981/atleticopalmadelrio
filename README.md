@@ -254,7 +254,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **Pestañas Total / Local / Visitante** en todas las tablas que separan por lado
 - Columnas derivadas: **Min. por tarjeta** (tras Partidos), **Min. por Goles** y **% por partido** (tras Goles)
 - **Leyenda bajo cada tabla** (una línea por columna): qué significa cada columna (abreviaturas) y, en medias y porcentajes, cómo se calcula
-- **Próximo Rival**: datos del rival del siguiente partido de liga (goles, tiempo y sanciones, del equipo y de sus jugadores, total/local/visitante) sacados de las actas de la liga. En las categorías de menores no hay tabla de Tiempo (sus actas no traen minutos fiables) y los tramos de gol son de 60' en Fútbol 7; Sanciones solo sale en Fútbol 11. En la tabla de jugadores del rival, su dorsal (el de su acta más reciente). El rival se reconoce aunque en RFAF lleve la letra del equipo (p. ej. «"A"») o las palabras en otro orden. Goles en contra del rival por los mismos tramos que los de a favor. Botón **Exportar a PDF** con todas sus tablas (Total, Local y Visitante) y las leyendas
+- **Próximo Rival**: datos del rival del siguiente partido de liga (goles, tiempo y sanciones, del equipo y de sus jugadores) sacados de las actas de la liga, solo del lado en que juega ese partido (en casa si el PALMA va fuera, fuera si juega en casa). Goles a favor y en contra del equipo con las mismas columnas (del resultado, con las propias puertas, y por tramos). En las categorías de menores no hay tabla de Tiempo (sus actas no traen minutos fiables) y los tramos de gol son de 60' en Fútbol 7; Sanciones solo sale en Fútbol 11. En la tabla de jugadores del rival, su dorsal (el de su acta más reciente). El rival se reconoce aunque en RFAF lleve la letra del equipo (p. ej. «"A"») o las palabras en otro orden. Botón **Exportar a PDF** con todas sus tablas (Total, Local y Visitante) y las leyendas
 - Mensaje **«Cargando datos...»** mientras se piden los datos
 
 ### Actas de la liga (RFAF)
@@ -377,7 +377,7 @@ cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (143 tests, 20 archivos)
+# Frontend (145 tests, 20 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```

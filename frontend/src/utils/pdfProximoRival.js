@@ -37,13 +37,12 @@ export function valorPdf(valor, formato) {
   return n.toLocaleString('es-ES', { maximumFractionDigits: 1 });
 }
 
-/** Anchos de columna (mm): Dorsal y nombre fijos, el resto se reparte el
- * espacio que queda (como mucho ANCHO_MAX_COLUMNA cada una). */
+/** Anchos de columna (mm): Dorsal y nombre (las `hoja.fijas` primeras) fijos,
+ * el resto se reparte el espacio que queda (como mucho ANCHO_MAX_COLUMNA cada una). */
 export function anchosColumnas(hoja, anchoDisponible) {
   const titulos = hoja.cabeceras[0] || [];
-  const fijas = titulos[0] === 'Dorsal' ? 2 : 1;
-  const fijos = fijas === 2 ? [ANCHO_DORSAL, ANCHO_NOMBRE] : [ANCHO_NOMBRE];
-  const resto = titulos.length - fijas;
+  const fijos = titulos.slice(0, hoja.fijas ?? 1).map((t) => (t === 'Dorsal' ? ANCHO_DORSAL : ANCHO_NOMBRE));
+  const resto = titulos.length - fijos.length;
   const ancho = resto ? Math.min(ANCHO_MAX_COLUMNA, (anchoDisponible - fijos.reduce((a, b) => a + b, 0)) / resto) : 0;
   return [...fijos, ...Array(resto).fill(ancho)];
 }
@@ -105,7 +104,7 @@ function dibujarImagen(doc, imagen, x, y, alto) {
 function dibujarTabla(doc, hoja, y, textoVacio) {
   const anchos = anchosColumnas(hoja, ANCHO - 2 * MARGEN);
   const xs = anchos.reduce((acc, a) => [...acc, acc[acc.length - 1] + a], [MARGEN]);
-  const fijas = hoja.cabeceras[0]?.[0] === 'Dorsal' ? 2 : 1;
+  const fijas = hoja.fijas ?? 1;
   const celdas = celdasCabecera(hoja);
   doc.setFontSize(TAM_TABLA);
 

@@ -10,21 +10,20 @@ import TabPanels from 'primevue/tabpanels';
 import TabPanel from 'primevue/tabpanel';
 import { estadisticasService, plantillasService, temporadasService } from '../../services';
 import TablaEstadistica from '../../components/TablaEstadistica.vue';
-import PestanasLado from '../../components/PestanasLado.vue';
 import { suscribirseCambio } from '../../utils/cambioBus';
 import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { nombreJugadorActa } from '../../utils/nombreActa';
 import {
-  METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_GOLES_CONTRA, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
+  METRICAS_GOLES, METRICAS_RIVAL_GOLES_FAVOR, METRICAS_RIVAL_GOLES_CONTRA, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
   duracionJuego, etiquetasTramos, leyendaMetricas, esFutbol7
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica } from '../../utils/excelEstadisticas';
 
 /** Próximo Rival: el siguiente partido de liga de la plantilla y, del rival,
  * sus goles, minutos y tarjetas (equipo y jugadores) en todos sus partidos de
- * la liga, según las actas de RFAF ya copiadas. Local / Visitante: el rival en
- * casa / fuera. En Estadísticas Senior A es siempre la de Senior A; en
+ * la liga, según las actas de RFAF ya copiadas, solo en el lado en que juega
+ * este partido (en casa si el PALMA va fuera, y al revés). En Estadísticas Senior A es siempre la de Senior A; en
  * Estadísticas (`porCategoria`), la categoría del entrenador o la que elija el
  * coordinador. Fuera de Senior A las actas no dicen bien quién fue titular ni
  * los minutos (como en las demás Estadísticas por categoría): sin Tiempo ni
@@ -125,21 +124,27 @@ function metricasDe(metricas, deJugadores) {
     .map((m) => (deJugadores && m.campo === 'partidos' ? CONVOCATORIAS : m));
 }
 
-const COLUMNA_EQUIPO = { campo: 'equipo', titulo: 'Equipo' };
+// Solo el lado en el que juega el rival este partido: si el PALMA va fuera, el
+// rival como local; si juega en casa, el rival como visitante.
+const LADO_LOCAL = { clave: 'local', titulo: 'Como local (en casa)', sufijo: '_local' };
+const LADO_VISITANTE = { clave: 'visitante', titulo: 'Como visitante (fuera)', sufijo: '_visitante' };
+const lado = computed(() => (partido.value?.es_local ? LADO_VISITANTE : LADO_LOCAL));
 const METRICAS_TIEMPO_RIVAL = [
   ...METRICAS_CONVOCATORIAS.filter((m) => m.campo === 'convocatorias' || m.campo === 'titular'),
   ...METRICAS_TIEMPO
 ];
-// Cada pestaña: tabla del equipo (si la hay) y la de sus jugadores, solo con
-// quien tiene algo en ese lado (goles, minutos en el acta o tarjetas).
+// Cada pestaña: tablas del equipo (si las hay; sin su nombre, que ya sale
+// arriba) y la de sus jugadores, solo con quien tiene algo en ese lado (goles,
+// minutos en el acta o tarjetas).
 const BLOQUES = [
   {
     clave: 'goles',
     titulo: 'Goles',
-    descripcion: 'Goles del rival en sus partidos de liga por tramos de 15 minutos dentro de cada parte (el añadido va al último tramo de su parte) y según los marcara un titular o un suplente. "Goles en contra": los que le marcan, por los mismos tramos (con los de su propia puerta). GF / GC salen del resultado (con las propias puertas) y Dif. es GF - GC; los goles en propia puerta no cuentan para los jugadores. "% por partido": partidos jugados en los que marca.',
-    metricasEquipo: METRICAS_GOLES_RIVALES,
-    // Los goles que le marcan, por los mismos tramos (tabla aparte del equipo).
-    metricasContra: METRICAS_GOLES_CONTRA,
+    descripcion: 'Goles a favor y en contra del rival en sus partidos de liga (del resultado, con las propias puertas) por tramos de 15 minutos dentro de cada parte (el añadido va al último tramo de su parte). En la tabla de jugadores, los que marca cada uno (sin los de propia puerta) y si era titular o suplente; "% por partido": partidos jugados en los que marca.',
+    tablasEquipo: [
+      { titulo: 'Goles a favor', metricas: METRICAS_RIVAL_GOLES_FAVOR },
+      { titulo: 'Goles en contra', metricas: METRICAS_RIVAL_GOLES_CONTRA }
+    ],
     metricas: METRICAS_GOLES,
     sortField: 'goles',
     tiene: (j, s) => j[`goles${s}`] > 0,
@@ -149,7 +154,7 @@ const BLOQUES = [
     clave: 'tiempo',
     titulo: 'Tiempo',
     descripcion: 'Convocatorias (en el acta), titularidades y minutos de cada jugador del rival. "% Min. jugados": sobre 90 por partido jugado; "% Min. Jugados Total Partidos": sobre los 90 de cada partido del rival con acta, los haya jugado o no.',
-    metricasEquipo: null,
+    tablasEquipo: [],
     metricas: METRICAS_TIEMPO_RIVAL,
     sortField: 'minutos',
     tiene: (j, s) => j[`convocatorias${s}`] > 0,
@@ -159,7 +164,7 @@ const BLOQUES = [
     clave: 'sanciones',
     titulo: 'Sanciones',
     descripcion: 'Tarjetas del rival por parte del partido (1ª parte hasta el minuto 45), según las viera un titular o un suplente y según iba el marcador para ellos (con empate no cuentan como ganando ni perdiendo).',
-    metricasEquipo: METRICAS_SANCIONES,
+    tablasEquipo: [{ titulo: 'Equipo', metricas: METRICAS_SANCIONES }],
     metricas: METRICAS_SANCIONES,
     sortField: 'tarjetas_amarillas',
     tiene: (j, s) => j[`tarjetas_amarillas${s}`] > 0 || j[`tarjetas_rojas${s}`] > 0,
@@ -169,19 +174,18 @@ const BLOQUES = [
 const bloques = computed(() => BLOQUES
   .filter((b) => (esSeniorA.value || b.clave !== 'tiempo')
     && !(b.clave === 'sanciones' && esFutbol7(plantilla.value?.categoria?.id_tipofutbol)))
-  .map((b) => ({
-    ...b, metricasEquipo: metricasDe(b.metricasEquipo, false), metricasContra: metricasDe(b.metricasContra, false),
-    metricas: metricasDe(b.metricas, true)
-  })));
+  .map((b) => {
+    const tablasEquipo = b.tablasEquipo.map((t) => ({ ...t, metricas: metricasDe(t.metricas, false) }));
+    return {
+      ...b, tablasEquipo, metricas: metricasDe(b.metricas, true),
+      // Lo que ya explica la leyenda de las tablas del equipo no se repite debajo de la de jugadores.
+      leyendaEquipo: tablasEquipo.flatMap((t) => leyendaMetricas(t.metricas))
+    };
+  }));
 const pestana = ref(BLOQUES[0].clave);
 
-// PDF: el partido y, por cada pestaña, sus tablas de Total / Local / Visitante
-// (equipo y jugadores, como en pantalla) con la leyenda.
-const LADOS = [
-  { clave: 'total', titulo: 'Total', sufijo: '' },
-  { clave: 'local', titulo: 'Local (el rival en casa)', sufijo: '_local' },
-  { clave: 'visitante', titulo: 'Visitante (el rival fuera)', sufijo: '_visitante' }
-];
+// PDF: el partido y, por cada pestaña, sus tablas (equipo y jugadores, del
+// lado en que juega el rival, como en pantalla) con la leyenda.
 const toast = useToast();
 const exportando = ref(false);
 async function exportarPdf() {
@@ -192,32 +196,28 @@ async function exportarPdf() {
     const info = [
       jornadas.value.length ? `Con actas de las jornadas ${jornadas.value[0]} a ${jornadas.value[jornadas.value.length - 1]}.` : '',
       actasPendientes.value ? `Quedan ${actasPendientes.value} actas de la liga por copiar de RFAF.` : '',
-      'Local / Visitante: el rival en casa / fuera.'
+      `Estadísticas de ${p.rival} ${lado.value.titulo.toLowerCase()}, como juega este partido.`
     ].filter(Boolean).join(' ');
     const secciones = bloques.value.map((b) => {
       const vistas = new Set();
-      const leyenda = [b.metricasEquipo, b.metricasContra, b.metricas].flatMap((m) => leyendaMetricas(m || []))
+      const leyenda = [...b.leyendaEquipo, ...leyendaMetricas(b.metricas)]
         .filter((e) => (vistas.has(e.clave) ? false : vistas.add(e.clave)))
         .map((e) => `${e.titulo}: ${e.texto}`).join('\n');
-      const tablas = LADOS.flatMap((lado) => [
-        ...(b.metricasEquipo ? [{
-          subtitulo: `${lado.titulo} · Equipo`,
-          hoja: construirHojaEstadistica({ metricas: b.metricasEquipo, filas: [equipo.value], soloGrupo: lado.clave, columnaNombre: COLUMNA_EQUIPO })
-        }] : []),
-        ...(b.metricasContra ? [{
-          subtitulo: `${lado.titulo} · Goles en contra`,
-          hoja: construirHojaEstadistica({ metricas: b.metricasContra, filas: [equipo.value], soloGrupo: lado.clave, columnaNombre: COLUMNA_EQUIPO })
-        }] : []),
+      const tablas = [
+        ...b.tablasEquipo.map((t) => ({
+          subtitulo: t.titulo,
+          hoja: construirHojaEstadistica({ metricas: t.metricas, filas: [equipo.value], soloGrupo: lado.value.clave, columnaNombre: null })
+        })),
         {
-          subtitulo: `${lado.titulo} · Jugadores`,
+          subtitulo: 'Jugadores',
           hoja: construirHojaEstadistica({
-            metricas: b.metricas, filas: jugadores.value.filter((j) => b.tiene(j, lado.sufijo)),
-            soloGrupo: lado.clave, sortField: b.sortField, columnaDorsal: true
+            metricas: b.metricas, filas: jugadores.value.filter((j) => b.tiene(j, lado.value.sufijo)),
+            soloGrupo: lado.value.clave, sortField: b.sortField, columnaDorsal: true
           }),
           textoVacio: b.vacio
         }
-      ]);
-      return { titulo: b.titulo, descripcion: b.descripcion, leyenda, tablas };
+      ];
+      return { titulo: `${b.titulo} · ${lado.value.titulo}`, descripcion: b.descripcion, leyenda, tablas };
     });
     await generarPdfProximoRival({
       titulo: titulo.value,
@@ -258,8 +258,8 @@ onBeforeUnmount(() => {
         <h1 class="font-display text-xl text-club-green">Estadísticas Próximo Rival</h1>
         <p class="text-sm text-ink-tertiary">
           El siguiente partido de liga de <strong>{{ titulo }}</strong> y lo que lleva el rival en toda la liga (no solo
-          contra el PALMA), según las actas de RFAF. Local / Visitante: el rival en casa / fuera. Se puede mover una
-          columna arrastrando su título.
+          contra el PALMA), según las actas de RFAF, jugando como juega este partido: en casa si vamos fuera y fuera si
+          jugamos en casa. Se puede mover una columna arrastrando su título.
         </p>
       </div>
       <Button v-if="plantilla && partido && equipo && !error" label="Exportar a PDF" icon="pi pi-file-pdf" class="sm:ml-auto shrink-0"
@@ -321,27 +321,22 @@ onBeforeUnmount(() => {
           <TabPanel v-for="b in bloques" :key="b.clave" :value="b.clave">
             <div class="flex flex-col gap-2">
               <p class="text-sm text-ink-tertiary">{{ b.descripcion }}</p>
-              <PestanasLado v-slot="{ lado }">
-                <div class="flex flex-col gap-4">
-                  <div v-if="b.metricasEquipo" class="flex flex-col gap-2">
-                    <h3 class="font-display text-base text-ink-secondary">Equipo</h3>
-                    <TablaEstadistica :filas="[equipo]" :metricas="b.metricasEquipo" :soloGrupo="lado.clave"
-                                      :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo" />
-                  </div>
-                  <div v-if="b.metricasContra" class="flex flex-col gap-2">
-                    <h3 class="font-display text-base text-ink-secondary">Goles en contra</h3>
-                    <TablaEstadistica :filas="[equipo]" :metricas="b.metricasContra" :soloGrupo="lado.clave"
-                                      :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo"
-                                      :leyendaOmitir="leyendaMetricas(b.metricasEquipo)" />
-                  </div>
-                  <div class="flex flex-col gap-2">
-                    <h3 class="font-display text-base text-ink-secondary">Jugadores</h3>
-                    <TablaEstadistica :filas="jugadores.filter((j) => b.tiene(j, lado.sufijo))" :metricas="b.metricas" columnaDorsal
-                                      :soloGrupo="lado.clave" :sortField="b.sortField" :cargando="cargando"
-                                      :textoVacio="b.vacio" :leyendaOmitir="leyendaMetricas(b.metricasEquipo)" />
-                  </div>
+              <p class="text-sm font-semibold text-ink-secondary">{{ partido.rival }} {{ lado.titulo.toLowerCase() }}, como juega este partido</p>
+              <!-- TablaEstadistica toma soloGrupo al crearse: se vuelve a montar si cambia el lado. -->
+              <div :key="lado.clave" class="flex flex-col gap-4">
+                <div v-for="(t, i) in b.tablasEquipo" :key="t.titulo" class="flex flex-col gap-2">
+                  <h3 class="font-display text-base text-ink-secondary">{{ t.titulo }}</h3>
+                  <TablaEstadistica :filas="[equipo]" :metricas="t.metricas" :soloGrupo="lado.clave" :cargando="cargando"
+                                    :columnaNombre="null" dataKey="id_equipo"
+                                    :leyendaOmitir="b.tablasEquipo.slice(0, i).flatMap((x) => leyendaMetricas(x.metricas))" />
                 </div>
-              </PestanasLado>
+                <div class="flex flex-col gap-2">
+                  <h3 class="font-display text-base text-ink-secondary">Jugadores</h3>
+                  <TablaEstadistica :filas="jugadores.filter((j) => b.tiene(j, lado.sufijo))" :metricas="b.metricas" columnaDorsal
+                                    :soloGrupo="lado.clave" :sortField="b.sortField" :cargando="cargando"
+                                    :textoVacio="b.vacio" :leyendaOmitir="b.leyendaEquipo" />
+                </div>
+              </div>
             </div>
           </TabPanel>
         </TabPanels>
