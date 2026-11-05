@@ -18,13 +18,15 @@ const sinSaltos = (t) => String(t ?? '').replace(/\s*\n\s*/g, ' ');
  * pantalla (de mayor a menor por `sortField`). Devuelve { cabeceras (filas de
  * títulos), combinadas ([fila, col, filaFin, colFin], base 0), formatos (por
  * columna: 'porcentaje' | 'decimal' | null), filas, anchoNombre }.
- * `columnaDorsal`: una columna Dorsal (campo `dorsal`) delante del nombre. */
+ * `columnaDorsal`: una columna Dorsal (campo `dorsal`) delante del nombre;
+ * `columnaNombre` null: sin columna de nombre. `fijas`: cuántas columnas van
+ * antes de las métricas (Dorsal y nombre). */
 export function construirHojaEstadistica({ metricas, filas = [], soloGrupo = null, sortField = null,
   columnaNombre = { campo: 'jugador', titulo: 'Jugador' }, columnaDorsal = false }) {
   const grupos = soloGrupo ? [soloGrupo] : Object.keys(GRUPOS);
   const conSubgrupos = metricas.some((m) => m.subgrupo);
   const niveles = (conSubgrupos ? 2 : 1) + (soloGrupo ? 0 : 1);
-  const fijas = [...(columnaDorsal ? [{ campo: 'dorsal', titulo: 'Dorsal' }] : []), columnaNombre];
+  const fijas = [...(columnaDorsal ? [{ campo: 'dorsal', titulo: 'Dorsal' }] : []), ...(columnaNombre ? [columnaNombre] : [])];
   const cabeceras = Array.from({ length: niveles }, (_, i) => fijas.map((c) => (i === 0 ? sinSaltos(c.titulo) : '')));
   const combinadas = niveles > 1 ? fijas.map((_, c) => [0, c, niveles - 1, c]) : [];
   const columnas = [];
@@ -72,6 +74,7 @@ export function construirHojaEstadistica({ metricas, filas = [], soloGrupo = nul
   return {
     cabeceras,
     combinadas,
+    fijas: fijas.length,
     formatos: [...fijas.map(() => null), ...columnas.map((c) => c.formato)],
     filas: ordenadas.map((f) => [...fijas.map((c) => f[c.campo] ?? ''), ...columnas.map((c) => f[c.field] ?? null)])
   };

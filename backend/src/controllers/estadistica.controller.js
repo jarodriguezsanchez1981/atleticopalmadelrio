@@ -34,6 +34,9 @@ const duracionJuego = (idTipoFutbol) => (Number(idTipoFutbol) === TIPO_FUTBOL_7 
 const CAMPOS_GOLES_TRAMO = ['goles_1t1', 'goles_1t2', 'goles_1t3', 'goles_2t1', 'goles_2t2', 'goles_2t3'];
 // Mismos tramos para los goles del equipo contrario (Estadísticas Goles).
 const CAMPOS_CONTRA_TRAMO = ['contra_1t1', 'contra_1t2', 'contra_1t3', 'contra_2t1', 'contra_2t2', 'contra_2t3'];
+// Goles a favor de un equipo rival por tramo, contados igual que los en contra
+// (con las propias puertas del contrario): Próximo Rival.
+const CAMPOS_FAVOR_TRAMO = ['favor_1t1', 'favor_1t2', 'favor_1t3', 'favor_2t1', 'favor_2t2', 'favor_2t3'];
 /** Tramo (1/6) de un gol: 3 por parte sobre la duración `dur`; el añadido de
  * cada parte cae en su último tramo. */
 function tramoGol(minuto, dur) {
@@ -530,7 +533,7 @@ async function golesContra(req, res, next) {
 // en casa o fuera.
 const CONTADORES_RIVAL = [
   'partidos', 'victorias', 'empates', 'derrotas', 'goles_favor', 'goles_contra', 'goles', 'partidos_con_gol', 'goles_titular', 'goles_banquillo', ...CAMPOS_GOLES_TRAMO,
-  ...CAMPOS_CONTRA_TRAMO,
+  ...CAMPOS_FAVOR_TRAMO, ...CAMPOS_CONTRA_TRAMO,
   'tarjetas_amarillas', 'tarjetas_rojas', 'dobles_amarillas', ...CAMPOS_TARJETAS
 ];
 const CONTADORES_JUGADOR_RIVAL = ['convocatorias', 'partidos', 'titular', 'minutos', 'goles', 'tarjetas_amarillas', 'tarjetas_rojas'];
@@ -658,13 +661,16 @@ async function datosRivales(idPlantilla) {
       if (g.minuto != null) sumar(fila, tramoGol(g.minuto, dur), 1, g.lado);
     }
     for (const lado of LADOS) if (filas[lado] && golesEn[lado] > 0) sumar(filas[lado], 'partidos_con_gol', 1, lado);
-    // Goles en contra por tramo: los del otro equipo y los que se marca en
-    // propia puerta (el acta pone cada gol en el equipo del jugador).
+    // Goles a favor y en contra por tramo, con las propias puertas (el acta
+    // pone cada gol en el equipo del jugador; uno en propia puerta es del otro).
     for (const g of p.goles || []) {
       if (g.minuto == null) continue;
-      const contra = g.tipo === 'propia' ? g.lado : (g.lado === 'local' ? 'visitante' : 'local');
-      if (!filas[contra]) continue;
-      sumar(filas[contra], CAMPOS_CONTRA_TRAMO[CAMPOS_GOLES_TRAMO.indexOf(tramoGol(g.minuto, dur))], 1, contra);
+      const otro = g.lado === 'local' ? 'visitante' : 'local';
+      const favor = g.tipo === 'propia' ? otro : g.lado;
+      const contra = favor === 'local' ? 'visitante' : 'local';
+      const idx = CAMPOS_GOLES_TRAMO.indexOf(tramoGol(g.minuto, dur));
+      if (filas[favor]) sumar(filas[favor], CAMPOS_FAVOR_TRAMO[idx], 1, favor);
+      if (filas[contra]) sumar(filas[contra], CAMPOS_CONTRA_TRAMO[idx], 1, contra);
     }
 
     const amarillasJugador = new Map();

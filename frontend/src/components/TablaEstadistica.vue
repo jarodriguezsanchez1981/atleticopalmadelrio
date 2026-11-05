@@ -22,7 +22,8 @@ const props = defineProps({
   sortField: { type: String, default: null },
   cargando: { type: Boolean, default: false },
   textoVacio: { type: String, default: '' },
-  // Primera columna (fija) y clave de cada fila: el jugador, o p.ej. el equipo.
+  // Primera columna (fija) y clave de cada fila: el jugador, o p.ej. el equipo;
+  // null, sin esa columna (p. ej. el equipo, si ya sale su nombre encima).
   columnaNombre: { type: Object, default: () => ({ campo: 'jugador', titulo: 'Jugador' }) },
   dataKey: { type: String, default: 'id_jugador' },
   // Columna Dorsal (campo `dorsal`) delante del nombre, p. ej. en los jugadores del rival.
@@ -189,13 +190,13 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
     <ColumnGroup type="header">
       <Row v-if="!soloGrupo">
         <Column v-if="columnaDorsal" header="Dorsal" field="dorsal" sortable :rowspan="niveles" headerClass="text-center" />
-        <Column :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
+        <Column v-if="columnaNombre" :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <Column v-for="g in grupos" :key="g.clave" :header="g.titulo" :colspan="g.columnas.length"
                 :headerClass="`ar-dt-titulo-grupo ${SEPARADOR} ar-dt-grupo-${g.clave}`" :pt="arrastrable('grupo', g.clave)" />
       </Row>
       <Row>
         <Column v-if="soloGrupo && columnaDorsal" header="Dorsal" field="dorsal" sortable :rowspan="niveles" headerClass="text-center" />
-        <Column v-if="soloGrupo" :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
+        <Column v-if="soloGrupo && columnaNombre" :header="columnaNombre.titulo" :field="columnaNombre.campo" sortable :rowspan="niveles" headerClass="whitespace-nowrap" />
         <template v-for="g in grupos" :key="g.clave">
           <template v-for="t in g.tramos" :key="t.columna?.field || `${g.clave}-${t.subgrupo}`">
             <Column v-if="t.columna" :header="t.columna.titulo" :field="t.columna.field" sortable :rowspan="filasColumna"
@@ -220,7 +221,7 @@ const SEPARADOR_SUBGRUPO = 'ar-dt-inicio-subgrupo';
 
     <Column v-if="columnaDorsal" field="dorsal" bodyClass="text-center" />
     <!-- El nombre en una sola línea: la columna no se estrecha al ensanchar la tabla. -->
-    <Column :field="columnaNombre.campo" bodyClass="whitespace-nowrap">
+    <Column v-if="columnaNombre" :field="columnaNombre.campo" bodyClass="whitespace-nowrap">
       <template v-if="expandible" #body="{ data }">
         <button v-if="expandible(data)" type="button" class="inline-flex items-center gap-1.5 text-left hover:text-club-green"
                 :aria-expanded="!!filasAbiertas[data[dataKey]]" @click="alternarFila(data)">

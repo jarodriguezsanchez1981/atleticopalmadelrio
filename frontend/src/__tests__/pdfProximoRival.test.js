@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { valorPdf, anchosColumnas, celdasCabecera, nombreFicheroPdf, crearDocProximoRival } from '../utils/pdfProximoRival';
 import { construirHojaEstadistica } from '../utils/excelEstadisticas';
-import { METRICAS_SANCIONES, METRICAS_GOLES, etiquetasTramos } from '../utils/estadisticasMetricas';
+import { METRICAS_SANCIONES, METRICAS_GOLES, METRICAS_RIVAL_GOLES_FAVOR, METRICAS_RIVAL_GOLES_CONTRA, etiquetasTramos } from '../utils/estadisticasMetricas';
 
 const JUGADORES = Array.from({ length: 60 }, (_, i) => ({
   jugador: `Jugador Número ${i + 1}`, dorsal: i + 1, goles: 60 - i, porcentaje_goles_partido: 33.33, tarjetas_amarillas: i % 3
@@ -67,5 +67,18 @@ describe('pdfProximoRival', () => {
     const t = etiquetasTramos(60);
     expect([t.goles_1t1, t.goles_2t3]).toEqual(['0-10', '51-60']);
     expect([t.contra_1t1, t.contra_2t3]).toEqual(['0-10', '51-60']);
+  });
+
+  it('goles a favor y en contra del equipo: mismas columnas y sin columna de nombre', () => {
+    const equipo = { partidos_local: 4, goles_favor_local: 9, goles_contra_local: 5, favor_1t1_local: 2, contra_2t3_local: 3 };
+    const favor = construirHojaEstadistica({ metricas: METRICAS_RIVAL_GOLES_FAVOR, filas: [equipo], soloGrupo: 'local', columnaNombre: null });
+    const contra = construirHojaEstadistica({ metricas: METRICAS_RIVAL_GOLES_CONTRA, filas: [equipo], soloGrupo: 'local', columnaNombre: null });
+    expect(favor.fijas).toBe(0);
+    expect(favor.cabeceras).toEqual(contra.cabeceras);
+    expect(favor.cabeceras[1]).toEqual(['', '', '0-15', '16-30', '31-45', '46-60', '61-75', '76-90']);
+    expect(favor.filas[0].slice(0, 3)).toEqual([4, 9, 2]);
+    expect(contra.filas[0].slice(0, 2)).toEqual([4, 5]);
+    expect(contra.filas[0][7]).toBe(3);
+    expect(anchosColumnas(favor, 277)).toEqual(Array(8).fill(18));
   });
 });
