@@ -6,12 +6,12 @@ services:
     restart: unless-stopped
     # Binary log activo: cada cambio (no solo el volcado diario) queda
     # registrado, para poder restaurar point-in-time junto con el servicio
-    # binlog-backup. Purga sola a los 30 días (mismo plazo que DB_DUMP_RETENTION).
+    # binlog-backup. Purga sola a los 7 días (mismo plazo que RETENTION_DAYS).
     # (En 8.4 el formato de binlog ya es ROW de forma fija, no hace falta fijarlo.)
     command:
       - --server-id=1
       - --log-bin=mysql-bin
-      - --binlog-expire-logs-seconds=2592000
+      - --binlog-expire-logs-seconds=604800
       - --sync-binlog=1
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
@@ -66,9 +66,9 @@ services:
       # con el rol de IAM de la instancia (solo s3:PutObject).
       BACKUP_S3_URI: ${BACKUP_S3_URI:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
-      # Diario a las 03:00 UTC; conserva 30 días de copias
+      # Diario a las 03:00 UTC; conserva 7 días de copias
       BACKUP_HOUR_UTC: 3
-      RETENTION_DAYS: 30
+      RETENTION_DAYS: 7
     volumes:
       - ./backups:/backups
       - ./backup-key.pub:/run/backup-key.pub:ro
@@ -90,6 +90,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
       DB_HOST: db
       DB_PORT: 3306
+      RETENTION_DAYS: 7
     volumes:
       - ./backups/binlogs:/backups
     cap_drop:

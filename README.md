@@ -49,7 +49,7 @@ docker compose down             # parar (conserva datos)
 docker compose down -v          # parar y borrar datos MySQL (¡borra todo!)
 ```
 
-Además del volcado manual, el servicio `backup` del `docker-compose.yml` hace un backup diario automático (03:00, conserva 30 días) a `backups/` usando [`databack/mysql-backup`](https://github.com/databacker/mysql-backup); no requiere nada más, arranca solo con `docker compose up`.
+Además del volcado manual, el servicio `backup` del `docker-compose.yml` hace un backup diario automático (03:00, conserva 7 días) a `backups/` usando [`databack/mysql-backup`](https://github.com/databacker/mysql-backup); no requiere nada más, arranca solo con `docker compose up`.
 
 Para hacer un backup manual de los datos reales (nunca se commitea, va a `backups/` que está en `.gitignore`):
 
@@ -64,7 +64,7 @@ Para restaurar ese backup en un despliegue:
 docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < backups/<fichero>.sql
 ```
 
-**Backup continuo (binlog)**: el servicio `binlog-backup` mantiene el binary log de MySQL activo (`--log-bin`, purga a los 30 días) y lo va copiando en vivo a `backups/binlogs/` (mysqlbinlog en modo `--stop-never`), así que cualquier cambio queda respaldado casi al instante, no solo el estado del último volcado diario. Para restaurar hasta un momento concreto (point-in-time):
+**Backup continuo (binlog)**: el servicio `binlog-backup` mantiene el binary log de MySQL activo (`--log-bin`, purga a los 7 días) y lo va copiando en vivo a `backups/binlogs/` (allí también se conservan 7 días) (mysqlbinlog en modo `--stop-never`), así que cualquier cambio queda respaldado casi al instante, no solo el estado del último volcado diario. Para restaurar hasta un momento concreto (point-in-time):
 
 ```bash
 # 1. Restaura el último volcado completo anterior al incidente

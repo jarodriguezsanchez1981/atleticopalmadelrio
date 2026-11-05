@@ -8,7 +8,18 @@
 set -eu
 
 BACKUP_DIR=/backups
+DIAS="${RETENTION_DAYS:-7}"
 mkdir -p "$BACKUP_DIR"
+
+# Una vez al día, borra las copias de binlog de más de $DIAS días (mismo plazo
+# que los volcados diarios), salvo la última, que es desde donde se reanuda.
+(
+  while true; do
+    ULTIMO=$(ls "$BACKUP_DIR" 2>/dev/null | grep -E '^mysql-bin\.[0-9]+$' | sort | tail -1 || true)
+    find "$BACKUP_DIR" -maxdepth 1 -type f -name 'mysql-bin.*' ! -name "${ULTIMO:-ninguno}" -mtime +"$DIAS" -print -delete || true
+    sleep 86400
+  done
+) &
 
 LAST_LOCAL=$(ls "$BACKUP_DIR" 2>/dev/null | grep -E '^mysql-bin\.[0-9]+$' | sort | tail -1 || true)
 
