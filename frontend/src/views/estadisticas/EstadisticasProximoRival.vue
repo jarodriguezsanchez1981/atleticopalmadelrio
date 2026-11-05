@@ -16,7 +16,7 @@ import { filtrarPlantillasTemporadaActual } from '../../utils/temporadaActual';
 import { CATEGORIA_CON_MINUTOS } from '../../utils/minutos';
 import { nombreJugadorActa } from '../../utils/nombreActa';
 import {
-  METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
+  METRICAS_GOLES, METRICAS_GOLES_RIVALES, METRICAS_GOLES_CONTRA, METRICAS_TIEMPO, METRICAS_SANCIONES, METRICAS_CONVOCATORIAS,
   duracionJuego, etiquetasTramos, leyendaMetricas, esFutbol7
 } from '../../utils/estadisticasMetricas';
 import { construirHojaEstadistica } from '../../utils/excelEstadisticas';
@@ -93,14 +93,17 @@ const titulo = computed(() => plantilla.value
   ? `${plantilla.value.categoria?.nombre} / ${plantilla.value.temporada?.nombre || ''}`
   : CATEGORIA);
 
-/** Fecha del partido (guardada en hora de España, leída como UTC). */
+/** Fecha del partido en hora de España (como en Partidos y Calendario, con su
+ * horario de invierno / verano). Sin hora asignada se guarda a las 00:00 UTC:
+ * entonces solo el día. */
 function textoFecha(fecha) {
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return '—';
-  const dia = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-  const hora = d.getUTCHours() || d.getUTCMinutes()
-    ? ` a las ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
-    : '';
+  const sinHora = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  const dia = d.toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: sinHora ? 'UTC' : 'Europe/Madrid'
+  });
+  const hora = sinHora ? '' : ` a las ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Madrid' })}`;
   return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}${hora}`;
 }
 
@@ -133,8 +136,10 @@ const BLOQUES = [
   {
     clave: 'goles',
     titulo: 'Goles',
-    descripcion: 'Goles del rival en sus partidos de liga por tramos de 15 minutos dentro de cada parte (el añadido va al último tramo de su parte) y según los marcara un titular o un suplente. GF / GC salen del resultado (con las propias puertas) y Dif. es GF - GC; los goles en propia puerta no cuentan para los jugadores. "% por partido": partidos jugados en los que marca.',
+    descripcion: 'Goles del rival en sus partidos de liga por tramos de 15 minutos dentro de cada parte (el añadido va al último tramo de su parte) y según los marcara un titular o un suplente. "Goles en contra": los que le marcan, por los mismos tramos (con los de su propia puerta). GF / GC salen del resultado (con las propias puertas) y Dif. es GF - GC; los goles en propia puerta no cuentan para los jugadores. "% por partido": partidos jugados en los que marca.',
     metricasEquipo: METRICAS_GOLES_RIVALES,
+    // Los goles que le marcan, por los mismos tramos (tabla aparte del equipo).
+    metricasContra: METRICAS_GOLES_CONTRA,
     metricas: METRICAS_GOLES,
     sortField: 'goles',
     tiene: (j, s) => j[`goles${s}`] > 0,
@@ -164,7 +169,10 @@ const BLOQUES = [
 const bloques = computed(() => BLOQUES
   .filter((b) => (esSeniorA.value || b.clave !== 'tiempo')
     && !(b.clave === 'sanciones' && esFutbol7(plantilla.value?.categoria?.id_tipofutbol)))
-  .map((b) => ({ ...b, metricasEquipo: metricasDe(b.metricasEquipo, false), metricas: metricasDe(b.metricas, true) })));
+  .map((b) => ({
+    ...b, metricasEquipo: metricasDe(b.metricasEquipo, false), metricasContra: metricasDe(b.metricasContra, false),
+    metricas: metricasDe(b.metricas, true)
+  })));
 const pestana = ref(BLOQUES[0].clave);
 
 // PDF: el partido y, por cada pestaña, sus tablas de Total / Local / Visitante
@@ -188,13 +196,17 @@ async function exportarPdf() {
     ].filter(Boolean).join(' ');
     const secciones = bloques.value.map((b) => {
       const vistas = new Set();
-      const leyenda = [...leyendaMetricas(b.metricasEquipo || []), ...leyendaMetricas(b.metricas)]
+      const leyenda = [b.metricasEquipo, b.metricasContra, b.metricas].flatMap((m) => leyendaMetricas(m || []))
         .filter((e) => (vistas.has(e.clave) ? false : vistas.add(e.clave)))
-        .map((e) => `${e.titulo}: ${e.texto}`).join(' · ');
+        .map((e) => `${e.titulo}: ${e.texto}`).join('\n');
       const tablas = LADOS.flatMap((lado) => [
         ...(b.metricasEquipo ? [{
           subtitulo: `${lado.titulo} · Equipo`,
           hoja: construirHojaEstadistica({ metricas: b.metricasEquipo, filas: [equipo.value], soloGrupo: lado.clave, columnaNombre: COLUMNA_EQUIPO })
+        }] : []),
+        ...(b.metricasContra ? [{
+          subtitulo: `${lado.titulo} · Goles en contra`,
+          hoja: construirHojaEstadistica({ metricas: b.metricasContra, filas: [equipo.value], soloGrupo: lado.clave, columnaNombre: COLUMNA_EQUIPO })
         }] : []),
         {
           subtitulo: `${lado.titulo} · Jugadores`,
@@ -315,6 +327,12 @@ onBeforeUnmount(() => {
                     <h3 class="font-display text-base text-ink-secondary">Equipo</h3>
                     <TablaEstadistica :filas="[equipo]" :metricas="b.metricasEquipo" :soloGrupo="lado.clave"
                                       :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo" />
+                  </div>
+                  <div v-if="b.metricasContra" class="flex flex-col gap-2">
+                    <h3 class="font-display text-base text-ink-secondary">Goles en contra</h3>
+                    <TablaEstadistica :filas="[equipo]" :metricas="b.metricasContra" :soloGrupo="lado.clave"
+                                      :cargando="cargando" :columnaNombre="COLUMNA_EQUIPO" dataKey="id_equipo"
+                                      :leyendaOmitir="leyendaMetricas(b.metricasEquipo)" />
                   </div>
                   <div class="flex flex-col gap-2">
                     <h3 class="font-display text-base text-ink-secondary">Jugadores</h3>

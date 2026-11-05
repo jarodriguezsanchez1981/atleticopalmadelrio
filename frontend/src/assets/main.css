@@ -266,12 +266,7 @@ h1, h2, h3, .font-display {
   white-space: pre;
 }
 
-/* Leyenda bajo las tablas de Estadísticas: las entradas van seguidas, como un
-   párrafo (separadas por «·»), y no saltan de línea al llegar a la siguiente. */
+/* Leyenda bajo las tablas de Estadísticas: cada entrada en su línea. */
 .ar-leyenda > div {
-  display: inline;
-}
-.ar-leyenda > div + div::before {
-  content: '·';
-  margin: 0 0.5rem;
+  display: block;
 }

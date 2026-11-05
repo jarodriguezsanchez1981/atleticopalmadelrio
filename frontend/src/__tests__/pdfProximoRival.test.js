@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { valorPdf, anchosColumnas, celdasCabecera, nombreFicheroPdf, crearDocProximoRival } from '../utils/pdfProximoRival';
 import { construirHojaEstadistica } from '../utils/excelEstadisticas';
-import { METRICAS_SANCIONES, METRICAS_GOLES } from '../utils/estadisticasMetricas';
+import { METRICAS_SANCIONES, METRICAS_GOLES, etiquetasTramos } from '../utils/estadisticasMetricas';
 
 const JUGADORES = Array.from({ length: 60 }, (_, i) => ({
   jugador: `Jugador Número ${i + 1}`, dorsal: i + 1, goles: 60 - i, porcentaje_goles_partido: 33.33, tarjetas_amarillas: i % 3
@@ -61,5 +61,11 @@ describe('pdfProximoRival', () => {
     const soloGoles = crearDocProximoRival(datos([goles])).getNumberOfPages();
     expect(soloGoles).toBeGreaterThan(1);
     expect(crearDocProximoRival(datos([goles, sanciones])).getNumberOfPages()).toBe(soloGoles + 1);
+  });
+
+  it('los tramos de los goles en contra llevan los mismos títulos que los de a favor (60\' en Fútbol 7)', () => {
+    const t = etiquetasTramos(60);
+    expect([t.goles_1t1, t.goles_2t3]).toEqual(['0-10', '51-60']);
+    expect([t.contra_1t1, t.contra_2t3]).toEqual(['0-10', '51-60']);
   });
 });
