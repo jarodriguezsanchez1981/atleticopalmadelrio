@@ -1,4 +1,4 @@
-const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Jornada, Sancion, Plantilla, Promocion, Torneo, TorneoGenerado } = require('../models');
+const { Cambio, Usuario, Temporada, Lugar, Titulo, Division, Posicion, Delegado, Categoria, Jugador, Entrenador, Entrenamiento, Partido, Equipo, TipoFutbol, Jornada, Sancion, Plantilla, Promocion, Torneo, TorneoGenerado, Video } = require('../models');
 const { opcionesDetalleTorneo } = require('../utils/torneoGeneradoDetalle');
 
 const ENTITY_MAP = {
@@ -20,6 +20,7 @@ const ENTITY_MAP = {
   sanciones: { model: Sancion, label: 'Sanciones' },
   plantillas: { model: Plantilla, label: 'Plantillas' },
   'entrenamientos-jugadores': { model: null, label: 'Entrenamientos-Jugadores' },
+  videos: { model: Video, label: 'Videos' },
   promociones: { model: Promocion, label: 'Promociones' },
   torneos: { model: Torneo, label: 'Torneos' },
   // La foto previa lleva categorías e inscripciones (si no, un torneo borrado

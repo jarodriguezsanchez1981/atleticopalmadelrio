@@ -50,6 +50,16 @@ export const entrenamientosService = {
   subirAdjunto: (id, adjunto, nombre) => api.put(`/entrenamientos/${id}/adjunto`, { adjunto, adjunto_nombre: nombre }).then(r => r.data),
   eliminarAdjunto: (id) => api.delete(`/entrenamientos/${id}/adjunto`).then(r => r.data)
 };
+// Entrenamientos → Videos. El fichero se sube tal cual (no en base64): puede
+// pesar hasta 200 MB, así que sin el timeout general y con progreso.
+export const videosService = {
+  ...crudService('videos'),
+  subirFichero: (id, fichero, onProgreso) => api.put(`/videos/${id}/fichero`, fichero, {
+    headers: { 'Content-Type': fichero.type || 'video/mp4', 'X-Nombre-Fichero': encodeURIComponent(fichero.name || 'video') },
+    timeout: 0,
+    onUploadProgress: (e) => onProgreso?.(e.total ? Math.round((e.loaded / e.total) * 100) : null)
+  }).then(r => r.data)
+};
 export const partidosService = {
   ...crudService('partidos'),
   finalizarActa: (id, payload = {}) => api.post(`/partidos/${id}/finalizar-acta`, payload).then(r => r.data),

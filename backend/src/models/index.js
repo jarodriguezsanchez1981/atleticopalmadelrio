@@ -45,6 +45,7 @@ const EquipoJugador = require('./EquipoJugador');
 const UsuarioSeccion = require('./UsuarioSeccion');
 const Promocion = require('./Promocion');
 const Material = require('./Material');
+const Video = require('./Video');
 const Coordinador = require('./Coordinador');
 const CuentaCorreo = require('./CuentaCorreo');
 const Convocatoria = require('./Convocatoria');
@@ -391,6 +392,7 @@ module.exports = {
   EquipoJugador,
   Promocion,
   Material,
+  Video,
   Coordinador,
   CuentaCorreo,
   Convocatoria,

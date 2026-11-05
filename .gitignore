@@ -47,3 +47,6 @@ reverse-proxy/fail2ban/data/*.sqlite3
 reverse-proxy/fail2ban/data/action.d/
 reverse-proxy/fail2ban/data/fail2ban.d/
 reverse-proxy/fail2ban/data/jail.local
+
+# Vídeos subidos en local (Entrenamientos → Videos)
+backend/videos/
