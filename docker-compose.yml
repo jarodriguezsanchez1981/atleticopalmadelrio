@@ -195,7 +195,8 @@ services:
   # hacia el backend). Ver reverse-proxy/init-letsencrypt.sh para el primer
   # certificado; luego el servicio "certbot" los renueva solo.
   reverse-proxy:
-    image: nginx:alpine
+    # nginx:alpine + apk upgrade (reverse-proxy/Dockerfile).
+    build: ./reverse-proxy
     container_name: apr_reverse_proxy
     restart: unless-stopped
     depends_on:

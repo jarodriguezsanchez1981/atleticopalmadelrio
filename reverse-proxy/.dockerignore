@@ -1,0 +1,3 @@
+# La imagen no copia nada: que certbot/ (claves de Let's Encrypt) ni logs/
+# lleguen siquiera al contexto de build.
+*
