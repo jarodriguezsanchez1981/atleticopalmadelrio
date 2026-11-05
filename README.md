@@ -142,7 +142,7 @@ atleticopalmadelrio/
 | Sección        | CRUD | Nivel | Descripción |
 |----------------|------|-------|-------------|
 | Calendario     | No   | read  | Vista calendario (mes/semana/año) |
-| Entrenamientos | Sí   | write | Gestión de entrenamientos (con adjunto PDF/imagen de la sesión) y pestaña **Videos** (biblioteca de vídeos de ejercicios) |
+| Entrenamientos | Sí   | write | Gestión de entrenamientos (con adjunto PDF/imagen de la sesión) |
 | Entren. Jugadores | Sí | write | Asignación de jugadores a entrenamientos |
 | Partidos       | Sí   | write | Partidos con filtros temporada/categoría |
 | Temporadas     | Sí   | write | Temporadas del club; una puede marcarse como **actual** (solo puede haber una) |
@@ -191,10 +191,6 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **PDF combinado** (partidos + entrenamientos agrupados por fecha)
 - **PDF de partidos** con 5 columnas: Lugar, Hora, Categoría, Local, Visitante
 - **Detalle de entrenamiento**: fecha, hora, lugar, recurrente
-
-### Entrenamientos → Videos
-- Pestaña **Videos** junto al calendario de entrenamientos, con los mismos permisos de la sección: biblioteca de vídeos de ejercicios (título, descripción, enlace de origen, p. ej. la tarea de alonbalon), reproducción en la propia intranet y descarga
-- Los ficheros (MP4, WebM o MOV, hasta 200 MB, `VIDEOS_MAX_MB`) no van a la BD sino al volumen Docker `apr_videos_data` (`/app/videos` del backend); la subida va por streaming (`PUT /api/videos/:id/fichero`) y ambos nginx tienen un `location` propio con cuerpo de 210 MB. **Ojo**: ese volumen no entra en la copia diaria de la BD
 
 ### Plantillas
 - **CRUD de plantillas** con drag & drop de entrenadores, delegados y jugadores
@@ -347,7 +343,6 @@ Sistema de diseño escandinavo aplicado:
 - `promociones` — Ascensos de jugadores entre plantillas
 - `torneo` — Torneos y partidos amistosos
 - **`cambios`** — Auditoría de todas las acciones CRUD (entidad, acción, antes/después, usuario)
-- `videos` — Entrenamientos → Videos (datos; el fichero está en el volumen `apr_videos_data`)
 - `liga_partidos`, `liga_jugadores`, `liga_goles`, `liga_tarjetas` — Partidos y actas de la liga de cada plantilla copiados de RFAF (Rivales y Próximo Rival)
 
 ### Relaciones
@@ -377,12 +372,12 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (830 tests, 62 archivos)
+# Backend (822 tests, 61 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (150 tests, 21 archivos)
+# Frontend (146 tests, 20 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```

@@ -81,7 +81,6 @@ export function createModelsMock() {
     EquipoJugador: createModelMock(),
     Promocion: createModelMock(),
     Material: createModelMock(),
-    Video: createModelMock(),
     Coordinador: createModelMock(),
     CuentaCorreo: createModelMock(),
     UsuarioSeccion: createModelMock(),
@@ -150,7 +149,6 @@ export const UsuarioCodigoRecuperacion = models.UsuarioCodigoRecuperacion;
 export const EquipoJugador = models.EquipoJugador;
 export const Promocion = models.Promocion;
 export const Material = models.Material;
-export const Video = models.Video;
 export const Coordinador = models.Coordinador;
 export const CuentaCorreo = models.CuentaCorreo;
 export const UsuarioSeccion = models.UsuarioSeccion;
