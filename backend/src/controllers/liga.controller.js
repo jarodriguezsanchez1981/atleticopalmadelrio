@@ -246,7 +246,8 @@ async function copiar({ log = console, pausa = pausaPorDefecto, pausaMs = PAUSA_
         if (datos.jornada != null && Number(datos.jornada) !== jornada) {
           throw new Error(`RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${jornada}.`);
         }
-        const filas = (datos.partidos || []).map((p) => ({ ...p, id_plantilla: plantilla.id, jornada }));
+        // Sin acta (partido aún no jugado o aplazado) no se guarda: no hay nada que copiar.
+        const filas = (datos.partidos || []).filter((p) => p.codigo_acta).map((p) => ({ ...p, id_plantilla: plantilla.id, jornada }));
         await LigaPartido.bulkCreate(filas, {
           updateOnDuplicate: ['jornada', 'fecha', 'hora', 'equipo_local', 'codigo_equipo_local', 'equipo_visitante', 'codigo_equipo_visitante']
         });
