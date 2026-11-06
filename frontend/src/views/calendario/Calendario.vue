@@ -576,7 +576,7 @@ function contenidoEvento(arg) {
     const alias = escapeHtml(e.categoria?.alias || e.categoria?.nombre || '—') + (e.acta_finalizada ? ' *' : '');
     const icono = e.es_local
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
-      : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+      : '<i class="pi pi-avion fc-lv-icon fc-lv-visitante"></i>';
 
     const lugar = e.es_local
       ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
@@ -599,7 +599,7 @@ function contenidoEvento(arg) {
     const esLocal = e.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
     const icono = esLocal
       ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
-      : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+      : '<i class="pi pi-avion fc-lv-icon fc-lv-visitante"></i>';
     const lugar = esLocal
       ? (typeof e.lugar === 'string' ? e.lugar : (e.lugar?.nombre || ''))
       : (e.equipo?.localidad || '');
@@ -647,7 +647,7 @@ function cabeceraGrupoHtml(e) {
 const GRUPO_LABELS = {
   // Liga separada en partidos en casa y fuera (mismos iconos que en los eventos).
   LIGA_CASA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-home' },
-  LIGA_FUERA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
+  LIGA_FUERA: { label: 'LIGA', color: '#0F3D22', icon: 'pi pi-avion' },
   AMISTOSO: { label: 'AMISTOSO', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'TORNEO', color: '#6D28D9', icon: 'pi pi-trophy' },
   ENTRENAMIENTO_ESTADIO: { label: 'ENTRENAMIENTO ESTADIO', color: '#2563EB', icon: 'pi pi-calendar' },

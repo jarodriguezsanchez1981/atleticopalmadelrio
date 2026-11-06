@@ -205,7 +205,7 @@ function contenidoTorneo(arg) {
   const esLocal = t?.equipo?.nombre === 'PALMA DEL RIO ATLETICO C.F.';
   const icono = esLocal
     ? '<i class="pi pi-home fc-lv-icon fc-lv-local"></i>'
-    : '<i class="pi pi-arrow-right-arrow-left fc-lv-icon fc-lv-visitante"></i>';
+    : '<i class="pi pi-avion fc-lv-icon fc-lv-visitante"></i>';
   const lugar = esLocal
     ? (typeof t?.lugar === 'string' ? t.lugar : (t?.lugar?.nombre || ''))
     : (t?.equipo?.localidad || '');
