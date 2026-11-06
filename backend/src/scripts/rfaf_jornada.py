@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Lee los partidos de una jornada de liga en RFAF (NFG_CmpJornada) y los
-devuelve en JSON por stdout: por partido, el código del acta, los dos equipos
+devuelve en JSON por stdout: por partido, el código del acta (null si aún no
+se ha jugado), los dos equipos
 (nombre y código de RFAF), la fecha y la hora. El equipo que descansa no es un
 partido y no sale. El marcador no se lee de aquí (RFAF lo oculta): sale del
 acta de cada partido (rfaf_acta.py).
@@ -41,16 +42,19 @@ def parsear_jornada(html):
     partidos = []
     vistos = set()
     # Cada partido es una tabla con los dos equipos (enlaces a NFG_VisEquipos)
-    # y el botón del acta (enlace a NFG_CmpPartido).
+    # y, si ya se ha jugado, el botón del acta (enlace a NFG_CmpPartido). Los
+    # de una jornada por jugar no tienen acta (codigo_acta null) pero sí fecha
+    # y hora (comprobación de horarios, utils/horariosPartidos.js).
     for tabla in soup.find_all("table"):
         acta = tabla.find("a", href=re.compile(r"NFG_CmpPartido"))
         equipos = tabla.select("h4 a[href*=NFG_VisEquipos]")
-        if not acta or len(equipos) != 2 or tabla.find("table"):
+        if len(equipos) != 2 or tabla.find("table"):
             continue
-        codigo_acta = parametro(acta["href"], "CodActa") or parametro(acta["href"], "cod_acta")
-        if not codigo_acta or codigo_acta in vistos:
+        codigo_acta = (parametro(acta["href"], "CodActa") or parametro(acta["href"], "cod_acta")) if acta else None
+        clave = codigo_acta or (parametro(equipos[0]["href"], "Codigo_Equipo"), parametro(equipos[1]["href"], "Codigo_Equipo"))
+        if clave in vistos:
             continue
-        vistos.add(codigo_acta)
+        vistos.add(clave)
         horario = [limpiar(s.get_text()) for s in tabla.select("span.horario")]
         fecha = next((h for h in horario if re.fullmatch(r"\d{2}-\d{2}-\d{4}", h)), None)
         hora = next((h for h in horario if re.fullmatch(r"\d{1,2}:\d{2}", h)), None)

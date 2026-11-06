@@ -57,4 +57,14 @@ describe.skipIf(!hayPython)('rfafActa · rfaf_jornada.py', () => {
         codigo_equipo_visitante: '44', fecha: '2026-10-25', hora: '17:00' }
     ]);
   });
+
+  it('una jornada por jugar (sin actas) también trae sus partidos con fecha y hora', async () => {
+    const porJugar = path.join(dir, 'por-jugar.html');
+    fs.writeFileSync(porJugar, HTML_EJEMPLO.replace(/9001|9002/g, ''), 'utf-8');
+    const datos = await leerJornada({}, null, { args: ['--html', porJugar] });
+    expect(datos.partidos.map((p) => [p.codigo_acta, p.equipo_local, p.fecha, p.hora])).toEqual([
+      [null, 'EQUIPO UNO C.F.', '2026-10-24', '18:30'],
+      [null, 'PALMA DEL RIO ATLETICO C.F.', '2026-10-25', '17:00']
+    ]);
+  });
 });
