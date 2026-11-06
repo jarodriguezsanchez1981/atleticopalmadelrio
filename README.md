@@ -264,8 +264,8 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - La sesión de rfaf.es se pasa con `RFAF_COOKIE` (caduca a la media hora sin uso)
 
 ### Horarios de los partidos (RFAF)
-- Los **martes, miércoles y jueves a las 13:00** se comprueba en RFAF (página de la jornada) la fecha y la hora de la próxima jornada de cada plantilla de la temporada actual con códigos de RFAF: `cod_primaria`, `CodCompeticion` y `CodGrupo` de la plantilla, `CodJornada` de la tabla `jornadas` y `CodTemporada=22`; una petición por plantilla, con **1 minuto** entre una y otra y sin reintentos (`backend/src/utils/horariosPartidos.js`)
-- La fecha y la hora que valen son las de RFAF: si no coinciden, se ponen en la jornada y en su partido del calendario, y el cambio queda en **Cambios**. El lugar no se toca: el de los partidos en casa se pone a mano
+- Los **martes, miércoles y jueves a las 13:00** se comprueba en RFAF (página de la jornada) la fecha y la hora de la próxima jornada de cada plantilla de la temporada actual con códigos de RFAF: `cod_primaria`, `CodCompeticion` y `CodGrupo` de la plantilla, `CodJornada` del próximo partido con jornada (sección Jornadas) y `CodTemporada=22`; una petición por plantilla, con **1 minuto** entre una y otra y sin reintentos (`backend/src/utils/horariosPartidos.js`)
+- La fecha y la hora que valen son las de RFAF: si no coinciden, se ponen en el partido (Jornadas y Calendario), y el cambio queda en **Cambios**. El lugar no se toca: el de los partidos en casa se pone a mano
 - Si la sesión de RFAF ha caducado, se para (y llega el aviso de sesión caducada)
 
 ### Responsive móvil
