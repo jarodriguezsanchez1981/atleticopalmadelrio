@@ -19,7 +19,7 @@ const semanaOffset = ref(0);
 
 const GRUPOS = {
   LIGA_CASA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-home' },
-  LIGA_FUERA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-arrow-right-arrow-left' },
+  LIGA_FUERA: { label: 'Liga', color: '#0F3D22', icon: 'pi pi-avion' },
   AMISTOSO: { label: 'Amistoso', color: '#D97706', icon: 'pi pi-handshake' },
   TORNEO: { label: 'Torneo', color: '#6D28D9', icon: 'pi pi-trophy' },
   ENTRENAMIENTO_ESTADIO: { label: 'Entrenamiento Estadio', color: '#2563EB', icon: 'pi pi-calendar' },
@@ -198,7 +198,7 @@ function lugarEvento(e) {
         >
           <span class="hora">{{ formatearHora(e.inicio || e.fecha) }}</span>
           <i v-if="e.tipo === 'partido'"
-             :class="e.es_local ? 'pi pi-home lv-icon lv-local' : 'pi pi-arrow-right-arrow-left lv-icon lv-visitante'"
+             :class="e.es_local ? 'pi pi-home lv-icon lv-local' : 'pi pi-avion lv-icon lv-visitante'"
              v-tooltip.top="e.es_local ? 'Local' : 'Visitante'"></i>
           <span class="nombre">{{ nombreEvento(e) }}</span>
           <span v-if="lugarEvento(e)" class="lugar">{{ lugarEvento(e) }}</span>
