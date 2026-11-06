@@ -9,9 +9,9 @@ const { desdeHoraEspana, partesEspana, diaEspana } = require('./horaEspana');
  * temporada actual con códigos de RFAF, una petición por plantilla y un
  * minuto entre una y otra, sin reintentos. La URL lleva cod_primaria,
  * CodCompeticion y CodGrupo de la plantilla, CodJornada de su próxima jornada
- * (tabla jornadas) y CodTemporada=22. La fecha y la hora que valen son las de
- * RFAF: se ponen en la jornada y en su partido del calendario (y queda en
- * Cambios). El lugar no se toca: el de los partidos en casa se pone a mano.
+ * (sección Jornadas: el próximo partido con número de jornada; la antigua
+ * tabla jornadas ya no se usa) y CodTemporada=22. La fecha y la hora que valen
+ * son las de RFAF: se ponen en el partido (y queda en Cambios). El lugar no se toca: el de los partidos en casa se pone a mano.
  * Si la sesión de RFAF ha caducado se para (fallaría en todas).
  * Solo en producción (EC2): en local no se pide nada a rfaf.es.
  */
@@ -45,22 +45,24 @@ function partidoDelPalma(partidos, plantilla) {
 }
 
 /** Fecha nueva de un partido según RFAF, o null si no cambia (o RFAF no la da).
- * Sin hora en RFAF, se cambia solo el día y se deja la hora que tenía. */
+ * Sin hora en RFAF, se cambia solo el día y se deja la hora que tenía (o sin
+ * hora: medianoche UTC exacta, ver controllers/jornada.controller.js). */
 function fechaSegunRfaf(fechaActual, rfaf) {
   if (!rfaf?.fecha) return null;
   const [y, m, d] = rfaf.fecha.split('-').map(Number);
-  const [h, mi] = (rfaf.hora || horaEspana(fechaActual)).split(':').map(Number);
-  const nueva = desdeHoraEspana(y, m, d, h, mi);
-  return nueva.getTime() === new Date(fechaActual).getTime() ? null : nueva;
-}
-
-/** Fecha y hora nuevas de una jornada según RFAF, o null si no cambian. Sin
- * hora en RFAF se deja la que tenía. */
-function jornadaSegunRfaf(jornada, rfaf) {
-  if (!rfaf?.fecha) return null;
-  const hora = rfaf.hora ? `${rfaf.hora.padStart(5, '0')}:00` : (jornada.hora || null);
-  const igual = String(jornada.fecha).slice(0, 10) === rfaf.fecha && String(jornada.hora || '') === String(hora || '');
-  return igual ? null : { fecha: rfaf.fecha, hora };
+  const actual = new Date(fechaActual);
+  const sinHora = actual.getUTCHours() === 0 && actual.getUTCMinutes() === 0 && actual.getUTCSeconds() === 0;
+  let nueva;
+  if (rfaf.hora) {
+    const [h, mi] = rfaf.hora.split(':').map(Number);
+    nueva = desdeHoraEspana(y, m, d, h, mi);
+  } else if (sinHora) {
+    nueva = new Date(Date.UTC(y, m - 1, d));
+  } else {
+    const [h, mi] = horaEspana(actual).split(':').map(Number);
+    nueva = desdeHoraEspana(y, m, d, h, mi);
+  }
+  return nueva.getTime() === actual.getTime() ? null : nueva;
 }
 
 /**
@@ -68,20 +70,21 @@ function jornadaSegunRfaf(jornada, rfaf) {
  * { comprobados, cambiados: [{ categoria, jornada, antes, despues }], errores }.
  */
 async function comprobar({ log = console, pausa = pausaPorDefecto, pausaMs = PAUSA_MS, ahora = new Date() } = {}) {
-  const { Jornada, Partido, Cambio } = require('../models');
+  const { Partido, Cambio } = require('../models');
   const { plantillasLiga } = require('../controllers/liga.controller');
   const rfafActa = require('./rfafActa');
-  const hoy = diaEspana(ahora);
+  const p = partesEspana(ahora);
+  const inicioHoy = desdeHoraEspana(p.y, p.m, p.d, 0, 0);
   const hecho = { comprobados: 0, cambiados: [], errores: [] };
   let peticiones = 0;
 
   for (const plantilla of await plantillasLiga()) {
     const categoria = plantilla.categoria?.nombre || `plantilla ${plantilla.id}`;
-    const jornada = await Jornada.findOne({
-      where: { id_plantilla: plantilla.id, fecha: { [Op.gte]: hoy } },
-      order: [['fecha', 'ASC'], ['jornada', 'ASC']]
+    const partido = await Partido.findOne({
+      where: { id_plantilla: plantilla.id, jornada: { [Op.ne]: null }, suspendido: false, fecha: { [Op.gte]: inicioHoy } },
+      order: [['fecha', 'ASC']]
     });
-    if (!jornada) continue;
+    if (!partido) continue;
     if (peticiones++ > 0) await pausa(pausaMs);
     try {
       const datos = await rfafActa.leerJornada({
@@ -89,42 +92,27 @@ async function comprobar({ log = console, pausa = pausaPorDefecto, pausaMs = PAU
         codGrupo: plantilla.codigo_grupo,
         codCompeticion: plantilla.codigo_competicion,
         codTemporada: CODIGO_TEMPORADA_RFAF
-      }, jornada.jornada);
-      if (datos.jornada != null && Number(datos.jornada) !== Number(jornada.jornada)) {
-        throw new Error(`RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${jornada.jornada}.`);
+      }, partido.jornada);
+      if (datos.jornada != null && Number(datos.jornada) !== Number(partido.jornada)) {
+        throw new Error(`RFAF ha devuelto la jornada ${datos.jornada} en lugar de la ${partido.jornada}.`);
       }
       const rfaf = partidoDelPalma(datos.partidos || [], plantilla);
-      if (!rfaf) throw new Error(`no aparece el partido del PALMA en la jornada ${jornada.jornada}.`);
+      if (!rfaf) throw new Error(`no aparece el partido del PALMA en la jornada ${partido.jornada}.`);
       hecho.comprobados += 1;
-
-      const antes = `${String(jornada.fecha).slice(0, 10)} ${String(jornada.hora || '').slice(0, 5)}`.trim();
-      const cambioJornada = jornadaSegunRfaf(jornada, rfaf);
-      if (cambioJornada) {
-        const previos = { fecha: jornada.fecha, hora: jornada.hora };
-        await jornada.update(cambioJornada);
-        await Cambio.create({
-          entidad: 'jornadas', id_registro: jornada.id, accion: 'editar',
-          datos_previos: previos, datos_nuevos: { ...cambioJornada, origen: ORIGEN }, id_usuario: null
-        });
-      }
-      // Su partido del calendario: el enlazado a la jornada o, si no, el de
-      // la plantilla con ese número de jornada.
-      const partido = await Partido.findOne({ where: { id_jornada: jornada.id } })
-        || await Partido.findOne({ where: { id_plantilla: plantilla.id, jornada: jornada.jornada } });
-      const nueva = partido ? fechaSegunRfaf(partido.fecha, rfaf) : null;
-      if (nueva) {
-        const previa = partido.fecha;
-        await partido.update({ fecha: nueva });
-        await Cambio.create({
-          entidad: 'partidos', id_registro: partido.id, accion: 'editar',
-          datos_previos: { fecha: previa }, datos_nuevos: { fecha: nueva, origen: ORIGEN }, id_usuario: null
-        });
-      }
-      if (cambioJornada || nueva) {
-        const cambio = { categoria, jornada: jornada.jornada, antes, despues: `${rfaf.fecha} ${rfaf.hora || ''}`.trim() };
-        hecho.cambiados.push(cambio);
-        log.log(`🕒 Horarios ${categoria}: jornada ${cambio.jornada} de ${cambio.antes} a ${cambio.despues} (RFAF).`);
-      }
+      const nueva = fechaSegunRfaf(partido.fecha, rfaf);
+      if (!nueva) continue;
+      const antes = partido.fecha;
+      await partido.update({ fecha: nueva });
+      await Cambio.create({
+        entidad: 'partidos', id_registro: partido.id, accion: 'editar',
+        datos_previos: { fecha: antes }, datos_nuevos: { fecha: nueva, origen: ORIGEN }, id_usuario: null
+      });
+      const cambio = {
+        categoria, jornada: partido.jornada,
+        antes: `${diaEspana(antes)} ${horaEspana(antes)}`, despues: `${rfaf.fecha} ${rfaf.hora || ''}`.trim()
+      };
+      hecho.cambiados.push(cambio);
+      log.log(`🕒 Horarios ${categoria}: jornada ${cambio.jornada} de ${cambio.antes} a ${cambio.despues} (RFAF).`);
     } catch (err) {
       hecho.errores.push({ categoria, error: err.message });
       log.warn(`⚠️  Horarios ${categoria}: ${err.message}`);
@@ -172,6 +160,6 @@ function iniciar() {
 }
 
 module.exports = {
-  iniciar, actualizar, comprobar, proximaEjecucion, fechaSegunRfaf, jornadaSegunRfaf, partidoDelPalma,
+  iniciar, actualizar, comprobar, proximaEjecucion, fechaSegunRfaf, partidoDelPalma,
   HORA_COMPROBACION, DIAS_COMPROBACION, CODIGO_TEMPORADA_RFAF
 };
