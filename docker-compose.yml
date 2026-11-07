@@ -13,6 +13,9 @@ services:
     container_name: apr_mysql
     logging: *logging
     restart: unless-stopped
+    # Al parar, hasta 60 s para cerrar bien (InnoDB y binlog) antes de que
+    # Docker lo mate; por defecto son 10 s.
+    stop_grace_period: 60s
     # Binary log activo: cada cambio (no solo el volcado diario) queda
     # registrado, para poder restaurar point-in-time junto con el servicio
     # binlog-backup. Purga sola a los 7 días (mismo plazo que RETENTION_DAYS).
