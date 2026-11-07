@@ -12,7 +12,8 @@
 # permiso del usuario del 05/11/2026; APLICAR_PARCHES=0 para solo comprobar)
 # y escanea.
 #
-# Pensado para una tarea programada cada 2 días (cron). Idempotente.
+# Pensado para una tarea programada los viernes a las 12:00, hora española (cron
+# del EC2, que está en UTC: a las 10 y 11 UTC con un filtro por la hora de Madrid). Idempotente.
 # Uso manual:  scripts/comprobar-parches-docker.sh
 #
 # Las imágenes son las bases del stack (docker-compose.yml y los Dockerfile):
@@ -105,7 +106,7 @@ aplicar_parches() {
   local dc=(docker compose --project-directory "$PROYECTO_DIR" --env-file "$env_file")
   local proyecto s n actual nueva
   # Sin las attestations de buildx, una imagen sin cambios conserva su ID (con
-  # ellas cada build da un ID nuevo y se recrearía todo cada 2 días).
+  # ellas cada build da un ID nuevo y se recrearía todo cada semana).
   export BUILDX_NO_DEFAULT_ATTESTATIONS=1
   proyecto="$(basename "$PROYECTO_DIR")"
   declare -A contenedor=(
@@ -285,7 +286,7 @@ guardar_en_bd() {
     return 0
   fi
 
-  # ¿avisar por vulnerabilidades en la intranet? Para no molestar cada 2 días
+  # ¿avisar por vulnerabilidades en la intranet? Para no molestar cada semana
   # con los HIGH que no tienen parche disponible (p. ej. mysql:8.4), solo se
   # avisa si hay algún CRITICAL, o si el nº de HIGH ha AUMENTADO respecto al
   # último informe (vulnerabilidades nuevas). El primer informe también avisa.
