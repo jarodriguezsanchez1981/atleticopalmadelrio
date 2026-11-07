@@ -45,7 +45,10 @@ services:
       - apr_mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}"]
+      # La contraseña se lee de la variable del propio contenedor al ejecutarse
+      # ($$ = $ literal), no se escribe en la configuración: así no sale en
+      # `docker inspect` ni en la lista de procesos.
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
       interval: 5s
       timeout: 5s
       retries: 30
