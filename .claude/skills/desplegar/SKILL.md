@@ -14,7 +14,6 @@ Datos de acceso al EC2 (host, clave SSH, carpeta): en la memoria del proyecto (`
 4. **EC2** (por SSH, en la carpeta del proyecto):
    - `git pull --ff-only origin main` (el EC2 está en la rama `main`)
    - `docker compose --env-file .env.development up -d --build <backend|frontend>`; **nunca** `.env.production`.
-   - Si aparece `apr_backend_test`, quitarlo con `docker rm -f apr_backend_test`.
    - Comprobar: `docker ps` y `docker logs --tail 20 apr_backend` (migraciones aplicadas, sin errores).
 5. Si hubo migración, confirmar en el log que se aplicó (`schema_migrations`).
 6. Contar al usuario qué se ha desplegado y dónde.

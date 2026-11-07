@@ -168,7 +168,6 @@ aplicar_parches() {
   if [ ${#recrear[@]} -gt 0 ]; then
     "${dc[@]}" up -d --no-deps --force-recreate "${recrear[@]}" >>"$LOG" 2>&1
   fi
-  docker rm -f apr_backend_test >/dev/null 2>&1
 
   sleep 20
   local mal=()

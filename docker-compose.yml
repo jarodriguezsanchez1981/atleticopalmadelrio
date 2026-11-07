@@ -1,9 +1,26 @@
+# Cada servicio lleva un tope de memoria (mem_limit): son topes, no reservas
+# (su suma puede pasar de la RAM del servidor, 2 GB); evitan que uno solo que
+# se descontrole tire el servidor entero.
+
+# Logs de cada contenedor con tamaño máximo (3 ficheros de 10 MB): sin esto
+# Docker los guarda sin límite y pueden llenar el disco del servidor.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
 
   db:
     image: mysql:8.4
     container_name: apr_mysql
+    logging: *logging
+    mem_limit: 768m
     restart: unless-stopped
+    # Al parar, hasta 60 s para cerrar bien (InnoDB y binlog) antes de que
+    # Docker lo mate; por defecto son 10 s.
+    stop_grace_period: 60s
     # Binary log activo: cada cambio (no solo el volcado diario) queda
     # registrado, para poder restaurar point-in-time junto con el servicio
     # binlog-backup. Purga sola a los 7 días (mismo plazo que RETENTION_DAYS).
@@ -36,7 +53,10 @@ services:
       - apr_mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}"]
+      # La contraseña se lee de la variable del propio contenedor al ejecutarse
+      # ($$ = $ literal), no se escribe en la configuración: así no sale en
+      # `docker inspect` ni en la lista de procesos.
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -51,6 +71,8 @@ services:
       context: ./scripts
       dockerfile: Dockerfile.db-backup
     container_name: apr_mysql_backup
+    logging: *logging
+    mem_limit: 512m
     restart: unless-stopped
     depends_on:
       db:
@@ -82,6 +104,8 @@ services:
       context: ./scripts
       dockerfile: Dockerfile.binlog-backup
     container_name: apr_mysql_binlog_backup
+    logging: *logging
+    mem_limit: 128m
     restart: unless-stopped
     depends_on:
       db:
@@ -103,7 +127,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: apr_backend
+    logging: *logging
     restart: unless-stopped
+    # Un init mínimo (tini) como PID 1: recoge los procesos de Python de RFAF
+    # que queden huérfanos y pasa bien las señales al parar.
+    init: true
     depends_on:
       db:
         condition: service_healthy
@@ -136,6 +164,14 @@ services:
       - ./database/migrations:/database/migrations:ro
     expose:
       - "4000"
+    # Sano = responde /health (wget de busybox, ya viene en node:alpine). Margen
+    # al arrancar para las migraciones. `docker ps` lo marca "unhealthy" si se cuelga.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     cap_drop:
       - ALL
     mem_limit: 512m
@@ -143,12 +179,18 @@ services:
     networks:
       - apr_net
 
+  # Tests del backend en Docker: solo con el profile "test" (antes se
+  # arrancaba con cada `docker compose up` y dejaba apr_backend_test parado).
+  #   docker compose --env-file .env.development --profile test run --rm test
   test:
     build:
       context: ./backend
       dockerfile: Dockerfile.test
     container_name: apr_backend_test
+    logging: *logging
     restart: "no"
+    profiles:
+      - test
     command: npm test
     depends_on:
       db:
@@ -171,9 +213,12 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: apr_frontend
+    logging: *logging
+    mem_limit: 128m
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     # Solo en localhost por defecto: en el servidor se entra por el reverse
     # proxy HTTPS. Para probar desde otro dispositivo de la red local,
     # FRONTEND_BIND=0.0.0.0 en el env file.
@@ -199,6 +244,8 @@ services:
     # nginx:alpine + apk upgrade (reverse-proxy/Dockerfile).
     build: ./reverse-proxy
     container_name: apr_reverse_proxy
+    logging: *logging
+    mem_limit: 128m
     restart: unless-stopped
     depends_on:
       - frontend
@@ -225,10 +272,23 @@ services:
     networks:
       - apr_net
 
+  # Sin versión fija a propósito: la actualiza el script de parches de los
+  # viernes (scripts/comprobar-parches-docker.sh), y si la renovación se rompe
+  # avisa el monitor de GitHub 14 días antes de que caduque el certificado.
   certbot:
     image: certbot/certbot
     container_name: apr_certbot
+    logging: *logging
+    mem_limit: 256m
     restart: unless-stopped
+    # Solo lo que necesita para escribir el certificado y el reto webroot:
+    # algunas carpetas de reverse-proxy/certbot son del usuario ubuntu.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
     security_opt:
       - no-new-privileges:true
     volumes:
@@ -249,6 +309,8 @@ services:
   fail2ban:
     image: crazymax/fail2ban:1.1.0
     container_name: apr_fail2ban
+    logging: *logging
+    mem_limit: 256m
     restart: unless-stopped
     profiles:
       - seguridad
