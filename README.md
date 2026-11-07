@@ -268,6 +268,12 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - La fecha y la hora que valen son las de RFAF: si no coinciden, se ponen en el partido (Jornadas y Calendario), y el cambio queda en **Cambios**. El lugar no se toca: el de los partidos en casa se pone a mano
 - Si la sesión de RFAF ha caducado, se para (y llega el aviso de sesión caducada)
 
+### Finalizar Acta automático (RFAF)
+- **Una hora después de terminar** cada partido de liga del PALMA (su fecha y hora más el **tiempo de partido** de la categoría; 90' si no lo tiene) se lee su acta de RFAF y se guarda lo mismo que con el botón **Finalizar Acta** (resultado, jugadores, minutos, goles, tarjetas, sanciones, dorsales, promociones y cuerpo técnico) (`backend/src/utils/actaAutomatica.js`)
+- Si el partido no tiene código de acta, se saca de la página de su jornada en RFAF (códigos de la plantilla y `CodTemporada=22`)
+- **Un solo intento** por partido, sin reintentos: si el acta aún no está publicada o falla, queda para el botón. Con varios partidos a la vez, 1 minuto entre uno y otro. Los partidos sin hora o suspendidos no se tocan
+- Queda en **Cambios**. Si la sesión de RFAF ha caducado se para hasta que se ponga otra `RFAF_COOKIE` (y entonces se intentan los pendientes de los 3 últimos días)
+
 ### Responsive móvil
 - **Sidebar → Drawer** en dispositivos ≤767px
 - **Tablas con scroll horizontal** en todas las vistas CRUD
@@ -377,7 +383,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (832 tests, 62 archivos)
+# Backend (840 tests, 63 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
