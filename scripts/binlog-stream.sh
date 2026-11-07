@@ -11,6 +11,14 @@ BACKUP_DIR=/backups
 DIAS="${RETENTION_DAYS:-7}"
 mkdir -p "$BACKUP_DIR"
 
+# Usuario propio con permisos solo de replicación (apr_binlog, ver
+# database/init-binlog-user.sh), no root. Las credenciales van en un fichero de
+# opciones (solo legible por este proceso), no en la línea de comandos: así no
+# se ven en la lista de procesos.
+CREDENCIALES=$(mktemp)
+chmod 600 "$CREDENCIALES"
+printf '[client]\nuser=%s\npassword="%s"\n' "$BINLOG_USER" "$BINLOG_PASSWORD" > "$CREDENCIALES"
+
 # Una vez al día, borra las copias de binlog de más de $DIAS días (mismo plazo
 # que los volcados diarios), salvo la última, que es desde donde se reanuda.
 (
@@ -27,13 +35,13 @@ if [ -n "$LAST_LOCAL" ]; then
   START_FILE="$LAST_LOCAL"
   echo "Reanudando binlog streaming desde $START_FILE"
 else
-  START_FILE=$(mysql -h "$DB_HOST" -P "$DB_PORT" -uroot -p"$MYSQL_ROOT_PASSWORD" -N -e "SHOW BINARY LOGS" | head -1 | awk '{print $1}')
+  START_FILE=$(mysql --defaults-extra-file="$CREDENCIALES" -h "$DB_HOST" -P "$DB_PORT" -N -e "SHOW BINARY LOGS" | head -1 | awk '{print $1}')
   echo "Primer arranque: empezando desde $START_FILE"
 fi
 
-exec mysqlbinlog \
+exec mysqlbinlog --defaults-extra-file="$CREDENCIALES" \
   --read-from-remote-server \
-  --host="$DB_HOST" --port="$DB_PORT" --user=root --password="$MYSQL_ROOT_PASSWORD" \
+  --host="$DB_HOST" --port="$DB_PORT" \
   --raw --stop-never \
   --result-file="$BACKUP_DIR/" \
   "$START_FILE"
