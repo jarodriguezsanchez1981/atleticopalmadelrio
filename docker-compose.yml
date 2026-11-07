@@ -119,6 +119,9 @@ services:
     container_name: apr_backend
     logging: *logging
     restart: unless-stopped
+    # Un init mínimo (tini) como PID 1: recoge los procesos de Python de RFAF
+    # que queden huérfanos y pasa bien las señales al parar.
+    init: true
     depends_on:
       db:
         condition: service_healthy
