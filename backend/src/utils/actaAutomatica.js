@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { partesEspana } = require('./horaEspana');
 
 /**
  * Finalizar Acta automático (pedido por el usuario el 07/11/2026): una hora
@@ -7,14 +8,18 @@ const { Op } = require('sequelize');
  * que con el botón «Finalizar Acta» (partido.controller.finalizarPartido).
  * Si el partido no tiene código de acta, se saca de la página de su jornada
  * (NFG_CmpJornada, con los códigos de la plantilla y CodTemporada=22): una
- * petición; y otra para el acta. Cada partido se intenta una sola vez
- * (partidos.acta_auto_at), sin reintentos: si el acta aún no está publicada,
- * queda para el botón. Con varios partidos a la vez, un minuto entre uno y
- * otro. Si la sesión de RFAF ha caducado se para hasta que se ponga otra
+ * petición; y otra para el acta. Si en ese primer intento el acta aún no
+ * está publicada (la jornada no trae su código), se intenta una segunda vez 3
+ * horas después de terminar (pedido por el usuario el 07/11/2026); si sigue
+ * sin estar, o falla por otra cosa, queda para el botón. Ningún reintento
+ * más (partidos.acta_auto_intentos: 0 = aún no, 1 = queda el segundo, 2 = no
+ * más). Con varios partidos a la vez, un minuto entre uno y otro. Si la sesión de RFAF ha caducado se para hasta que se ponga otra
  * (al cambiar RFAF_COOKIE se recrea el backend y se vuelve a intentar).
  * Solo en producción (EC2): en local no se pide nada a rfaf.es.
  */
 const MARGEN_MIN = 60; // una hora después de terminar
+const REINTENTO_MIN = 180; // segundo intento: tres horas después de terminar
+const MAX_INTENTOS = 2;
 const DURACION_DEFECTO_MIN = 90; // categorías sin tiempopartido
 const VENTANA_MS = 3 * 24 * 60 * 60 * 1000; // no se buscan partidos más antiguos
 const COMPROBACION_MS = 5 * 60 * 1000;
@@ -31,23 +36,30 @@ function sinHora(fecha) {
   return f.getUTCHours() === 0 && f.getUTCMinutes() === 0 && f.getUTCSeconds() === 0;
 }
 
-/** Instante a partir del cual se lee el acta del partido (o null si no tiene hora). */
+/** Instante a partir del cual se lee el acta del partido (o null si no tiene
+ * hora): una hora después de terminar o, para el segundo intento, tres. */
 function momentoActa(partido) {
   if (!partido.fecha || sinHora(partido.fecha)) return null;
   const duracion = Number(partido.plantilla?.categoria?.tiempopartido) || DURACION_DEFECTO_MIN;
-  return new Date(new Date(partido.fecha).getTime() + (duracion + MARGEN_MIN) * 60 * 1000);
+  const margen = Number(partido.acta_auto_intentos) === 1 ? REINTENTO_MIN : MARGEN_MIN;
+  return new Date(new Date(partido.fecha).getTime() + (duracion + margen) * 60 * 1000);
 }
 
-/** Partidos de liga sin finalizar cuya acta ya toca leer, del más antiguo al más reciente. */
-async function pendientes(ahora) {
+const horaEspana = (fecha) => {
+  const p = partesEspana(fecha);
+  return `${String(p.h).padStart(2, '0')}:${String(p.mi).padStart(2, '0')}`;
+};
+
+/** Partidos de liga sin finalizar y con algún intento por hacer, jugados entre `desde` y `hasta`. */
+async function candidatos(desde, hasta) {
   const { Partido, Plantilla, Categoria } = require('../models');
-  const partidos = await Partido.findAll({
+  return await Partido.findAll({
     where: {
       jornada: { [Op.ne]: null },
       suspendido: false,
       acta_finalizada_at: null,
-      acta_auto_at: null,
-      fecha: { [Op.gte]: new Date(ahora.getTime() - VENTANA_MS), [Op.lte]: ahora }
+      acta_auto_intentos: { [Op.lt]: MAX_INTENTOS },
+      fecha: { [Op.gte]: desde, [Op.lte]: hasta }
     },
     include: [{
       model: Plantilla,
@@ -57,6 +69,11 @@ async function pendientes(ahora) {
     }],
     order: [['fecha', 'ASC']]
   }) || [];
+}
+
+/** Partidos cuya acta ya toca leer, del más antiguo al más reciente. */
+async function pendientes(ahora) {
+  const partidos = await candidatos(new Date(ahora.getTime() - VENTANA_MS), ahora);
   return partidos.filter((p) => {
     const momento = momentoActa(p);
     return momento && momento <= ahora;
@@ -87,8 +104,12 @@ async function comprobar({ log = console, pausa = pausaPorDefecto, ahora = new D
     if (!codigoPrimaria || (!codigoActa && !conJornada)) continue; // sin códigos de RFAF: nada que pedir
 
     if (peticiones++ > 0) await pausa(PAUSA_MS);
-    // Se marca antes de pedir nada: un solo intento aunque falle o se reinicie.
-    await partido.update({ acta_auto_at: new Date() });
+    // Se marca antes de pedir nada como el último intento: aunque falle o se
+    // reinicie, no se repite. Solo si el acta aún no está publicada en el
+    // primero, queda el segundo.
+    const antes = { acta_auto_at: partido.acta_auto_at ?? null, acta_auto_intentos: Number(partido.acta_auto_intentos) || 0 };
+    const segundo = antes.acta_auto_intentos === 1;
+    await partido.update({ acta_auto_at: new Date(), acta_auto_intentos: MAX_INTENTOS });
     try {
       if (!codigoActa) {
         const datos = await rfafActa.leerJornada({
@@ -99,8 +120,13 @@ async function comprobar({ log = console, pausa = pausaPorDefecto, ahora = new D
         }, partido.jornada);
         codigoActa = partidoDelPalma(datos.partidos || [], plantilla)?.codigo_acta || null;
         if (!codigoActa) {
-          hecho.sinActa.push({ categoria, jornada: partido.jornada });
-          log.warn(`⚠️  Acta automática ${categoria}: el acta de la jornada ${partido.jornada} aún no está en RFAF (queda para «Finalizar Acta»).`);
+          hecho.sinActa.push({ categoria, jornada: partido.jornada, segundo });
+          if (segundo) {
+            log.warn(`⚠️  Acta automática ${categoria}: el acta de la jornada ${partido.jornada} sigue sin estar en RFAF (queda para «Finalizar Acta»).`);
+          } else {
+            await partido.update({ acta_auto_intentos: 1 });
+            log.log(`⏳ Acta automática ${categoria}: el acta de la jornada ${partido.jornada} aún no está en RFAF; se vuelve a intentar a las ${horaEspana(momentoActa(partido))}.`);
+          }
           continue;
         }
         await pausa(PAUSA_ACTA_MS);
@@ -117,7 +143,7 @@ async function comprobar({ log = console, pausa = pausaPorDefecto, ahora = new D
       log.warn(`⚠️  Acta automática ${categoria}: ${err.message}`);
       if (esDeSesion(err.message)) {
         // No ha sido un intento de verdad: se repite con la próxima sesión.
-        await partido.update({ acta_auto_at: null });
+        await partido.update(antes);
         sesionCaducada = true;
         break;
       }
@@ -135,7 +161,8 @@ let temporizador = null;
 /** Ejecuta una comprobación (nunca dos a la vez). */
 function actualizar(opciones) {
   if (!enCurso) {
-    enCurso = comprobar(opciones)
+    enCurso = require('./tareasAutomaticas')
+      .ejecutar('acta', (log) => comprobar({ ...opciones, log }), { soloConNovedades: true })
       .catch((err) => console.warn('⚠️  Actas automáticas:', err.message))
       .finally(() => { enCurso = null; });
   }
@@ -150,7 +177,26 @@ function iniciar() {
   actualizar();
 }
 
+/** Próxima lectura de acta programada (panel de Tareas automáticas):
+ * { momento, categoria, jornada } o null. Sin peticiones a rfaf.es. */
+async function proximaLectura(ahora = new Date()) {
+  const partidos = await candidatos(new Date(ahora.getTime() - VENTANA_MS), new Date(ahora.getTime() + 8 * 24 * 60 * 60 * 1000));
+  let proxima = null;
+  for (const p of partidos) {
+    const momento = momentoActa(p);
+    if (momento && (!proxima || momento < proxima.momento)) {
+      proxima = { momento, categoria: p.plantilla?.categoria?.nombre || null, jornada: p.jornada, segundo_intento: Number(p.acta_auto_intentos) === 1 };
+    }
+  }
+  return proxima;
+}
+
+/** Si la comprobación está parada por la sesión de RFAF caducada. */
+const paradaPorSesion = () => sesionCaducada;
+
 /** Solo para los tests. */
 function reiniciarSesion() { sesionCaducada = false; }
 
-module.exports = { iniciar, actualizar, comprobar, momentoActa, reiniciarSesion, MARGEN_MIN };
+module.exports = {
+  iniciar, actualizar, comprobar, momentoActa, proximaLectura, paradaPorSesion, reiniciarSesion, MARGEN_MIN, REINTENTO_MIN
+};

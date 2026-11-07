@@ -38,6 +38,7 @@ const TipoPersonal = require('./TipoPersonal');
 const Clasificacion = require('./Clasificacion');
 const Cambio = require('./Cambio');
 const InformeSeguridad = require('./InformeSeguridad');
+const TareaEjecucion = require('./TareaEjecucion');
 const InformeSemanal = require('./InformeSemanal');
 const InformeSemanalDestinatario = require('./InformeSemanalDestinatario');
 const UsuarioCodigoRecuperacion = require('./UsuarioCodigoRecuperacion');
@@ -385,6 +386,7 @@ module.exports = {
   Clasificacion,
   Cambio,
   InformeSeguridad,
+  TareaEjecucion,
   InformeSemanal,
   InformeSemanalDestinatario,
   UsuarioCodigoRecuperacion,

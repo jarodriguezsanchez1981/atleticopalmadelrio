@@ -48,6 +48,7 @@ export const RUTA_POR_SECCION = {
   invitacion_torneo: '/notificaciones/invitacion-torneo',
   nota_prensa: '/notificaciones/nota-prensa',
   nota_informativa: '/notificaciones/nota-informativa',
+  tareas: '/tareas',
   cambios: '/cambios',
   firma_email: '/firma-email',
   promociones: '/promociones'

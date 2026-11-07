@@ -22,6 +22,7 @@ const Partido = sequelize.define('Partido', {
   acta_finalizada_at: { type: DataTypes.DATE, allowNull: true },
   // Cuándo se intentó el Finalizar Acta automático (utils/actaAutomatica.js).
   acta_auto_at: { type: DataTypes.DATE, allowNull: true },
+  acta_auto_intentos: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   // El acta se finalizó guardando también los goles y tarjetas del rival.
   acta_rival: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   codigo_primaria: { type: DataTypes.STRING(50), allowNull: true }
