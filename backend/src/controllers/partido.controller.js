@@ -459,267 +459,286 @@ async function finalizarActa(req, res, next) {
   try {
     const partido = await Partido.findByPk(req.params.id);
     if (!partido) return res.status(404).json({ message: 'Partido no encontrado.' });
-
-    const codigo_acta = req.body?.codigo_acta || partido.codigo_acta || null;
-    const codigo_primaria = req.body?.codigo_primaria || partido.codigo_primaria || null;
-    if (!codigo_acta || !codigo_primaria) {
-      return res.status(400).json({ message: 'Este partido no tiene código de acta y/o código de primaria.' });
-    }
-
-    const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
-    if (!esLocal && Number(partido.id_equipo_visitante) !== PALMA_ID) {
-      return res.status(400).json({ message: `En este partido no juega ${NOMBRE_PALMA}.` });
-    }
-
-    let acta;
+    let hecho;
     try {
-      acta = await rfafActa.leerActa(codigo_primaria, codigo_acta);
+      hecho = await finalizarPartido(partido, {
+        codigo_acta: req.body?.codigo_acta || partido.codigo_acta || null,
+        codigo_primaria: req.body?.codigo_primaria || partido.codigo_primaria || null
+      });
     } catch (err) {
-      return res.status(err.status || 502).json({ message: err.message });
+      if (err.status) return res.status(err.status).json({ message: err.message });
+      throw err;
     }
-    const equipoActa = esLocal ? acta.local : acta.visitante;
-    const plantillaPartido = await Plantilla.findOne({
-      where: { id: partido.id_plantilla },
-      include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol', 'orden'] }]
-    });
-    // Los minutos se cuentan sobre los 90 del partido (categoria.tiempopartido
-    // es el hueco que ocupa en el calendario, no la duración del juego).
-    const duracion = MINUTOS_PARTIDO;
-    const conMinutos = plantillaPartido?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
-    // Fútbol 7: sin titulares, cambios ni minutos (todos los del acta han jugado).
-    const conCambios = Number(plantillaPartido?.categoria?.id_tipofutbol) !== TIPO_FUTBOL_7;
-
-    const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
-    const jugadoresPlantilla = await Jugador.findAll({
-      where: { id: rosterPlantilla.map((pj) => pj.id_jugador) },
-      attributes: ['id', 'nombre', 'apellidos']
-    });
-    const clave = (j) => rfafActa.normalizarNombre(`${j.apellidos} ${j.nombre}`);
-    const porNombre = new Map(jugadoresPlantilla.map((j) => [clave(j), j]));
-    let todosPorNombre = null;
-
-    const filas = [];
-    const filasConNombre = [];
-    const actualizados = [];
-    const creados = [];
-    const idsCreados = new Set();
-    for (const rfaf of equipoActa.jugadores) {
-      const nombreActa = rfafActa.normalizarNombre(rfaf.nombre);
-      let jugador = porNombre.get(nombreActa);
-      if (!jugador) {
-        // Puede estar en otra plantilla (p.ej. promocionado): no se duplica.
-        if (!todosPorNombre) {
-          const todos = await Jugador.findAll({ attributes: ['id', 'nombre', 'apellidos'] });
-          todosPorNombre = new Map();
-          for (const j of todos) if (!todosPorNombre.has(clave(j))) todosPorNombre.set(clave(j), j);
-        }
-        jugador = todosPorNombre.get(nombreActa);
-      }
-      if (!jugador) {
-        jugador = await Jugador.create({ ...rfafActa.nombreDesdeActa(rfaf.nombre), ...(rfaf.foto ? { foto: rfaf.foto } : {}) });
-        await PlantillaJugador.create({ id_plantilla: partido.id_plantilla, id_jugador: jugador.id, dorsal: rfaf.dorsal ?? null });
-        idsCreados.add(jugador.id);
-        todosPorNombre.set(nombreActa, jugador);
-        creados.push(`${jugador.nombre} ${jugador.apellidos}`);
-      } else if (rfaf.foto) {
-        // La foto del acta solo a quien no tiene: la que ya tenga no se cambia.
-        await Jugador.update({ foto: rfaf.foto }, {
-          where: { id: jugador.id, [Op.or]: [{ foto: null }, { foto: '' }] }
-        });
-      }
-      filasConNombre.push({ rfaf, id: jugador.id });
-      if (filas.some((f) => f.id_jugador === jugador.id)) continue;
-      filas.push({
-        id_partido: partido.id,
-        id_jugador: jugador.id,
-        es_local: esLocal,
-        dorsal: rfaf.dorsal ?? null,
-        tarjeta_amarilla: rfaf.tarjeta_amarilla,
-        tarjeta_roja: rfaf.tarjeta_roja,
-        goles: rfaf.goles,
-        titular: conCambios ? !!rfaf.titular : null,
-        minuto_entrada: conCambios ? rfaf.minuto_entrada ?? null : null,
-        minuto_salida: conCambios ? rfaf.minuto_salida ?? null : null,
-        minutos: conCambios && conMinutos ? minutosJugados(rfaf, duracion) : null
-      });
-      actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
-    }
-
-    // Dorsal del acta en la plantilla del partido, a los jugadores que aún no
-    // tienen (no se cambia el que ya tengan puesto). Los de promoción no, ni
-    // los que están también en otra plantilla de la temporada (p.ej. uno de
-    // Benjamín C que juega con el Benjamín B): su dorsal es el de su propia
-    // plantilla. En el partido sí queda siempre el del acta.
-    // Plantillas de los jugadores en las demás plantillas de la temporada.
-    let idsOtras = null;
-    const ordenCategoria = new Map(); // id_plantilla -> orden de su categoría
-    const enOtrasPlantillas = async (idsJugador) => {
-      if (!idsJugador.length || !plantillaPartido?.id_temporada) return [];
-      if (!idsOtras) {
-        const otras = await Plantilla.findAll({
-          where: { id_temporada: plantillaPartido.id_temporada, id: { [Op.ne]: partido.id_plantilla } },
-          attributes: ['id'],
-          include: [{ model: Categoria, as: 'categoria', attributes: ['orden'] }]
-        }) || [];
-        idsOtras = new Set(otras.map((p) => p.id));
-        for (const p of otras) ordenCategoria.set(p.id, p.categoria?.orden);
-      }
-      if (!idsOtras.size) return [];
-      const filasOtras = await PlantillaJugador.findAll({ where: { id_plantilla: [...idsOtras], id_jugador: idsJugador } }) || [];
-      return filasOtras.filter((f) => idsOtras.has(f.id_plantilla));
-    };
-
-    const sinDorsal = rosterPlantilla.filter((pj) => pj.dorsal == null && !pj.promocion);
-    const enOtraPlantilla = new Set((await enOtrasPlantillas(sinDorsal.map((pj) => pj.id_jugador))).map((f) => f.id_jugador));
-    for (const pj of sinDorsal) {
-      if (enOtraPlantilla.has(pj.id_jugador)) continue;
-      const delActa = filasConNombre.find((f) => f.id === pj.id_jugador && f.rfaf.dorsal != null);
-      if (delActa) await PlantillaJugador.update({ dorsal: delActa.rfaf.dorsal }, { where: { id: pj.id } });
-    }
-
-    // Promociones: los del acta que no están en la plantilla del partido sino
-    // en otra de la temporada de categoría igual o inferior juegan
-    // promocionados (como al convocarlos en Convocatorias); si ya lo estaban
-    // desde esa plantilla, se deja como está. Jugar con una inferior no lo es.
-    const enRoster = new Set(rosterPlantilla.map((pj) => pj.id_jugador));
-    const deFuera = [...new Set(filasConNombre.map((f) => f.id))].filter((id) => !enRoster.has(id) && !idsCreados.has(id));
-    const ordenPartido = plantillaPartido?.categoria?.orden;
-    for (const f of await enOtrasPlantillas(deFuera)) {
-      const ordenOrigen = ordenCategoria.get(f.id_plantilla);
-      if (ordenOrigen == null || ordenPartido == null || Number(ordenOrigen) > Number(ordenPartido)) continue;
-      await Promocion.findOrCreate({
-        where: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador },
-        defaults: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador, id_categoria: plantillaPartido.id_categoria }
-      });
-    }
-
-    // Tarjetas del PALMA con su minuto y el marcador justo antes (los goles
-    // del mismo minuto no cuentan: el acta no dice qué fue antes).
-    const ladoPalma = esLocal ? 'local' : 'visitante';
-    const golesActa = Array.isArray(acta.goles) ? acta.goles : [];
-    const idPorNombre = new Map();
-    for (const { rfaf, id } of filasConNombre) idPorNombre.set(rfafActa.normalizarNombre(rfaf.nombre), id);
-    const tarjetas = (equipoActa.tarjetas || [])
-      .map((t) => {
-        const idJugador = idPorNombre.get(rfafActa.normalizarNombre(t.nombre));
-        if (!idJugador) return null;
-        const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
-        return {
-          id_partido: partido.id,
-          id_jugador: idJugador,
-          tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
-          minuto: t.minuto ?? null,
-          goles_favor: antes.filter((g) => g.equipo === ladoPalma).length,
-          goles_contra: antes.filter((g) => g.equipo !== ladoPalma).length
-        };
-      })
-      .filter(Boolean);
-    await PartidoTarjeta.destroy({ where: { id_partido: partido.id } });
-    if (tarjetas.length) await PartidoTarjeta.bulkCreate(tarjetas);
-
-    // Goles de los jugadores del PALMA con su minuto (los de propia puerta no
-    // son del jugador: suman al rival).
-    const golesPalma = golesActa
-      .filter((g) => g.equipo === ladoPalma && g.tipo !== 'propia' && g.nombre)
-      .map((g) => {
-        const idJugador = idPorNombre.get(rfafActa.normalizarNombre(g.nombre));
-        return idJugador
-          ? { id_partido: partido.id, id_jugador: idJugador, minuto: g.minuto ?? null, tipo: g.tipo === 'penalti' ? 'penalti' : 'normal' }
-          : null;
-      })
-      .filter(Boolean);
-    await PartidoGol.destroy({ where: { id_partido: partido.id } });
-    if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
-
-    // Goles del rival con su minuto (para saber en qué periodo nos marcan). El
-    // acta ya asigna cada gol al equipo al que suma (`equipo`), contando la
-    // propia puerta: un gol en contra es, sin más, el que no suma al PALMA
-    // (incluye las propias puertas del PALMA, marcadas con `propia`; las del
-    // rival suman a favor, no aquí). `titular`: si quien marca era titular o
-    // suplente en el rival (Estadísticas Rivales).
-    const rivalActa = esLocal ? acta.visitante : acta.local;
-    const jugadoresRival = Array.isArray(rivalActa?.jugadores) ? rivalActa.jugadores : [];
-    const posicionRival = (nombre) => {
-      const n = rfafActa.normalizarNombre(nombre || '');
-      return jugadoresRival.findIndex((j) => rfafActa.normalizarNombre(j.nombre) === n);
-    };
-    const golesContra = golesActa
-      .filter((g) => g.equipo !== ladoPalma)
-      .map((g) => {
-        const propia = g.tipo === 'propia';
-        const i = propia ? -1 : posicionRival(g.nombre);
-        return {
-          id_partido: partido.id,
-          minuto: g.minuto ?? null,
-          tipo: g.tipo === 'penalti' ? 'penalti' : 'normal',
-          titular: i >= 0 ? !!jugadoresRival[i].titular : null,
-          propia
-        };
-      });
-    await PartidoGolContra.destroy({ where: { id_partido: partido.id } });
-    if (golesContra.length) await PartidoGolContra.bulkCreate(golesContra);
-
-    // Tarjetas de los jugadores del rival con su minuto, si era titular o
-    // suplente y el marcador justo antes visto desde el rival. Sin nombres:
-    // num_jugador (posición en el acta) solo sirve para las dobles amarillas.
-    const ladoRival = esLocal ? 'visitante' : 'local';
-    const tarjetasContra = (rivalActa?.tarjetas || [])
-      .map((t) => {
-        const i = posicionRival(t.nombre);
-        if (i < 0) return null;
-        const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
-        return {
-          id_partido: partido.id,
-          num_jugador: i,
-          tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
-          minuto: t.minuto ?? null,
-          titular: !!jugadoresRival[i].titular,
-          goles_favor: antes.filter((g) => g.equipo === ladoRival).length,
-          goles_contra: antes.filter((g) => g.equipo !== ladoRival).length
-        };
-      })
-      .filter(Boolean);
-    await PartidoTarjetaContra.destroy({ where: { id_partido: partido.id } });
-    if (tarjetasContra.length) await PartidoTarjetaContra.bulkCreate(tarjetasContra);
-
-    // Cuerpo técnico del PALMA en el acta: entrenadores y delegados. A quien ya
-    // está en su sección y no tiene foto, se le pone la del acta; a quien no
-    // está, se le crea con sus datos (y, en delegados, con su tipo).
-    await sincronizarCuerpoTecnico(equipoActa.cuerpo_tecnico || []);
-
-    // Se sustituyen solo los jugadores del PALMA; los del rival no se tocan.
-    await PartidoJugador.destroy({
-      where: { id_partido: partido.id, es_local: esLocal, id_jugador: { [Op.ne]: null } }
-    });
-    if (filas.length) await PartidoJugador.bulkCreate(filas);
-
-    // Sanciones: una por jugador con tarjeta (las del resto, también las de
-    // jugadores que ya no están en el partido, se quitan).
-    await Sancion.destroy({
-      where: { id_partido: partido.id, id_jugador: { [Op.notIn]: filas.map((f) => f.id_jugador) } }
-    });
-    await sincronizarSanciones(partido, esLocal ? filas : [], esLocal ? [] : filas);
-
-    partido.codigo_acta = codigo_acta;
-    partido.codigo_primaria = codigo_primaria;
-    partido.resultado = acta.resultado;
-    // Penaltis marcados por cada lado (los de propia puerta no son penalti).
-    partido.goles_penalti_favor = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo === ladoPalma).length;
-    partido.goles_penalti_contra = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo !== ladoPalma).length;
-    partido.acta_finalizada_at = new Date();
-    partido.acta_rival = true;
-    await partido.save();
-
-    // El acta también va a la liga (Estadísticas Rivales), sin pedir nada más
-    // a RFAF. Si falla, el partido queda finalizado igual.
-    try {
-      await liga.guardarActaDelPalma({ partido, plantilla: plantillaPartido, codigoActa: codigo_acta, acta });
-    } catch (err) {
-      console.warn('⚠️  No se pudo guardar el acta en la liga:', err.message);
-    }
-
-    res.json({ resultado: acta.resultado, actualizados, creados });
+    res.json(hecho);
   } catch (err) { next(err); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, eliminar, finalizarActa, clasificacionPrevia, palabrasEquipo };
+/** Error de Finalizar Acta con el código HTTP que debe devolver la API. */
+function errorActa(message, status) {
+  return Object.assign(new Error(message), { status });
+}
+
+/** Lo que hace Finalizar Acta con un partido (también el automático,
+ * utils/actaAutomatica.js). Devuelve { resultado, actualizados, creados };
+ * los errores de datos o de RFAF llevan `status`. */
+async function finalizarPartido(partido, { codigo_acta, codigo_primaria }) {
+  if (!codigo_acta || !codigo_primaria) {
+    throw errorActa('Este partido no tiene código de acta y/o código de primaria.', 400);
+  }
+
+  const esLocal = Number(partido.id_equipo_local) === PALMA_ID;
+  if (!esLocal && Number(partido.id_equipo_visitante) !== PALMA_ID) {
+    throw errorActa(`En este partido no juega ${NOMBRE_PALMA}.`, 400);
+  }
+
+  let acta;
+  try {
+    acta = await rfafActa.leerActa(codigo_primaria, codigo_acta);
+  } catch (err) {
+    throw errorActa(err.message, err.status || 502);
+  }
+  const equipoActa = esLocal ? acta.local : acta.visitante;
+  const plantillaPartido = await Plantilla.findOne({
+    where: { id: partido.id_plantilla },
+    include: [{ model: Categoria, as: 'categoria', attributes: ['id', 'nombre', 'id_tipofutbol', 'orden'] }]
+  });
+  // Los minutos se cuentan sobre los 90 del partido (categoria.tiempopartido
+  // es el hueco que ocupa en el calendario, no la duración del juego).
+  const duracion = MINUTOS_PARTIDO;
+  const conMinutos = plantillaPartido?.categoria?.nombre === CATEGORIA_CON_MINUTOS;
+  // Fútbol 7: sin titulares, cambios ni minutos (todos los del acta han jugado).
+  const conCambios = Number(plantillaPartido?.categoria?.id_tipofutbol) !== TIPO_FUTBOL_7;
+
+  const rosterPlantilla = await PlantillaJugador.findAll({ where: { id_plantilla: partido.id_plantilla } });
+  const jugadoresPlantilla = await Jugador.findAll({
+    where: { id: rosterPlantilla.map((pj) => pj.id_jugador) },
+    attributes: ['id', 'nombre', 'apellidos']
+  });
+  const clave = (j) => rfafActa.normalizarNombre(`${j.apellidos} ${j.nombre}`);
+  const porNombre = new Map(jugadoresPlantilla.map((j) => [clave(j), j]));
+  let todosPorNombre = null;
+
+  const filas = [];
+  const filasConNombre = [];
+  const actualizados = [];
+  const creados = [];
+  const idsCreados = new Set();
+  for (const rfaf of equipoActa.jugadores) {
+    const nombreActa = rfafActa.normalizarNombre(rfaf.nombre);
+    let jugador = porNombre.get(nombreActa);
+    if (!jugador) {
+      // Puede estar en otra plantilla (p.ej. promocionado): no se duplica.
+      if (!todosPorNombre) {
+        const todos = await Jugador.findAll({ attributes: ['id', 'nombre', 'apellidos'] });
+        todosPorNombre = new Map();
+        for (const j of todos) if (!todosPorNombre.has(clave(j))) todosPorNombre.set(clave(j), j);
+      }
+      jugador = todosPorNombre.get(nombreActa);
+    }
+    if (!jugador) {
+      jugador = await Jugador.create({ ...rfafActa.nombreDesdeActa(rfaf.nombre), ...(rfaf.foto ? { foto: rfaf.foto } : {}) });
+      await PlantillaJugador.create({ id_plantilla: partido.id_plantilla, id_jugador: jugador.id, dorsal: rfaf.dorsal ?? null });
+      idsCreados.add(jugador.id);
+      todosPorNombre.set(nombreActa, jugador);
+      creados.push(`${jugador.nombre} ${jugador.apellidos}`);
+    } else if (rfaf.foto) {
+      // La foto del acta solo a quien no tiene: la que ya tenga no se cambia.
+      await Jugador.update({ foto: rfaf.foto }, {
+        where: { id: jugador.id, [Op.or]: [{ foto: null }, { foto: '' }] }
+      });
+    }
+    filasConNombre.push({ rfaf, id: jugador.id });
+    if (filas.some((f) => f.id_jugador === jugador.id)) continue;
+    filas.push({
+      id_partido: partido.id,
+      id_jugador: jugador.id,
+      es_local: esLocal,
+      dorsal: rfaf.dorsal ?? null,
+      tarjeta_amarilla: rfaf.tarjeta_amarilla,
+      tarjeta_roja: rfaf.tarjeta_roja,
+      goles: rfaf.goles,
+      titular: conCambios ? !!rfaf.titular : null,
+      minuto_entrada: conCambios ? rfaf.minuto_entrada ?? null : null,
+      minuto_salida: conCambios ? rfaf.minuto_salida ?? null : null,
+      minutos: conCambios && conMinutos ? minutosJugados(rfaf, duracion) : null
+    });
+    actualizados.push(`${jugador.nombre} ${jugador.apellidos}`);
+  }
+
+  // Dorsal del acta en la plantilla del partido, a los jugadores que aún no
+  // tienen (no se cambia el que ya tengan puesto). Los de promoción no, ni
+  // los que están también en otra plantilla de la temporada (p.ej. uno de
+  // Benjamín C que juega con el Benjamín B): su dorsal es el de su propia
+  // plantilla. En el partido sí queda siempre el del acta.
+  // Plantillas de los jugadores en las demás plantillas de la temporada.
+  let idsOtras = null;
+  const ordenCategoria = new Map(); // id_plantilla -> orden de su categoría
+  const enOtrasPlantillas = async (idsJugador) => {
+    if (!idsJugador.length || !plantillaPartido?.id_temporada) return [];
+    if (!idsOtras) {
+      const otras = await Plantilla.findAll({
+        where: { id_temporada: plantillaPartido.id_temporada, id: { [Op.ne]: partido.id_plantilla } },
+        attributes: ['id'],
+        include: [{ model: Categoria, as: 'categoria', attributes: ['orden'] }]
+      }) || [];
+      idsOtras = new Set(otras.map((p) => p.id));
+      for (const p of otras) ordenCategoria.set(p.id, p.categoria?.orden);
+    }
+    if (!idsOtras.size) return [];
+    const filasOtras = await PlantillaJugador.findAll({ where: { id_plantilla: [...idsOtras], id_jugador: idsJugador } }) || [];
+    return filasOtras.filter((f) => idsOtras.has(f.id_plantilla));
+  };
+
+  const sinDorsal = rosterPlantilla.filter((pj) => pj.dorsal == null && !pj.promocion);
+  const enOtraPlantilla = new Set((await enOtrasPlantillas(sinDorsal.map((pj) => pj.id_jugador))).map((f) => f.id_jugador));
+  for (const pj of sinDorsal) {
+    if (enOtraPlantilla.has(pj.id_jugador)) continue;
+    const delActa = filasConNombre.find((f) => f.id === pj.id_jugador && f.rfaf.dorsal != null);
+    if (delActa) await PlantillaJugador.update({ dorsal: delActa.rfaf.dorsal }, { where: { id: pj.id } });
+  }
+
+  // Promociones: los del acta que no están en la plantilla del partido sino
+  // en otra de la temporada de categoría igual o inferior juegan
+  // promocionados (como al convocarlos en Convocatorias); si ya lo estaban
+  // desde esa plantilla, se deja como está. Jugar con una inferior no lo es.
+  const enRoster = new Set(rosterPlantilla.map((pj) => pj.id_jugador));
+  const deFuera = [...new Set(filasConNombre.map((f) => f.id))].filter((id) => !enRoster.has(id) && !idsCreados.has(id));
+  const ordenPartido = plantillaPartido?.categoria?.orden;
+  for (const f of await enOtrasPlantillas(deFuera)) {
+    const ordenOrigen = ordenCategoria.get(f.id_plantilla);
+    if (ordenOrigen == null || ordenPartido == null || Number(ordenOrigen) > Number(ordenPartido)) continue;
+    await Promocion.findOrCreate({
+      where: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador },
+      defaults: { id_plantilla: f.id_plantilla, id_jugador: f.id_jugador, id_categoria: plantillaPartido.id_categoria }
+    });
+  }
+
+  // Tarjetas del PALMA con su minuto y el marcador justo antes (los goles
+  // del mismo minuto no cuentan: el acta no dice qué fue antes).
+  const ladoPalma = esLocal ? 'local' : 'visitante';
+  const golesActa = Array.isArray(acta.goles) ? acta.goles : [];
+  const idPorNombre = new Map();
+  for (const { rfaf, id } of filasConNombre) idPorNombre.set(rfafActa.normalizarNombre(rfaf.nombre), id);
+  const tarjetas = (equipoActa.tarjetas || [])
+    .map((t) => {
+      const idJugador = idPorNombre.get(rfafActa.normalizarNombre(t.nombre));
+      if (!idJugador) return null;
+      const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
+      return {
+        id_partido: partido.id,
+        id_jugador: idJugador,
+        tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
+        minuto: t.minuto ?? null,
+        goles_favor: antes.filter((g) => g.equipo === ladoPalma).length,
+        goles_contra: antes.filter((g) => g.equipo !== ladoPalma).length
+      };
+    })
+    .filter(Boolean);
+  await PartidoTarjeta.destroy({ where: { id_partido: partido.id } });
+  if (tarjetas.length) await PartidoTarjeta.bulkCreate(tarjetas);
+
+  // Goles de los jugadores del PALMA con su minuto (los de propia puerta no
+  // son del jugador: suman al rival).
+  const golesPalma = golesActa
+    .filter((g) => g.equipo === ladoPalma && g.tipo !== 'propia' && g.nombre)
+    .map((g) => {
+      const idJugador = idPorNombre.get(rfafActa.normalizarNombre(g.nombre));
+      return idJugador
+        ? { id_partido: partido.id, id_jugador: idJugador, minuto: g.minuto ?? null, tipo: g.tipo === 'penalti' ? 'penalti' : 'normal' }
+        : null;
+    })
+    .filter(Boolean);
+  await PartidoGol.destroy({ where: { id_partido: partido.id } });
+  if (golesPalma.length) await PartidoGol.bulkCreate(golesPalma);
+
+  // Goles del rival con su minuto (para saber en qué periodo nos marcan). El
+  // acta ya asigna cada gol al equipo al que suma (`equipo`), contando la
+  // propia puerta: un gol en contra es, sin más, el que no suma al PALMA
+  // (incluye las propias puertas del PALMA, marcadas con `propia`; las del
+  // rival suman a favor, no aquí). `titular`: si quien marca era titular o
+  // suplente en el rival (Estadísticas Rivales).
+  const rivalActa = esLocal ? acta.visitante : acta.local;
+  const jugadoresRival = Array.isArray(rivalActa?.jugadores) ? rivalActa.jugadores : [];
+  const posicionRival = (nombre) => {
+    const n = rfafActa.normalizarNombre(nombre || '');
+    return jugadoresRival.findIndex((j) => rfafActa.normalizarNombre(j.nombre) === n);
+  };
+  const golesContra = golesActa
+    .filter((g) => g.equipo !== ladoPalma)
+    .map((g) => {
+      const propia = g.tipo === 'propia';
+      const i = propia ? -1 : posicionRival(g.nombre);
+      return {
+        id_partido: partido.id,
+        minuto: g.minuto ?? null,
+        tipo: g.tipo === 'penalti' ? 'penalti' : 'normal',
+        titular: i >= 0 ? !!jugadoresRival[i].titular : null,
+        propia
+      };
+    });
+  await PartidoGolContra.destroy({ where: { id_partido: partido.id } });
+  if (golesContra.length) await PartidoGolContra.bulkCreate(golesContra);
+
+  // Tarjetas de los jugadores del rival con su minuto, si era titular o
+  // suplente y el marcador justo antes visto desde el rival. Sin nombres:
+  // num_jugador (posición en el acta) solo sirve para las dobles amarillas.
+  const ladoRival = esLocal ? 'visitante' : 'local';
+  const tarjetasContra = (rivalActa?.tarjetas || [])
+    .map((t) => {
+      const i = posicionRival(t.nombre);
+      if (i < 0) return null;
+      const antes = t.minuto == null ? [] : golesActa.filter((g) => g.minuto != null && g.minuto < t.minuto);
+      return {
+        id_partido: partido.id,
+        num_jugador: i,
+        tipo: t.tipo === 'roja' ? 'roja' : 'amarilla',
+        minuto: t.minuto ?? null,
+        titular: !!jugadoresRival[i].titular,
+        goles_favor: antes.filter((g) => g.equipo === ladoRival).length,
+        goles_contra: antes.filter((g) => g.equipo !== ladoRival).length
+      };
+    })
+    .filter(Boolean);
+  await PartidoTarjetaContra.destroy({ where: { id_partido: partido.id } });
+  if (tarjetasContra.length) await PartidoTarjetaContra.bulkCreate(tarjetasContra);
+
+  // Cuerpo técnico del PALMA en el acta: entrenadores y delegados. A quien ya
+  // está en su sección y no tiene foto, se le pone la del acta; a quien no
+  // está, se le crea con sus datos (y, en delegados, con su tipo).
+  await sincronizarCuerpoTecnico(equipoActa.cuerpo_tecnico || []);
+
+  // Se sustituyen solo los jugadores del PALMA; los del rival no se tocan.
+  await PartidoJugador.destroy({
+    where: { id_partido: partido.id, es_local: esLocal, id_jugador: { [Op.ne]: null } }
+  });
+  if (filas.length) await PartidoJugador.bulkCreate(filas);
+
+  // Sanciones: una por jugador con tarjeta (las del resto, también las de
+  // jugadores que ya no están en el partido, se quitan).
+  await Sancion.destroy({
+    where: { id_partido: partido.id, id_jugador: { [Op.notIn]: filas.map((f) => f.id_jugador) } }
+  });
+  await sincronizarSanciones(partido, esLocal ? filas : [], esLocal ? [] : filas);
+
+  partido.codigo_acta = codigo_acta;
+  partido.codigo_primaria = codigo_primaria;
+  partido.resultado = acta.resultado;
+  // Penaltis marcados por cada lado (los de propia puerta no son penalti).
+  partido.goles_penalti_favor = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo === ladoPalma).length;
+  partido.goles_penalti_contra = golesActa.filter((g) => g.tipo === 'penalti' && g.equipo !== ladoPalma).length;
+  partido.acta_finalizada_at = new Date();
+  partido.acta_rival = true;
+  await partido.save();
+
+  // El acta también va a la liga (Estadísticas Rivales), sin pedir nada más
+  // a RFAF. Si falla, el partido queda finalizado igual.
+  try {
+    await liga.guardarActaDelPalma({ partido, plantilla: plantillaPartido, codigoActa: codigo_acta, acta });
+  } catch (err) {
+    console.warn('⚠️  No se pudo guardar el acta en la liga:', err.message);
+  }
+
+  return { resultado: acta.resultado, actualizados, creados };
+}
+
+module.exports = { listar, obtener, crear, actualizar, eliminar, finalizarActa, finalizarPartido, clasificacionPrevia, palabrasEquipo, PALMA_ID };

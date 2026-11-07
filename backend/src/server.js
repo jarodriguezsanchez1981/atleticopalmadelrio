@@ -7,6 +7,7 @@ const { migrate } = require('./utils/migrate');
 const clasificacionAutomatica = require('./utils/clasificacionAutomatica');
 const informeSemanalAutomatico = require('./utils/informeSemanalAutomatico');
 const horariosPartidos = require('./utils/horariosPartidos');
+const actaAutomatica = require('./utils/actaAutomatica');
 
 const PORT = process.env.PORT || 4000;
 const MAX_RETRIES = 30;
@@ -128,6 +129,8 @@ async function start() {
     informeSemanalAutomatico.iniciar();
     // Fecha y hora de los partidos en RFAF: martes, miércoles y jueves a las 13:00.
     horariosPartidos.iniciar();
+    // Finalizar Acta automático: una hora después de terminar cada partido de liga.
+    actaAutomatica.iniciar();
   } catch (err) {
     console.error('❌ No se pudo iniciar el servidor:', err);
     process.exit(1);
