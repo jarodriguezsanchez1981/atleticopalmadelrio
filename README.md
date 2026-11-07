@@ -70,6 +70,10 @@ docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < back
 ./scripts/crear-usuario-binlog.sh        # genera BINLOG_PASSWORD en el env file si falta y crea el usuario
 ```
 
+**Binlog también en S3**: si `BACKUP_S3_URI` está definido, el servicio `backup` sube cada 15 minutos a `<BACKUP_S3_URI>/binlogs/` los ficheros del binlog que hayan cambiado, **cifrados con age** (la misma clave pública que los volcados; en S3 nunca hay nada en claro). El fichero abierto se vuelve a subir mientras crece, así que si se pierde el servidor en S3 falta como mucho el último cuarto de hora. Si el bucket tiene versionado, conviene una regla de ciclo de vida que borre las versiones antiguas.
+
+**Prueba de restauración semanal**: los domingos (03:00 UTC), el mismo volcado que se cifra se carga a la vez en un MySQL temporal que vive solo en memoria (tmpfs) dentro del contenedor de copias, se compara con la BD (mismas tablas y mismas filas en las principales) y se borra. No necesita la clave privada: prueba exactamente lo que se cifra. A mano: `docker exec apr_mysql_backup /scripts/db-backup.sh --prueba`. Cada copia diaria (con su prueba y el estado del binlog en S3) sale en el panel de **Tareas automáticas** como «Copias de seguridad».
+
 Para restaurar hasta un momento concreto (point-in-time):
 
 ```bash
@@ -282,7 +286,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - Queda en **Cambios**. Si la sesión de RFAF ha caducado se para hasta que se ponga otra `RFAF_COOKIE` (y entonces se intentan los pendientes de los 3 últimos días)
 
 ### Tareas automáticas (Panel Administración)
-- Una fila por cada tarea que hace solo el servidor (clasificación, actas de la liga, informes por email, horarios, Finalizar Acta automático y parches de seguridad): **cuándo** se ejecuta, la **próxima** vez y cómo terminó la **última** (Correcto, Con avisos, Sesión RFAF caducada o Error) con su resumen
+- Una fila por cada tarea que hace solo el servidor (clasificación, actas de la liga, informes por email, horarios, Finalizar Acta automático, copias de seguridad y parches de seguridad): **cuándo** se ejecuta, la **próxima** vez y cómo terminó la **última** (Correcto, Con avisos, Sesión RFAF caducada o Error) con su resumen
 - **Estado de la sesión de RFAF** según las últimas peticiones (el panel no pide nada a rfaf.es)
 - **Últimas ejecuciones** (las 100 más recientes, filtrables por tarea) con todos sus mensajes, los mismos que salen en el log del backend. Se guardan 90 días (`tareas_ejecuciones`, `backend/src/utils/tareasAutomaticas.js`)
 - El Finalizar Acta automático mira cada 5 minutos, pero solo guarda las ejecuciones en las que ha hecho algo

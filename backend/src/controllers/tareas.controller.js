@@ -12,6 +12,16 @@ const HORA_PARCHES = 12;
 const VIERNES = 5;
 const LUNES = 1;
 const MAX_EJECUCIONES = 100;
+// Copia diaria del contenedor de copias (BACKUP_HOUR_UTC en docker-compose.yml).
+const HORA_COPIA_UTC = 3;
+
+/** Próxima copia diaria (a las HORA_COPIA_UTC en UTC). */
+function proximaCopia(ahora) {
+  const d = new Date(ahora);
+  d.setUTCHours(HORA_COPIA_UTC, 0, 0, 0);
+  if (d <= ahora) d.setUTCDate(d.getUTCDate() + 1);
+  return d;
+}
 
 /** Cuándo se ejecuta cada tarea (texto para el panel). */
 const CUANDO = {
@@ -20,6 +30,7 @@ const CUANDO = {
   informes: 'Lunes a las 10:00',
   horarios: 'Martes, miércoles y jueves a las 13:00',
   acta: '1 h después de terminar cada partido de liga (y 3 h si el acta no estaba publicada)',
+  copias: 'Todos los días a las 03:00 UTC, con prueba de restauración los domingos; el binlog va a S3 cada 15 minutos',
   parches: 'Viernes a las 12:00 (cron del servidor)'
 };
 
@@ -60,6 +71,7 @@ async function estado(req, res, next) {
         fecha: lecturaActa.momento,
         detalle: `${lecturaActa.categoria || ''} jornada ${lecturaActa.jornada}${lecturaActa.segundo_intento ? ' (segundo intento)' : ''}`.trim()
       },
+      copias: { fecha: proximaCopia(ahora) },
       parches: { fecha: proximaEjecucion(HORA_PARCHES, ahora, VIERNES) }
     };
     const tareas = Object.entries(TAREAS).map(([clave, nombre], i) => ({
@@ -81,4 +93,4 @@ async function estado(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { estado, CUANDO };
+module.exports = { estado, CUANDO, proximaCopia };
