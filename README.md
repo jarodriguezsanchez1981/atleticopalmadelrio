@@ -64,7 +64,13 @@ Para restaurar ese backup en un despliegue:
 docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < backups/<fichero>.sql
 ```
 
-**Backup continuo (binlog)**: el servicio `binlog-backup` mantiene el binary log de MySQL activo (`--log-bin`, purga a los 7 días) y lo va copiando en vivo a `backups/binlogs/` (allí también se conservan 7 días) (mysqlbinlog en modo `--stop-never`), así que cualquier cambio queda respaldado casi al instante, no solo el estado del último volcado diario. Para restaurar hasta un momento concreto (point-in-time):
+**Backup continuo (binlog)**: el servicio `binlog-backup` mantiene el binary log de MySQL activo (`--log-bin`, purga a los 7 días) y lo va copiando en vivo a `backups/binlogs/` (allí también se conservan 7 días) (mysqlbinlog en modo `--stop-never`), así que cualquier cambio queda respaldado casi al instante, no solo el estado del último volcado diario. Lee el binlog con un usuario propio, `apr_binlog`, que solo tiene permisos de replicación (no root). Su contraseña va en `BINLOG_PASSWORD` del env file. En una BD nueva lo crea `database/init-binlog-user.sh`; en una que ya existe se crea una vez:
+
+```bash
+docker exec -e BINLOG_PASSWORD="<la de BINLOG_PASSWORD>" apr_mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -e "CREATE USER IF NOT EXISTS apr_binlog@\"%\" IDENTIFIED BY \"$BINLOG_PASSWORD\"; GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO apr_binlog@\"%\";"'
+```
+
+Para restaurar hasta un momento concreto (point-in-time):
 
 ```bash
 # 1. Restaura el último volcado completo anterior al incidente
