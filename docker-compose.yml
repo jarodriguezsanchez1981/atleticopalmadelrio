@@ -143,12 +143,17 @@ services:
     networks:
       - apr_net
 
+  # Tests del backend en Docker: solo con el profile "test" (antes se
+  # arrancaba con cada `docker compose up` y dejaba apr_backend_test parado).
+  #   docker compose --env-file .env.development --profile test run --rm test
   test:
     build:
       context: ./backend
       dockerfile: Dockerfile.test
     container_name: apr_backend_test
     restart: "no"
+    profiles:
+      - test
     command: npm test
     depends_on:
       db:
