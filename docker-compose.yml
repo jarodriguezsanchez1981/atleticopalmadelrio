@@ -1,3 +1,7 @@
+# Cada servicio lleva un tope de memoria (mem_limit): son topes, no reservas
+# (su suma puede pasar de la RAM del servidor, 2 GB); evitan que uno solo que
+# se descontrole tire el servidor entero.
+
 # Logs de cada contenedor con tamaño máximo (3 ficheros de 10 MB): sin esto
 # Docker los guarda sin límite y pueden llenar el disco del servidor.
 x-logging: &logging
@@ -12,6 +16,7 @@ services:
     image: mysql:8.4
     container_name: apr_mysql
     logging: *logging
+    mem_limit: 768m
     restart: unless-stopped
     # Al parar, hasta 60 s para cerrar bien (InnoDB y binlog) antes de que
     # Docker lo mate; por defecto son 10 s.
@@ -67,6 +72,7 @@ services:
       dockerfile: Dockerfile.db-backup
     container_name: apr_mysql_backup
     logging: *logging
+    mem_limit: 512m
     restart: unless-stopped
     depends_on:
       db:
@@ -99,6 +105,7 @@ services:
       dockerfile: Dockerfile.binlog-backup
     container_name: apr_mysql_binlog_backup
     logging: *logging
+    mem_limit: 128m
     restart: unless-stopped
     depends_on:
       db:
@@ -207,6 +214,7 @@ services:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: apr_frontend
     logging: *logging
+    mem_limit: 128m
     restart: unless-stopped
     depends_on:
       backend:
@@ -237,6 +245,7 @@ services:
     build: ./reverse-proxy
     container_name: apr_reverse_proxy
     logging: *logging
+    mem_limit: 128m
     restart: unless-stopped
     depends_on:
       - frontend
@@ -270,6 +279,7 @@ services:
     image: certbot/certbot
     container_name: apr_certbot
     logging: *logging
+    mem_limit: 256m
     restart: unless-stopped
     # Solo lo que necesita para escribir el certificado y el reto webroot:
     # algunas carpetas de reverse-proxy/certbot son del usuario ubuntu.
@@ -300,6 +310,7 @@ services:
     image: crazymax/fail2ban:1.1.0
     container_name: apr_fail2ban
     logging: *logging
+    mem_limit: 256m
     restart: unless-stopped
     profiles:
       - seguridad
