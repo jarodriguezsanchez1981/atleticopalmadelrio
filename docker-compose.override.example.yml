@@ -1,0 +1,11 @@
+# Solo en local: copiar como docker-compose.override.yml (no se versiona; docker
+# compose lo carga solo) para entrar a MySQL desde el propio ordenador en
+# 127.0.0.1:3306 (p. ej. el backend con `npm run dev`). En el servidor no se usa:
+# allí MySQL solo es accesible desde la red interna apr_db.
+services:
+  db:
+    networks:
+      - apr_db
+      - apr_net
+    ports:
+      - "127.0.0.1:${DB_PORT:-3306}:3306"

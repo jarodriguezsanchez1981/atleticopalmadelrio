@@ -46,8 +46,9 @@ services:
       BINLOG_USER: ${BINLOG_USER:-apr_binlog}
       BINLOG_PASSWORD_FILE: /run/secrets/binlog_password
       TZ: Europe/Madrid
-    ports:
-      - "127.0.0.1:${DB_PORT:-3306}:3306"
+    # Sin puerto publicado: solo se llega desde la red interna apr_db (y con
+    # `docker exec`). Para entrar desde el propio ordenador en local, ver
+    # docker-compose.override.example.yml.
     # Solo las capacidades que necesita el entrypoint de la imagen oficial
     # (arranca como root, ajusta el datadir y baja a usuario mysql).
     cap_drop:
@@ -73,7 +74,7 @@ services:
       retries: 30
       start_period: 30s
     networks:
-      - apr_net
+      - apr_db
 
   # Copia diaria cifrada con age (clave pública backup-key.pub; la privada no
   # está en el servidor). Ver scripts/db-backup.sh, que explica cómo restaurar.
@@ -110,6 +111,7 @@ services:
     cap_drop:
       - ALL
     networks:
+      - apr_db
       - apr_net
 
   binlog-backup:
@@ -137,7 +139,7 @@ services:
     cap_drop:
       - ALL
     networks:
-      - apr_net
+      - apr_db
 
   backend:
     build:
@@ -201,6 +203,7 @@ services:
     mem_limit: 512m
     cpus: 1.0
     networks:
+      - apr_db
       - apr_net
 
   # Tests del backend en Docker: solo con el profile "test" (antes se
@@ -228,7 +231,7 @@ services:
     cap_drop:
       - ALL
     networks:
-      - apr_net
+      - apr_db
 
   frontend:
     build:
@@ -380,3 +383,10 @@ volumes:
 networks:
   apr_net:
     driver: bridge
+  # Red de la BD: interna (sin salida a internet). Solo están MySQL y quien la
+  # necesita (backend, copias y tests); frontend, reverse-proxy y certbot no
+  # pueden llegar a MySQL. El backend y el backup también están en apr_net
+  # para salir a internet (rfaf.es y SMTP; S3).
+  apr_db:
+    driver: bridge
+    internal: true
