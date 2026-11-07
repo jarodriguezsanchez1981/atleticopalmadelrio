@@ -1,0 +1,54 @@
+name: Monitor web
+
+# Aviso si la web se cae (pedido por el usuario el 07/11/2026): cada 15 minutos,
+# desde fuera del servidor, se comprueba que la intranet responde (la página y
+# la API, /health) y que el certificado HTTPS no caduca en menos de 14 días. Si
+# algo falla, el workflow falla y GitHub manda un correo a quien modificó por
+# última vez este fichero (notificaciones de Actions, «solo fallos»). Los
+# reintentos evitan avisos por un corte de unos segundos (p. ej. al recrear un
+# contenedor). GitHub puede retrasar unos minutos las ejecuciones programadas.
+# Ojo: en un repositorio sin actividad durante 60 días GitHub desactiva los
+# workflows programados; se reactiva desde la pestaña Actions.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitor-web
+  cancel-in-progress: false
+
+env:
+  DOMINIO: intranet.atleticopalmadelrio.com
+  DIAS_CERTIFICADO: 14
+
+jobs:
+  web:
+    name: La intranet responde
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Página principal
+        run: |
+          codigo=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 --retry 3 --retry-delay 30 --retry-all-errors "https://$DOMINIO/")
+          echo "Página principal: HTTP $codigo"
+          [ "$codigo" = 200 ] || { echo "::error::La intranet no responde (HTTP $codigo)"; exit 1; }
+
+      - name: API (/health)
+        run: |
+          respuesta=$(curl -sS --fail --max-time 20 --retry 3 --retry-delay 30 --retry-all-errors "https://$DOMINIO/health") \
+            || { echo "::error::La API (/health) no responde"; exit 1; }
+          echo "$respuesta"
+          echo "$respuesta" | grep -q '"status":"ok"' || { echo "::error::La API responde, pero no está bien: $respuesta"; exit 1; }
+
+      - name: Certificado HTTPS
+        run: |
+          caduca=$(echo | openssl s_client -servername "$DOMINIO" -connect "$DOMINIO:443" 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+          [ -n "$caduca" ] || { echo "::error::No se pudo leer el certificado"; exit 1; }
+          dias=$(( ( $(date -d "$caduca" +%s) - $(date +%s) ) / 86400 ))
+          echo "El certificado caduca el $caduca (en $dias días)"
+          [ "$dias" -ge "$DIAS_CERTIFICADO" ] || { echo "::error::El certificado caduca en $dias días (certbot no lo está renovando)"; exit 1; }

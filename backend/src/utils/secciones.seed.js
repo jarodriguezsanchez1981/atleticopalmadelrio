@@ -57,6 +57,7 @@ const SECCIONES = [
   { clave: 'nota_prensa', nombre: 'Nota Prensa', icono: 'pi pi-megaphone', orden: 20, grupo: 'notificaciones' },
   { clave: 'nota_informativa', nombre: 'Nota Informativa', icono: 'pi pi-info-circle', orden: 30, grupo: 'notificaciones' },
   { clave: 'administracion', nombre: 'Administración', icono: 'pi pi-user-cog', orden: 100, grupo: 'admin' },
+  { clave: 'tareas', nombre: 'Tareas automáticas', icono: 'pi pi-clock', orden: 101, grupo: 'admin' },
   { clave: 'cambios', nombre: 'Cambios', icono: 'pi pi-history', orden: 102, grupo: 'admin' },
   // Solo coordinadores (ver SECCIONES_SOLO_COORDINADORES en frontend/src/stores/auth.store.js).
   { clave: 'firma_email', nombre: 'Firma Email', icono: 'pi pi-envelope', orden: 104, grupo: 'admin' }

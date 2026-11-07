@@ -129,7 +129,7 @@ let temporizador = null;
 /** Ejecuta una comprobación (nunca dos a la vez). */
 function actualizar(opciones) {
   if (!enCurso) {
-    enCurso = comprobar(opciones)
+    enCurso = require('./tareasAutomaticas').ejecutar('horarios', (log) => comprobar({ ...opciones, log }))
       .catch((err) => console.warn('⚠️  Horarios:', err.message))
       .finally(() => { enCurso = null; });
   }

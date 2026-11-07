@@ -109,7 +109,7 @@ atleticopalmadelrio/
 │       │   ├── SectionGuard.vue        # Gate de visibilidad por permiso de sección
 │       │   ├── EventosCalendario.vue   # Calendario con detalle partidos/entrenamientos
 │       │   ├── EventoFormCalendario.vue
-│       │   ├── JornadasCalendario.vue  # Vista visual de jornadas de liga
+│       │   ├── JornadasCalendario.vue  # Vista visual de jornadas de liga (partidos con número de jornada)
 │       │   ├── TorneoFormCalendario.vue
 │       │   ├── CalendarioLista.vue     # Vista lista (alternativa móvil al calendario)
 │       │   ├── PlantillaJugadoresManager.vue
@@ -161,13 +161,14 @@ atleticopalmadelrio/
 | Plantillas     | Sí   | write | Plantillas por categoría y temporada, con coordinador y posiciones por temporada. Filtradas por defecto a la temporada actual |
 | Promociones    | Sí   | write | Ascensos de jugadores entre plantillas, con pestañas Fútbol 7 / Fútbol 11 |
 | Entrenadores   | Sí   | write | Entrenadores del club |
-| Jornadas       | Sí   | write | Jornadas con jugadores convocados (tarjetas y goles) |
+| Jornadas       | Sí   | write | Jornadas de liga de cada categoría (los partidos con número de jornada) con jugadores convocados (tarjetas y goles) |
 | Torneo         | Sí   | write | Torneos y partidos amistosos |
 | Sanciones      | Sí   | write | Sanciones a jugadores (autogeneradas desde Jornadas para el equipo local del club), con avisos de amarillas y rojas |
 | Convocatorias  | Sí   | write | Convocatorias de cada partido de liga |
 | Estadísticas   | No   | read  | Estadísticas del Senior A y de las demás categorías (incluido Próximo Rival) |
 | Informes       | —    | read  | En construcción |
 | Administración | Sí   | write | Gestión de usuarios y permisos |
+| Tareas automáticas | No | read | Estado de las tareas que hace solo el servidor (RFAF, informes, parches) |
 | **Cambios**    | **No** | **read** | **Auditoría de todos los cambios realizados** |
 
 **Permisos:** el acceso se gestiona por secciones asignadas a cada usuario. Niveles de rol: `read` (solo lectura) y `write` (CRUD completo).
@@ -223,8 +224,8 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **Colores desde RFAF**: scripts en `scripts/` extraen las equipaciones de rfaf.es (por competición o todas las ligas de Córdoba) y se importan a los equipos
 
 ### Jornadas
-- CRUD de jornadas con equipos local/visitante, fecha, hora, incidencias y observaciones
-- **Jugadores convocados** por jornada, en dos grupos: **Equipo Local** y **Equipo Visitante**
+- Cada jornada es un **partido** de liga con su número de jornada (`partidos.jornada`): se crean, editan y borran aquí o en Partidos. La antigua tabla `jornadas` está retirada y no se usa
+- **Jugadores convocados** por jornada (`partido_jugadores`), en dos grupos: **Equipo Local** y **Equipo Visitante**
   - Si el equipo es **PALMA DEL RIO ATLETICO C.F.**: se cargan los jugadores de la plantilla (`plantilla.jugadores`)
   - Si no: se cargan los jugadores de `equipos_jugadores` de ese equipo
 - Por cada jugador convocado: **tarjeta amarilla**, **tarjeta roja** y **goles**
@@ -271,8 +272,15 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 ### Finalizar Acta automático (RFAF)
 - **Una hora después de terminar** cada partido de liga del PALMA (su fecha y hora más el **tiempo de partido** de la categoría; 90' si no lo tiene) se lee su acta de RFAF y se guarda lo mismo que con el botón **Finalizar Acta** (resultado, jugadores, minutos, goles, tarjetas, sanciones, dorsales, promociones y cuerpo técnico) (`backend/src/utils/actaAutomatica.js`)
 - Si el partido no tiene código de acta, se saca de la página de su jornada en RFAF (códigos de la plantilla y `CodTemporada=22`)
-- **Un solo intento** por partido, sin reintentos: si el acta aún no está publicada o falla, queda para el botón. Con varios partidos a la vez, 1 minuto entre uno y otro. Los partidos sin hora o suspendidos no se tocan
+- Si el acta **aún no está publicada**, un **segundo intento 3 horas después de terminar**; si sigue sin estar, o falla por otra cosa, queda para el botón. Ningún reintento más (`partidos.acta_auto_intentos`). Con varios partidos a la vez, 1 minuto entre uno y otro. Los partidos sin hora o suspendidos no se tocan
 - Queda en **Cambios**. Si la sesión de RFAF ha caducado se para hasta que se ponga otra `RFAF_COOKIE` (y entonces se intentan los pendientes de los 3 últimos días)
+
+### Tareas automáticas (Panel Administración)
+- Una fila por cada tarea que hace solo el servidor (clasificación, actas de la liga, informes por email, horarios, Finalizar Acta automático y parches de seguridad): **cuándo** se ejecuta, la **próxima** vez y cómo terminó la **última** (Correcto, Con avisos, Sesión RFAF caducada o Error) con su resumen
+- **Estado de la sesión de RFAF** según las últimas peticiones (el panel no pide nada a rfaf.es)
+- **Últimas ejecuciones** (las 100 más recientes, filtrables por tarea) con todos sus mensajes, los mismos que salen en el log del backend. Se guardan 90 días (`tareas_ejecuciones`, `backend/src/utils/tareasAutomaticas.js`)
+- El Finalizar Acta automático mira cada 5 minutos, pero solo guarda las ejecuciones en las que ha hecho algo
+- Sección `tareas`: la tienen quienes tenían Administración
 
 ### Responsive móvil
 - **Sidebar → Drawer** en dispositivos ≤767px
@@ -307,6 +315,7 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **Secrets**: backend se niega a arrancar con valores por defecto en producción
 - **CI (GitHub Actions)**: en cada push/PR corre `gitleaks` (fuga de secretos), los tests y `npm audit` (bloquea en CRITICAL de dependencias de producción). Ver `.github/workflows/ci.yml`
 - **Parches automáticos y aviso de seguridad por correo**: una tarea todos los viernes a las 12:00, hora española (`scripts/comprobar-parches-docker.sh`) **aplica los parches** (reconstruye backend, frontend y reverse-proxy con `apk upgrade` si hay paquetes de Alpine nuevos, actualiza las imágenes base y recrea solo los contenedores cuya imagen ha cambiado, con copia de la BD antes de tocar MySQL), revisa parches de las imágenes Docker y CVEs HIGH/CRITICAL (Trivy) y dependencias npm, y deja un resumen en `informes_seguridad`. Si hay algo pendiente **y ha cambiado respecto al informe anterior**, envía un correo al administrador (`backend/src/scripts/avisar-seguridad.js`, al email del usuario `admin` o a `SEGURIDAD_AVISO_EMAIL`); así no se repite el mismo aviso cada semana por los CVEs residuales sin parche. Requiere tener configurado el envío de correo (sección Correos o variables `SMTP_*`)
+- **Aviso si la web se cae**: cada 15 minutos, desde GitHub Actions (fuera del servidor), se comprueba que la página y la API (`/health`) responden y que el certificado HTTPS no caduca en menos de 14 días; si falla, GitHub manda un correo (`.github/workflows/monitor.yml`). Con 60 días sin actividad en el repositorio GitHub desactiva los workflows programados: se reactiva desde la pestaña Actions
 - **Aviso de sesión de RFAF caducada**: cuando `RFAF_COOKIE` deja de valer (Finalizar Acta, clasificación o actas de la liga), se envía un correo al administrador (mismo destino que el aviso de seguridad) para que ponga una `JSESSIONID` nueva; como mucho uno cada 24 h mientras siga caducada, sin peticiones extra a rfaf.es (`backend/src/utils/avisoSesionRfaf.js`)
 
 ### Pruebas de seguridad (pentesting autorizado)
@@ -345,8 +354,9 @@ Sistema de diseño escandinavo aplicado:
 - `posicion` — Posiciones de juego (nombre + alias)
 - `material` — Material deportivo del club
 - `partidos` — Partidos con `id_equipo_local` y `id_equipo_visitante` (FK equipos)
-- `jornadas` — Jornadas con equipos local/visitante, hora, incidencias y observaciones
-- `jornada_jugadores` — Jugadores convocados por jornada (local/visitante) con tarjetas y goles
+- `partido_jugadores` — Jugadores de cada partido (local/visitante): titular, minutos, dorsal, goles y tarjetas (del acta o de Jornadas)
+- `partido_goles`, `partido_tarjetas` — Goles y tarjetas por minuto de cada partido (del acta)
+- `jornadas` — **Retirada**: las jornadas son los partidos con `jornada`; la tabla sigue en la BD pero no se usa
 - `sanciones` — Sanciones a jugadores (id_partido, id_jugador, amarilla, roja)
 - `temporadas` — Temporadas del club; columna `actual` (solo una puede ser `true`)
 - `coordinadores` — Coordinadores por tipo de fútbol (`id_tipofutbol`), FK opcional desde `plantillas`
@@ -355,6 +365,8 @@ Sistema de diseño escandinavo aplicado:
 - `torneo` — Torneos y partidos amistosos
 - **`cambios`** — Auditoría de todas las acciones CRUD (entidad, acción, antes/después, usuario)
 - `liga_partidos`, `liga_jugadores`, `liga_goles`, `liga_tarjetas` — Partidos y actas de la liga de cada plantilla copiados de RFAF (Rivales y Próximo Rival)
+- `tareas_ejecuciones` — Cada ejecución de las tareas automáticas (90 días), para el panel de Tareas automáticas
+- `informes_seguridad` — Resumen de cada comprobación de parches de Docker (cron del servidor)
 
 ### Relaciones
 - `plantilla_jugadores` / `plantilla_entrenadores` / `plantilla_delegados` — Muchos a muchos
@@ -383,7 +395,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ## Tests
 
 ```bash
-# Backend (840 tests, 63 archivos)
+# Backend (849 tests, 64 archivos)
 cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch

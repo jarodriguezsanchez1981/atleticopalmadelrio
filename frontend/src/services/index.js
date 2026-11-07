@@ -106,6 +106,10 @@ const informeService = (ruta) => ({
   guardarDestinatarios: (ids) => api.put(`/${ruta}/destinatarios`, { ids }).then(r => r.data)
 });
 export const informeSemanalService = informeService('informe-semanal');
+// Panel de tareas automáticas (solo lectura).
+export const tareasService = {
+  estado: () => api.get('/tareas').then(r => r.data)
+};
 export const informeSancionesService = informeService('informe-sanciones');
 export const estadisticasService = {
   listar: (params = {}) => api.get('/estadisticas', { params }).then(r => r.data),

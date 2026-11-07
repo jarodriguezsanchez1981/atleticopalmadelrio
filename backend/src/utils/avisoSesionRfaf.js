@@ -9,6 +9,10 @@
 const ESPERA_MS = 24 * 60 * 60 * 1000;
 
 let ultimoAviso = null;
+// Para el panel de Tareas automáticas (en memoria: se reinicia con el backend,
+// que es cuando se pone una RFAF_COOKIE nueva).
+let ultimaValida = null;
+let caducadaDesde = null;
 
 const esErrorDeSesion = (mensaje) => /sesi[oó]n de RFAF no es v[aá]lida/i.test(String(mensaje || ''));
 
@@ -30,12 +34,21 @@ const HTML =
 /** La sesión ha vuelto a funcionar: el próximo fallo de sesión avisa otra vez. */
 function sesionValida() {
   ultimoAviso = null;
+  ultimaValida = new Date();
+  caducadaDesde = null;
+}
+
+/** Cómo está la sesión según las últimas peticiones (sin pedir nada a rfaf.es). */
+function estadoSesion() {
+  return { ultima_valida: ultimaValida, caducada_desde: caducadaDesde };
 }
 
 /** Si `mensaje` es un error de sesión caducada, avisa al administrador (como
  * mucho una vez cada 24 horas). Nunca lanza: devuelve true si ha enviado. */
 async function avisarSiCaducada(mensaje, log = console) {
-  if (!esErrorDeSesion(mensaje) || process.env.NODE_ENV !== 'production') return false;
+  if (!esErrorDeSesion(mensaje)) return false;
+  if (!caducadaDesde) caducadaDesde = new Date();
+  if (process.env.NODE_ENV !== 'production') return false;
   if (ultimoAviso && Date.now() - ultimoAviso < ESPERA_MS) return false;
   ultimoAviso = Date.now();
   try {
@@ -61,4 +74,4 @@ async function avisarSiCaducada(mensaje, log = console) {
   }
 }
 
-module.exports = { avisarSiCaducada, sesionValida, esErrorDeSesion, ESPERA_MS };
+module.exports = { avisarSiCaducada, sesionValida, estadoSesion, esErrorDeSesion, ESPERA_MS };

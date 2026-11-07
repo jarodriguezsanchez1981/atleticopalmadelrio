@@ -31,9 +31,10 @@ function proximaEjecucion(hora, ahora = new Date(), diaSemana = null) {
 function actualizar() {
   if (!enCurso) {
     const { actualizarTodas } = require('../controllers/clasificacion.controller');
-    enCurso = actualizarTodas()
+    const { ejecutar } = require('./tareasAutomaticas');
+    enCurso = ejecutar('clasificacion', (log) => actualizarTodas(log))
       .catch((err) => console.warn('⚠️  Clasificación automática:', err.message))
-      .then(() => require('../controllers/liga.controller').actualizar())
+      .then(() => ejecutar('liga', (log) => require('../controllers/liga.controller').actualizar({ log })))
       // Si quedan jornadas o actas por copiar (o ha fallado), se sigue cada 5 minutos.
       .then((r) => require('./ligaRecuperacion').trasCopia(r))
       .catch((err) => console.warn('⚠️  Liga automática:', err.message))

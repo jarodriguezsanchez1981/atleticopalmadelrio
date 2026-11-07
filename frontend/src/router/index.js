@@ -320,6 +320,12 @@ const routes = [
         meta: { seccion: 'nota_informativa' }
       },
       {
+        path: 'tareas',
+        name: 'tareas',
+        component: () => import('../views/tareas/Tareas.vue'),
+        meta: { seccion: 'tareas' }
+      },
+      {
         path: 'cambios',
         name: 'cambios',
         component: () => import('../views/cambios/Cambios.vue'),

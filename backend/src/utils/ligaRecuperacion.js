@@ -49,7 +49,8 @@ async function siguiente(log = console) {
       log.log('⚽ Liga: al día; a partir de ahora, solo la copia del lunes.');
       return;
     }
-    trasCopia(await liga.actualizar({ log, soloNuevas: true }), log);
+    const { ejecutar } = require('./tareasAutomaticas');
+    trasCopia(await ejecutar('liga', (l) => liga.actualizar({ log: l, soloNuevas: true }), { consola: log }), log);
   } catch (err) {
     log.warn('⚠️  Liga (recuperación):', err.message);
   }

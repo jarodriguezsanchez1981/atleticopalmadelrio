@@ -77,6 +77,7 @@ export function createModelsMock() {
     InformeSemanalDestinatario: createModelMock(),
     Cambio: createModelMock(),
     InformeSeguridad: createModelMock(),
+    TareaEjecucion: createModelMock(),
     UsuarioCodigoRecuperacion: createModelMock(),
     EquipoJugador: createModelMock(),
     Promocion: createModelMock(),
@@ -145,6 +146,7 @@ export const InformeSemanal = models.InformeSemanal;
 export const InformeSemanalDestinatario = models.InformeSemanalDestinatario;
 export const Cambio = models.Cambio;
 export const InformeSeguridad = models.InformeSeguridad;
+export const TareaEjecucion = models.TareaEjecucion;
 export const UsuarioCodigoRecuperacion = models.UsuarioCodigoRecuperacion;
 export const EquipoJugador = models.EquipoJugador;
 export const Promocion = models.Promocion;

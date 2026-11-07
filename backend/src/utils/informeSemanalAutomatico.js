@@ -15,15 +15,16 @@ const MAX_ESPERA_MS = 6 * 60 * 60 * 1000; // setTimeout no admite esperas muy la
 let temporizador = null;
 
 /** Envía cada informe (uno detrás de otro); el fallo de uno no frena al otro. */
-async function enviarTodos() {
+async function enviarTodos(log = console) {
   const { enviarAutomatico, TIPOS } = require('./informeSemanal');
   for (const tipo of Object.keys(TIPOS)) {
     try {
       const fila = await enviarAutomatico(new Date(), tipo);
-      if (fila && !fila.correcto) console.warn(`⚠️  Informe ${tipo}: no se pudo enviar:`, fila.error);
-      else if (fila) console.log(`📧 Informe ${tipo} enviado.`);
+      if (fila && !fila.correcto) log.warn(`⚠️  Informe ${tipo}: no se pudo enviar:`, fila.error);
+      else if (fila) log.log(`📧 Informe ${tipo} enviado.`);
+      else log.log(`📧 Informe ${tipo}: no sale esta semana (sin jornada o ya enviado).`);
     } catch (err) {
-      console.warn(`⚠️  Informe ${tipo}:`, err.message);
+      log.warn(`⚠️  Informe ${tipo}:`, err.message);
     }
   }
 }
@@ -32,7 +33,7 @@ function programar() {
   const espera = proximaEjecucion(HORA_ENVIO, new Date(), LUNES) - Date.now() + 1000;
   temporizador = setTimeout(() => {
     if (espera <= MAX_ESPERA_MS) {
-      enviarTodos().finally(programar);
+      require('./tareasAutomaticas').ejecutar('informes', enviarTodos).catch(() => {}).finally(programar);
     } else {
       programar();
     }
