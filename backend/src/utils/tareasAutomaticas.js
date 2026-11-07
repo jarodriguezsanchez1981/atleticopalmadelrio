@@ -12,7 +12,10 @@ const TAREAS = {
   liga: 'Actas de la liga (RFAF)',
   informes: 'Informes por email',
   horarios: 'Horarios de los partidos (RFAF)',
-  acta: 'Finalizar Acta automático (RFAF)'
+  acta: 'Finalizar Acta automático (RFAF)',
+  // La hace el contenedor de copias (scripts/db-backup.sh), no el backend:
+  // escribe su ejecución directamente en tareas_ejecuciones.
+  copias: 'Copias de seguridad'
 };
 const CONSERVAR_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_DETALLE = 10000;

@@ -73,7 +73,8 @@ describe('Tareas automáticas · tareas.controller', () => {
 
     expect(next).not.toHaveBeenCalled();
     const { tareas: lista, sesion_rfaf, ejecuciones } = res._json;
-    expect(lista.map((t) => t.clave)).toEqual(['clasificacion', 'liga', 'informes', 'horarios', 'acta', 'parches']);
+    expect(lista.map((t) => t.clave)).toEqual(['clasificacion', 'liga', 'informes', 'horarios', 'acta', 'copias', 'parches']);
+    expect(lista.find((t) => t.clave === 'copias').proxima.fecha).toEqual(expect.any(Date));
     expect(lista.find((t) => t.clave === 'horarios')).toMatchObject({ ultima, proxima: { fecha: expect.any(Date) } });
     expect(lista.find((t) => t.clave === 'acta').proxima).toBeNull();
     expect(lista.find((t) => t.clave === 'parches').ultima).toMatchObject({ estado: 'avisos', resumen: expect.stringContaining('2 HIGH') });
@@ -88,5 +89,13 @@ describe('Tareas automáticas · tareas.controller', () => {
     const next = vi.fn();
     await ctrl.estado(req, res, next);
     expect(next).toHaveBeenCalledWith(expect.any(Error));
+  });
+});
+
+describe('Tareas automáticas · próxima copia de seguridad', () => {
+  it('a las 03:00 UTC de hoy si aún no ha pasado y, si no, de mañana', () => {
+    expect(ctrl.proximaCopia(new Date('2026-11-07T02:59:00Z'))).toEqual(new Date('2026-11-07T03:00:00Z'));
+    expect(ctrl.proximaCopia(new Date('2026-11-07T03:00:00Z'))).toEqual(new Date('2026-11-08T03:00:00Z'));
+    expect(ctrl.proximaCopia(new Date('2026-12-31T13:00:00Z'))).toEqual(new Date('2027-01-01T03:00:00Z'));
   });
 });

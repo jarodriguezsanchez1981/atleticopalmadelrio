@@ -84,7 +84,9 @@ services:
       dockerfile: Dockerfile.db-backup
     container_name: apr_mysql_backup
     logging: *logging
-    mem_limit: 512m
+    # 768m: los domingos arranca un MySQL temporal en memoria para la prueba de
+    # restauración (ver scripts/db-backup.sh).
+    mem_limit: 768m
     restart: unless-stopped
     depends_on:
       db:
@@ -103,11 +105,20 @@ services:
       # Diario a las 03:00 UTC; conserva 7 días de copias
       BACKUP_HOUR_UTC: 3
       RETENTION_DAYS: 7
+      # Los domingos (7, UTC), prueba de restauración de la copia del día.
+      PRUEBA_RESTAURACION_DIA: 7
+      # Cada 15 minutos sube a S3 (cifrado) el binlog que haya cambiado.
+      BINLOG_S3_MINUTOS: 15
     secrets:
       - db_password
     volumes:
+      # Incluye backups/binlogs (lo escribe binlog-backup), que se sube a S3.
       - ./backups:/backups
       - ./backup-key.pub:/run/backup-key.pub:ro
+    # MySQL temporal de la prueba de restauración: solo en memoria, los datos
+    # en claro nunca tocan el disco.
+    tmpfs:
+      - /tmp/prueba:size=512m,mode=0700
     cap_drop:
       - ALL
     networks:
