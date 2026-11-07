@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
@@ -24,6 +24,17 @@ const enviando = ref(false);
 
 const auth = useAuthStore();
 const router = useRouter();
+
+// Al pasar al código del Authenticator (o al fallar), el cursor se pone en su
+// campo para escribirlo sin tener que pulsar antes en él.
+const CAMPO_CODIGO = { verificar: 'codigo', configurar: 'codigoConf' };
+async function enfocarCodigo() {
+  await nextTick();
+  const campo = document.getElementById(CAMPO_CODIGO[paso.value]);
+  campo?.focus();
+  campo?.select();
+}
+watch(paso, enfocarCodigo);
 
 function entrar() {
   router.replace({ name: auth.primeraSeccion });
@@ -76,6 +87,7 @@ async function onVerificar() {
   } finally {
     enviando.value = false;
   }
+  if (error.value) enfocarCodigo();
 }
 
 async function onConfirmarConfiguracion() {
@@ -93,6 +105,7 @@ async function onConfirmarConfiguracion() {
   } finally {
     enviando.value = false;
   }
+  if (error.value) enfocarCodigo();
 }
 
 async function copiarCodigos() {
