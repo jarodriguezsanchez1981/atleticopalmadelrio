@@ -248,11 +248,22 @@ services:
     networks:
       - apr_net
 
+  # Sin versión fija a propósito: la actualiza el script de parches de los
+  # viernes (scripts/comprobar-parches-docker.sh), y si la renovación se rompe
+  # avisa el monitor de GitHub 14 días antes de que caduque el certificado.
   certbot:
     image: certbot/certbot
     container_name: apr_certbot
     logging: *logging
     restart: unless-stopped
+    # Solo lo que necesita para escribir el certificado y el reto webroot:
+    # algunas carpetas de reverse-proxy/certbot son del usuario ubuntu.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
     security_opt:
       - no-new-privileges:true
     volumes:
