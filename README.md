@@ -408,7 +408,7 @@ cd backend
 npx vitest run              # ejecución única
 npx vitest run --watch      # modo watch
 
-# Frontend (146 tests, 20 archivos)
+# Frontend (147 tests, 21 archivos)
 cd frontend
 npx vitest run              # ejecución única
 ```
