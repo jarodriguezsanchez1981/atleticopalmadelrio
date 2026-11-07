@@ -5,6 +5,10 @@
 # (docker-entrypoint-initdb.d). En una BD que ya existe se crea una vez a mano
 # (ver README, "Backup continuo (binlog)").
 set -eu
+# Docker secret (BINLOG_PASSWORD_FILE) o variable BINLOG_PASSWORD.
+if [ -z "${BINLOG_PASSWORD:-}" ] && [ -n "${BINLOG_PASSWORD_FILE:-}" ] && [ -r "$BINLOG_PASSWORD_FILE" ]; then
+  BINLOG_PASSWORD="$(cat "$BINLOG_PASSWORD_FILE")"
+fi
 if [ -z "${BINLOG_PASSWORD:-}" ]; then
   echo "init-binlog-user: falta BINLOG_PASSWORD, no se crea el usuario de binlog." >&2
   exit 0

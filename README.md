@@ -18,7 +18,7 @@ docker compose --env-file .env.production up -d --build
 |-----------|-----|-------------|
 | Intranet  | http://localhost:8080 (dev) / http://localhost:80 (prod) | Acceso principal |
 | API       | http://localhost:8080/api | REST API (proxied por el nginx del frontend) |
-| MySQL     | 127.0.0.1:3306 | Base de datos (solo localhost) |
+| MySQL     | 127.0.0.1:3306 (solo en local, con `docker-compose.override.yml`) | Base de datos; en el servidor no tiene puerto publicado |
 
 ### HTTPS en el servidor (nginx + Let's Encrypt)
 
@@ -67,7 +67,7 @@ docker exec -i apr_mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$DB_NAME" < back
 **Backup continuo (binlog)**: el servicio `binlog-backup` mantiene el binary log de MySQL activo (`--log-bin`, purga a los 7 días) y lo va copiando en vivo a `backups/binlogs/` (allí también se conservan 7 días) (mysqlbinlog en modo `--stop-never`), así que cualquier cambio queda respaldado casi al instante, no solo el estado del último volcado diario. Lee el binlog con un usuario propio, `apr_binlog`, que solo tiene permisos de replicación (no root). Su contraseña va en `BINLOG_PASSWORD` del env file. En una BD nueva lo crea `database/init-binlog-user.sh`; en una que ya existe se crea una vez:
 
 ```bash
-docker exec -e BINLOG_PASSWORD="<la de BINLOG_PASSWORD>" apr_mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -e "CREATE USER IF NOT EXISTS apr_binlog@\"%\" IDENTIFIED BY \"$BINLOG_PASSWORD\"; GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO apr_binlog@\"%\";"'
+./scripts/crear-usuario-binlog.sh        # genera BINLOG_PASSWORD en el env file si falta y crea el usuario
 ```
 
 Para restaurar hasta un momento concreto (point-in-time):
@@ -317,8 +317,9 @@ La vista en el frontend muestra una tabla de solo lectura con badges de acción 
 - **fail2ban**: banea por iptables las IPs con abuso sostenido de login/2FA leyendo el log del reverse-proxy (umbral alto, complementa al límite por IP y al bloqueo por cuenta); el jail `sshd` ya viene activo. Ver `reverse-proxy/fail2ban/README.md`
 - **TLS**: HTTPS propio con Let's Encrypt (servicios `reverse-proxy` + `certbot`), solo TLS 1.2/1.3
 - **Docker**: containers non-root, `cap_drop: ALL`, `no-new-privileges`, límites de recursos
-- **MySQL**: puerto solo expuesto a `127.0.0.1`
-- **Secrets**: backend se niega a arrancar con valores por defecto en producción
+- **MySQL**: en una red interna de Docker (`apr_db`, sin salida a internet) y sin puerto publicado en el servidor; solo llegan el backend, las copias y los tests. Las copias del binlog usan un usuario solo de replicación (`apr_binlog`)
+- **Secrets**: las contraseñas y claves (`MYSQL_ROOT_PASSWORD`, `DB_PASSWORD`, `BINLOG_PASSWORD`, `JWT_SECRET`, `AES_SECRET_KEY`, `SEED_ADMIN_PASSWORD`) llegan a los contenedores como ficheros en `/run/secrets` (Docker secrets, sacados del env file), no como variables de entorno, así que no se ven con `docker inspect`; el backend las lee de `*_FILE` (`backend/src/config/env.js`). Al cambiar una hay que recrear con `--force-recreate` los servicios que la usan. El backend se niega a arrancar con valores por defecto en producción
+- **Docker**: logs con tamaño máximo, tope de memoria por servicio y comprobación de salud de MySQL y del backend
 - **CI (GitHub Actions)**: en cada push/PR corre `gitleaks` (fuga de secretos), los tests y `npm audit` (bloquea en CRITICAL de dependencias de producción). Ver `.github/workflows/ci.yml`
 - **Parches automáticos y aviso de seguridad por correo**: una tarea todos los viernes a las 12:00, hora española (`scripts/comprobar-parches-docker.sh`) **aplica los parches** (reconstruye backend, frontend y reverse-proxy con `apk upgrade` si hay paquetes de Alpine nuevos, actualiza las imágenes base y recrea solo los contenedores cuya imagen ha cambiado, con copia de la BD antes de tocar MySQL), revisa parches de las imágenes Docker y CVEs HIGH/CRITICAL (Trivy) y dependencias npm, y deja un resumen en `informes_seguridad`. Si hay algo pendiente **y ha cambiado respecto al informe anterior**, envía un correo al administrador (`backend/src/scripts/avisar-seguridad.js`, al email del usuario `admin` o a `SEGURIDAD_AVISO_EMAIL`); así no se repite el mismo aviso cada semana por los CVEs residuales sin parche. Requiere tener configurado el envío de correo (sección Correos o variables `SMTP_*`)
 - **Aviso si la web se cae**: cada 15 minutos, desde GitHub Actions (fuera del servidor), se comprueba que la página y la API (`/health`) responden y que el certificado HTTPS no caduca en menos de 14 días; si falla, GitHub manda un correo (`.github/workflows/monitor.yml`). Con 60 días sin actividad en el repositorio GitHub desactiva los workflows programados: se reactiva desde la pestaña Actions
@@ -388,7 +389,8 @@ Sistema de diseño escandinavo aplicado:
 ## Desarrollo local
 
 ```bash
-# Solo MySQL
+# Solo MySQL (para entrar desde el ordenador en 127.0.0.1:3306, una vez:
+#   cp docker-compose.override.example.yml docker-compose.override.yml)
 docker compose up -d db
 
 # Backend

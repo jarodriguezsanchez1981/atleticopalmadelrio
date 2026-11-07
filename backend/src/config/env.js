@@ -22,4 +22,21 @@ function loadEnv() {
   }
 }
 
+/** Secretos que pueden llegar en un fichero (Docker secrets, en
+ * /run/secrets/...): si está NOMBRE_FILE y no NOMBRE, NOMBRE se lee de ese
+ * fichero (sin el salto de línea final). Así no van en las variables de
+ * entorno del contenedor ni se ven con `docker inspect`. Si el fichero no se
+ * puede leer, el backend no arranca (nunca sigue con un secreto vacío). */
+const SECRETOS = ['DB_PASSWORD', 'JWT_SECRET', 'AES_SECRET_KEY', 'SEED_ADMIN_PASSWORD'];
+
+function cargarSecretos(env = process.env, leer = (ruta) => fs.readFileSync(ruta, 'utf8')) {
+  for (const nombre of SECRETOS) {
+    const ruta = env[`${nombre}_FILE`];
+    if (ruta && !env[nombre]) env[nombre] = leer(ruta).replace(/\r?\n$/, '');
+  }
+}
+
 loadEnv();
+cargarSecretos();
+
+module.exports = { loadEnv, cargarSecretos, SECRETOS };
