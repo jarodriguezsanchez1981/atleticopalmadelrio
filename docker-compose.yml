@@ -1,8 +1,17 @@
+# Logs de cada contenedor con tamaño máximo (3 ficheros de 10 MB): sin esto
+# Docker los guarda sin límite y pueden llenar el disco del servidor.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
 
   db:
     image: mysql:8.4
     container_name: apr_mysql
+    logging: *logging
     restart: unless-stopped
     # Binary log activo: cada cambio (no solo el volcado diario) queda
     # registrado, para poder restaurar point-in-time junto con el servicio
@@ -51,6 +60,7 @@ services:
       context: ./scripts
       dockerfile: Dockerfile.db-backup
     container_name: apr_mysql_backup
+    logging: *logging
     restart: unless-stopped
     depends_on:
       db:
@@ -82,6 +92,7 @@ services:
       context: ./scripts
       dockerfile: Dockerfile.binlog-backup
     container_name: apr_mysql_binlog_backup
+    logging: *logging
     restart: unless-stopped
     depends_on:
       db:
@@ -103,6 +114,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: apr_backend
+    logging: *logging
     restart: unless-stopped
     depends_on:
       db:
@@ -151,6 +163,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.test
     container_name: apr_backend_test
+    logging: *logging
     restart: "no"
     profiles:
       - test
@@ -176,6 +189,7 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: apr_frontend
+    logging: *logging
     restart: unless-stopped
     depends_on:
       - backend
@@ -204,6 +218,7 @@ services:
     # nginx:alpine + apk upgrade (reverse-proxy/Dockerfile).
     build: ./reverse-proxy
     container_name: apr_reverse_proxy
+    logging: *logging
     restart: unless-stopped
     depends_on:
       - frontend
@@ -233,6 +248,7 @@ services:
   certbot:
     image: certbot/certbot
     container_name: apr_certbot
+    logging: *logging
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -254,6 +270,7 @@ services:
   fail2ban:
     image: crazymax/fail2ban:1.1.0
     container_name: apr_fail2ban
+    logging: *logging
     restart: unless-stopped
     profiles:
       - seguridad
