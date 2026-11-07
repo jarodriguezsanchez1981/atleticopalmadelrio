@@ -17,7 +17,8 @@ umask 077
 BACKUP_DIR=/backups
 HORA_UTC="${BACKUP_HOUR_UTC:-3}"
 DIAS="${RETENTION_DAYS:-7}"
-export MYSQL_PWD="$DB_PASS"
+# La contraseña llega en un fichero (Docker secret, DB_PASS_FILE) o, si no, en DB_PASS.
+export MYSQL_PWD="${DB_PASS:-$(cat "${DB_PASS_FILE:?Falta DB_PASS o DB_PASS_FILE}")}"
 
 [ -s "$AGE_RECIPIENTS_FILE" ] || { echo "Falta la clave pública de cifrado ($AGE_RECIPIENTS_FILE)."; exit 1; }
 mkdir -p "$BACKUP_DIR"

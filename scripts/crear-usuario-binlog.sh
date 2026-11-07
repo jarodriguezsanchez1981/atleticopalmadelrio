@@ -17,7 +17,7 @@ BP="$(grep -m1 '^BINLOG_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)"
 
 # El SQL va por la entrada estándar (no en la línea de comandos) y la
 # contraseña de root la pone el propio contenedor.
-docker exec -i apr_mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N' <<SQL
+docker exec -i apr_mysql sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql_root_password 2>/dev/null || echo "$MYSQL_ROOT_PASSWORD")" mysql -uroot -N' <<SQL
 CREATE USER IF NOT EXISTS 'apr_binlog'@'%' IDENTIFIED BY '${BP}';
 ALTER USER 'apr_binlog'@'%' IDENTIFIED BY '${BP}';
 GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'apr_binlog'@'%';

@@ -30,15 +30,21 @@ services:
       - --log-bin=mysql-bin
       - --binlog-expire-logs-seconds=604800
       - --sync-binlog=1
+    # Las contraseñas llegan como ficheros en /run/secrets (ver `secrets:` al
+    # final), no como variables: así no se ven con `docker inspect`.
+    secrets:
+      - mysql_root_password
+      - db_password
+      - binlog_password
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en tu .env}
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_DATABASE: ${DB_NAME:-atletico_palma_intranet}
       MYSQL_USER: ${DB_USER:-apr_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
       # Usuario solo de replicación para binlog-backup (database/init-binlog-user.sh,
       # que solo se ejecuta al crear la BD por primera vez).
       BINLOG_USER: ${BINLOG_USER:-apr_binlog}
-      BINLOG_PASSWORD: ${BINLOG_PASSWORD:?Define BINLOG_PASSWORD en tu .env}
+      BINLOG_PASSWORD_FILE: /run/secrets/binlog_password
       TZ: Europe/Madrid
     ports:
       - "127.0.0.1:${DB_PORT:-3306}:3306"
@@ -58,10 +64,10 @@ services:
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./database/init-binlog-user.sh:/docker-entrypoint-initdb.d/02-binlog-user.sh:ro
     healthcheck:
-      # La contraseña se lee de la variable del propio contenedor al ejecutarse
-      # ($$ = $ literal), no se escribe en la configuración: así no sale en
-      # `docker inspect` ni en la lista de procesos.
-      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      # La contraseña se lee del secreto al ejecutarse ($$ = $ literal), no se
+      # escribe en la configuración: así no sale en `docker inspect` ni en la
+      # lista de procesos.
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$(cat /run/secrets/mysql_root_password)\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -86,7 +92,7 @@ services:
       DB_HOST: db
       DB_PORT: 3306
       DB_USER: ${DB_USER:-apr_user}
-      DB_PASS: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
+      DB_PASS_FILE: /run/secrets/db_password
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
       AGE_RECIPIENTS_FILE: /run/backup-key.pub
       # Destino en S3 (vacío = no se sube). En el EC2: s3://<bucket>/intranet,
@@ -96,6 +102,8 @@ services:
       # Diario a las 03:00 UTC; conserva 7 días de copias
       BACKUP_HOUR_UTC: 3
       RETENTION_DAYS: 7
+    secrets:
+      - db_password
     volumes:
       - ./backups:/backups
       - ./backup-key.pub:/run/backup-key.pub:ro
@@ -118,10 +126,12 @@ services:
     environment:
       # Usuario propio con permisos solo de replicación, no root.
       BINLOG_USER: ${BINLOG_USER:-apr_binlog}
-      BINLOG_PASSWORD: ${BINLOG_PASSWORD:?Define BINLOG_PASSWORD en tu .env}
+      BINLOG_PASSWORD_FILE: /run/secrets/binlog_password
       DB_HOST: db
       DB_PORT: 3306
       RETENTION_DAYS: 7
+    secrets:
+      - binlog_password
     volumes:
       - ./backups/binlogs:/backups
     cap_drop:
@@ -153,17 +163,24 @@ services:
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-atletico_palma_intranet}
       DB_USER: ${DB_USER:-apr_user}
-      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu .env}
-      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en tu .env (ver .env.production.example)}
-      AES_SECRET_KEY: ${AES_SECRET_KEY:?Define AES_SECRET_KEY en tu .env (32 bytes hex, ver .env.production.example)}
+      # Secretos como ficheros (src/config/env.js los lee de *_FILE).
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      AES_SECRET_KEY_FILE: /run/secrets/aes_secret_key
       BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-12}
       SEED_ON_START: ${SEED_ON_START:-true}
       SEED_ADMIN_USER: ${SEED_ADMIN_USER:-admin}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Define SEED_ADMIN_PASSWORD en tu .env}
+      SEED_ADMIN_PASSWORD_FILE: /run/secrets/seed_admin_password
       # JSESSIONID de una sesión de rfaf.es abierta en un navegador para el
       # botón "Finalizar Acta" (desde la IP del EC2 RFAF no crea sesiones).
       # Caduca: cuando falle, poner una nueva y recrear el backend.
+      # (Sigue como variable: cambia a menudo y `up -d backend` debe recogerla.)
       RFAF_COOKIE: ${RFAF_COOKIE:-}
+    secrets:
+      - db_password
+      - jwt_secret
+      - aes_secret_key
+      - seed_admin_password
     volumes:
       # migrate.js busca database/migrations en la raíz del contenedor
       # (../../../database/migrations desde backend/src/utils); sin este
@@ -338,6 +355,24 @@ services:
       - ./reverse-proxy/logs:/var/log/apr:ro
       # Log de autenticación del host para el jail sshd (solo lectura).
       - /var/log/auth.log:/var/log/auth.log:ro
+
+# Secretos: salen de las variables del env file (--env-file) y cada servicio
+# los recibe como fichero en /run/secrets/<nombre>, no como variable de
+# entorno. Al cambiar uno, recrear con --force-recreate los servicios que lo
+# usan (compose no detecta solo el cambio de valor).
+secrets:
+  mysql_root_password:
+    environment: MYSQL_ROOT_PASSWORD
+  db_password:
+    environment: DB_PASSWORD
+  binlog_password:
+    environment: BINLOG_PASSWORD
+  jwt_secret:
+    environment: JWT_SECRET
+  aes_secret_key:
+    environment: AES_SECRET_KEY
+  seed_admin_password:
+    environment: SEED_ADMIN_PASSWORD
 
 volumes:
   apr_mysql_data:

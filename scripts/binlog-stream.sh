@@ -15,6 +15,9 @@ mkdir -p "$BACKUP_DIR"
 # database/init-binlog-user.sh), no root. Las credenciales van en un fichero de
 # opciones (solo legible por este proceso), no en la línea de comandos: así no
 # se ven en la lista de procesos.
+# La contraseña llega en un fichero (Docker secret, BINLOG_PASSWORD_FILE) o, si
+# no, en BINLOG_PASSWORD.
+BINLOG_PASSWORD="${BINLOG_PASSWORD:-$(cat "${BINLOG_PASSWORD_FILE:?Falta BINLOG_PASSWORD o BINLOG_PASSWORD_FILE}")}"
 CREDENCIALES=$(mktemp)
 chmod 600 "$CREDENCIALES"
 printf '[client]\nuser=%s\npassword="%s"\n' "$BINLOG_USER" "$BINLOG_PASSWORD" > "$CREDENCIALES"
