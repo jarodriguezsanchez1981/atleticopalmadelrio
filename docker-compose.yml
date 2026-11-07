@@ -151,6 +151,14 @@ services:
       - ./database/migrations:/database/migrations:ro
     expose:
       - "4000"
+    # Sano = responde /health (wget de busybox, ya viene en node:alpine). Margen
+    # al arrancar para las migraciones. `docker ps` lo marca "unhealthy" si se cuelga.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     cap_drop:
       - ALL
     mem_limit: 512m
@@ -195,7 +203,8 @@ services:
     logging: *logging
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     # Solo en localhost por defecto: en el servidor se entra por el reverse
     # proxy HTTPS. Para probar desde otro dispositivo de la red local,
     # FRONTEND_BIND=0.0.0.0 en el env file.
